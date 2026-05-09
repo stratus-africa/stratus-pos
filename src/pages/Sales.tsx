@@ -7,11 +7,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Eye, Trash2 } from "lucide-react";
 import { useSales, Sale } from "@/hooks/useSales";
+import { useBusiness } from "@/contexts/BusinessContext";
 import SaleDetailDialog from "@/components/sales/SaleDetailDialog";
 import { format } from "date-fns";
 
 const Sales = () => {
   const { salesQuery, deleteSale } = useSales();
+  const { userRole } = useBusiness();
+  const isCashier = userRole === "cashier";
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -33,7 +36,7 @@ const Sales = () => {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Sales</h1>
+      <h1 className="text-2xl font-bold">{isCashier ? "My Transactions" : "Sales"}</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
@@ -108,9 +111,11 @@ const Sales = () => {
                       <Button variant="ghost" size="icon" onClick={() => { setSelectedSale(sale); setDetailOpen(true); }}>
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => deleteSale.mutate(sale.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      {!isCashier && (
+                        <Button variant="ghost" size="icon" onClick={() => deleteSale.mutate(sale.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))

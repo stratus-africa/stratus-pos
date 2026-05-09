@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 export interface Customer {
@@ -114,18 +115,22 @@ export function useCustomers() {
 }
 
 export function useSales() {
-  const { business } = useBusiness();
+  const { business, userRole } = useBusiness();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
+  const cashierOnly = userRole === "cashier";
 
   const salesQuery = useQuery({
-    queryKey: ["sales", business?.id],
+    queryKey: ["sales", business?.id, cashierOnly ? user?.id : "all"],
     queryFn: async () => {
       if (!business) return [];
-      const { data, error } = await supabase
+      let q = supabase
         .from("sales")
         .select("*, customers(name, phone), locations(name)")
         .eq("business_id", business.id)
         .order("created_at", { ascending: false });
+      if (cashierOnly && user?.id) q = q.eq("created_by", user.id);
+      const { data, error } = await q;
       if (error) throw error;
       return data as Sale[];
     },
