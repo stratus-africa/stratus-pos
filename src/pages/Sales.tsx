@@ -36,7 +36,7 @@ const Sales = () => {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Sales</h1>
+      <h1 className="text-2xl font-bold">{isCashier ? "My Transactions" : "Sales"}</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
