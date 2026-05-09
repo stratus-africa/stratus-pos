@@ -111,9 +111,11 @@ const Sales = () => {
                       <Button variant="ghost" size="icon" onClick={() => { setSelectedSale(sale); setDetailOpen(true); }}>
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => deleteSale.mutate(sale.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      {!isCashier && (
+                        <Button variant="ghost" size="icon" onClick={() => deleteSale.mutate(sale.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
