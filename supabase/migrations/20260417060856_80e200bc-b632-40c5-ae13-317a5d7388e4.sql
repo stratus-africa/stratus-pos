@@ -1,0 +1,1 @@
+ALTER TABLE public.purchases ADD COLUMN vat_enabled boolean NOT NULL DEFAULT true;

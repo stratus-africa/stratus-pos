@@ -1,0 +1,147 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Emerald primary — matches Super Admin aesthetic */
+    --primary: 160 84% 39%;
+    --primary-foreground: 0 0% 100%;
+
+    --teal: 162 64% 38%;
+    --teal-foreground: 0 0% 100%;
+    --teal-soft: 158 64% 95%;
+    --teal-deep: 165 70% 28%;
+    --rust: 14 80% 48%;
+    --rust-foreground: 0 0% 100%;
+
+    --secondary: 215 20% 95%;
+    --secondary-foreground: 220 20% 20%;
+
+    --muted: 215 20% 95%;
+    --muted-foreground: 215 15% 47%;
+
+    --accent: 215 20% 93%;
+    --accent-foreground: 220 20% 10%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 214 20% 90%;
+    --input: 214 20% 90%;
+    --ring: 160 84% 39%;
+
+    --radius: 0.5rem;
+
+    /* Sidebar — white surface with emerald active state, matches Super Admin */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 25% 30%;
+    --sidebar-primary: 160 84% 39%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 152 76% 96%;
+    --sidebar-accent-foreground: 161 94% 24%;
+    --sidebar-border: 214 20% 92%;
+    --sidebar-ring: 160 84% 39%;
+
+    /* Themed alternating row tint */
+    --table-alt-row: 152 60% 97%;
+    --primary-glow: 160 84% 50%;
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 8%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 8%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 212 27% 84%;
+    --sidebar-background: 222 47% 8%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 33% 14%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 33% 14%;
+    --sidebar-ring: 217 91% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+/* POS-specific styles */
+.pos-layout {
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Dense table styling for dashboard */
+.dense-table td,
+.dense-table th {
+  @apply py-2 px-3 text-sm;
+}
+
+/* Themed alternating rows — pair with class="theme-alt-rows" on a <tbody> or any list container */
+.theme-alt-rows > *:nth-child(even) {
+  background-color: hsl(var(--table-alt-row));
+}
+.theme-alt-rows tr:nth-child(even) {
+  background-color: hsl(var(--table-alt-row));
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-muted/30;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/20 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/40;
+}

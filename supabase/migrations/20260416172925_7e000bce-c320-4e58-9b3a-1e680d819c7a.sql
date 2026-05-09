@@ -1,0 +1,1 @@
+ALTER TABLE public.suppliers ADD COLUMN kra_pin text DEFAULT NULL;

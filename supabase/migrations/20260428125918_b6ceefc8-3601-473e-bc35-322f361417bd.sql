@@ -1,0 +1,1 @@
+ALTER TABLE public.pos_sessions ADD COLUMN IF NOT EXISTS cash_account_id uuid REFERENCES public.bank_accounts(id) ON DELETE SET NULL;
