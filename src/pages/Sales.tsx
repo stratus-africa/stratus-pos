@@ -7,11 +7,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Eye, Trash2 } from "lucide-react";
 import { useSales, Sale } from "@/hooks/useSales";
+import { useBusiness } from "@/contexts/BusinessContext";
 import SaleDetailDialog from "@/components/sales/SaleDetailDialog";
 import { format } from "date-fns";
 
 const Sales = () => {
   const { salesQuery, deleteSale } = useSales();
+  const { userRole } = useBusiness();
+  const isCashier = userRole === "cashier";
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
