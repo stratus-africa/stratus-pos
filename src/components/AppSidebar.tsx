@@ -137,10 +137,7 @@ export function AppSidebar() {
         <SidebarGroupContent>
           <SidebarMenu>
             {filtered.map((item) => {
-              const locked = item.featureKey ? !hasFeatureKey(item.featureKey) : false;
-              const visibleChildren = (item.children || []).filter(
-                (c) => userRole && c.roles.includes(userRole),
-              );
+              const visibleChildren = item.children || [];
               const hasChildren = visibleChildren.length > 0;
               const parentActive = isActiveUrl(item.url) || itemHasActiveChild(item);
 
@@ -151,7 +148,6 @@ export function AppSidebar() {
                       <NavLink to={item.url} end className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-sidebar-primary font-medium">
                         <item.icon className="mr-2 h-4 w-4" />
                         {!collapsed && <span>{item.title}</span>}
-                        {!collapsed && locked && <Lock className="ml-auto h-3 w-3 text-muted-foreground" />}
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -167,7 +163,6 @@ export function AppSidebar() {
                         <NavLink to={item.url} end className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-sidebar-primary font-medium">
                           <item.icon className="mr-2 h-4 w-4" />
                           {!collapsed && <span className="flex-1">{item.title}</span>}
-                          {!collapsed && locked && <Lock className="mr-1 h-3 w-3 text-muted-foreground" />}
                         </NavLink>
                       </SidebarMenuButton>
                       {!collapsed && (
@@ -185,20 +180,16 @@ export function AppSidebar() {
                     {!collapsed && (
                       <CollapsibleContent>
                         <SidebarMenuSub>
-                          {visibleChildren.map((child) => {
-                            const childLocked = child.featureKey ? !hasFeatureKey(child.featureKey) : false;
-                            return (
-                              <SidebarMenuSubItem key={child.title}>
-                                <SidebarMenuSubButton asChild isActive={isActiveUrl(child.url)}>
-                                  <NavLink to={child.url} end className="hover:bg-sidebar-accent/50">
-                                    <child.icon className="mr-2 h-3.5 w-3.5" />
-                                    <span>{child.title}</span>
-                                    {childLocked && <Lock className="ml-auto h-3 w-3 text-muted-foreground" />}
-                                  </NavLink>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            );
-                          })}
+                          {visibleChildren.map((child) => (
+                            <SidebarMenuSubItem key={child.title}>
+                              <SidebarMenuSubButton asChild isActive={isActiveUrl(child.url)}>
+                                <NavLink to={child.url} end className="hover:bg-sidebar-accent/50">
+                                  <child.icon className="mr-2 h-3.5 w-3.5" />
+                                  <span>{child.title}</span>
+                                </NavLink>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
                         </SidebarMenuSub>
                       </CollapsibleContent>
                     )}
