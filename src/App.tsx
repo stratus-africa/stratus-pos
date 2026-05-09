@@ -171,7 +171,7 @@ const ProtectedRoutes = () => {
           <Route path="/pos" element={guard(["admin", "manager", "cashier"], <POS />)} />
           <Route path="/products" element={guard(["admin", "manager"], <Products />)} />
           <Route path="/inventory" element={guard(["admin", "manager"], <Inventory />)} />
-          <Route path="/sales" element={guard(["admin", "manager"], <Sales />)} />
+          <Route path="/sales" element={guard(["admin", "manager", "cashier"], <Sales />)} />
           <Route path="/customers" element={guard(["admin", "manager"], <Customers />)} />
           <Route path="/purchases" element={guard(["admin", "manager"], <Purchases />)} />
           <Route path="/suppliers" element={guard(["admin", "manager"], <Suppliers />)} />
