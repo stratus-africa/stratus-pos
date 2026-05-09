@@ -60,6 +60,7 @@ const CmsCta = lazy(() => import("./pages/super-admin/cms/CmsCta"));
 const SuperAdminSettings = lazy(() => import("./pages/super-admin/SuperAdminSettings"));
 const PaystackSettings = lazy(() => import("./pages/super-admin/payments/PaystackSettings"));
 const MpesaSettings = lazy(() => import("./pages/super-admin/payments/MpesaSettings"));
+const PesapalSettings = lazy(() => import("./pages/super-admin/payments/PesapalSettings"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -120,6 +121,7 @@ const SuperAdminRoutes = () => {
           <Route path="/settings" element={<SuperAdminSettings />} />
           <Route path="/settings/payments/paystack" element={<PaystackSettings />} />
           <Route path="/settings/payments/mpesa" element={<MpesaSettings />} />
+          <Route path="/settings/payments/pesapal" element={<PesapalSettings />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>

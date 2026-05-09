@@ -1725,6 +1725,8 @@ export type Database = {
           name: string
           paystack_plan_code_monthly: string | null
           paystack_plan_code_yearly: string | null
+          pesapal_plan_code_monthly: string | null
+          pesapal_plan_code_yearly: string | null
           sort_order: number
           trial_days: number
           updated_at: string
@@ -1746,6 +1748,8 @@ export type Database = {
           name: string
           paystack_plan_code_monthly?: string | null
           paystack_plan_code_yearly?: string | null
+          pesapal_plan_code_monthly?: string | null
+          pesapal_plan_code_yearly?: string | null
           sort_order?: number
           trial_days?: number
           updated_at?: string
@@ -1767,6 +1771,8 @@ export type Database = {
           name?: string
           paystack_plan_code_monthly?: string | null
           paystack_plan_code_yearly?: string | null
+          pesapal_plan_code_monthly?: string | null
+          pesapal_plan_code_yearly?: string | null
           sort_order?: number
           trial_days?: number
           updated_at?: string
@@ -1783,9 +1789,13 @@ export type Database = {
           current_period_start: string | null
           environment: string
           id: string
+          payment_provider: string
           paystack_customer_code: string | null
           paystack_email_token: string | null
           paystack_subscription_code: string | null
+          pesapal_merchant_reference: string | null
+          pesapal_order_tracking_id: string | null
+          pesapal_subscription_token: string | null
           plan_code: string | null
           price_id: string | null
           product_id: string | null
@@ -1800,9 +1810,13 @@ export type Database = {
           current_period_start?: string | null
           environment?: string
           id?: string
+          payment_provider?: string
           paystack_customer_code?: string | null
           paystack_email_token?: string | null
           paystack_subscription_code?: string | null
+          pesapal_merchant_reference?: string | null
+          pesapal_order_tracking_id?: string | null
+          pesapal_subscription_token?: string | null
           plan_code?: string | null
           price_id?: string | null
           product_id?: string | null
@@ -1817,9 +1831,13 @@ export type Database = {
           current_period_start?: string | null
           environment?: string
           id?: string
+          payment_provider?: string
           paystack_customer_code?: string | null
           paystack_email_token?: string | null
           paystack_subscription_code?: string | null
+          pesapal_merchant_reference?: string | null
+          pesapal_order_tracking_id?: string | null
+          pesapal_subscription_token?: string | null
           plan_code?: string | null
           price_id?: string | null
           product_id?: string | null
