@@ -1,0 +1,1 @@
+INSERT INTO public.super_admins (user_id) VALUES ('12da7965-3dfc-45bb-a778-72f87b75dcf9') ON CONFLICT DO NOTHING;
