@@ -66,6 +66,7 @@ interface NavItem {
 const mainNav: NavItem[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["admin", "manager"], featureKey: "dashboard" },
   { title: "POS", url: "/pos", icon: ShoppingCart, roles: ["admin", "manager", "cashier"], featureKey: "pos" },
+  { title: "My Transactions", url: "/sales", icon: Receipt, roles: ["cashier"], featureKey: "sales" },
 ];
 
 const inventoryNav: NavItem[] = [
