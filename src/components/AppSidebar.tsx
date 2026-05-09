@@ -113,7 +113,15 @@ export function AppSidebar() {
   const currentPath = location.pathname;
 
   const filterByRole = (items: NavItem[]) =>
-    items.filter((item) => userRole && item.roles.includes(userRole));
+    items
+      .filter((item) => userRole && item.roles.includes(userRole))
+      .filter((item) => !item.featureKey || hasFeatureKey(item.featureKey))
+      .map((item) => ({
+        ...item,
+        children: item.children?.filter(
+          (c) => (!c.featureKey || hasFeatureKey(c.featureKey)) && userRole && c.roles.includes(userRole),
+        ),
+      }));
 
   const renderNav = (items: NavItem[], label: string) => {
     const filtered = filterByRole(items);
