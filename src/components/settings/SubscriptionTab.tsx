@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useSubscription } from "@/hooks/useSubscription";
 import { usePaystackCheckout } from "@/hooks/usePaystackCheckout";
+import { usePesapalCheckout } from "@/hooks/usePesapalCheckout";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Check, Crown, Loader2, ExternalLink, XCircle } from "lucide-react";
@@ -31,12 +32,14 @@ export function SubscriptionTab() {
   const { business } = useBusiness();
   const { subscription, isActive, isCanceling, isLoading, currentPackage } = useSubscription();
   const { openCheckout, loading: checkoutLoading } = usePaystackCheckout();
+  const { openCheckout: openPesapalCheckout, loading: pesapalLoading } = usePesapalCheckout();
   const [billingInterval, setBillingInterval] = useState<"monthly" | "yearly">("monthly");
   const [portalLoading, setPortalLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [packages, setPackages] = useState<PkgDisplay[]>([]);
   const [loadingPkgs, setLoadingPkgs] = useState(true);
   const [usage, setUsage] = useState({ products: 0, customers: 0, suppliers: 0, users: 0 });
+  const [pesapalEnabled, setPesapalEnabled] = useState(false);
 
   useEffect(() => {
     const fetchPkgs = async () => {
@@ -72,6 +75,15 @@ export function SubscriptionTab() {
       setLoadingPkgs(false);
     };
     fetchPkgs();
+    // Load Pesapal availability so we can show its button
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("app_settings")
+        .select("value")
+        .eq("key", "pesapal")
+        .maybeSingle();
+      setPesapalEnabled(!!(data?.value as any)?.enabled);
+    })();
   }, []);
 
   // Fetch current usage counts for the business
@@ -273,8 +285,21 @@ export function SubscriptionTab() {
                     title={noPrice ? "Price not yet configured" : undefined}
                   >
                     {checkoutLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {noPrice ? "Coming soon" : "Subscribe"}
+                    {noPrice ? "Coming soon" : "Pay with Paystack"}
                   </Button>
+                  {pesapalEnabled && !noPrice && (
+                    <Button
+                      className="w-full"
+                      variant="outline"
+                      disabled={pesapalLoading}
+                      onClick={() =>
+                        user && openPesapalCheckout({ packageId: pkg.id, interval: billingInterval })
+                      }
+                    >
+                      {pesapalLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Pay with Pesapal
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             );
