@@ -167,15 +167,15 @@ const ProtectedRoutes = () => {
     <AppLayout>
       <Suspense fallback={<PageLoader />}>
         <Routes>
-          <Route path="/" element={guard(["admin", "manager"], <Index />)} />
-          <Route path="/pos" element={guard(["admin", "manager", "cashier"], <POS />)} />
-          <Route path="/products" element={guard(["admin", "manager"], <Products />)} />
-          <Route path="/inventory" element={guard(["admin", "manager"], <Inventory />)} />
-          <Route path="/sales" element={guard(["admin", "manager", "cashier"], <Sales />)} />
-          <Route path="/customers" element={guard(["admin", "manager"], <Customers />)} />
-          <Route path="/purchases" element={guard(["admin", "manager"], <Purchases />)} />
-          <Route path="/suppliers" element={guard(["admin", "manager"], <Suppliers />)} />
-          <Route path="/expenses" element={guard(["admin"], <Expenses />)} />
+          <Route path="/" element={guard(["admin", "manager"], <FeatureGate featureKey="dashboard"><Index /></FeatureGate>)} />
+          <Route path="/pos" element={guard(["admin", "manager", "cashier"], <FeatureGate featureKey="pos"><POS /></FeatureGate>)} />
+          <Route path="/products" element={guard(["admin", "manager"], <FeatureGate featureKey="products"><Products /></FeatureGate>)} />
+          <Route path="/inventory" element={guard(["admin", "manager"], <FeatureGate featureKey="inventory"><Inventory /></FeatureGate>)} />
+          <Route path="/sales" element={guard(["admin", "manager", "cashier"], <FeatureGate featureKey="sales"><Sales /></FeatureGate>)} />
+          <Route path="/customers" element={guard(["admin", "manager"], <FeatureGate featureKey="sales"><Customers /></FeatureGate>)} />
+          <Route path="/purchases" element={guard(["admin", "manager"], <FeatureGate featureKey="purchases"><Purchases /></FeatureGate>)} />
+          <Route path="/suppliers" element={guard(["admin", "manager"], <FeatureGate featureKey="purchases"><Suppliers /></FeatureGate>)} />
+          <Route path="/expenses" element={guard(["admin"], <FeatureGate featureKey="expenses"><Expenses /></FeatureGate>)} />
           <Route path="/chart-of-accounts" element={guard(["admin"], <FeatureGate featureKey="chart_of_accounts"><ChartOfAccounts /></FeatureGate>)} />
           <Route path="/journal-entries" element={guard(["admin"], <FeatureGate featureKey="chart_of_accounts"><JournalEntries /></FeatureGate>)} />
           <Route path="/banking" element={guard(["admin"], <FeatureGate featureKey="banking"><Banking /></FeatureGate>)} />

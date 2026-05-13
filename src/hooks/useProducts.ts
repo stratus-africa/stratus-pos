@@ -46,13 +46,24 @@ export function useProducts() {
     queryKey: ["products", business?.id],
     queryFn: async () => {
       if (!business) return [];
-      const { data, error } = await supabase
-        .from("products")
-        .select("*, categories(name), brands(name), units(name, abbreviation)")
-        .eq("business_id", business.id)
-        .order("name");
-      if (error) throw error;
-      return data as Product[];
+      // Page through the dataset to bypass PostgREST's default 1000-row cap.
+      const PAGE = 1000;
+      const all: Product[] = [];
+      let from = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from("products")
+          .select("*, categories(name), brands(name), units(name, abbreviation)")
+          .eq("business_id", business.id)
+          .order("name")
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        const batch = (data || []) as Product[];
+        all.push(...batch);
+        if (batch.length < PAGE) break;
+        from += PAGE;
+      }
+      return all;
     },
     enabled: !!business,
   });
