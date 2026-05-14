@@ -321,6 +321,18 @@ const Inventory = () => {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="flex flex-col">
+                  <label className="text-xs text-muted-foreground mb-1">Sort</label>
+                  <Select value={mvSort} onValueChange={(v) => { setMvSort(v as SortKey); setMvPage(1); }}>
+                    <SelectTrigger className="h-9 w-[170px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="date_desc">Date (newest)</SelectItem>
+                      <SelectItem value="date_asc">Date (oldest)</SelectItem>
+                      <SelectItem value="product_asc">Product (A–Z)</SelectItem>
+                      <SelectItem value="product_desc">Product (Z–A)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 {(mvFrom || mvTo || mvSource !== "all" || mvSearch) && (
                   <div className="flex items-end">
                     <Button variant="ghost" size="sm" onClick={() => { setMvFrom(""); setMvTo(""); setMvSource("all"); setMvSearch(""); setMvPage(1); }}>
