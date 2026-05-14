@@ -124,6 +124,7 @@ export function AppSidebar() {
   // (role-specific aliases like "My Dashboard") still fall back to the role list.
   const isVisible = (item: NavItem) => {
     if (item.featureKey && !hasFeatureKey(item.featureKey)) return false;
+    if (userRole && item.hideForRoles?.includes(userRole)) return false;
     if (item.permission) return hasPermission(item.permission);
     return !!userRole && item.roles.includes(userRole);
   };
