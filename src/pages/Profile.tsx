@@ -12,27 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { User, Mail, Phone, Image as ImageIcon, Lock, Loader2, Building2 } from "lucide-react";
 
-interface DailyTotals {
-  totalSales: number;
-  txCount: number;
-  byMethod: Record<string, number>;
-}
-
-interface AccountRecon {
-  id: string;
-  name: string;
-  type: string;
-  openingBalance: number;
-  inflow: number;
-  outflow: number;
-  expected: number;
-  currentBalance: number;
-  variance: number;
-}
-
-const KES = (n: number) =>
-  `KES ${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-
 export default function Profile() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -48,12 +27,6 @@ export default function Profile() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPwd, setChangingPwd] = useState(false);
 
-  // Daily records state
-  const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
-  const [recordsLoading, setRecordsLoading] = useState(false);
-  const [totals, setTotals] = useState<DailyTotals>({ totalSales: 0, txCount: 0, byMethod: {} });
-  const [accountRecon, setAccountRecon] = useState<AccountRecon[]>([]);
-
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -68,94 +41,6 @@ export default function Profile() {
       setLoading(false);
     })();
   }, [user]);
-
-  // Load daily records
-  useEffect(() => {
-    if (!business) return;
-    (async () => {
-      setRecordsLoading(true);
-      const start = `${date}T00:00:00.000Z`;
-      const end = `${date}T23:59:59.999Z`;
-
-      // 1) Sales for the day (this user's sales)
-      const { data: salesRows } = await supabase
-        .from("sales")
-        .select("id, total")
-        .eq("business_id", business.id)
-        .eq("created_by", user!.id)
-        .eq("status", "final")
-        .gte("created_at", start)
-        .lte("created_at", end);
-
-      const saleIds = (salesRows || []).map((s) => s.id);
-      const totalSales = (salesRows || []).reduce((sum, s) => sum + Number(s.total), 0);
-
-      // 2) Payment breakdown by method
-      const byMethod: Record<string, number> = {};
-      if (saleIds.length) {
-        const { data: pays } = await supabase
-          .from("payments")
-          .select("amount, method, sale_id")
-          .in("sale_id", saleIds);
-        (pays || []).forEach((p: { amount: number; method: string }) => {
-          const k = (p.method || "other").toLowerCase();
-          byMethod[k] = (byMethod[k] || 0) + Number(p.amount || 0);
-        });
-      }
-      setTotals({ totalSales, txCount: saleIds.length, byMethod });
-
-      // 3) Cash account reconciliations — show all bank/cash accounts
-      const { data: accounts } = await supabase
-        .from("bank_accounts")
-        .select("id, name, account_type, balance")
-        .eq("business_id", business.id)
-        .eq("is_active", true)
-        .order("name", { ascending: true });
-
-      const recon: AccountRecon[] = [];
-      for (const acc of accounts || []) {
-        const { data: txs } = await supabase
-          .from("bank_transactions")
-          .select("type, amount, date")
-          .eq("bank_account_id", acc.id)
-          .eq("date", date);
-
-        let inflow = 0, outflow = 0;
-        (txs || []).forEach((t: { type: string; amount: number }) => {
-          const amt = Number(t.amount || 0);
-          if (t.type === "payment_received" || t.type === "deposit" || t.type === "transfer_in") {
-            inflow += amt;
-          } else {
-            outflow += amt;
-          }
-        });
-
-        // Approx opening balance = current - today's net
-        const currentBalance = Number(acc.balance || 0);
-        const net = inflow - outflow;
-        const openingBalance = currentBalance - net;
-        const expected = openingBalance + inflow - outflow;
-        recon.push({
-          id: acc.id,
-          name: acc.name,
-          type: acc.account_type,
-          openingBalance,
-          inflow,
-          outflow,
-          expected,
-          currentBalance,
-          variance: currentBalance - expected,
-        });
-      }
-      setAccountRecon(recon);
-      setRecordsLoading(false);
-    })();
-  }, [business, user, date]);
-
-  const methodList = useMemo(
-    () => Object.entries(totals.byMethod).sort((a, b) => b[1] - a[1]),
-    [totals]
-  );
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
