@@ -20,10 +20,17 @@ const Inventory = () => {
   const [adjDialogOpen, setAdjDialogOpen] = useState(false);
 
   const effectiveLocationId = locationFilter === "all" ? undefined : locationFilter;
-  const { inventoryQuery, adjustStock, adjustmentsQuery } = useInventory(effectiveLocationId);
+  const { inventoryQuery, adjustStock, adjustmentsQuery, movementsQuery } = useInventory(effectiveLocationId);
 
   const inventory = inventoryQuery.data || [];
   const adjustments = adjustmentsQuery.data || [];
+  const movements = movementsQuery.data || [];
+
+  const movementSource = (m: { reason: string; purchase_id?: string | null }) => {
+    if (m.purchase_id) return { label: "Purchase", variant: "secondary" as const };
+    if (m.reason === "sale") return { label: "Sale", variant: "default" as const };
+    return { label: m.reason, variant: "outline" as const };
+  };
 
   const filtered = inventory.filter((i) =>
     i.products?.name?.toLowerCase().includes(search.toLowerCase()) ||
