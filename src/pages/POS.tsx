@@ -260,14 +260,14 @@ const POS = () => {
                       idx % 2 === 0 ? "bg-card" : "bg-muted/40"
                     }`}
                   >
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 flex items-center gap-2">
                       <span className="font-medium text-sm">{p.name}</span>
-                      {p.sku && <span className="text-xs text-muted-foreground ml-2">{p.sku}</span>}
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <Badge variant={lowStock ? "destructive" : "secondary"} className="text-[10px] font-normal">
+                      <Badge variant={lowStock ? "destructive" : "secondary"} className="text-[10px] font-normal shrink-0">
                         Qty: {qty}
                       </Badge>
+                      {p.sku && <span className="text-xs text-muted-foreground">{p.sku}</span>}
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
                       <span className="font-semibold text-primary text-sm min-w-[80px] text-right">
                         KES {Number(p.selling_price).toLocaleString()}
                       </span>
