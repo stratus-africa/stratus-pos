@@ -42,10 +42,12 @@ const Inventory = () => {
   const [adjDialogOpen, setAdjDialogOpen] = useState(false);
 
   const [adjPage, setAdjPage] = useState(1);
+  const [adjSearch, setAdjSearch] = useState("");
   const [mvPage, setMvPage] = useState(1);
   const [mvFrom, setMvFrom] = useState<string>("");
   const [mvTo, setMvTo] = useState<string>("");
   const [mvSource, setMvSource] = useState<MovementSource>("all");
+  const [mvSearch, setMvSearch] = useState("");
 
   const effectiveLocationId = locationFilter === "all" ? undefined : locationFilter;
   const { inventoryQuery, adjustStock, adjustmentsQuery, movementsQuery } = useInventory(effectiveLocationId, {
@@ -58,6 +60,13 @@ const Inventory = () => {
   const adjCount = adjustmentsQuery.data?.count ?? 0;
   const movements = movementsQuery.data?.rows ?? [];
   const mvCount = movementsQuery.data?.count ?? 0;
+
+  const adjustmentsFiltered = adjSearch
+    ? adjustments.filter((a) => (a.products?.name || "").toLowerCase().includes(adjSearch.toLowerCase()))
+    : adjustments;
+  const movementsFiltered = mvSearch
+    ? movements.filter((m) => (m.products?.name || "").toLowerCase().includes(mvSearch.toLowerCase()))
+    : movements;
 
   const adjPages = Math.max(1, Math.ceil(adjCount / PAGE_SIZE));
   const mvPages = Math.max(1, Math.ceil(mvCount / PAGE_SIZE));
@@ -83,7 +92,7 @@ const Inventory = () => {
     downloadCsv(
       `stock-adjustments-${new Date().toISOString().slice(0, 10)}.csv`,
       ["Date", "Product", "Location", "Change", "Reason", "Notes"],
-      adjustments.map((a: StockAdjustment) => [fmtDate(a.created_at), a.products?.name || "", a.locations?.name || "", a.quantity_change, a.reason, a.notes || ""]),
+      adjustmentsFiltered.map((a: StockAdjustment) => [fmtDate(a.created_at), a.products?.name || "", a.locations?.name || "", a.quantity_change, a.reason, a.notes || ""]),
     );
   };
 
@@ -91,7 +100,7 @@ const Inventory = () => {
     downloadCsv(
       `stock-movement-${new Date().toISOString().slice(0, 10)}.csv`,
       ["Date", "Product", "Location", "Source", "Change"],
-      movements.map((m: StockAdjustment) => [fmtDate(m.created_at), m.products?.name || "", m.locations?.name || "", sourceMeta[classifyMovement(m)].label, m.quantity_change]),
+      movementsFiltered.map((m: StockAdjustment) => [fmtDate(m.created_at), m.products?.name || "", m.locations?.name || "", sourceMeta[classifyMovement(m)].label, m.quantity_change]),
     );
   };
   return (
@@ -191,11 +200,22 @@ const Inventory = () => {
 
         <TabsContent value="adjustments">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 space-y-0">
               <CardTitle className="text-lg">Stock Adjustments</CardTitle>
-              <Button variant="outline" size="sm" onClick={exportAdjustments} disabled={adjustments.length === 0}>
-                <Download className="mr-2 h-4 w-4" /> Export CSV
-              </Button>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search product..."
+                    value={adjSearch}
+                    onChange={(e) => setAdjSearch(e.target.value)}
+                    className="pl-9 h-9 w-[220px]"
+                  />
+                </div>
+                <Button variant="outline" size="sm" onClick={exportAdjustments} disabled={adjustmentsFiltered.length === 0}>
+                  <Download className="mr-2 h-4 w-4" /> Export CSV
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
@@ -209,14 +229,14 @@ const Inventory = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {adjustments.length === 0 ? (
+                  {adjustmentsFiltered.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                        No adjustments yet.
+                        {adjSearch ? "No adjustments match your search." : "No adjustments yet."}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    adjustments.map((a) => (
+                    adjustmentsFiltered.map((a) => (
                       <TableRow key={a.id}>
                         <TableCell className="text-muted-foreground">{fmtDate(a.created_at)}</TableCell>
                         <TableCell className="font-medium">{a.products?.name || "—"}</TableCell>
@@ -253,11 +273,23 @@ const Inventory = () => {
                   <CardTitle className="text-lg">Stock Movement</CardTitle>
                   <p className="text-xs text-muted-foreground">Inventory changes from sales, returns and purchases.</p>
                 </div>
-                <Button variant="outline" size="sm" onClick={exportMovements} disabled={movements.length === 0}>
+                <Button variant="outline" size="sm" onClick={exportMovements} disabled={movementsFiltered.length === 0}>
                   <Download className="mr-2 h-4 w-4" /> Export CSV
                 </Button>
               </div>
               <div className="flex flex-wrap gap-2">
+                <div className="flex flex-col">
+                  <label className="text-xs text-muted-foreground mb-1">Product</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search product..."
+                      value={mvSearch}
+                      onChange={(e) => setMvSearch(e.target.value)}
+                      className="pl-9 h-9 w-[220px]"
+                    />
+                  </div>
+                </div>
                 <div className="flex flex-col">
                   <label className="text-xs text-muted-foreground mb-1">From</label>
                   <Input type="date" value={mvFrom} onChange={(e) => { setMvFrom(e.target.value); setMvPage(1); }} className="h-9 w-[160px]" />
@@ -278,9 +310,9 @@ const Inventory = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                {(mvFrom || mvTo || mvSource !== "all") && (
+                {(mvFrom || mvTo || mvSource !== "all" || mvSearch) && (
                   <div className="flex items-end">
-                    <Button variant="ghost" size="sm" onClick={() => { setMvFrom(""); setMvTo(""); setMvSource("all"); setMvPage(1); }}>
+                    <Button variant="ghost" size="sm" onClick={() => { setMvFrom(""); setMvTo(""); setMvSource("all"); setMvSearch(""); setMvPage(1); }}>
                       Clear
                     </Button>
                   </div>
@@ -299,14 +331,14 @@ const Inventory = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {movements.length === 0 ? (
+                  {movementsFiltered.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                         No stock movement matching the current filters.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    movements.map((m) => {
+                    movementsFiltered.map((m) => {
                       const src = sourceMeta[classifyMovement(m)];
                       return (
                         <TableRow key={m.id}>
