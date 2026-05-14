@@ -20,6 +20,7 @@ import {
   UserCircle,
 } from "lucide-react";
 import { useFeatureLimit } from "@/components/FeatureGate";
+import { usePermissions } from "@/hooks/usePermissions";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
