@@ -78,7 +78,7 @@ export function useSubscription() {
 
   useEffect(() => {
     if (!user) return;
-    const channelName = `subscription-changes-${user.id}-${Date.now()}`;
+    const channelName = `subscription-changes-${user.id}-${crypto.randomUUID()}`;
     const channel = supabase
       .channel(channelName)
       .on(
