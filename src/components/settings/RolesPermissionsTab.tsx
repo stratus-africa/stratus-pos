@@ -15,8 +15,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { UserPlus, Shield, User, Crown, Pencil, Loader2, Users, ShieldCheck, Warehouse, Save } from "lucide-react";
-
-type AppRole = "admin" | "manager" | "cashier" | "stores_manager";
+import {
+  moduleCatalog,
+  reportsCatalog,
+  permKey,
+  allPermissionKeys,
+  defaultRolePermissions,
+  roleDescriptions,
+  type AppRole,
+  type ModuleDef,
+} from "@/lib/permissions";
 
 interface TeamMember {
   user_id: string;
