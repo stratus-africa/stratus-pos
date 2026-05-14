@@ -533,6 +533,66 @@ export default function SuperAdminTenantDetail() {
           userLabel={pwUser.full_name || pwUser.email || "user"}
         />
       )}
+
+      {/* Reset Tenant DB dialog */}
+      <Dialog open={resetOpen} onOpenChange={(o) => { if (!resetting) setResetOpen(o); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-500" /> Reset Tenant Database
+            </DialogTitle>
+            <DialogDescription>
+              Permanently wipe data for <span className="font-semibold">{biz?.name}</span>. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <RadioGroup value={resetMode} onValueChange={(v) => setResetMode(v as "transactional" | "full")} className="space-y-3">
+              <label htmlFor="reset-tx" className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/40">
+                <RadioGroupItem value="transactional" id="reset-tx" className="mt-0.5" />
+                <div className="space-y-1">
+                  <div className="text-sm font-semibold">Delete records only</div>
+                  <p className="text-xs text-muted-foreground">
+                    Removes sales, payments, purchases, expenses, stock movements, M-Pesa, bank, journal and POS session records, and resets stock to zero. Keeps products, customers, suppliers, locations, users and settings.
+                  </p>
+                </div>
+              </label>
+              <label htmlFor="reset-full" className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/40">
+                <RadioGroupItem value="full" id="reset-full" className="mt-0.5" />
+                <div className="space-y-1">
+                  <div className="text-sm font-semibold text-destructive">Reset entire tenant</div>
+                  <p className="text-xs text-muted-foreground">
+                    Everything in “Delete records only”, plus products, inventory, customers, suppliers, brands, categories, bank accounts, chart of accounts and locations. Keeps the tenant, users and roles.
+                  </p>
+                </div>
+              </label>
+            </RadioGroup>
+
+            <div className="space-y-1.5">
+              <UILabel htmlFor="reset-confirm" className="text-xs">Type <span className="font-mono font-semibold">RESET</span> to confirm</UILabel>
+              <Input
+                id="reset-confirm"
+                value={resetConfirm}
+                onChange={(e) => setResetConfirm(e.target.value)}
+                placeholder="RESET"
+                autoComplete="off"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetOpen(false)} disabled={resetting}>Cancel</Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={runReset}
+              disabled={resetting || resetConfirm.trim() !== "RESET"}
+            >
+              {resetting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <RotateCcw className="h-4 w-4 mr-1.5" />}
+              {resetMode === "full" ? "Reset entire tenant" : "Delete records"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
