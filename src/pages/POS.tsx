@@ -31,7 +31,7 @@ import { CartItem } from "@/hooks/usePOS";
 const POS = () => {
   const { productsQuery } = useProducts();
   const { query: categoriesQuery } = useCategories();
-  const { query: customersQuery } = useCustomers();
+  const { query: customersQuery } = useCustomers({ pageSize: 1000 });
   const pos = usePOS();
   const session = usePOSSession();
   const { currentLocation, locations, setCurrentLocation, business, userRole } = useBusiness();
