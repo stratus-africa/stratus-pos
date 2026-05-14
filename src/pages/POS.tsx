@@ -109,7 +109,7 @@ const POS = () => {
 
   const products = productsQuery.data ?? [];
   const categories = categoriesQuery.data ?? [];
-  const customers = customersQuery.data ?? [];
+  const customers = customersQuery.data?.rows ?? [];
   const inventory = inventoryQuery.data ?? [];
 
   const stockMap = useMemo(() => {
