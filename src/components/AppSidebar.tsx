@@ -62,12 +62,14 @@ interface NavItem {
   featureKey?: string;
   /** Granular permission key (e.g. "products.view") required to see this item. */
   permission?: string;
+  /** Hide for these roles even if permission is granted (used to avoid duplicates with role-specific aliases). */
+  hideForRoles?: AppRole[];
   /** Optional sub-items rendered under this item as a collapsible submenu. */
   children?: NavItem[];
 }
 
 const mainNav: NavItem[] = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["admin", "manager"], featureKey: "dashboard", permission: "dashboard.view" },
+  { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["admin", "manager"], featureKey: "dashboard", permission: "dashboard.view", hideForRoles: ["cashier"] },
   { title: "My Dashboard", url: "/", icon: LayoutDashboard, roles: ["cashier"] },
   { title: "POS", url: "/pos", icon: ShoppingCart, roles: ["admin", "manager", "cashier"], featureKey: "pos", permission: "pos.view" },
   { title: "My Transactions", url: "/sales", icon: Receipt, roles: ["cashier"], featureKey: "sales", permission: "sales.view" },
