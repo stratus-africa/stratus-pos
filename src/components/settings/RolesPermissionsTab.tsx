@@ -166,8 +166,34 @@ export function RolesPermissionsTab() {
     setEditPerms([...(rolePermissions[role] || [])]);
   };
 
+  // Cascade rules:
+  //   - Enabling edit/delete auto-enables view + create
+  //   - Disabling view auto-disables create/edit/delete
   const togglePerm = (perm: string) => {
-    setEditPerms((prev) => prev.includes(perm) ? prev.filter((p) => p !== perm) : [...prev, perm]);
+    setEditPerms((prev) => {
+      const set = new Set(prev);
+      const turningOn = !set.has(perm);
+      const dot = perm.lastIndexOf(".");
+      const modKey = dot > -1 ? perm.slice(0, dot) : "";
+      const action = dot > -1 ? perm.slice(dot + 1) : "";
+      const mod = moduleCatalog.find((m) => m.key === modKey);
+
+      if (turningOn) {
+        set.add(perm);
+        if (mod && (action === "edit" || action === "delete")) {
+          if (mod.actions.includes("view")) set.add(permKey(mod.key, "view"));
+          if (mod.actions.includes("create")) set.add(permKey(mod.key, "create"));
+        }
+      } else {
+        set.delete(perm);
+        if (mod && action === "view") {
+          (["create", "edit", "delete"] as const).forEach((a) => {
+            if (mod.actions.includes(a)) set.delete(permKey(mod.key, a));
+          });
+        }
+      }
+      return Array.from(set);
+    });
   };
 
   const toggleModule = (mod: ModuleDef, on: boolean) => {
