@@ -315,62 +315,6 @@ export function RolesPermissionsTab() {
         </TabsContent>
 
         <TabsContent value="roles" className="mt-4">
-          <Card className="mb-4">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4" /> Effective Access by Role
-              </CardTitle>
-              <CardDescription>
-                Modules and reports each role can reach right now (View permission required at minimum).
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="overflow-x-auto p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Modules accessible</TableHead>
-                    <TableHead>Reports</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(["admin", "manager", "stores_manager", "cashier"] as AppRole[]).map((role) => {
-                    const perms = new Set(rolePermissions[role] || []);
-                    const mods = role === "admin"
-                      ? moduleCatalog
-                      : moduleCatalog.filter((m) =>
-                          m.actions.includes("view")
-                            ? perms.has(permKey(m.key, "view"))
-                            : m.actions.some((a) => perms.has(permKey(m.key, a)))
-                        );
-                    const reps = role === "admin"
-                      ? reportsCatalog
-                      : reportsCatalog.filter((r) => perms.has(r.key));
-                    return (
-                      <TableRow key={role}>
-                        <TableCell className="font-medium capitalize whitespace-nowrap align-top">{role.replace("_", " ")}</TableCell>
-                        <TableCell className="align-top">
-                          {mods.length === 0 ? <span className="text-xs text-muted-foreground">No modules</span> : (
-                            <div className="flex flex-wrap gap-1">
-                              {mods.map((m) => <Badge key={m.key} variant="secondary" className="text-xs">{m.label}</Badge>)}
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell className="align-top">
-                          {reps.length === 0 ? <span className="text-xs text-muted-foreground">—</span> : (
-                            <div className="flex flex-wrap gap-1">
-                              {reps.map((r) => <Badge key={r.key} variant="outline" className="text-xs">{r.label}</Badge>)}
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-
           <div className="grid gap-4">
 
             {(["admin", "manager", "stores_manager", "cashier"] as AppRole[]).map((role) => {
