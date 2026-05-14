@@ -69,31 +69,30 @@ interface NavItem {
 }
 
 const mainNav: NavItem[] = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["admin", "manager"], featureKey: "dashboard", permission: "dashboard.view", hideForRoles: ["cashier"] },
-  { title: "My Dashboard", url: "/", icon: LayoutDashboard, roles: ["cashier"] },
+  { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["admin", "manager", "cashier"], featureKey: "dashboard", permission: "dashboard.view" },
   { title: "POS", url: "/pos", icon: ShoppingCart, roles: ["admin", "manager", "cashier"], featureKey: "pos", permission: "pos.view" },
   { title: "My Transactions", url: "/sales", icon: Receipt, roles: ["cashier"], featureKey: "sales", permission: "sales.view" },
 ];
 
 const inventoryNav: NavItem[] = [
-  { title: "Products", url: "/products", icon: Package, roles: ["admin", "manager"], featureKey: "products", permission: "products.view" },
-  { title: "Inventory", url: "/inventory", icon: Warehouse, roles: ["admin", "manager"], featureKey: "inventory", permission: "inventory.view" },
+  { title: "Products", url: "/products", icon: Package, roles: ["admin", "manager", "cashier"], featureKey: "products", permission: "products.view" },
+  { title: "Inventory", url: "/inventory", icon: Warehouse, roles: ["admin", "manager", "cashier"], featureKey: "inventory", permission: "inventory.view" },
 ];
 
 const transactionNav: NavItem[] = [
   {
     title: "Sales", url: "/sales", icon: Receipt, roles: ["admin", "manager"], featureKey: "sales", permission: "sales.view", hideForRoles: ["cashier"],
     children: [
-      { title: "Customers", url: "/customers", icon: Users, roles: ["admin", "manager"], featureKey: "customers", permission: "customers.view" },
+      { title: "Customers", url: "/customers", icon: Users, roles: ["admin", "manager", "cashier"], featureKey: "customers", permission: "customers.view" },
     ],
   },
   {
-    title: "Purchases", url: "/purchases", icon: TruckIcon, roles: ["admin", "manager"], featureKey: "purchases", permission: "purchases.view",
+    title: "Purchases", url: "/purchases", icon: TruckIcon, roles: ["admin", "manager", "cashier"], featureKey: "purchases", permission: "purchases.view",
     children: [
-      { title: "Suppliers", url: "/suppliers", icon: Truck, roles: ["admin", "manager"], featureKey: "purchases", permission: "suppliers.view" },
+      { title: "Suppliers", url: "/suppliers", icon: Truck, roles: ["admin", "manager", "cashier"], featureKey: "purchases", permission: "suppliers.view" },
     ],
   },
-  { title: "Expenses", url: "/expenses", icon: CreditCard, roles: ["admin"], featureKey: "expenses", permission: "expenses.view" },
+  { title: "Expenses", url: "/expenses", icon: CreditCard, roles: ["admin", "manager", "cashier"], featureKey: "expenses", permission: "expenses.view" },
 ];
 
 const financeNav: NavItem[] = [
@@ -129,13 +128,22 @@ export function AppSidebar() {
     return !!userRole && item.roles.includes(userRole);
   };
 
-  const filterByRole = (items: NavItem[]) =>
-    items
-      .filter(isVisible)
-      .map((item) => ({
-        ...item,
-        children: item.children?.filter(isVisible),
-      }));
+  // Filter items by visibility. If a parent is hidden but its children are
+  // visible (e.g. cashier has customers.view but not sales.view), promote the
+  // visible children to top-level entries so the user can still reach them.
+  const filterByRole = (items: NavItem[]) => {
+    const out: NavItem[] = [];
+    for (const item of items) {
+      const parentVisible = isVisible(item);
+      const visibleChildren = item.children?.filter(isVisible) ?? [];
+      if (parentVisible) {
+        out.push({ ...item, children: visibleChildren });
+      } else if (visibleChildren.length > 0) {
+        for (const child of visibleChildren) out.push({ ...child, children: [] });
+      }
+    }
+    return out;
+  };
 
   const renderNav = (items: NavItem[], label: string) => {
     const filtered = filterByRole(items);
