@@ -82,7 +82,7 @@ const inventoryNav: NavItem[] = [
 
 const transactionNav: NavItem[] = [
   {
-    title: "Sales", url: "/sales", icon: Receipt, roles: ["admin", "manager"], featureKey: "sales", permission: "sales.view",
+    title: "Sales", url: "/sales", icon: Receipt, roles: ["admin", "manager"], featureKey: "sales", permission: "sales.view", hideForRoles: ["cashier"],
     children: [
       { title: "Customers", url: "/customers", icon: Users, roles: ["admin", "manager"], featureKey: "customers", permission: "customers.view" },
     ],
