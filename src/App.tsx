@@ -28,6 +28,7 @@ const Reports = lazy(() => import("./pages/Reports"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const ChartOfAccounts = lazy(() => import("./pages/ChartOfAccounts"));
 const Profile = lazy(() => import("./pages/Profile"));
+const CashierDashboard = lazy(() => import("./pages/CashierDashboard"));
 const JournalEntries = lazy(() => import("./pages/JournalEntries"));
 const Banking = lazy(() => import("./pages/Banking"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -157,11 +158,6 @@ const ProtectedRoutes = () => {
   if (isSuspended) return <BusinessSuspended />;
   if (needsOnboarding) return <Navigate to="/onboarding" replace />;
 
-  // Cashiers land on POS by default — only redirect from root, otherwise they get a blank screen.
-  if (userRole === "cashier" && location.pathname === "/") {
-    return <Navigate to="/pos" replace />;
-  }
-
   // Combined guard: role required AND optional permission key required.
   const guard = (
     roles: ("admin" | "manager" | "cashier")[],
@@ -173,11 +169,16 @@ const ProtectedRoutes = () => {
     return element;
   };
 
+  // Cashier dashboard = daily records. Admin/manager get the full Index dashboard.
+  const rootElement = userRole === "cashier"
+    ? <CashierDashboard />
+    : guard(["admin", "manager"], <FeatureGate featureKey="dashboard"><Index /></FeatureGate>, "dashboard.view");
+
   return (
     <AppLayout>
       <Suspense fallback={<PageLoader />}>
         <Routes>
-          <Route path="/" element={guard(["admin", "manager"], <FeatureGate featureKey="dashboard"><Index /></FeatureGate>, "dashboard.view")} />
+          <Route path="/" element={rootElement} />
           <Route path="/pos" element={guard(["admin", "manager", "cashier"], <FeatureGate featureKey="pos"><POS /></FeatureGate>, "pos.view")} />
           <Route path="/products" element={guard(["admin", "manager"], <FeatureGate featureKey="products"><Products /></FeatureGate>, "products.view")} />
           <Route path="/inventory" element={guard(["admin", "manager"], <FeatureGate featureKey="inventory"><Inventory /></FeatureGate>, "inventory.view")} />
