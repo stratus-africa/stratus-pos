@@ -191,8 +191,11 @@ const Inventory = () => {
 
         <TabsContent value="adjustments">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Recent Stock Adjustments</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+              <CardTitle className="text-lg">Stock Adjustments</CardTitle>
+              <Button variant="outline" size="sm" onClick={exportAdjustments} disabled={adjustments.length === 0}>
+                <Download className="mr-2 h-4 w-4" /> Export CSV
+              </Button>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
@@ -215,9 +218,7 @@ const Inventory = () => {
                   ) : (
                     adjustments.map((a) => (
                       <TableRow key={a.id}>
-                        <TableCell className="text-muted-foreground">
-                          {new Date(a.created_at).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })}
-                        </TableCell>
+                        <TableCell className="text-muted-foreground">{fmtDate(a.created_at)}</TableCell>
                         <TableCell className="font-medium">{a.products?.name || "—"}</TableCell>
                         <TableCell>{a.locations?.name || "—"}</TableCell>
                         <TableCell className={`text-right font-medium ${a.quantity_change > 0 ? "text-green-600" : "text-destructive"}`}>
@@ -229,17 +230,62 @@ const Inventory = () => {
                   )}
                 </TableBody>
               </Table>
+              <div className="flex items-center justify-between border-t px-4 py-2 text-sm text-muted-foreground">
+                <span>{adjCount === 0 ? "0 records" : `Page ${adjPage} of ${adjPages} • ${adjCount} record${adjCount === 1 ? "" : "s"}`}</span>
+                <div className="flex gap-1">
+                  <Button variant="outline" size="sm" onClick={() => setAdjPage((p) => Math.max(1, p - 1))} disabled={adjPage <= 1}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setAdjPage((p) => Math.min(adjPages, p + 1))} disabled={adjPage >= adjPages}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="movements">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Stock Movement</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                Inventory changes from sales, returns and purchases.
-              </p>
+            <CardHeader className="space-y-3">
+              <div className="flex flex-row items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="text-lg">Stock Movement</CardTitle>
+                  <p className="text-xs text-muted-foreground">Inventory changes from sales, returns and purchases.</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={exportMovements} disabled={movements.length === 0}>
+                  <Download className="mr-2 h-4 w-4" /> Export CSV
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <div className="flex flex-col">
+                  <label className="text-xs text-muted-foreground mb-1">From</label>
+                  <Input type="date" value={mvFrom} onChange={(e) => { setMvFrom(e.target.value); setMvPage(1); }} className="h-9 w-[160px]" />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-xs text-muted-foreground mb-1">To</label>
+                  <Input type="date" value={mvTo} onChange={(e) => { setMvTo(e.target.value); setMvPage(1); }} className="h-9 w-[160px]" />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-xs text-muted-foreground mb-1">Source</label>
+                  <Select value={mvSource} onValueChange={(v) => { setMvSource(v as MovementSource); setMvPage(1); }}>
+                    <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All sources</SelectItem>
+                      <SelectItem value="sale">Sale</SelectItem>
+                      <SelectItem value="return">Return</SelectItem>
+                      <SelectItem value="purchase">Purchase</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {(mvFrom || mvTo || mvSource !== "all") && (
+                  <div className="flex items-end">
+                    <Button variant="ghost" size="sm" onClick={() => { setMvFrom(""); setMvTo(""); setMvSource("all"); setMvPage(1); }}>
+                      Clear
+                    </Button>
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
@@ -256,17 +302,15 @@ const Inventory = () => {
                   {movements.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                        No stock movement yet.
+                        No stock movement matching the current filters.
                       </TableCell>
                     </TableRow>
                   ) : (
                     movements.map((m) => {
-                      const src = movementSource(m);
+                      const src = sourceMeta[classifyMovement(m)];
                       return (
                         <TableRow key={m.id}>
-                          <TableCell className="text-muted-foreground">
-                            {new Date(m.created_at).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })}
-                          </TableCell>
+                          <TableCell className="text-muted-foreground">{fmtDate(m.created_at)}</TableCell>
                           <TableCell className="font-medium">{m.products?.name || "—"}</TableCell>
                           <TableCell>{m.locations?.name || "—"}</TableCell>
                           <TableCell><Badge variant={src.variant}>{src.label}</Badge></TableCell>
@@ -279,6 +323,17 @@ const Inventory = () => {
                   )}
                 </TableBody>
               </Table>
+              <div className="flex items-center justify-between border-t px-4 py-2 text-sm text-muted-foreground">
+                <span>{mvCount === 0 ? "0 records" : `Page ${mvPage} of ${mvPages} • ${mvCount} record${mvCount === 1 ? "" : "s"}`}</span>
+                <div className="flex gap-1">
+                  <Button variant="outline" size="sm" onClick={() => setMvPage((p) => Math.max(1, p - 1))} disabled={mvPage <= 1}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setMvPage((p) => Math.min(mvPages, p + 1))} disabled={mvPage >= mvPages}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
