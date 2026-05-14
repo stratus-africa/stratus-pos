@@ -6,11 +6,33 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ArrowLeftRight } from "lucide-react";
-import { useInventory } from "@/hooks/useInventory";
+import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ArrowLeftRight, Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { useInventory, classifyMovement, type MovementSource, type StockAdjustment } from "@/hooks/useInventory";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { StockAdjustmentDialog } from "@/components/inventory/StockAdjustmentDialog";
+
+const PAGE_SIZE = 25;
+
+const sourceMeta: Record<"sale" | "return" | "purchase" | "other", { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
+  sale: { label: "Sale", variant: "default" },
+  return: { label: "Return", variant: "destructive" },
+  purchase: { label: "Purchase", variant: "secondary" },
+  other: { label: "Other", variant: "outline" },
+};
+
+const downloadCsv = (filename: string, headers: string[], rows: (string | number)[][]) => {
+  const escape = (v: string | number) => {
+    const s = String(v ?? "");
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [headers, ...rows].map((r) => r.map(escape).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+};
 
 const Inventory = () => {
   const { locations, currentLocation } = useBusiness();
@@ -19,18 +41,26 @@ const Inventory = () => {
   const [search, setSearch] = useState("");
   const [adjDialogOpen, setAdjDialogOpen] = useState(false);
 
+  const [adjPage, setAdjPage] = useState(1);
+  const [mvPage, setMvPage] = useState(1);
+  const [mvFrom, setMvFrom] = useState<string>("");
+  const [mvTo, setMvTo] = useState<string>("");
+  const [mvSource, setMvSource] = useState<MovementSource>("all");
+
   const effectiveLocationId = locationFilter === "all" ? undefined : locationFilter;
-  const { inventoryQuery, adjustStock, adjustmentsQuery, movementsQuery } = useInventory(effectiveLocationId);
+  const { inventoryQuery, adjustStock, adjustmentsQuery, movementsQuery } = useInventory(effectiveLocationId, {
+    adjustmentsPage: { page: adjPage, pageSize: PAGE_SIZE },
+    movements: { page: mvPage, pageSize: PAGE_SIZE, from: mvFrom || undefined, to: mvTo || undefined, source: mvSource },
+  });
 
   const inventory = inventoryQuery.data || [];
-  const adjustments = adjustmentsQuery.data || [];
-  const movements = movementsQuery.data || [];
+  const adjustments = adjustmentsQuery.data?.rows ?? [];
+  const adjCount = adjustmentsQuery.data?.count ?? 0;
+  const movements = movementsQuery.data?.rows ?? [];
+  const mvCount = movementsQuery.data?.count ?? 0;
 
-  const movementSource = (m: { reason: string; purchase_id?: string | null }) => {
-    if (m.purchase_id) return { label: "Purchase", variant: "secondary" as const };
-    if (m.reason === "sale") return { label: "Sale", variant: "default" as const };
-    return { label: m.reason, variant: "outline" as const };
-  };
+  const adjPages = Math.max(1, Math.ceil(adjCount / PAGE_SIZE));
+  const mvPages = Math.max(1, Math.ceil(mvCount / PAGE_SIZE));
 
   const filtered = inventory.filter((i) =>
     i.products?.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -47,6 +77,23 @@ const Inventory = () => {
   const formatKES = (amount: number) =>
     new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(amount);
 
+  const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" });
+
+  const exportAdjustments = () => {
+    downloadCsv(
+      `stock-adjustments-${new Date().toISOString().slice(0, 10)}.csv`,
+      ["Date", "Product", "Location", "Change", "Reason", "Notes"],
+      adjustments.map((a: StockAdjustment) => [fmtDate(a.created_at), a.products?.name || "", a.locations?.name || "", a.quantity_change, a.reason, a.notes || ""]),
+    );
+  };
+
+  const exportMovements = () => {
+    downloadCsv(
+      `stock-movement-${new Date().toISOString().slice(0, 10)}.csv`,
+      ["Date", "Product", "Location", "Source", "Change"],
+      movements.map((m: StockAdjustment) => [fmtDate(m.created_at), m.products?.name || "", m.locations?.name || "", sourceMeta[classifyMovement(m)].label, m.quantity_change]),
+    );
+  };
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -144,8 +191,11 @@ const Inventory = () => {
 
         <TabsContent value="adjustments">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Recent Stock Adjustments</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+              <CardTitle className="text-lg">Stock Adjustments</CardTitle>
+              <Button variant="outline" size="sm" onClick={exportAdjustments} disabled={adjustments.length === 0}>
+                <Download className="mr-2 h-4 w-4" /> Export CSV
+              </Button>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
@@ -168,9 +218,7 @@ const Inventory = () => {
                   ) : (
                     adjustments.map((a) => (
                       <TableRow key={a.id}>
-                        <TableCell className="text-muted-foreground">
-                          {new Date(a.created_at).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })}
-                        </TableCell>
+                        <TableCell className="text-muted-foreground">{fmtDate(a.created_at)}</TableCell>
                         <TableCell className="font-medium">{a.products?.name || "—"}</TableCell>
                         <TableCell>{a.locations?.name || "—"}</TableCell>
                         <TableCell className={`text-right font-medium ${a.quantity_change > 0 ? "text-green-600" : "text-destructive"}`}>
@@ -182,17 +230,62 @@ const Inventory = () => {
                   )}
                 </TableBody>
               </Table>
+              <div className="flex items-center justify-between border-t px-4 py-2 text-sm text-muted-foreground">
+                <span>{adjCount === 0 ? "0 records" : `Page ${adjPage} of ${adjPages} • ${adjCount} record${adjCount === 1 ? "" : "s"}`}</span>
+                <div className="flex gap-1">
+                  <Button variant="outline" size="sm" onClick={() => setAdjPage((p) => Math.max(1, p - 1))} disabled={adjPage <= 1}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setAdjPage((p) => Math.min(adjPages, p + 1))} disabled={adjPage >= adjPages}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="movements">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Stock Movement</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                Inventory changes from sales, returns and purchases.
-              </p>
+            <CardHeader className="space-y-3">
+              <div className="flex flex-row items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="text-lg">Stock Movement</CardTitle>
+                  <p className="text-xs text-muted-foreground">Inventory changes from sales, returns and purchases.</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={exportMovements} disabled={movements.length === 0}>
+                  <Download className="mr-2 h-4 w-4" /> Export CSV
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <div className="flex flex-col">
+                  <label className="text-xs text-muted-foreground mb-1">From</label>
+                  <Input type="date" value={mvFrom} onChange={(e) => { setMvFrom(e.target.value); setMvPage(1); }} className="h-9 w-[160px]" />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-xs text-muted-foreground mb-1">To</label>
+                  <Input type="date" value={mvTo} onChange={(e) => { setMvTo(e.target.value); setMvPage(1); }} className="h-9 w-[160px]" />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-xs text-muted-foreground mb-1">Source</label>
+                  <Select value={mvSource} onValueChange={(v) => { setMvSource(v as MovementSource); setMvPage(1); }}>
+                    <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All sources</SelectItem>
+                      <SelectItem value="sale">Sale</SelectItem>
+                      <SelectItem value="return">Return</SelectItem>
+                      <SelectItem value="purchase">Purchase</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {(mvFrom || mvTo || mvSource !== "all") && (
+                  <div className="flex items-end">
+                    <Button variant="ghost" size="sm" onClick={() => { setMvFrom(""); setMvTo(""); setMvSource("all"); setMvPage(1); }}>
+                      Clear
+                    </Button>
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
@@ -209,17 +302,15 @@ const Inventory = () => {
                   {movements.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                        No stock movement yet.
+                        No stock movement matching the current filters.
                       </TableCell>
                     </TableRow>
                   ) : (
                     movements.map((m) => {
-                      const src = movementSource(m);
+                      const src = sourceMeta[classifyMovement(m)];
                       return (
                         <TableRow key={m.id}>
-                          <TableCell className="text-muted-foreground">
-                            {new Date(m.created_at).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })}
-                          </TableCell>
+                          <TableCell className="text-muted-foreground">{fmtDate(m.created_at)}</TableCell>
                           <TableCell className="font-medium">{m.products?.name || "—"}</TableCell>
                           <TableCell>{m.locations?.name || "—"}</TableCell>
                           <TableCell><Badge variant={src.variant}>{src.label}</Badge></TableCell>
@@ -232,6 +323,17 @@ const Inventory = () => {
                   )}
                 </TableBody>
               </Table>
+              <div className="flex items-center justify-between border-t px-4 py-2 text-sm text-muted-foreground">
+                <span>{mvCount === 0 ? "0 records" : `Page ${mvPage} of ${mvPages} • ${mvCount} record${mvCount === 1 ? "" : "s"}`}</span>
+                <div className="flex gap-1">
+                  <Button variant="outline" size="sm" onClick={() => setMvPage((p) => Math.max(1, p - 1))} disabled={mvPage <= 1}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setMvPage((p) => Math.min(mvPages, p + 1))} disabled={mvPage >= mvPages}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

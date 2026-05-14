@@ -27,10 +27,35 @@ export interface StockAdjustment {
   locations?: { name: string } | null;
 }
 
-/** Reasons written by automated flows (sales). Excluded from the manual Adjustments tab. */
-const MOVEMENT_REASONS = ["sale"];
+/** Reasons whose rows belong in Stock Movement (sales + returns), not the manual Adjustments tab. */
+export const MOVEMENT_REASONS = ["sale", "return", "Return"];
 
-export function useInventory(locationId?: string) {
+export type MovementSource = "all" | "sale" | "return" | "purchase";
+
+export interface MovementFilters {
+  from?: string;
+  to?: string;
+  source?: MovementSource;
+}
+
+export interface PageOpts {
+  page?: number;
+  pageSize?: number;
+}
+
+/** Classify a stock_adjustments row into a movement source for display + filtering. */
+export function classifyMovement(row: { reason: string; purchase_id?: string | null; quantity_change: number }): "sale" | "return" | "purchase" | "other" {
+  if (row.purchase_id) return "purchase";
+  const r = (row.reason || "").toLowerCase();
+  if (r === "return") return "return";
+  if (r === "sale") return row.quantity_change > 0 ? "return" : "sale";
+  return "other";
+}
+
+export function useInventory(
+  locationId?: string,
+  opts: { adjustmentsPage?: PageOpts; movements?: MovementFilters & PageOpts } = {},
+) {
   const { business } = useBusiness();
   const queryClient = useQueryClient();
 
@@ -113,39 +138,65 @@ export function useInventory(locationId?: string) {
     onError: (e) => toast.error(e.message),
   });
 
+  const adjPage = Math.max(1, opts.adjustmentsPage?.page ?? 1);
+  const adjPageSize = opts.adjustmentsPage?.pageSize ?? 25;
   const adjustmentsQuery = useQuery({
-    queryKey: ["stock_adjustments", business?.id, locationId],
+    queryKey: ["stock_adjustments", business?.id, locationId, adjPage, adjPageSize],
     queryFn: async () => {
-      if (!business) return [];
+      if (!business) return { rows: [] as StockAdjustment[], count: 0 };
+      const fromIdx = (adjPage - 1) * adjPageSize;
+      const toIdx = fromIdx + adjPageSize - 1;
       let q = supabase
         .from("stock_adjustments")
-        .select("*, products(name), locations(name)")
+        .select("*, products(name), locations(name)", { count: "exact" })
         .is("purchase_id", null)
         .not("reason", "in", `(${MOVEMENT_REASONS.map((r) => `"${r}"`).join(",")})`)
         .order("created_at", { ascending: false })
-        .limit(100);
+        .range(fromIdx, toIdx);
       if (locationId) q = q.eq("location_id", locationId);
-      const { data, error } = await q;
+      const { data, error, count } = await q;
       if (error) throw error;
-      return data as StockAdjustment[];
+      return { rows: (data || []) as StockAdjustment[], count: count ?? 0 };
     },
     enabled: !!business,
   });
 
+  const mvFilters = opts.movements ?? {};
+  const mvPage = Math.max(1, mvFilters.page ?? 1);
+  const mvPageSize = mvFilters.pageSize ?? 25;
   const movementsQuery = useQuery({
-    queryKey: ["stock_movements", business?.id, locationId],
+    queryKey: ["stock_movements", business?.id, locationId, mvFilters.from, mvFilters.to, mvFilters.source, mvPage, mvPageSize],
     queryFn: async () => {
-      if (!business) return [];
+      if (!business) return { rows: [] as StockAdjustment[], count: 0 };
+      const fromIdx = (mvPage - 1) * mvPageSize;
+      const toIdx = fromIdx + mvPageSize - 1;
       let q = supabase
         .from("stock_adjustments")
-        .select("*, products(name), locations(name)")
-        .or(`reason.in.(${MOVEMENT_REASONS.join(",")}),purchase_id.not.is.null`)
-        .order("created_at", { ascending: false })
-        .limit(200);
+        .select("*, products(name), locations(name)", { count: "exact" })
+        .order("created_at", { ascending: false });
+
+      // Source filter
+      const src = mvFilters.source ?? "all";
+      if (src === "purchase") {
+        q = q.not("purchase_id", "is", null);
+      } else if (src === "sale") {
+        // sale-only: reason='sale' AND quantity_change < 0, no purchase
+        q = q.is("purchase_id", null).eq("reason", "sale").lt("quantity_change", 0);
+      } else if (src === "return") {
+        // returns: reason='Return' OR (reason='sale' AND qty_change > 0)
+        q = q.or("reason.eq.Return,reason.eq.return,and(reason.eq.sale,quantity_change.gt.0)");
+      } else {
+        // all movements: any sale/return/purchase row
+        q = q.or(`reason.in.(${MOVEMENT_REASONS.join(",")}),purchase_id.not.is.null`);
+      }
+
+      if (mvFilters.from) q = q.gte("created_at", `${mvFilters.from}T00:00:00`);
+      if (mvFilters.to) q = q.lte("created_at", `${mvFilters.to}T23:59:59`);
       if (locationId) q = q.eq("location_id", locationId);
-      const { data, error } = await q;
+
+      const { data, error, count } = await q.range(fromIdx, toIdx);
       if (error) throw error;
-      return data as StockAdjustment[];
+      return { rows: (data || []) as StockAdjustment[], count: count ?? 0 };
     },
     enabled: !!business,
   });
