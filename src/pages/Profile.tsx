@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -9,34 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import {
-  User, Mail, Phone, Image as ImageIcon, Lock, Loader2, Building2,
-  Receipt, Wallet, Landmark, TrendingUp, ArrowDownToLine,
-} from "lucide-react";
-
-interface DailyTotals {
-  totalSales: number;
-  txCount: number;
-  byMethod: Record<string, number>;
-}
-
-interface AccountRecon {
-  id: string;
-  name: string;
-  type: string;
-  openingBalance: number;
-  inflow: number;
-  outflow: number;
-  expected: number;
-  currentBalance: number;
-  variance: number;
-}
-
-const KES = (n: number) =>
-  `KES ${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+import { User, Mail, Phone, Image as ImageIcon, Lock, Loader2, Building2 } from "lucide-react";
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -53,12 +27,6 @@ export default function Profile() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPwd, setChangingPwd] = useState(false);
 
-  // Daily records state
-  const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
-  const [recordsLoading, setRecordsLoading] = useState(false);
-  const [totals, setTotals] = useState<DailyTotals>({ totalSales: 0, txCount: 0, byMethod: {} });
-  const [accountRecon, setAccountRecon] = useState<AccountRecon[]>([]);
-
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -73,94 +41,6 @@ export default function Profile() {
       setLoading(false);
     })();
   }, [user]);
-
-  // Load daily records
-  useEffect(() => {
-    if (!business) return;
-    (async () => {
-      setRecordsLoading(true);
-      const start = `${date}T00:00:00.000Z`;
-      const end = `${date}T23:59:59.999Z`;
-
-      // 1) Sales for the day (this user's sales)
-      const { data: salesRows } = await supabase
-        .from("sales")
-        .select("id, total")
-        .eq("business_id", business.id)
-        .eq("created_by", user!.id)
-        .eq("status", "final")
-        .gte("created_at", start)
-        .lte("created_at", end);
-
-      const saleIds = (salesRows || []).map((s) => s.id);
-      const totalSales = (salesRows || []).reduce((sum, s) => sum + Number(s.total), 0);
-
-      // 2) Payment breakdown by method
-      const byMethod: Record<string, number> = {};
-      if (saleIds.length) {
-        const { data: pays } = await supabase
-          .from("payments")
-          .select("amount, method, sale_id")
-          .in("sale_id", saleIds);
-        (pays || []).forEach((p: { amount: number; method: string }) => {
-          const k = (p.method || "other").toLowerCase();
-          byMethod[k] = (byMethod[k] || 0) + Number(p.amount || 0);
-        });
-      }
-      setTotals({ totalSales, txCount: saleIds.length, byMethod });
-
-      // 3) Cash account reconciliations — show all bank/cash accounts
-      const { data: accounts } = await supabase
-        .from("bank_accounts")
-        .select("id, name, account_type, balance")
-        .eq("business_id", business.id)
-        .eq("is_active", true)
-        .order("name", { ascending: true });
-
-      const recon: AccountRecon[] = [];
-      for (const acc of accounts || []) {
-        const { data: txs } = await supabase
-          .from("bank_transactions")
-          .select("type, amount, date")
-          .eq("bank_account_id", acc.id)
-          .eq("date", date);
-
-        let inflow = 0, outflow = 0;
-        (txs || []).forEach((t: { type: string; amount: number }) => {
-          const amt = Number(t.amount || 0);
-          if (t.type === "payment_received" || t.type === "deposit" || t.type === "transfer_in") {
-            inflow += amt;
-          } else {
-            outflow += amt;
-          }
-        });
-
-        // Approx opening balance = current - today's net
-        const currentBalance = Number(acc.balance || 0);
-        const net = inflow - outflow;
-        const openingBalance = currentBalance - net;
-        const expected = openingBalance + inflow - outflow;
-        recon.push({
-          id: acc.id,
-          name: acc.name,
-          type: acc.account_type,
-          openingBalance,
-          inflow,
-          outflow,
-          expected,
-          currentBalance,
-          variance: currentBalance - expected,
-        });
-      }
-      setAccountRecon(recon);
-      setRecordsLoading(false);
-    })();
-  }, [business, user, date]);
-
-  const methodList = useMemo(
-    () => Object.entries(totals.byMethod).sort((a, b) => b[1] - a[1]),
-    [totals]
-  );
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -310,139 +190,6 @@ export default function Profile() {
         </Card>
       </div>
 
-      <Separator />
-
-      {/* Daily Records */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-4 flex-wrap">
-          <div>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Receipt className="h-4 w-4" /> Daily Records
-            </CardTitle>
-            <CardDescription>Total sales and cash account reconciliations for the selected day.</CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <Label htmlFor="record-date" className="text-xs text-muted-foreground">Date</Label>
-            <Input
-              id="record-date"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="h-9 w-[170px]"
-            />
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Sales summary cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-lg border bg-card p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Sales</p>
-                <TrendingUp className="h-4 w-4 text-emerald-500" />
-              </div>
-              <p className="text-2xl font-bold mt-2">{KES(totals.totalSales)}</p>
-              <p className="text-xs text-muted-foreground mt-1">{totals.txCount} transaction{totals.txCount === 1 ? "" : "s"}</p>
-            </div>
-            <div className="rounded-lg border bg-card p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Cash Collected</p>
-                <Wallet className="h-4 w-4 text-amber-500" />
-              </div>
-              <p className="text-2xl font-bold mt-2">{KES(totals.byMethod["cash"] || 0)}</p>
-              <p className="text-xs text-muted-foreground mt-1">From your sales today</p>
-            </div>
-            <div className="rounded-lg border bg-card p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">M-Pesa</p>
-                <ArrowDownToLine className="h-4 w-4 text-emerald-600" />
-              </div>
-              <p className="text-2xl font-bold mt-2">{KES(totals.byMethod["mpesa"] || 0)}</p>
-              <p className="text-xs text-muted-foreground mt-1">Mobile money</p>
-            </div>
-            <div className="rounded-lg border bg-card p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Card / Other</p>
-                <Landmark className="h-4 w-4 text-blue-500" />
-              </div>
-              <p className="text-2xl font-bold mt-2">
-                {KES((totals.byMethod["card"] || 0) + (totals.byMethod["bank"] || 0) + (totals.byMethod["other"] || 0))}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">Card, bank & other</p>
-            </div>
-          </div>
-
-          {/* Method breakdown */}
-          {methodList.length > 0 && (
-            <div>
-              <h3 className="text-sm font-semibold mb-2">Payment Methods</h3>
-              <div className="rounded-lg border divide-y">
-                {methodList.map(([method, amount]) => (
-                  <div key={method} className="flex items-center justify-between px-3 py-2 text-sm">
-                    <span className="capitalize">{method}</span>
-                    <span className="font-medium">{KES(amount)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Cash account reconciliation */}
-          <div>
-            <h3 className="text-sm font-semibold mb-2">Cash Account Reconciliations</h3>
-            {recordsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              </div>
-            ) : accountRecon.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">No accounts configured.</p>
-            ) : (
-              <div className="rounded-lg border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Account</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead className="text-right">Opening</TableHead>
-                      <TableHead className="text-right">Inflow</TableHead>
-                      <TableHead className="text-right">Outflow</TableHead>
-                      <TableHead className="text-right">Expected</TableHead>
-                      <TableHead className="text-right">Current</TableHead>
-                      <TableHead className="text-right">Variance</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {accountRecon.map((r) => {
-                      const ok = Math.abs(r.variance) < 0.01;
-                      return (
-                        <TableRow key={r.id}>
-                          <TableCell className="font-medium">{r.name}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="capitalize text-xs">{r.type}</Badge>
-                          </TableCell>
-                          <TableCell className="text-right">{KES(r.openingBalance)}</TableCell>
-                          <TableCell className="text-right text-emerald-600">+{KES(r.inflow)}</TableCell>
-                          <TableCell className="text-right text-destructive">-{KES(r.outflow)}</TableCell>
-                          <TableCell className="text-right font-medium">{KES(r.expected)}</TableCell>
-                          <TableCell className="text-right font-medium">{KES(r.currentBalance)}</TableCell>
-                          <TableCell className="text-right">
-                            <span className={ok ? "text-emerald-600 font-medium" : "text-destructive font-semibold"}>
-                              {KES(r.variance)}
-                            </span>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-            <p className="text-xs text-muted-foreground mt-2">
-              Opening is derived from current balance minus today's net activity. Variance should be zero when all
-              transactions are recorded against their accounts.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

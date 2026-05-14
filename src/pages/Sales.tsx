@@ -8,13 +8,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Eye, Trash2 } from "lucide-react";
 import { useSales, Sale } from "@/hooks/useSales";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import SaleDetailDialog from "@/components/sales/SaleDetailDialog";
 import { format } from "date-fns";
 
 const Sales = () => {
   const { salesQuery, deleteSale } = useSales();
   const { userRole } = useBusiness();
+  const { hasPermission } = usePermissions();
   const isCashier = userRole === "cashier";
+  const canDelete = hasPermission("sales.delete") && !isCashier;
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -111,8 +114,16 @@ const Sales = () => {
                       <Button variant="ghost" size="icon" onClick={() => { setSelectedSale(sale); setDetailOpen(true); }}>
                         <Eye className="h-4 w-4" />
                       </Button>
-                      {!isCashier && (
-                        <Button variant="ghost" size="icon" onClick={() => deleteSale.mutate(sale.id)}>
+                      {canDelete && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            if (!canDelete) return;
+                            if (!confirm("Delete this sale? Inventory will be restored.")) return;
+                            deleteSale.mutate(sale.id);
+                          }}
+                        >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       )}

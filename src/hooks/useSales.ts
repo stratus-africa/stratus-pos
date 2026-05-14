@@ -53,21 +53,38 @@ export interface Payment {
   created_at: string;
 }
 
-export function useCustomers() {
+interface UseCustomersOpts {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+}
+
+export function useCustomers(opts: UseCustomersOpts = {}) {
   const { business } = useBusiness();
   const queryClient = useQueryClient();
+  const page = opts.page ?? 1;
+  const pageSize = opts.pageSize ?? 25;
+  const search = (opts.search ?? "").trim();
 
   const query = useQuery({
-    queryKey: ["customers", business?.id],
+    queryKey: ["customers", business?.id, page, pageSize, search],
     queryFn: async () => {
-      if (!business) return [];
-      const { data, error } = await supabase
+      if (!business) return { rows: [] as Customer[], total: 0 };
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      let q = supabase
         .from("customers")
-        .select("*")
+        .select("*", { count: "exact" })
         .eq("business_id", business.id)
-        .order("name");
+        .order("name")
+        .range(from, to);
+      if (search) {
+        const safe = search.replace(/[%,]/g, " ");
+        q = q.or(`name.ilike.%${safe}%,phone.ilike.%${safe}%,email.ilike.%${safe}%`);
+      }
+      const { data, error, count } = await q;
       if (error) throw error;
-      return data as Customer[];
+      return { rows: (data ?? []) as Customer[], total: count ?? 0 };
     },
     enabled: !!business,
   });
