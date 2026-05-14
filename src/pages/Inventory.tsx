@@ -229,14 +229,14 @@ const Inventory = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {adjustments.length === 0 ? (
+                  {adjustmentsFiltered.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                        No adjustments yet.
+                        {adjSearch ? "No adjustments match your search." : "No adjustments yet."}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    adjustments.map((a) => (
+                    adjustmentsFiltered.map((a) => (
                       <TableRow key={a.id}>
                         <TableCell className="text-muted-foreground">{fmtDate(a.created_at)}</TableCell>
                         <TableCell className="font-medium">{a.products?.name || "—"}</TableCell>
