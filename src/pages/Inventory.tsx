@@ -185,6 +185,56 @@ const Inventory = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="movements">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Stock Movement</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Inventory changes from sales, returns and purchases.
+              </p>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Product</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead>Source</TableHead>
+                    <TableHead className="text-right">Change</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {movements.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                        No stock movement yet.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    movements.map((m) => {
+                      const src = movementSource(m);
+                      return (
+                        <TableRow key={m.id}>
+                          <TableCell className="text-muted-foreground">
+                            {new Date(m.created_at).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })}
+                          </TableCell>
+                          <TableCell className="font-medium">{m.products?.name || "—"}</TableCell>
+                          <TableCell>{m.locations?.name || "—"}</TableCell>
+                          <TableCell><Badge variant={src.variant}>{src.label}</Badge></TableCell>
+                          <TableCell className={`text-right font-medium ${m.quantity_change > 0 ? "text-green-600" : "text-destructive"}`}>
+                            {m.quantity_change > 0 ? "+" : ""}{m.quantity_change}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       <StockAdjustmentDialog
