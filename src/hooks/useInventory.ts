@@ -52,7 +52,10 @@ export function classifyMovement(row: { reason: string; purchase_id?: string | n
   return "other";
 }
 
-export function useInventory(locationId?: string) {
+export function useInventory(
+  locationId?: string,
+  opts: { adjustmentsPage?: PageOpts; movements?: MovementFilters & PageOpts } = {},
+) {
   const { business } = useBusiness();
   const queryClient = useQueryClient();
 
