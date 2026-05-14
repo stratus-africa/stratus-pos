@@ -33,6 +33,7 @@ const SettingsPage = () => {
 
   const tabs: TabDef[] = useMemo(() => [
     { key: "business", label: "Business", icon: <Building2 className="h-4 w-4" />, permission: "settings.view", render: () => <BusinessProfileTab /> },
+    { key: "branding", label: "Branding", icon: <Palette className="h-4 w-4" />, permission: "settings.view", render: () => <BrandingTab /> },
     { key: "locations", label: "Locations", icon: <MapPin className="h-4 w-4" />, permission: "settings.view", render: () => <LocationsTab /> },
     { key: "users", label: "Users", icon: <Users className="h-4 w-4" />, permission: "users.view", render: () => <UserManagementTab /> },
     { key: "roles", label: "Roles", icon: <ShieldCheck className="h-4 w-4" />, permission: "roles.view", render: () => <RolesPermissionsTab /> },
