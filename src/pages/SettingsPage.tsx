@@ -9,35 +9,60 @@ import { RolesPermissionsTab } from "@/components/settings/RolesPermissionsTab";
 import { PaymentAccountsTab } from "@/components/settings/PaymentAccountsTab";
 import { PaymentGatewaysTab } from "@/components/settings/PaymentGatewaysTab";
 import { useSearchParams } from "react-router-dom";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useMemo } from "react";
+
+interface TabDef {
+  key: string;
+  label: string;
+  icon: React.ReactNode;
+  permission: string;
+  render: () => JSX.Element;
+}
+
+const NotAuthorized = () => (
+  <div className="rounded-lg border bg-muted/30 p-8 text-center">
+    <p className="text-sm text-muted-foreground">You don't have permission to view this section.</p>
+  </div>
+);
 
 const SettingsPage = () => {
   const [searchParams] = useSearchParams();
-  const defaultTab = searchParams.get("tab") || "business";
+  const { hasPermission } = usePermissions();
+
+  const tabs: TabDef[] = useMemo(() => [
+    { key: "business", label: "Business", icon: <Building2 className="h-4 w-4" />, permission: "settings.view", render: () => <BusinessProfileTab /> },
+    { key: "locations", label: "Locations", icon: <MapPin className="h-4 w-4" />, permission: "settings.view", render: () => <LocationsTab /> },
+    { key: "users", label: "Users", icon: <Users className="h-4 w-4" />, permission: "users.view", render: () => <UserManagementTab /> },
+    { key: "roles", label: "Roles", icon: <ShieldCheck className="h-4 w-4" />, permission: "roles.view", render: () => <RolesPermissionsTab /> },
+    { key: "payments", label: "Payment Accounts", icon: <Wallet className="h-4 w-4" />, permission: "banking.view", render: () => <PaymentAccountsTab /> },
+    { key: "gateways", label: "Payment Gateways", icon: <Smartphone className="h-4 w-4" />, permission: "settings.edit", render: () => <PaymentGatewaysTab /> },
+    { key: "receipt", label: "Receipt", icon: <Receipt className="h-4 w-4" />, permission: "settings.edit", render: () => <ReceiptSettingsTab /> },
+    { key: "subscription", label: "Plan", icon: <CreditCard className="h-4 w-4" />, permission: "settings.view", render: () => <SubscriptionTab /> },
+  ], []);
+
+  const allowed = tabs.filter((t) => hasPermission(t.permission));
+  const requested = searchParams.get("tab");
+  const defaultTab = (requested && allowed.find((t) => t.key === requested)?.key) || allowed[0]?.key || "business";
+
+  if (allowed.length === 0) return <NotAuthorized />;
 
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Settings</h1>
       <Tabs defaultValue={defaultTab} className="flex flex-col md:flex-row gap-4 md:gap-6">
         <TabsList className="text-muted-foreground flex md:flex-col h-auto w-full md:w-52 bg-muted rounded-lg p-1.5 shrink-0 md:items-start md:justify-start overflow-x-auto md:overflow-visible flex-nowrap">
-          <TabsTrigger value="business" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0"><Building2 className="h-4 w-4" />Business</TabsTrigger>
-          <TabsTrigger value="locations" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0"><MapPin className="h-4 w-4" />Locations</TabsTrigger>
-          <TabsTrigger value="users" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0"><Users className="h-4 w-4" />Users</TabsTrigger>
-          <TabsTrigger value="roles" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0"><ShieldCheck className="h-4 w-4" />Roles</TabsTrigger>
-          <TabsTrigger value="payments" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0"><Wallet className="h-4 w-4" />Payment Accounts</TabsTrigger>
-          <TabsTrigger value="gateways" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0"><Smartphone className="h-4 w-4" />Payment Gateways</TabsTrigger>
-          <TabsTrigger value="receipt" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0"><Receipt className="h-4 w-4" />Receipt</TabsTrigger>
-          <TabsTrigger value="subscription" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0"><CreditCard className="h-4 w-4" />Plan</TabsTrigger>
+          {allowed.map((t) => (
+            <TabsTrigger key={t.key} value={t.key} className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
+              {t.icon}{t.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <div className="flex-1 min-w-0">
-          <TabsContent value="business" className="mt-0"><BusinessProfileTab /></TabsContent>
-          <TabsContent value="locations" className="mt-0"><LocationsTab /></TabsContent>
-          <TabsContent value="users" className="mt-0"><UserManagementTab /></TabsContent>
-          <TabsContent value="roles" className="mt-0"><RolesPermissionsTab /></TabsContent>
-          <TabsContent value="payments" className="mt-0"><PaymentAccountsTab /></TabsContent>
-          <TabsContent value="gateways" className="mt-0"><PaymentGatewaysTab /></TabsContent>
-          <TabsContent value="receipt" className="mt-0"><ReceiptSettingsTab /></TabsContent>
-          <TabsContent value="subscription" className="mt-0"><SubscriptionTab /></TabsContent>
+          {allowed.map((t) => (
+            <TabsContent key={t.key} value={t.key} className="mt-0">{t.render()}</TabsContent>
+          ))}
         </div>
       </Tabs>
     </div>
