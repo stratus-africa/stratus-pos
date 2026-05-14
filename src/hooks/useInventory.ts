@@ -120,8 +120,10 @@ export function useInventory(locationId?: string) {
       let q = supabase
         .from("stock_adjustments")
         .select("*, products(name), locations(name)")
+        .is("purchase_id", null)
+        .not("reason", "in", `(${MOVEMENT_REASONS.map((r) => `"${r}"`).join(",")})`)
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(100);
       if (locationId) q = q.eq("location_id", locationId);
       const { data, error } = await q;
       if (error) throw error;
@@ -130,5 +132,23 @@ export function useInventory(locationId?: string) {
     enabled: !!business,
   });
 
-  return { inventoryQuery, adjustStock, adjustmentsQuery };
+  const movementsQuery = useQuery({
+    queryKey: ["stock_movements", business?.id, locationId],
+    queryFn: async () => {
+      if (!business) return [];
+      let q = supabase
+        .from("stock_adjustments")
+        .select("*, products(name), locations(name)")
+        .or(`reason.in.(${MOVEMENT_REASONS.join(",")}),purchase_id.not.is.null`)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (locationId) q = q.eq("location_id", locationId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data as StockAdjustment[];
+    },
+    enabled: !!business,
+  });
+
+  return { inventoryQuery, adjustStock, adjustmentsQuery, movementsQuery };
 }
