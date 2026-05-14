@@ -92,7 +92,7 @@ const Inventory = () => {
     downloadCsv(
       `stock-adjustments-${new Date().toISOString().slice(0, 10)}.csv`,
       ["Date", "Product", "Location", "Change", "Reason", "Notes"],
-      adjustments.map((a: StockAdjustment) => [fmtDate(a.created_at), a.products?.name || "", a.locations?.name || "", a.quantity_change, a.reason, a.notes || ""]),
+      adjustmentsFiltered.map((a: StockAdjustment) => [fmtDate(a.created_at), a.products?.name || "", a.locations?.name || "", a.quantity_change, a.reason, a.notes || ""]),
     );
   };
 
@@ -100,7 +100,7 @@ const Inventory = () => {
     downloadCsv(
       `stock-movement-${new Date().toISOString().slice(0, 10)}.csv`,
       ["Date", "Product", "Location", "Source", "Change"],
-      movements.map((m: StockAdjustment) => [fmtDate(m.created_at), m.products?.name || "", m.locations?.name || "", sourceMeta[classifyMovement(m)].label, m.quantity_change]),
+      movementsFiltered.map((m: StockAdjustment) => [fmtDate(m.created_at), m.products?.name || "", m.locations?.name || "", sourceMeta[classifyMovement(m)].label, m.quantity_change]),
     );
   };
   return (
