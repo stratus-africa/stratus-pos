@@ -263,13 +263,14 @@ export function BusinessProfileTab() {
         </CardContent>
       </Card>
 
-      {/* Inventory rules */}
+      {/* Business Rules */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <PackageOpen className="h-5 w-5" />
-            Inventory Rules
+            Business Rules
           </CardTitle>
+          <CardDescription>Inventory and point of sale safeguards.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
@@ -279,21 +280,12 @@ export function BusinessProfileTab() {
             </div>
             <Switch checked={preventOverselling} onCheckedChange={setPreventOverselling} />
           </div>
-        </CardContent>
-      </Card>
 
-      {/* POS rules */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ShoppingCart className="h-5 w-5" />
-            Point of Sale Rules
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          <Separator />
+
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-base">Require manager approval to remove a scanned item</Label>
+              <Label className="text-base flex items-center gap-2"><ShoppingCart className="h-4 w-4" /> Require manager approval to remove a scanned item</Label>
               <p className="text-sm text-muted-foreground">
                 Cashiers must enter manager credentials before removing an item already added to the cart.
               </p>
