@@ -69,6 +69,7 @@ const Inventory = () => {
         <TabsList>
           <TabsTrigger value="stock"><Warehouse className="mr-1 h-4 w-4" /> Stock Levels</TabsTrigger>
           <TabsTrigger value="adjustments"><ClipboardList className="mr-1 h-4 w-4" /> Adjustments</TabsTrigger>
+          <TabsTrigger value="movements"><ArrowLeftRight className="mr-1 h-4 w-4" /> Stock Movement</TabsTrigger>
         </TabsList>
 
         <TabsContent value="stock" className="space-y-4">
