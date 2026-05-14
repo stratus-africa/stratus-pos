@@ -235,34 +235,6 @@ export function BusinessProfileTab() {
         </CardContent>
       </Card>
 
-      {/* Appearance */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Palette className="h-5 w-5" />
-            Appearance
-          </CardTitle>
-          <CardDescription>Pick a brand color. Alternating table rows use a lighter shade of this color.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {Object.values(THEMES).map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => { setThemeColor(t.key); applyTheme(t.key); }}
-                className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-colors ${
-                  themeColor === t.key ? "border-primary ring-2 ring-primary/20" : "border-border hover:border-primary/40"
-                }`}
-              >
-                <span className="h-8 w-8 rounded-full border" style={{ backgroundColor: t.swatch }} />
-                <span className="text-sm font-medium">{t.label}</span>
-              </button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Business Rules */}
       <Card>
         <CardHeader>

@@ -1,6 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, MapPin, Users, Receipt, CreditCard, ShieldCheck, Wallet, Smartphone } from "lucide-react";
+import { Building2, MapPin, Users, Receipt, CreditCard, ShieldCheck, Wallet, Smartphone, Palette } from "lucide-react";
 import { BusinessProfileTab } from "@/components/settings/BusinessProfileTab";
+import { BrandingTab } from "@/components/settings/BrandingTab";
 import { LocationsTab } from "@/components/settings/LocationsTab";
 import { UserManagementTab } from "@/components/settings/UserManagementTab";
 import { ReceiptSettingsTab } from "@/components/settings/ReceiptSettingsTab";
@@ -32,6 +33,7 @@ const SettingsPage = () => {
 
   const tabs: TabDef[] = useMemo(() => [
     { key: "business", label: "Business", icon: <Building2 className="h-4 w-4" />, permission: "settings.view", render: () => <BusinessProfileTab /> },
+    { key: "branding", label: "Branding", icon: <Palette className="h-4 w-4" />, permission: "settings.view", render: () => <BrandingTab /> },
     { key: "locations", label: "Locations", icon: <MapPin className="h-4 w-4" />, permission: "settings.view", render: () => <LocationsTab /> },
     { key: "users", label: "Users", icon: <Users className="h-4 w-4" />, permission: "users.view", render: () => <UserManagementTab /> },
     { key: "roles", label: "Roles", icon: <ShieldCheck className="h-4 w-4" />, permission: "roles.view", render: () => <RolesPermissionsTab /> },
