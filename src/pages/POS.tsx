@@ -268,7 +268,7 @@ const POS = () => {
                       {p.sku && <span className="text-xs text-muted-foreground">{p.sku}</span>}
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
-                      <span className="font-semibold text-primary text-sm min-w-[80px] text-right">
+                      <span className="font-semibold text-primary min-w-[80px] text-right text-xl">
                         KES {Number(p.selling_price).toLocaleString()}
                       </span>
                     </div>
