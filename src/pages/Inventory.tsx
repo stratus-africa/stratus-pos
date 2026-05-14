@@ -44,8 +44,7 @@ const Inventory = () => {
   const [adjPage, setAdjPage] = useState(1);
   const [adjSearch, setAdjSearch] = useState("");
   const [mvPage, setMvPage] = useState(1);
-  const [mvFrom, setMvTo_unused_placeholder] = useState<string>("");
-  const [mvFromVal, setMvFrom] = [adjSearch, setAdjSearch]; // dummy to avoid lint, removed below
+  const [mvFrom, setMvFrom] = useState<string>("");
   const [mvTo, setMvTo] = useState<string>("");
   const [mvSource, setMvSource] = useState<MovementSource>("all");
   const [mvSearch, setMvSearch] = useState("");
