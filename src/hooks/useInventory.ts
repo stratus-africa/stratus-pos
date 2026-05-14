@@ -22,9 +22,13 @@ export interface StockAdjustment {
   notes: string | null;
   created_by: string;
   created_at: string;
+  purchase_id?: string | null;
   products?: { name: string } | null;
   locations?: { name: string } | null;
 }
+
+/** Reasons written by automated flows (sales). Excluded from the manual Adjustments tab. */
+const MOVEMENT_REASONS = ["sale"];
 
 export function useInventory(locationId?: string) {
   const { business } = useBusiness();
