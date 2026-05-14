@@ -279,6 +279,18 @@ const Inventory = () => {
               </div>
               <div className="flex flex-wrap gap-2">
                 <div className="flex flex-col">
+                  <label className="text-xs text-muted-foreground mb-1">Product</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search product..."
+                      value={mvSearch}
+                      onChange={(e) => setMvSearch(e.target.value)}
+                      className="pl-9 h-9 w-[220px]"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col">
                   <label className="text-xs text-muted-foreground mb-1">From</label>
                   <Input type="date" value={mvFrom} onChange={(e) => { setMvFrom(e.target.value); setMvPage(1); }} className="h-9 w-[160px]" />
                 </div>
