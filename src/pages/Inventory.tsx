@@ -43,11 +43,13 @@ const Inventory = () => {
 
   const [adjPage, setAdjPage] = useState(1);
   const [adjSearch, setAdjSearch] = useState("");
+  const [adjSort, setAdjSort] = useState<SortKey>("date_desc");
   const [mvPage, setMvPage] = useState(1);
   const [mvFrom, setMvFrom] = useState<string>("");
   const [mvTo, setMvTo] = useState<string>("");
   const [mvSource, setMvSource] = useState<MovementSource>("all");
   const [mvSearch, setMvSearch] = useState("");
+  const [mvSort, setMvSort] = useState<SortKey>("date_desc");
 
   const effectiveLocationId = locationFilter === "all" ? undefined : locationFilter;
   const { inventoryQuery, adjustStock, adjustmentsQuery, movementsQuery } = useInventory(effectiveLocationId, {
