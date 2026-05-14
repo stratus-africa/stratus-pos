@@ -268,7 +268,7 @@ const POS = () => {
                       {p.sku && <span className="text-xs text-muted-foreground">{p.sku}</span>}
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
-                      <span className="font-semibold text-primary text-sm min-w-[80px] text-right">
+                      <span className="font-semibold text-primary min-w-[80px] text-right text-xl">
                         KES {Number(p.selling_price).toLocaleString()}
                       </span>
                     </div>
@@ -375,18 +375,18 @@ const POS = () => {
             )}
             {(!isMobile || mobileCartExpanded) && pos.cart.length > 0 && (
               <div className="space-y-1">
-                <div className="flex justify-between text-sm"><span className="text-muted-foreground">Subtotal</span><span>KES {pos.cartSubtotal.toLocaleString()}</span></div>
+                <div className="flex justify-between text-2xl"><span className="text-muted-foreground">Subtotal</span><span>KES {pos.cartSubtotal.toLocaleString()}</span></div>
                 {pos.cartTax > 0 && (
-                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">VAT (incl.)</span><span>KES {Math.round(pos.cartTax).toLocaleString()}</span></div>
+                  <div className="flex justify-between text-2xl"><span className="text-muted-foreground">VAT (incl.)</span><span>KES {Math.round(pos.cartTax).toLocaleString()}</span></div>
                 )}
                 <Separator />
-                <div className="flex justify-between font-bold text-lg"><span>Total</span><span>KES {pos.cartTotal.toLocaleString()}</span></div>
+                <div className="flex justify-between font-bold text-lg"><span>Total</span><span className="text-5xl">KES {pos.cartTotal.toLocaleString()}</span></div>
               </div>
             )}
             <div className="grid grid-cols-2 gap-1.5">
               <Button
                 variant="default"
-                className="flex flex-col items-center gap-0.5 h-auto py-3 bg-[hsl(5,75%,48%)] hover:bg-[hsl(5,75%,42%)] text-white border-transparent"
+                className="flex flex-col items-center gap-0.5 h-auto py-3 bg-[hsl(5,75%,48%)] hover:bg-[hsl(5,75%,42%)] text-white border-transparent text-lg font-semibold"
                 disabled={pos.cart.length === 0}
                 onClick={() => { setInitialPaymentMethod("cash"); setPaymentOpen(true); }}
               >
@@ -395,7 +395,7 @@ const POS = () => {
               </Button>
               <Button
                 variant="outline"
-                className="flex flex-col items-center gap-0.5 h-auto py-3 bg-[hsl(130,55%,25%)] text-white border-[hsl(130,55%,25%)] hover:bg-[hsl(130,55%,20%)]"
+                className="flex flex-col items-center gap-0.5 h-auto py-3 bg-[hsl(130,55%,25%)] text-white border-[hsl(130,55%,25%)] hover:bg-[hsl(130,55%,20%)] text-lg font-semibold"
                 disabled={pos.cart.length === 0}
                 onClick={() => { setInitialPaymentMethod("mpesa"); setPaymentOpen(true); }}
               >
