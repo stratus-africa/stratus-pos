@@ -61,6 +61,13 @@ const Inventory = () => {
   const movements = movementsQuery.data?.rows ?? [];
   const mvCount = movementsQuery.data?.count ?? 0;
 
+  const adjustmentsFiltered = adjSearch
+    ? adjustments.filter((a) => (a.products?.name || "").toLowerCase().includes(adjSearch.toLowerCase()))
+    : adjustments;
+  const movementsFiltered = mvSearch
+    ? movements.filter((m) => (m.products?.name || "").toLowerCase().includes(mvSearch.toLowerCase()))
+    : movements;
+
   const adjPages = Math.max(1, Math.ceil(adjCount / PAGE_SIZE));
   const mvPages = Math.max(1, Math.ceil(mvCount / PAGE_SIZE));
 
