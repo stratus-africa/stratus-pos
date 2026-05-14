@@ -117,19 +117,21 @@ export function AppSidebar() {
   const { hasPermission } = usePermissions();
   const currentPath = location.pathname;
 
+  // Permission-first: an item with a permission key is shown when that permission
+  // is granted, regardless of the user's role. Items without a permission key
+  // (role-specific aliases like "My Dashboard") still fall back to the role list.
+  const isVisible = (item: NavItem) => {
+    if (item.featureKey && !hasFeatureKey(item.featureKey)) return false;
+    if (item.permission) return hasPermission(item.permission);
+    return !!userRole && item.roles.includes(userRole);
+  };
+
   const filterByRole = (items: NavItem[]) =>
     items
-      .filter((item) => userRole && item.roles.includes(userRole))
-      .filter((item) => !item.featureKey || hasFeatureKey(item.featureKey))
-      .filter((item) => !item.permission || hasPermission(item.permission))
+      .filter(isVisible)
       .map((item) => ({
         ...item,
-        children: item.children?.filter(
-          (c) =>
-            (!c.featureKey || hasFeatureKey(c.featureKey)) &&
-            userRole && c.roles.includes(userRole) &&
-            (!c.permission || hasPermission(c.permission)),
-        ),
+        children: item.children?.filter(isVisible),
       }));
 
   const renderNav = (items: NavItem[], label: string) => {
