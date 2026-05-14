@@ -82,6 +82,11 @@ export default function SuperAdminTenantDetail() {
   const [resetMode, setResetMode] = useState<"transactional" | "full">("transactional");
   const [resetConfirm, setResetConfirm] = useState("");
   const [resetting, setResetting] = useState(false);
+  const [resetScopes, setResetScopes] = useState<string[]>([
+    "sales", "purchases", "expenses", "bank_transactions", "mpesa_transactions",
+    "stock_adjustments", "journal_entries", "pos_sessions", "audit_logs",
+    "product_batches", "inventory_reset",
+  ]);
 
   useEffect(() => {
     if (!id) return;
