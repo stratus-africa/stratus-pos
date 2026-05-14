@@ -583,6 +583,60 @@ export default function SuperAdminTenantDetail() {
               </label>
             </RadioGroup>
 
+            {resetMode === "transactional" && (
+              <div className="rounded-lg border p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-semibold uppercase text-muted-foreground">Select records to reset</div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="text-xs text-primary hover:underline"
+                      onClick={() => setResetScopes([
+                        "sales","purchases","expenses","bank_transactions","mpesa_transactions",
+                        "stock_adjustments","journal_entries","pos_sessions","audit_logs",
+                        "product_batches","inventory_reset",
+                      ])}
+                    >Select all</button>
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground hover:underline"
+                      onClick={() => setResetScopes([])}
+                    >Clear</button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                  {[
+                    { key: "sales", label: "Sales (incl. items + payments)" },
+                    { key: "purchases", label: "Purchases (incl. items)" },
+                    { key: "expenses", label: "Expenses" },
+                    { key: "bank_transactions", label: "Bank transactions" },
+                    { key: "mpesa_transactions", label: "M-Pesa transactions" },
+                    { key: "stock_adjustments", label: "Stock adjustments" },
+                    { key: "journal_entries", label: "Journal entries" },
+                    { key: "pos_sessions", label: "POS sessions" },
+                    { key: "audit_logs", label: "Audit logs" },
+                    { key: "product_batches", label: "Product batches" },
+                    { key: "inventory_reset", label: "Reset inventory to zero" },
+                  ].map((opt) => {
+                    const checked = resetScopes.includes(opt.key);
+                    return (
+                      <label key={opt.key} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(v) => {
+                            setResetScopes((prev) =>
+                              v ? Array.from(new Set([...prev, opt.key])) : prev.filter((s) => s !== opt.key),
+                            );
+                          }}
+                        />
+                        <span>{opt.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <UILabel htmlFor="reset-confirm" className="text-xs">Type <span className="font-mono font-semibold">RESET</span> to confirm</UILabel>
               <Input
