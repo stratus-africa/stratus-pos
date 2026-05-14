@@ -195,6 +195,31 @@ export default function SuperAdminTenantDetail() {
     setActing(null);
   };
 
+  const runReset = async () => {
+    if (!biz) return;
+    if (resetConfirm.trim() !== "RESET") {
+      toast.error("Type RESET to confirm");
+      return;
+    }
+    setResetting(true);
+    const { data, error } = await supabase.functions.invoke("super-admin-reset-tenant", {
+      body: { business_id: biz.id, mode: resetMode, confirm_text: resetConfirm.trim() },
+    });
+    setResetting(false);
+    if (error || (data as { error?: string })?.error) {
+      toast.error((data as { error?: string })?.error || error?.message || "Reset failed");
+      return;
+    }
+    toast.success(
+      resetMode === "full"
+        ? `Tenant fully reset — configuration and records cleared.`
+        : `Transactional records cleared for ${biz.name}.`,
+    );
+    setResetOpen(false);
+    setResetConfirm("");
+    fetchAll();
+  };
+
   const deleteTenant = async () => {
     if (!biz) return;
     if (!confirm(`Delete "${biz.name}" and ALL its data? This cannot be undone.`)) return;
