@@ -214,6 +214,15 @@ const Inventory = () => {
                     className="pl-9 h-9 w-[220px]"
                   />
                 </div>
+                <Select value={adjSort} onValueChange={(v) => { setAdjSort(v as SortKey); setAdjPage(1); }}>
+                  <SelectTrigger className="h-9 w-[170px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date_desc">Date (newest)</SelectItem>
+                    <SelectItem value="date_asc">Date (oldest)</SelectItem>
+                    <SelectItem value="product_asc">Product (A–Z)</SelectItem>
+                    <SelectItem value="product_desc">Product (Z–A)</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button variant="outline" size="sm" onClick={exportAdjustments} disabled={adjustmentsFiltered.length === 0}>
                   <Download className="mr-2 h-4 w-4" /> Export CSV
                 </Button>
