@@ -386,7 +386,7 @@ const POS = () => {
             <div className="grid grid-cols-2 gap-1.5">
               <Button
                 variant="default"
-                className="flex flex-col items-center gap-0.5 h-auto py-3 bg-[hsl(5,75%,48%)] hover:bg-[hsl(5,75%,42%)] text-white border-transparent"
+                className="flex flex-col items-center gap-0.5 h-auto py-3 bg-[hsl(5,75%,48%)] hover:bg-[hsl(5,75%,42%)] text-white border-transparent text-lg font-semibold"
                 disabled={pos.cart.length === 0}
                 onClick={() => { setInitialPaymentMethod("cash"); setPaymentOpen(true); }}
               >
