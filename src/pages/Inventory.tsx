@@ -331,14 +331,14 @@ const Inventory = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {movements.length === 0 ? (
+                  {movementsFiltered.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                         No stock movement matching the current filters.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    movements.map((m) => {
+                    movementsFiltered.map((m) => {
                       const src = sourceMeta[classifyMovement(m)];
                       return (
                         <TableRow key={m.id}>
