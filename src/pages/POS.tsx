@@ -395,7 +395,7 @@ const POS = () => {
               </Button>
               <Button
                 variant="outline"
-                className="flex flex-col items-center gap-0.5 h-auto py-3 bg-[hsl(130,55%,25%)] text-white border-[hsl(130,55%,25%)] hover:bg-[hsl(130,55%,20%)]"
+                className="flex flex-col items-center gap-0.5 h-auto py-3 bg-[hsl(130,55%,25%)] text-white border-[hsl(130,55%,25%)] hover:bg-[hsl(130,55%,20%)] text-lg font-semibold"
                 disabled={pos.cart.length === 0}
                 onClick={() => { setInitialPaymentMethod("mpesa"); setPaymentOpen(true); }}
               >
