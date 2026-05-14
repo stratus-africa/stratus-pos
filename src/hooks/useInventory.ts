@@ -171,16 +171,20 @@ export function useInventory(
   const mvFilters = opts.movements ?? {};
   const mvPage = Math.max(1, mvFilters.page ?? 1);
   const mvPageSize = mvFilters.pageSize ?? 25;
+  const mvSort: SortKey = mvFilters.sort ?? "date_desc";
   const movementsQuery = useQuery({
-    queryKey: ["stock_movements", business?.id, locationId, mvFilters.from, mvFilters.to, mvFilters.source, mvPage, mvPageSize],
+    queryKey: ["stock_movements", business?.id, locationId, mvFilters.from, mvFilters.to, mvFilters.source, mvPage, mvPageSize, mvSort],
     queryFn: async () => {
       if (!business) return { rows: [] as StockAdjustment[], count: 0 };
       const fromIdx = (mvPage - 1) * mvPageSize;
       const toIdx = fromIdx + mvPageSize - 1;
       let q = supabase
         .from("stock_adjustments")
-        .select("*, products(name), locations(name)", { count: "exact" })
-        .order("created_at", { ascending: false });
+        .select("*, products(name), locations(name)", { count: "exact" });
+      if (mvSort === "date_asc") q = q.order("created_at", { ascending: true });
+      else if (mvSort === "product_asc") q = q.order("product_id", { ascending: true }).order("created_at", { ascending: false });
+      else if (mvSort === "product_desc") q = q.order("product_id", { ascending: false }).order("created_at", { ascending: false });
+      else q = q.order("created_at", { ascending: false });
 
       // Source filter
       const src = mvFilters.source ?? "all";
