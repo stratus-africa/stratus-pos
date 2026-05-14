@@ -1,85 +1,41 @@
-# Implementation Plan
+# Plan: Security lint fixes + roles & permissions hardening
 
-Seven changes across DB, hooks, and UI. Grouped for clarity.
+Note on linter severity: the latest scan returned **34 WARN** issues (no ERROR/CRITICAL). I'll fix every WARN and re-run to confirm clean.
 
-## 1. Cashier RLS hardening on receipts (sale_items, payments)
+## 1. Database migration — `fix_security_definer_and_search_path.sql`
 
-The receipt view loads `sale_items` and `payments` for any sale a user can see. Cashier select on `sales` is already restricted to `created_by = auth.uid()`, but `sale_items`/`payments` policies join on `sales.business_id` and don't re-check the cashier filter. Tighten:
+- Add `SET search_path = public, pg_catalog` to the 4 pgmq helpers: `enqueue_email`, `read_email_batch`, `delete_email`, `move_to_dlq`.
+- Revoke EXECUTE from `public`, `anon`, `authenticated` for trigger-only definers: `handle_new_user`, `update_updated_at_column`, `delete_adjustments_for_purchase`, `delete_bank_txns_for_sale`, `enforce_max_products`, `restore_inventory_on_sale_delete`. Triggers run as table owner, no caller perm needed.
+- Revoke EXECUTE from `public`, `anon` for the pgmq helpers (keep service_role only).
+- Revoke EXECUTE from `public`, `anon` for RLS helpers that must remain callable by `authenticated`: `has_role`, `is_super_admin`, `get_user_business_id`, `get_business_max_products`, `has_active_subscription`, `decrement_batch_quantity`. Grant explicit EXECUTE to `authenticated`.
+- Add RESTRICTIVE policies blocking cashiers from UPDATE/DELETE on `payments` and UPDATE on `sale_items` (sale_items DELETE for cashiers is already restricted).
 
-- Add **RESTRICTIVE** policies on `sale_items`:
-  - `sale_items_cashier_select_own` — cashiers may select only when parent `sales.created_by = auth.uid()`
-  - `sale_items_cashier_no_update` — block UPDATE for cashiers (table currently has no UPDATE allowed anyway; add explicitly for safety in case someone adds one)
-- Add RESTRICTIVE policies on `payments`:
-  - `payments_cashier_select_own` — same pattern
-  - `payments_cashier_no_delete` / `payments_cashier_no_insert_other` — cashiers can insert payments only for their own sales
-- Existing `sale_items_cashier_no_delete` already covers deletes.
+## 2. Cashier reconciliation — `src/pages/CashierDashboard.tsx`
 
-## 2. Sale delete → reverse stock + remove bank txn
+Add a "Sales vs Payments Reconciliation" card: compute `salesTotal - paymentsTotal`. If `|diff| > 0.01`, show an amber alert badge with the breakdown by method.
 
-Update the `deleteSale` mutation in `src/hooks/useSales.ts`:
-- Before deleting `sale_items`, fetch them (product_id, quantity, location_id from sale).
-- For each item, increment `inventory.quantity` for `(product_id, sales.location_id)` by the sold quantity.
-- Bank transactions are already removed by trigger `delete_bank_txns_for_sale`; keep, but also defensively delete by `sale_id`.
+## 3. Effective access panel — `src/components/settings/RolesPermissionsTab.tsx`
 
-Permission gate: only allow when `hasPermission('sales.delete')`.
+Add an "Effective Access" summary at the top, listing each role with the modules and routes they can reach (View at minimum), derived from the live permission state plus `moduleCatalog`. Includes report keys and route paths from a small `roleRouteMap`.
 
-## 3. Customers server-side pagination + search
+## 4. Nested-route gating — `src/App.tsx` + `src/pages/SettingsPage.tsx`
 
-`src/hooks/useSales.ts::useCustomers` currently fetches all rows. Refactor to:
-- Accept `{ page, pageSize, search }` params.
-- Use Supabase `.range()` + `.ilike('name', %q%)` (and OR phone) with `count: 'exact'`.
-- Return `{ rows, total }`.
+- Already permission-gated at parent level. Add a `<PermissionTab>` wrapper in `SettingsPage` so each settings tab (`users`, `roles`, `payments`, `gateways`, etc.) is hidden when the user lacks the relevant permission key (e.g. `users.view`, `roles.view`, `settings.edit` for payments/gateways/receipt). Sub-tabs without permission render a "Not authorized" state.
 
-Update `src/pages/Customers.tsx` to:
-- Maintain `page`, `pageSize=25`, debounced `search` state.
-- Render pagination controls (Prev / Next, page X of Y, total).
-- Remove client-side `.filter`.
+## 5. Roles & Permissions cascade rules — `src/components/settings/RolesPermissionsTab.tsx`
 
-## 4. Cashier UI gating on sales
+When toggling a permission for a module:
+- Enabling `edit` or `delete` auto-enables `view` and `create`.
+- Disabling `view` auto-disables `create`, `edit`, `delete`.
+Implement in the toggle handler before persisting the row set.
 
-In `src/pages/Sales.tsx`:
-- Use `usePermissions()`.
-- Hide delete buttons unless `sales.delete`.
-- Hide edit buttons unless `sales.edit`.
-- Guard the actual `deleteSale.mutate` call with the permission check (defense in depth).
-- Same for any bulk actions or detail-dialog actions.
+## 6. Re-run linter
 
-In `src/components/sales/SaleDetailDialog.tsx` (already has no edit/delete) — verify and add permission-gated reprint/refund if present.
+After migration approval, run `supabase--linter` again to confirm the WARN count drops to 0 and report the result.
 
-## 5. Move "Daily records" to Dashboard for cashiers
+## Files
 
-Cashier currently sees their daily record summary on `/profile`. Move that block:
-- Extract the daily-records section from `src/pages/Profile.tsx` into `src/components/dashboard/CashierDailyRecords.tsx`.
-- Render it on `src/pages/Index.tsx` (Dashboard) when `userRole === 'cashier'`.
-- Remove from Profile.
+- New: `supabase/migrations/<ts>_fix_security_definer_search_path.sql`
+- Edit: `src/pages/CashierDashboard.tsx`, `src/components/settings/RolesPermissionsTab.tsx`, `src/pages/SettingsPage.tsx`, `src/App.tsx` (minor)
 
-## 6. Merge Tax tab into Business Profile / Regional Settings
-
-- Remove the standalone Tax tab from `src/pages/SettingsPage.tsx` tab list.
-- Move the contents of `src/components/settings/TaxSettingsTab.tsx` (VAT enabled, default tax rate) into `src/components/settings/BusinessProfileTab.tsx` under a "Tax & Regional Settings" section (alongside currency/timezone).
-- Delete the now-unused tab registration. Keep `TaxSettingsTab.tsx` file but no longer route to it (or delete).
-
-## 7. Wire Roles & Permissions enforcement granularly
-
-The `usePermissions` hook already returns the effective set, but most pages don't check per-action. Apply across modules listed in `moduleCatalog`:
-
-- For each list page (Products, Inventory, Customers, Suppliers, Purchases, Expenses, Sales):
-  - Hide "Add" button unless `<module>.create`
-  - Hide "Edit" buttons unless `<module>.edit`
-  - Hide "Delete" buttons unless `<module>.delete`
-  - Guard mutation calls behind the same checks.
-- POS create gated by `pos.create`.
-- Settings sub-tabs gated by `settings.edit` / `users.*` / `roles.*`.
-
-Centralize via a small `<Can permission="...">` wrapper in `src/components/Can.tsx` to keep diffs readable.
-
-## Technical notes
-
-- Use migration tool for RLS changes (#1).
-- All other changes are app code edits.
-- No schema additions needed; `role_permissions` already exists.
-
-## Out of scope
-
-- Changing the look of dashboard cards beyond inserting the cashier daily-records block.
-- Refactoring the existing permission storage (already in `role_permissions`).
+No schema changes beyond function/permission grants; no RLS removals.
