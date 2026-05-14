@@ -77,6 +77,10 @@ export default function SuperAdminTenantDetail() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<typeof tenantUsers[number] | null>(null);
   const [pwUser, setPwUser] = useState<typeof tenantUsers[number] | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetMode, setResetMode] = useState<"transactional" | "full">("transactional");
+  const [resetConfirm, setResetConfirm] = useState("");
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
