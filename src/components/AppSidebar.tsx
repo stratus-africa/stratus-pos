@@ -62,12 +62,14 @@ interface NavItem {
   featureKey?: string;
   /** Granular permission key (e.g. "products.view") required to see this item. */
   permission?: string;
+  /** Hide for these roles even if permission is granted (used to avoid duplicates with role-specific aliases). */
+  hideForRoles?: AppRole[];
   /** Optional sub-items rendered under this item as a collapsible submenu. */
   children?: NavItem[];
 }
 
 const mainNav: NavItem[] = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["admin", "manager"], featureKey: "dashboard", permission: "dashboard.view" },
+  { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["admin", "manager"], featureKey: "dashboard", permission: "dashboard.view", hideForRoles: ["cashier"] },
   { title: "My Dashboard", url: "/", icon: LayoutDashboard, roles: ["cashier"] },
   { title: "POS", url: "/pos", icon: ShoppingCart, roles: ["admin", "manager", "cashier"], featureKey: "pos", permission: "pos.view" },
   { title: "My Transactions", url: "/sales", icon: Receipt, roles: ["cashier"], featureKey: "sales", permission: "sales.view" },
@@ -80,7 +82,7 @@ const inventoryNav: NavItem[] = [
 
 const transactionNav: NavItem[] = [
   {
-    title: "Sales", url: "/sales", icon: Receipt, roles: ["admin", "manager"], featureKey: "sales", permission: "sales.view",
+    title: "Sales", url: "/sales", icon: Receipt, roles: ["admin", "manager"], featureKey: "sales", permission: "sales.view", hideForRoles: ["cashier"],
     children: [
       { title: "Customers", url: "/customers", icon: Users, roles: ["admin", "manager"], featureKey: "customers", permission: "customers.view" },
     ],
@@ -117,19 +119,22 @@ export function AppSidebar() {
   const { hasPermission } = usePermissions();
   const currentPath = location.pathname;
 
+  // Permission-first: an item with a permission key is shown when that permission
+  // is granted, regardless of the user's role. Items without a permission key
+  // (role-specific aliases like "My Dashboard") still fall back to the role list.
+  const isVisible = (item: NavItem) => {
+    if (item.featureKey && !hasFeatureKey(item.featureKey)) return false;
+    if (userRole && item.hideForRoles?.includes(userRole)) return false;
+    if (item.permission) return hasPermission(item.permission);
+    return !!userRole && item.roles.includes(userRole);
+  };
+
   const filterByRole = (items: NavItem[]) =>
     items
-      .filter((item) => userRole && item.roles.includes(userRole))
-      .filter((item) => !item.featureKey || hasFeatureKey(item.featureKey))
-      .filter((item) => !item.permission || hasPermission(item.permission))
+      .filter(isVisible)
       .map((item) => ({
         ...item,
-        children: item.children?.filter(
-          (c) =>
-            (!c.featureKey || hasFeatureKey(c.featureKey)) &&
-            userRole && c.roles.includes(userRole) &&
-            (!c.permission || hasPermission(c.permission)),
-        ),
+        children: item.children?.filter(isVisible),
       }));
 
   const renderNav = (items: NavItem[], label: string) => {
