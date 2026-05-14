@@ -128,13 +128,22 @@ export function AppSidebar() {
     return !!userRole && item.roles.includes(userRole);
   };
 
-  const filterByRole = (items: NavItem[]) =>
-    items
-      .filter(isVisible)
-      .map((item) => ({
-        ...item,
-        children: item.children?.filter(isVisible),
-      }));
+  // Filter items by visibility. If a parent is hidden but its children are
+  // visible (e.g. cashier has customers.view but not sales.view), promote the
+  // visible children to top-level entries so the user can still reach them.
+  const filterByRole = (items: NavItem[]) => {
+    const out: NavItem[] = [];
+    for (const item of items) {
+      const parentVisible = isVisible(item);
+      const visibleChildren = item.children?.filter(isVisible) ?? [];
+      if (parentVisible) {
+        out.push({ ...item, children: visibleChildren });
+      } else if (visibleChildren.length > 0) {
+        for (const child of visibleChildren) out.push({ ...child, children: [] });
+      }
+    }
+    return out;
+  };
 
   const renderNav = (items: NavItem[], label: string) => {
     const filtered = filterByRole(items);
