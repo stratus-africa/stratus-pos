@@ -113,16 +113,21 @@ export function AppSidebar() {
   const { business, userRole } = useBusiness();
   const { isSuperAdmin } = useSuperAdmin();
   const { hasFeatureKey } = useFeatureLimit();
+  const { hasPermission } = usePermissions();
   const currentPath = location.pathname;
 
   const filterByRole = (items: NavItem[]) =>
     items
       .filter((item) => userRole && item.roles.includes(userRole))
       .filter((item) => !item.featureKey || hasFeatureKey(item.featureKey))
+      .filter((item) => !item.permission || hasPermission(item.permission))
       .map((item) => ({
         ...item,
         children: item.children?.filter(
-          (c) => (!c.featureKey || hasFeatureKey(c.featureKey)) && userRole && c.roles.includes(userRole),
+          (c) =>
+            (!c.featureKey || hasFeatureKey(c.featureKey)) &&
+            userRole && c.roles.includes(userRole) &&
+            (!c.permission || hasPermission(c.permission)),
         ),
       }));
 
