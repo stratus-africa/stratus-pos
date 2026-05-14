@@ -103,50 +103,81 @@ Deno.serve(async (req) => {
       counts[label] = count ?? 0;
     };
 
-    // ---- Transactional wipe (always runs) ----
-    if (saleIds.length) {
+    // ---- Transactional wipe (scope-filtered) ----
+    // For "full" mode, all scopes always run. For "transactional", honour
+    // body.scopes (defaulting to all scopes for backward compatibility).
+    const requestedScopes: Scope[] =
+      body.mode === "full"
+        ? ALL_SCOPES
+        : (Array.isArray(body.scopes) && body.scopes.length > 0
+            ? body.scopes.filter((s): s is Scope => ALL_SCOPES.includes(s as Scope))
+            : ALL_SCOPES);
+    const scopeSet = new Set<Scope>(requestedScopes);
+
+    if (scopeSet.has("sales") && saleIds.length) {
       await wipe("payments", () =>
         admin.from("payments").delete({ count: "exact" }).in("sale_id", saleIds));
       await wipe("sale_items", () =>
         admin.from("sale_items").delete({ count: "exact" }).in("sale_id", saleIds));
     }
-    if (purchaseIds.length) {
+    if (scopeSet.has("purchases") && purchaseIds.length) {
       await wipe("purchase_items", () =>
         admin.from("purchase_items").delete({ count: "exact" }).in("purchase_id", purchaseIds));
     }
-    if (journalIds.length) {
+    if (scopeSet.has("journal_entries") && journalIds.length) {
       await wipe("journal_entry_lines", () =>
         admin.from("journal_entry_lines").delete({ count: "exact" }).in("journal_entry_id", journalIds));
     }
 
-    await wipe("bank_transactions", () =>
-      admin.from("bank_transactions").delete({ count: "exact" }).eq("business_id", businessId));
-    await wipe("mpesa_transactions", () =>
-      admin.from("mpesa_transactions").delete({ count: "exact" }).eq("business_id", businessId));
-    await wipe("stock_adjustments", () =>
-      admin.from("stock_adjustments").delete({ count: "exact" }).eq("business_id", businessId));
-    await wipe("expenses", () =>
-      admin.from("expenses").delete({ count: "exact" }).eq("business_id", businessId));
-    await wipe("sales", () =>
-      admin.from("sales").delete({ count: "exact" }).eq("business_id", businessId));
-    await wipe("purchases", () =>
-      admin.from("purchases").delete({ count: "exact" }).eq("business_id", businessId));
-    await wipe("journal_entries", () =>
-      admin.from("journal_entries").delete({ count: "exact" }).eq("business_id", businessId));
-    await wipe("pos_sessions", () =>
-      admin.from("pos_sessions").delete({ count: "exact" }).eq("business_id", businessId));
-    await wipe("audit_logs", () =>
-      admin.from("audit_logs").delete({ count: "exact" }).eq("business_id", businessId));
-    await wipe("product_batches", () =>
-      admin.from("product_batches").delete({ count: "exact" }).eq("business_id", businessId));
+    if (scopeSet.has("bank_transactions")) {
+      await wipe("bank_transactions", () =>
+        admin.from("bank_transactions").delete({ count: "exact" }).eq("business_id", businessId));
+    }
+    if (scopeSet.has("mpesa_transactions")) {
+      await wipe("mpesa_transactions", () =>
+        admin.from("mpesa_transactions").delete({ count: "exact" }).eq("business_id", businessId));
+    }
+    if (scopeSet.has("stock_adjustments")) {
+      await wipe("stock_adjustments", () =>
+        admin.from("stock_adjustments").delete({ count: "exact" }).eq("business_id", businessId));
+    }
+    if (scopeSet.has("expenses")) {
+      await wipe("expenses", () =>
+        admin.from("expenses").delete({ count: "exact" }).eq("business_id", businessId));
+    }
+    if (scopeSet.has("sales")) {
+      await wipe("sales", () =>
+        admin.from("sales").delete({ count: "exact" }).eq("business_id", businessId));
+    }
+    if (scopeSet.has("purchases")) {
+      await wipe("purchases", () =>
+        admin.from("purchases").delete({ count: "exact" }).eq("business_id", businessId));
+    }
+    if (scopeSet.has("journal_entries")) {
+      await wipe("journal_entries", () =>
+        admin.from("journal_entries").delete({ count: "exact" }).eq("business_id", businessId));
+    }
+    if (scopeSet.has("pos_sessions")) {
+      await wipe("pos_sessions", () =>
+        admin.from("pos_sessions").delete({ count: "exact" }).eq("business_id", businessId));
+    }
+    if (scopeSet.has("audit_logs")) {
+      await wipe("audit_logs", () =>
+        admin.from("audit_logs").delete({ count: "exact" }).eq("business_id", businessId));
+    }
+    if (scopeSet.has("product_batches")) {
+      await wipe("product_batches", () =>
+        admin.from("product_batches").delete({ count: "exact" }).eq("business_id", businessId));
+    }
 
-    if (locationIds.length) {
-      // Reset stock to zero for transactional mode (preserves products + locations).
+    if (scopeSet.has("inventory_reset") && locationIds.length) {
+      // Reset stock to zero (preserves products + locations).
       const { error: invErr } = await admin
         .from("inventory")
         .update({ quantity: 0 })
         .in("location_id", locationIds);
       if (invErr) throw new Error("inventory reset: " + invErr.message);
+      counts["inventory_reset"] = locationIds.length;
     }
 
     if (body.mode === "full") {
