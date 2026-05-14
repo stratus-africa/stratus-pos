@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ArrowLeftRight, Download, ChevronLeft, ChevronRight } from "lucide-react";
-import { useInventory, classifyMovement, type MovementSource, type StockAdjustment } from "@/hooks/useInventory";
+import { useInventory, classifyMovement, type MovementSource, type SortKey, type StockAdjustment } from "@/hooks/useInventory";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { StockAdjustmentDialog } from "@/components/inventory/StockAdjustmentDialog";
@@ -43,16 +43,18 @@ const Inventory = () => {
 
   const [adjPage, setAdjPage] = useState(1);
   const [adjSearch, setAdjSearch] = useState("");
+  const [adjSort, setAdjSort] = useState<SortKey>("date_desc");
   const [mvPage, setMvPage] = useState(1);
   const [mvFrom, setMvFrom] = useState<string>("");
   const [mvTo, setMvTo] = useState<string>("");
   const [mvSource, setMvSource] = useState<MovementSource>("all");
   const [mvSearch, setMvSearch] = useState("");
+  const [mvSort, setMvSort] = useState<SortKey>("date_desc");
 
   const effectiveLocationId = locationFilter === "all" ? undefined : locationFilter;
   const { inventoryQuery, adjustStock, adjustmentsQuery, movementsQuery } = useInventory(effectiveLocationId, {
-    adjustmentsPage: { page: adjPage, pageSize: PAGE_SIZE },
-    movements: { page: mvPage, pageSize: PAGE_SIZE, from: mvFrom || undefined, to: mvTo || undefined, source: mvSource },
+    adjustmentsPage: { page: adjPage, pageSize: PAGE_SIZE, sort: adjSort },
+    movements: { page: mvPage, pageSize: PAGE_SIZE, from: mvFrom || undefined, to: mvTo || undefined, source: mvSource, sort: mvSort },
   });
 
   const inventory = inventoryQuery.data || [];
@@ -212,6 +214,15 @@ const Inventory = () => {
                     className="pl-9 h-9 w-[220px]"
                   />
                 </div>
+                <Select value={adjSort} onValueChange={(v) => { setAdjSort(v as SortKey); setAdjPage(1); }}>
+                  <SelectTrigger className="h-9 w-[170px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date_desc">Date (newest)</SelectItem>
+                    <SelectItem value="date_asc">Date (oldest)</SelectItem>
+                    <SelectItem value="product_asc">Product (A–Z)</SelectItem>
+                    <SelectItem value="product_desc">Product (Z–A)</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button variant="outline" size="sm" onClick={exportAdjustments} disabled={adjustmentsFiltered.length === 0}>
                   <Download className="mr-2 h-4 w-4" /> Export CSV
                 </Button>
@@ -307,6 +318,18 @@ const Inventory = () => {
                       <SelectItem value="sale">Sale</SelectItem>
                       <SelectItem value="return">Return</SelectItem>
                       <SelectItem value="purchase">Purchase</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-xs text-muted-foreground mb-1">Sort</label>
+                  <Select value={mvSort} onValueChange={(v) => { setMvSort(v as SortKey); setMvPage(1); }}>
+                    <SelectTrigger className="h-9 w-[170px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="date_desc">Date (newest)</SelectItem>
+                      <SelectItem value="date_asc">Date (oldest)</SelectItem>
+                      <SelectItem value="product_asc">Product (A–Z)</SelectItem>
+                      <SelectItem value="product_desc">Product (Z–A)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

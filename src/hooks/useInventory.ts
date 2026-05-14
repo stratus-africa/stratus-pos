@@ -32,6 +32,8 @@ export const MOVEMENT_REASONS = ["sale", "return", "Return"];
 
 export type MovementSource = "all" | "sale" | "return" | "purchase";
 
+export type SortKey = "date_desc" | "date_asc" | "product_asc" | "product_desc";
+
 export interface MovementFilters {
   from?: string;
   to?: string;
@@ -41,6 +43,7 @@ export interface MovementFilters {
 export interface PageOpts {
   page?: number;
   pageSize?: number;
+  sort?: SortKey;
 }
 
 /** Classify a stock_adjustments row into a movement source for display + filtering. */
@@ -140,8 +143,9 @@ export function useInventory(
 
   const adjPage = Math.max(1, opts.adjustmentsPage?.page ?? 1);
   const adjPageSize = opts.adjustmentsPage?.pageSize ?? 25;
+  const adjSort: SortKey = opts.adjustmentsPage?.sort ?? "date_desc";
   const adjustmentsQuery = useQuery({
-    queryKey: ["stock_adjustments", business?.id, locationId, adjPage, adjPageSize],
+    queryKey: ["stock_adjustments", business?.id, locationId, adjPage, adjPageSize, adjSort],
     queryFn: async () => {
       if (!business) return { rows: [] as StockAdjustment[], count: 0 };
       const fromIdx = (adjPage - 1) * adjPageSize;
@@ -150,9 +154,12 @@ export function useInventory(
         .from("stock_adjustments")
         .select("*, products(name), locations(name)", { count: "exact" })
         .is("purchase_id", null)
-        .not("reason", "in", `(${MOVEMENT_REASONS.map((r) => `"${r}"`).join(",")})`)
-        .order("created_at", { ascending: false })
-        .range(fromIdx, toIdx);
+        .not("reason", "in", `(${MOVEMENT_REASONS.map((r) => `"${r}"`).join(",")})`);
+      if (adjSort === "date_asc") q = q.order("created_at", { ascending: true });
+      else if (adjSort === "product_asc") q = q.order("product_id", { ascending: true }).order("created_at", { ascending: false });
+      else if (adjSort === "product_desc") q = q.order("product_id", { ascending: false }).order("created_at", { ascending: false });
+      else q = q.order("created_at", { ascending: false });
+      q = q.range(fromIdx, toIdx);
       if (locationId) q = q.eq("location_id", locationId);
       const { data, error, count } = await q;
       if (error) throw error;
@@ -164,16 +171,20 @@ export function useInventory(
   const mvFilters = opts.movements ?? {};
   const mvPage = Math.max(1, mvFilters.page ?? 1);
   const mvPageSize = mvFilters.pageSize ?? 25;
+  const mvSort: SortKey = mvFilters.sort ?? "date_desc";
   const movementsQuery = useQuery({
-    queryKey: ["stock_movements", business?.id, locationId, mvFilters.from, mvFilters.to, mvFilters.source, mvPage, mvPageSize],
+    queryKey: ["stock_movements", business?.id, locationId, mvFilters.from, mvFilters.to, mvFilters.source, mvPage, mvPageSize, mvSort],
     queryFn: async () => {
       if (!business) return { rows: [] as StockAdjustment[], count: 0 };
       const fromIdx = (mvPage - 1) * mvPageSize;
       const toIdx = fromIdx + mvPageSize - 1;
       let q = supabase
         .from("stock_adjustments")
-        .select("*, products(name), locations(name)", { count: "exact" })
-        .order("created_at", { ascending: false });
+        .select("*, products(name), locations(name)", { count: "exact" });
+      if (mvSort === "date_asc") q = q.order("created_at", { ascending: true });
+      else if (mvSort === "product_asc") q = q.order("product_id", { ascending: true }).order("created_at", { ascending: false });
+      else if (mvSort === "product_desc") q = q.order("product_id", { ascending: false }).order("created_at", { ascending: false });
+      else q = q.order("created_at", { ascending: false });
 
       // Source filter
       const src = mvFilters.source ?? "all";
