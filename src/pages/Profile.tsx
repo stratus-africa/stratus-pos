@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -9,13 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import {
-  User, Mail, Phone, Image as ImageIcon, Lock, Loader2, Building2,
-  Receipt, Wallet, Landmark, TrendingUp, ArrowDownToLine,
-} from "lucide-react";
+import { User, Mail, Phone, Image as ImageIcon, Lock, Loader2, Building2 } from "lucide-react";
 
 interface DailyTotals {
   totalSales: number;
