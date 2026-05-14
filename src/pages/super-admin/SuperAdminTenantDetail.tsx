@@ -207,9 +207,18 @@ export default function SuperAdminTenantDetail() {
       toast.error("Type RESET to confirm");
       return;
     }
+    if (resetMode === "transactional" && resetScopes.length === 0) {
+      toast.error("Select at least one record type to reset");
+      return;
+    }
     setResetting(true);
     const { data, error } = await supabase.functions.invoke("super-admin-reset-tenant", {
-      body: { business_id: biz.id, mode: resetMode, confirm_text: resetConfirm.trim() },
+      body: {
+        business_id: biz.id,
+        mode: resetMode,
+        confirm_text: resetConfirm.trim(),
+        ...(resetMode === "transactional" ? { scopes: resetScopes } : {}),
+      },
     });
     setResetting(false);
     if (error || (data as { error?: string })?.error) {
