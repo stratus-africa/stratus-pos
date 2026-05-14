@@ -316,6 +316,9 @@ export default function SuperAdminTenantDetail() {
           <Button size="sm" className="bg-red-500 hover:bg-red-600 text-white h-9" onClick={cancelSub} disabled={!sub || !!acting}>
             <XCircle className="h-3.5 w-3.5 mr-1.5" /> Cancel
           </Button>
+          <Button size="sm" variant="outline" className="h-9 border-orange-300 text-orange-700 hover:bg-orange-50" onClick={() => { setResetMode("transactional"); setResetConfirm(""); setResetOpen(true); }} disabled={!!acting}>
+            <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Reset DB
+          </Button>
           <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white h-9" onClick={deleteTenant} disabled={!!acting}>
             <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
           </Button>
