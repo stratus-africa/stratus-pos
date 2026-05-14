@@ -310,9 +310,9 @@ const Inventory = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                {(mvFrom || mvTo || mvSource !== "all") && (
+                {(mvFrom || mvTo || mvSource !== "all" || mvSearch) && (
                   <div className="flex items-end">
-                    <Button variant="ghost" size="sm" onClick={() => { setMvFrom(""); setMvTo(""); setMvSource("all"); setMvPage(1); }}>
+                    <Button variant="ghost" size="sm" onClick={() => { setMvFrom(""); setMvTo(""); setMvSource("all"); setMvSearch(""); setMvPage(1); }}>
                       Clear
                     </Button>
                   </div>
