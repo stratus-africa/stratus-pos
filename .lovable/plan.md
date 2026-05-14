@@ -1,132 +1,85 @@
+# Implementation Plan
 
+Seven changes across DB, hooks, and UI. Grouped for clarity.
 
-# Multi-Tenant SaaS POS System — MVP Plan
+## 1. Cashier RLS hardening on receipts (sale_items, payments)
 
-## Overview
-A multi-tenant POS + Inventory + Accounting platform for Kenyan retail shops. Feature-rich dashboard style (Zoho-like) with dense data views and lots of controls. Built on Lovable Cloud (Supabase).
+The receipt view loads `sale_items` and `payments` for any sale a user can see. Cashier select on `sales` is already restricted to `created_by = auth.uid()`, but `sale_items`/`payments` policies join on `sales.business_id` and don't re-check the cashier filter. Tighten:
 
----
+- Add **RESTRICTIVE** policies on `sale_items`:
+  - `sale_items_cashier_select_own` — cashiers may select only when parent `sales.created_by = auth.uid()`
+  - `sale_items_cashier_no_update` — block UPDATE for cashiers (table currently has no UPDATE allowed anyway; add explicitly for safety in case someone adds one)
+- Add RESTRICTIVE policies on `payments`:
+  - `payments_cashier_select_own` — same pattern
+  - `payments_cashier_no_delete` / `payments_cashier_no_insert_other` — cashiers can insert payments only for their own sales
+- Existing `sale_items_cashier_no_delete` already covers deletes.
 
-## Phase 1: Foundation — Auth & Multi-Tenant Setup
+## 2. Sale delete → reverse stock + remove bank txn
 
-### Database Schema (Lovable Cloud)
-- **businesses** — id, name, currency (default KES), timezone, logo_url, created_at
-- **locations** — id, business_id, name, type (store/warehouse), address
-- **user_roles** — id, user_id, role (admin/manager/cashier), business_id
-- **profiles** — id (FK auth.users), full_name, phone, avatar_url, business_id
+Update the `deleteSale` mutation in `src/hooks/useSales.ts`:
+- Before deleting `sale_items`, fetch them (product_id, quantity, location_id from sale).
+- For each item, increment `inventory.quantity` for `(product_id, sales.location_id)` by the sold quantity.
+- Bank transactions are already removed by trigger `delete_bank_txns_for_sale`; keep, but also defensively delete by `sale_id`.
 
-### Auth & Onboarding
-- Email/password signup → create business → create first location → assign admin role
-- Login screen with business selection (if user belongs to multiple)
-- RLS policies: every table filtered by `business_id`, role-based access via `has_role()` function
+Permission gate: only allow when `hasPermission('sales.delete')`.
 
-### App Shell
-- Sidebar layout (ShadCN Sidebar) with navigation: Dashboard, POS, Products, Inventory, Purchases, Sales, Expenses, Reports, Settings
-- Top bar with business name, location selector, user menu
-- Role-based menu visibility (cashiers see only POS + limited views)
+## 3. Customers server-side pagination + search
 
----
+`src/hooks/useSales.ts::useCustomers` currently fetches all rows. Refactor to:
+- Accept `{ page, pageSize, search }` params.
+- Use Supabase `.range()` + `.ilike('name', %q%)` (and OR phone) with `count: 'exact'`.
+- Return `{ rows, total }`.
 
-## Phase 2: Product & Inventory Management
+Update `src/pages/Customers.tsx` to:
+- Maintain `page`, `pageSize=25`, debounced `search` state.
+- Render pagination controls (Prev / Next, page X of Y, total).
+- Remove client-side `.filter`.
 
-### Products Module
-- **categories** — id, business_id, name, parent_id (nested)
-- **brands** — id, business_id, name
-- **units** — id, business_id, name (pcs, kg, litre, etc.)
-- **products** — id, business_id, name, sku, barcode, category_id, brand_id, unit_id, purchase_price, selling_price, tax_rate, image_url, is_active
-- **product_variations** — id, product_id, name (e.g. size/color), sku, price_override
+## 4. Cashier UI gating on sales
 
-### Product UI
-- Data table with search, filters (category, brand, status), bulk actions
-- Product form: name, SKU, barcode, prices, category, brand, unit, image upload
-- Import/export CSV
+In `src/pages/Sales.tsx`:
+- Use `usePermissions()`.
+- Hide delete buttons unless `sales.delete`.
+- Hide edit buttons unless `sales.edit`.
+- Guard the actual `deleteSale.mutate` call with the permission check (defense in depth).
+- Same for any bulk actions or detail-dialog actions.
 
-### Inventory Module
-- **inventory** — id, product_id, location_id, quantity, low_stock_threshold
-- **stock_adjustments** — id, product_id, location_id, quantity_change, reason, created_by, created_at
-- **stock_transfers** — id, from_location_id, to_location_id, status (pending/completed), created_by
-- **stock_transfer_items** — id, transfer_id, product_id, quantity
+In `src/components/sales/SaleDetailDialog.tsx` (already has no edit/delete) — verify and add permission-gated reprint/refund if present.
 
-### Inventory UI
-- Stock levels table per location with low-stock highlighting
-- Stock adjustment form (damage, loss, correction)
-- Stock transfer workflow: create → approve → complete
-- Low stock alerts dashboard widget
+## 5. Move "Daily records" to Dashboard for cashiers
 
----
+Cashier currently sees their daily record summary on `/profile`. Move that block:
+- Extract the daily-records section from `src/pages/Profile.tsx` into `src/components/dashboard/CashierDailyRecords.tsx`.
+- Render it on `src/pages/Index.tsx` (Dashboard) when `userRole === 'cashier'`.
+- Remove from Profile.
 
-## Phase 3: POS Screen
+## 6. Merge Tax tab into Business Profile / Regional Settings
 
-### Sales Data
-- **sales** — id, business_id, location_id, customer_id, invoice_number (auto-generated), subtotal, tax, discount, total, payment_status, status (draft/final), created_by, created_at
-- **sale_items** — id, sale_id, product_id, quantity, unit_price, discount, total
-- **payments** — id, sale_id, method (cash/mpesa/card/credit), amount, reference, created_at
+- Remove the standalone Tax tab from `src/pages/SettingsPage.tsx` tab list.
+- Move the contents of `src/components/settings/TaxSettingsTab.tsx` (VAT enabled, default tax rate) into `src/components/settings/BusinessProfileTab.tsx` under a "Tax & Regional Settings" section (alongside currency/timezone).
+- Delete the now-unused tab registration. Keep `TaxSettingsTab.tsx` file but no longer route to it (or delete).
 
-### POS UI (Full-screen mode)
-- Left panel: product grid with category tabs + search bar + barcode input field
-- Right panel: cart with quantity controls, line discounts, running total
-- Bottom bar: payment buttons (Cash, M-Pesa, Card, Split Payment)
-- Payment modal: amount tendered, change calculation, receipt preview
-- Hold/resume sales (draft status)
-- Receipt printing (thermal printer format via browser print)
+## 7. Wire Roles & Permissions enforcement granularly
 
-### Customer Management
-- **customers** — id, business_id, name, phone, email, address, balance
-- Quick-add customer during sale
-- Customer purchase history
+The `usePermissions` hook already returns the effective set, but most pages don't check per-action. Apply across modules listed in `moduleCatalog`:
 
----
+- For each list page (Products, Inventory, Customers, Suppliers, Purchases, Expenses, Sales):
+  - Hide "Add" button unless `<module>.create`
+  - Hide "Edit" buttons unless `<module>.edit`
+  - Hide "Delete" buttons unless `<module>.delete`
+  - Guard mutation calls behind the same checks.
+- POS create gated by `pos.create`.
+- Settings sub-tabs gated by `settings.edit` / `users.*` / `roles.*`.
 
-## Phase 4: Purchases & Expenses
+Centralize via a small `<Can permission="...">` wrapper in `src/components/Can.tsx` to keep diffs readable.
 
-### Purchases
-- **suppliers** — id, business_id, name, phone, email, address, balance
-- **purchases** — id, business_id, supplier_id, location_id, invoice_number, total, payment_status, status, created_at
-- **purchase_items** — id, purchase_id, product_id, quantity, unit_cost, total
-- Auto-update inventory on purchase completion
+## Technical notes
 
-### Expenses
-- **expense_categories** — id, business_id, name
-- **expenses** — id, business_id, location_id, category_id, amount, description, date, created_by
+- Use migration tool for RLS changes (#1).
+- All other changes are app code edits.
+- No schema additions needed; `role_permissions` already exists.
 
-### UI
-- Purchase order form with product selection, supplier, totals
-- Expense entry form with category, amount, date
-- Lists with filters and status tracking
+## Out of scope
 
----
-
-## Phase 5: Basic Accounting & Reports
-
-### Dashboard
-- Today's sales total, items sold, profit
-- Sales trend chart (daily/weekly/monthly)
-- Top selling products
-- Low stock alerts
-- Recent transactions
-
-### Reports (data tables + charts)
-- **Sales Report** — by date range, location, product, customer
-- **Purchase Report** — by date range, supplier
-- **Expense Report** — by category, date range
-- **Profit & Loss** — revenue - COGS - expenses
-- **Stock Valuation** — current stock × purchase price per location
-- **Trending Products** — most sold by quantity/revenue
-
-### Settings Page
-- Business profile (name, logo, currency, tax settings)
-- Locations CRUD
-- User management (invite, assign roles)
-- Payment methods configuration
-- Receipt template customization
-
----
-
-## Design Direction
-- **Style**: Feature-rich dashboard — dense data tables, compact spacing, lots of filters and controls
-- **Colors**: Professional blue/slate palette — navy sidebar, white content area, blue accent for actions
-- **Typography**: Inter for body, clean sans-serif throughout
-- **Layout**: Sidebar navigation + top bar with business/location context
-- **Tables**: ShadCN data tables with sorting, filtering, pagination
-- **Charts**: Recharts for dashboard visualizations
-
+- Changing the look of dashboard cards beyond inserting the cashier daily-records block.
+- Refactoring the existing permission storage (already in `role_permissions`).
