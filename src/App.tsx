@@ -10,6 +10,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import { SuperAdminLayout } from "@/components/super-admin/SuperAdminLayout";
 import { FeatureGate } from "@/components/FeatureGate";
+import { usePermissions } from "@/hooks/usePermissions";
 
 // Lazy-loaded pages
 const Onboarding = lazy(() => import("./pages/Onboarding"));
