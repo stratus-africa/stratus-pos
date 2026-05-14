@@ -654,7 +654,7 @@ export default function SuperAdminTenantDetail() {
             <Button
               className="bg-red-600 hover:bg-red-700 text-white"
               onClick={runReset}
-              disabled={resetting || resetConfirm.trim() !== "RESET"}
+              disabled={resetting || resetConfirm.trim() !== "RESET" || (resetMode === "transactional" && resetScopes.length === 0)}
             >
               {resetting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <RotateCcw className="h-4 w-4 mr-1.5" />}
               {resetMode === "full" ? "Reset entire tenant" : "Delete records"}
