@@ -273,7 +273,7 @@ const Inventory = () => {
                   <CardTitle className="text-lg">Stock Movement</CardTitle>
                   <p className="text-xs text-muted-foreground">Inventory changes from sales, returns and purchases.</p>
                 </div>
-                <Button variant="outline" size="sm" onClick={exportMovements} disabled={movements.length === 0}>
+                <Button variant="outline" size="sm" onClick={exportMovements} disabled={movementsFiltered.length === 0}>
                   <Download className="mr-2 h-4 w-4" /> Export CSV
                 </Button>
               </div>
