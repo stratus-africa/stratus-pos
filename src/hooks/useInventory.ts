@@ -143,8 +143,9 @@ export function useInventory(
 
   const adjPage = Math.max(1, opts.adjustmentsPage?.page ?? 1);
   const adjPageSize = opts.adjustmentsPage?.pageSize ?? 25;
+  const adjSort: SortKey = opts.adjustmentsPage?.sort ?? "date_desc";
   const adjustmentsQuery = useQuery({
-    queryKey: ["stock_adjustments", business?.id, locationId, adjPage, adjPageSize],
+    queryKey: ["stock_adjustments", business?.id, locationId, adjPage, adjPageSize, adjSort],
     queryFn: async () => {
       if (!business) return { rows: [] as StockAdjustment[], count: 0 };
       const fromIdx = (adjPage - 1) * adjPageSize;
@@ -153,9 +154,12 @@ export function useInventory(
         .from("stock_adjustments")
         .select("*, products(name), locations(name)", { count: "exact" })
         .is("purchase_id", null)
-        .not("reason", "in", `(${MOVEMENT_REASONS.map((r) => `"${r}"`).join(",")})`)
-        .order("created_at", { ascending: false })
-        .range(fromIdx, toIdx);
+        .not("reason", "in", `(${MOVEMENT_REASONS.map((r) => `"${r}"`).join(",")})`);
+      if (adjSort === "date_asc") q = q.order("created_at", { ascending: true });
+      else if (adjSort === "product_asc") q = q.order("product_id", { ascending: true }).order("created_at", { ascending: false });
+      else if (adjSort === "product_desc") q = q.order("product_id", { ascending: false }).order("created_at", { ascending: false });
+      else q = q.order("created_at", { ascending: false });
+      q = q.range(fromIdx, toIdx);
       if (locationId) q = q.eq("location_id", locationId);
       const { data, error, count } = await q;
       if (error) throw error;
