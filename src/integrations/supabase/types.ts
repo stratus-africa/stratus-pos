@@ -2127,6 +2127,10 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      get_business_max_products: {
+        Args: { _business_id: string }
+        Returns: number
+      }
       get_user_business_id: { Args: { _user_id: string }; Returns: string }
       has_active_subscription: {
         Args: { check_env?: string; user_uuid: string }
