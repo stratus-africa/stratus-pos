@@ -20,6 +20,7 @@ import {
   UserCircle,
 } from "lucide-react";
 import { useFeatureLimit } from "@/components/FeatureGate";
+import { usePermissions } from "@/hooks/usePermissions";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -59,47 +60,49 @@ interface NavItem {
   roles: AppRole[];
   /** Feature key from package_features. Item is locked when the user's plan doesn't have it. */
   featureKey?: string;
+  /** Granular permission key (e.g. "products.view") required to see this item. */
+  permission?: string;
   /** Optional sub-items rendered under this item as a collapsible submenu. */
   children?: NavItem[];
 }
 
 const mainNav: NavItem[] = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["admin", "manager"], featureKey: "dashboard" },
-  { title: "POS", url: "/pos", icon: ShoppingCart, roles: ["admin", "manager", "cashier"], featureKey: "pos" },
-  { title: "My Transactions", url: "/sales", icon: Receipt, roles: ["cashier"], featureKey: "sales" },
+  { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["admin", "manager"], featureKey: "dashboard", permission: "dashboard.view" },
+  { title: "POS", url: "/pos", icon: ShoppingCart, roles: ["admin", "manager", "cashier"], featureKey: "pos", permission: "pos.view" },
+  { title: "My Transactions", url: "/sales", icon: Receipt, roles: ["cashier"], featureKey: "sales", permission: "sales.view" },
 ];
 
 const inventoryNav: NavItem[] = [
-  { title: "Products", url: "/products", icon: Package, roles: ["admin", "manager"], featureKey: "products" },
-  { title: "Inventory", url: "/inventory", icon: Warehouse, roles: ["admin", "manager"], featureKey: "inventory" },
+  { title: "Products", url: "/products", icon: Package, roles: ["admin", "manager"], featureKey: "products", permission: "products.view" },
+  { title: "Inventory", url: "/inventory", icon: Warehouse, roles: ["admin", "manager"], featureKey: "inventory", permission: "inventory.view" },
 ];
 
 const transactionNav: NavItem[] = [
   {
-    title: "Sales", url: "/sales", icon: Receipt, roles: ["admin", "manager"], featureKey: "sales",
+    title: "Sales", url: "/sales", icon: Receipt, roles: ["admin", "manager"], featureKey: "sales", permission: "sales.view",
     children: [
-      { title: "Customers", url: "/customers", icon: Users, roles: ["admin", "manager"], featureKey: "sales" },
+      { title: "Customers", url: "/customers", icon: Users, roles: ["admin", "manager"], featureKey: "customers", permission: "customers.view" },
     ],
   },
   {
-    title: "Purchases", url: "/purchases", icon: TruckIcon, roles: ["admin", "manager"], featureKey: "purchases",
+    title: "Purchases", url: "/purchases", icon: TruckIcon, roles: ["admin", "manager"], featureKey: "purchases", permission: "purchases.view",
     children: [
-      { title: "Suppliers", url: "/suppliers", icon: Truck, roles: ["admin", "manager"], featureKey: "purchases" },
+      { title: "Suppliers", url: "/suppliers", icon: Truck, roles: ["admin", "manager"], featureKey: "purchases", permission: "suppliers.view" },
     ],
   },
-  { title: "Expenses", url: "/expenses", icon: CreditCard, roles: ["admin"], featureKey: "expenses" },
+  { title: "Expenses", url: "/expenses", icon: CreditCard, roles: ["admin"], featureKey: "expenses", permission: "expenses.view" },
 ];
 
 const financeNav: NavItem[] = [
-  { title: "Accountant", url: "/chart-of-accounts", icon: BookOpen, roles: ["admin"], featureKey: "chart_of_accounts" },
-  { title: "Journal Entries", url: "/journal-entries", icon: BookOpen, roles: ["admin"], featureKey: "chart_of_accounts" },
-  { title: "Banking", url: "/banking", icon: Landmark, roles: ["admin"], featureKey: "banking" },
+  { title: "Accountant", url: "/chart-of-accounts", icon: BookOpen, roles: ["admin"], featureKey: "chart_of_accounts", permission: "chart_of_accounts.view" },
+  { title: "Journal Entries", url: "/journal-entries", icon: BookOpen, roles: ["admin"], featureKey: "chart_of_accounts", permission: "chart_of_accounts.view" },
+  { title: "Banking", url: "/banking", icon: Landmark, roles: ["admin"], featureKey: "banking", permission: "banking.view" },
 ];
 
 const systemNav: NavItem[] = [
-  { title: "Reports", url: "/reports", icon: BarChart3, roles: ["admin"], featureKey: "reports" },
+  { title: "Reports", url: "/reports", icon: BarChart3, roles: ["admin"], featureKey: "reports", permission: "report.sales" },
   { title: "Profile", url: "/profile", icon: UserCircle, roles: ["admin", "manager", "cashier"] },
-  { title: "Settings", url: "/settings", icon: Settings, roles: ["admin"] },
+  { title: "Settings", url: "/settings", icon: Settings, roles: ["admin"], permission: "settings.view" },
 ];
 
 export function AppSidebar() {
@@ -110,16 +113,21 @@ export function AppSidebar() {
   const { business, userRole } = useBusiness();
   const { isSuperAdmin } = useSuperAdmin();
   const { hasFeatureKey } = useFeatureLimit();
+  const { hasPermission } = usePermissions();
   const currentPath = location.pathname;
 
   const filterByRole = (items: NavItem[]) =>
     items
       .filter((item) => userRole && item.roles.includes(userRole))
       .filter((item) => !item.featureKey || hasFeatureKey(item.featureKey))
+      .filter((item) => !item.permission || hasPermission(item.permission))
       .map((item) => ({
         ...item,
         children: item.children?.filter(
-          (c) => (!c.featureKey || hasFeatureKey(c.featureKey)) && userRole && c.roles.includes(userRole),
+          (c) =>
+            (!c.featureKey || hasFeatureKey(c.featureKey)) &&
+            userRole && c.roles.includes(userRole) &&
+            (!c.permission || hasPermission(c.permission)),
         ),
       }));
 
