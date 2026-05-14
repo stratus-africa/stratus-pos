@@ -149,7 +149,7 @@ const BusinessSuspended = () => {
 
 const ProtectedRoutes = () => {
   const { user, loading: authLoading } = useAuth();
-  const { needsOnboarding, loading: bizLoading, hasAccess, userRole, isSuspended } = useBusiness();
+  const { needsOnboarding, loading: bizLoading, userRole, isSuspended } = useBusiness();
   const { hasPermission } = usePermissions();
   const location = useLocation();
 
