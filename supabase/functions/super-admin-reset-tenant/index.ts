@@ -7,10 +7,30 @@ const corsHeaders = {
 
 type Mode = "transactional" | "full";
 
+type Scope =
+  | "sales"
+  | "purchases"
+  | "expenses"
+  | "bank_transactions"
+  | "mpesa_transactions"
+  | "stock_adjustments"
+  | "journal_entries"
+  | "pos_sessions"
+  | "audit_logs"
+  | "product_batches"
+  | "inventory_reset";
+
+const ALL_SCOPES: Scope[] = [
+  "sales", "purchases", "expenses", "bank_transactions", "mpesa_transactions",
+  "stock_adjustments", "journal_entries", "pos_sessions", "audit_logs",
+  "product_batches", "inventory_reset",
+];
+
 interface Body {
   business_id: string;
   mode: Mode;
   confirm_text: string;
+  scopes?: Scope[];
 }
 
 const json = (body: unknown, status = 200) =>
