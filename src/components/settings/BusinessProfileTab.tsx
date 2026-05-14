@@ -205,17 +205,17 @@ export function BusinessProfileTab() {
           </div>
 
           {vatEnabled && (
-            <div className="space-y-2 max-w-xs">
-              <Label htmlFor="biz-tax">Default Tax Rate (%)</Label>
-              <Input
-                id="biz-tax"
-                type="number"
-                min={0}
-                max={100}
-                step={0.5}
-                value={taxRate}
-                onChange={(e) => setTaxRate(e.target.value)}
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="biz-tax">Default Tax Rate (%)</Label>
+                <Input id="biz-tax" type="number" min={0} max={100} step={0.5}
+                  value={taxRate} onChange={(e) => setTaxRate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="biz-pin">KRA PIN</Label>
+                <Input id="biz-pin" value={kraPin} onChange={(e) => setKraPin(e.target.value)} placeholder="e.g. P051234567X" />
+                <p className="text-xs text-muted-foreground">Used on tax invoices and reports.</p>
+              </div>
             </div>
           )}
         </CardContent>
