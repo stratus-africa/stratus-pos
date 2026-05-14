@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ArrowLeftRight, Download, ChevronLeft, ChevronRight } from "lucide-react";
-import { useInventory, classifyMovement, type MovementSource, type StockAdjustment } from "@/hooks/useInventory";
+import { useInventory, classifyMovement, type MovementSource, type SortKey, type StockAdjustment } from "@/hooks/useInventory";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { StockAdjustmentDialog } from "@/components/inventory/StockAdjustmentDialog";
