@@ -27,8 +27,30 @@ export interface StockAdjustment {
   locations?: { name: string } | null;
 }
 
-/** Reasons written by automated flows (sales). Excluded from the manual Adjustments tab. */
-const MOVEMENT_REASONS = ["sale"];
+/** Reasons whose rows belong in Stock Movement (sales + returns), not the manual Adjustments tab. */
+export const MOVEMENT_REASONS = ["sale", "return", "Return"];
+
+export type MovementSource = "all" | "sale" | "return" | "purchase";
+
+export interface MovementFilters {
+  from?: string;
+  to?: string;
+  source?: MovementSource;
+}
+
+export interface PageOpts {
+  page?: number;
+  pageSize?: number;
+}
+
+/** Classify a stock_adjustments row into a movement source for display + filtering. */
+export function classifyMovement(row: { reason: string; purchase_id?: string | null; quantity_change: number }): "sale" | "return" | "purchase" | "other" {
+  if (row.purchase_id) return "purchase";
+  const r = (row.reason || "").toLowerCase();
+  if (r === "return") return "return";
+  if (r === "sale") return row.quantity_change > 0 ? "return" : "sale";
+  return "other";
+}
 
 export function useInventory(locationId?: string) {
   const { business } = useBusiness();
