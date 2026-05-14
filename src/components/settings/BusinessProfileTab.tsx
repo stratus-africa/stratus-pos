@@ -127,32 +127,18 @@ export function BusinessProfileTab() {
                 <Textarea id="biz-address" className="pl-9 min-h-[60px]" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street, Building, City" />
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Business Type */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Briefcase className="h-5 w-5" />
-            Business Type
-          </CardTitle>
-          <CardDescription>
-            Industry helps us tailor features. Pharmacy unlocks batch & expiry tracking.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2 max-w-sm">
-            <Label>Industry</Label>
-            <Select value={businessType} onValueChange={(v) => setBusinessType(v as BusinessType)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {BUSINESS_TYPE_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-2 sm:col-span-2">
+              <Label className="flex items-center gap-2"><Briefcase className="h-4 w-4" /> Industry</Label>
+              <Select value={businessType} onValueChange={(v) => setBusinessType(v as BusinessType)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {BUSINESS_TYPE_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Industry helps us tailor features. Pharmacy unlocks batch & expiry tracking.</p>
+            </div>
           </div>
         </CardContent>
       </Card>
