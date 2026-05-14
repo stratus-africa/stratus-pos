@@ -248,35 +248,35 @@ const POS = () => {
               )}
             </div>
           ) : (
-            <div className="border rounded-lg overflow-hidden">
-              {activeProducts.map((p, idx) => {
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {activeProducts.map((p) => {
                 const qty = stockMap.get(p.id) ?? 0;
                 const lowStock = qty <= 0;
                 return (
                   <button
                     key={p.id}
                     onClick={() => pos.addToCart(p)}
-                    className={`flex items-center justify-between w-full px-3 py-2.5 border-b last:border-b-0 hover:bg-accent transition-colors text-left ${
-                      idx % 2 === 0 ? "bg-card" : "bg-muted/40"
-                    }`}
+                    className="flex items-center justify-between w-full gap-3 px-4 py-4 sm:py-3 min-h-[64px] sm:min-h-[56px] rounded-lg border bg-card hover:bg-accent transition-colors text-left"
                   >
-                    <div className="flex-1 min-w-0 flex flex-col items-start gap-0.5">
-                      <span className="font-medium text-sm">{p.name}</span>
-                      <Badge variant={lowStock ? "destructive" : "secondary"} className="text-[10px] font-normal shrink-0">
-                        Qty: {qty}
-                      </Badge>
-                      {p.sku && <span className="text-xs text-muted-foreground">{p.sku}</span>}
+                    <div className="flex-1 min-w-0 flex flex-col items-start gap-1">
+                      <span className="font-medium text-sm leading-tight truncate w-full">{p.name}</span>
+                      <div className="flex items-center gap-2 flex-nowrap whitespace-nowrap">
+                        <Badge variant={lowStock ? "destructive" : "secondary"} className="text-[10px] font-normal shrink-0">
+                          Qty: {qty}
+                        </Badge>
+                        {p.sku && (
+                          <span className="text-xs text-muted-foreground truncate">{p.sku}</span>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className="font-semibold text-primary min-w-[80px] text-right text-xl">
-                        KES {Number(p.selling_price).toLocaleString()}
-                      </span>
-                    </div>
+                    <span className="font-semibold text-primary min-w-[80px] text-right text-xl shrink-0">
+                      KES {Number(p.selling_price).toLocaleString()}
+                    </span>
                   </button>
                 );
               })}
               {activeProducts.length === 0 && (
-                <p className="text-center py-10 text-muted-foreground">No products found</p>
+                <p className="col-span-full text-center py-10 text-muted-foreground">No products found</p>
               )}
             </div>
           )}
