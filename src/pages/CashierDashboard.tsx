@@ -151,6 +151,41 @@ export default function CashierDashboard() {
         </CardContent></Card>
       </div>
 
+      {(() => {
+        const paymentsTotal = Object.values(totals.byMethod).reduce((s, v) => s + Number(v || 0), 0);
+        const diff = totals.totalSales - paymentsTotal;
+        const matched = Math.abs(diff) < 0.01;
+        return (
+          <Card className={matched ? "" : "border-amber-500/60"}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Receipt className="h-4 w-4" /> Sales vs Payments Reconciliation
+                {matched ? (
+                  <span className="ml-auto text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-medium">Balanced</span>
+                ) : (
+                  <span className="ml-auto text-xs px-2 py-0.5 rounded bg-amber-500/15 text-amber-700 font-medium">Mismatch</span>
+                )}
+              </CardTitle>
+              <CardDescription>
+                {matched
+                  ? "Today's sales total matches the sum of payments collected."
+                  : `Sales and payments differ by ${KES(Math.abs(diff))}. Review payment methods below.`}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div><p className="text-xs text-muted-foreground">Sales total</p><p className="font-semibold">{KES(totals.totalSales)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Payments total</p><p className="font-semibold">{KES(paymentsTotal)}</p></div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Variance</p>
+                  <p className={`font-semibold ${matched ? "" : "text-amber-600"}`}>{KES(diff)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
       {methodList.length > 0 && (
         <Card>
           <CardHeader><CardTitle className="text-base">Payment Methods</CardTitle></CardHeader>

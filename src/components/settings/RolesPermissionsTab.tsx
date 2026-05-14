@@ -166,8 +166,34 @@ export function RolesPermissionsTab() {
     setEditPerms([...(rolePermissions[role] || [])]);
   };
 
+  // Cascade rules:
+  //   - Enabling edit/delete auto-enables view + create
+  //   - Disabling view auto-disables create/edit/delete
   const togglePerm = (perm: string) => {
-    setEditPerms((prev) => prev.includes(perm) ? prev.filter((p) => p !== perm) : [...prev, perm]);
+    setEditPerms((prev) => {
+      const set = new Set(prev);
+      const turningOn = !set.has(perm);
+      const dot = perm.lastIndexOf(".");
+      const modKey = dot > -1 ? perm.slice(0, dot) : "";
+      const action = dot > -1 ? perm.slice(dot + 1) : "";
+      const mod = moduleCatalog.find((m) => m.key === modKey);
+
+      if (turningOn) {
+        set.add(perm);
+        if (mod && (action === "edit" || action === "delete")) {
+          if (mod.actions.includes("view")) set.add(permKey(mod.key, "view"));
+          if (mod.actions.includes("create")) set.add(permKey(mod.key, "create"));
+        }
+      } else {
+        set.delete(perm);
+        if (mod && action === "view") {
+          (["create", "edit", "delete"] as const).forEach((a) => {
+            if (mod.actions.includes(a)) set.delete(permKey(mod.key, a));
+          });
+        }
+      }
+      return Array.from(set);
+    });
   };
 
   const toggleModule = (mod: ModuleDef, on: boolean) => {
@@ -289,7 +315,64 @@ export function RolesPermissionsTab() {
         </TabsContent>
 
         <TabsContent value="roles" className="mt-4">
+          <Card className="mb-4">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4" /> Effective Access by Role
+              </CardTitle>
+              <CardDescription>
+                Modules and reports each role can reach right now (View permission required at minimum).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="overflow-x-auto p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Modules accessible</TableHead>
+                    <TableHead>Reports</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(["admin", "manager", "stores_manager", "cashier"] as AppRole[]).map((role) => {
+                    const perms = new Set(rolePermissions[role] || []);
+                    const mods = role === "admin"
+                      ? moduleCatalog
+                      : moduleCatalog.filter((m) =>
+                          m.actions.includes("view")
+                            ? perms.has(permKey(m.key, "view"))
+                            : m.actions.some((a) => perms.has(permKey(m.key, a)))
+                        );
+                    const reps = role === "admin"
+                      ? reportsCatalog
+                      : reportsCatalog.filter((r) => perms.has(r.key));
+                    return (
+                      <TableRow key={role}>
+                        <TableCell className="font-medium capitalize whitespace-nowrap align-top">{role.replace("_", " ")}</TableCell>
+                        <TableCell className="align-top">
+                          {mods.length === 0 ? <span className="text-xs text-muted-foreground">No modules</span> : (
+                            <div className="flex flex-wrap gap-1">
+                              {mods.map((m) => <Badge key={m.key} variant="secondary" className="text-xs">{m.label}</Badge>)}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="align-top">
+                          {reps.length === 0 ? <span className="text-xs text-muted-foreground">—</span> : (
+                            <div className="flex flex-wrap gap-1">
+                              {reps.map((r) => <Badge key={r.key} variant="outline" className="text-xs">{r.label}</Badge>)}
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
           <div className="grid gap-4">
+
             {(["admin", "manager", "stores_manager", "cashier"] as AppRole[]).map((role) => {
               const info = roleDescriptions[role];
               const perms = rolePermissions[role] || [];

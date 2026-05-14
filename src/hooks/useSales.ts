@@ -176,6 +176,9 @@ export function useSales() {
 
   const deleteSale = useMutation({
     mutationFn: async (id: string) => {
+      if (cashierOnly) {
+        throw new Error("Cashiers cannot delete sales.");
+      }
       // Snapshot for audit
       const { data: saleSnap } = await supabase
         .from("sales")
