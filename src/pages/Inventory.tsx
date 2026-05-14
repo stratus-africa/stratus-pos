@@ -200,11 +200,22 @@ const Inventory = () => {
 
         <TabsContent value="adjustments">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 space-y-0">
               <CardTitle className="text-lg">Stock Adjustments</CardTitle>
-              <Button variant="outline" size="sm" onClick={exportAdjustments} disabled={adjustments.length === 0}>
-                <Download className="mr-2 h-4 w-4" /> Export CSV
-              </Button>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search product..."
+                    value={adjSearch}
+                    onChange={(e) => setAdjSearch(e.target.value)}
+                    className="pl-9 h-9 w-[220px]"
+                  />
+                </div>
+                <Button variant="outline" size="sm" onClick={exportAdjustments} disabled={adjustmentsFiltered.length === 0}>
+                  <Download className="mr-2 h-4 w-4" /> Export CSV
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
