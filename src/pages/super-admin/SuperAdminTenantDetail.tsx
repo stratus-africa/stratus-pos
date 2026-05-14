@@ -4,6 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label as UILabel } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -11,7 +15,7 @@ import { toast } from "sonner";
 import {
   ChevronRight, Pencil, PauseCircle, XCircle, Trash2, Info,
   Package, Users as UsersIcon, Warehouse, ShoppingCart, Truck, CheckCircle2, Loader2, Mail,
-  UserPlus, Key,
+  UserPlus, Key, RotateCcw, AlertTriangle,
 } from "lucide-react";
 import ManageUserDialog, { SetPasswordDialog } from "@/components/users/ManageUserDialog";
 
@@ -73,6 +77,10 @@ export default function SuperAdminTenantDetail() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<typeof tenantUsers[number] | null>(null);
   const [pwUser, setPwUser] = useState<typeof tenantUsers[number] | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetMode, setResetMode] = useState<"transactional" | "full">("transactional");
+  const [resetConfirm, setResetConfirm] = useState("");
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -187,6 +195,31 @@ export default function SuperAdminTenantDetail() {
     setActing(null);
   };
 
+  const runReset = async () => {
+    if (!biz) return;
+    if (resetConfirm.trim() !== "RESET") {
+      toast.error("Type RESET to confirm");
+      return;
+    }
+    setResetting(true);
+    const { data, error } = await supabase.functions.invoke("super-admin-reset-tenant", {
+      body: { business_id: biz.id, mode: resetMode, confirm_text: resetConfirm.trim() },
+    });
+    setResetting(false);
+    if (error || (data as { error?: string })?.error) {
+      toast.error((data as { error?: string })?.error || error?.message || "Reset failed");
+      return;
+    }
+    toast.success(
+      resetMode === "full"
+        ? `Tenant fully reset — configuration and records cleared.`
+        : `Transactional records cleared for ${biz.name}.`,
+    );
+    setResetOpen(false);
+    setResetConfirm("");
+    fetchAll();
+  };
+
   const deleteTenant = async () => {
     if (!biz) return;
     if (!confirm(`Delete "${biz.name}" and ALL its data? This cannot be undone.`)) return;
@@ -282,6 +315,9 @@ export default function SuperAdminTenantDetail() {
           )}
           <Button size="sm" className="bg-red-500 hover:bg-red-600 text-white h-9" onClick={cancelSub} disabled={!sub || !!acting}>
             <XCircle className="h-3.5 w-3.5 mr-1.5" /> Cancel
+          </Button>
+          <Button size="sm" variant="outline" className="h-9 border-orange-300 text-orange-700 hover:bg-orange-50" onClick={() => { setResetMode("transactional"); setResetConfirm(""); setResetOpen(true); }} disabled={!!acting}>
+            <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Reset DB
           </Button>
           <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white h-9" onClick={deleteTenant} disabled={!!acting}>
             <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
@@ -497,6 +533,66 @@ export default function SuperAdminTenantDetail() {
           userLabel={pwUser.full_name || pwUser.email || "user"}
         />
       )}
+
+      {/* Reset Tenant DB dialog */}
+      <Dialog open={resetOpen} onOpenChange={(o) => { if (!resetting) setResetOpen(o); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-500" /> Reset Tenant Database
+            </DialogTitle>
+            <DialogDescription>
+              Permanently wipe data for <span className="font-semibold">{biz?.name}</span>. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <RadioGroup value={resetMode} onValueChange={(v) => setResetMode(v as "transactional" | "full")} className="space-y-3">
+              <label htmlFor="reset-tx" className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/40">
+                <RadioGroupItem value="transactional" id="reset-tx" className="mt-0.5" />
+                <div className="space-y-1">
+                  <div className="text-sm font-semibold">Delete records only</div>
+                  <p className="text-xs text-muted-foreground">
+                    Removes sales, payments, purchases, expenses, stock movements, M-Pesa, bank, journal and POS session records, and resets stock to zero. Keeps products, customers, suppliers, locations, users and settings.
+                  </p>
+                </div>
+              </label>
+              <label htmlFor="reset-full" className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/40">
+                <RadioGroupItem value="full" id="reset-full" className="mt-0.5" />
+                <div className="space-y-1">
+                  <div className="text-sm font-semibold text-destructive">Reset entire tenant</div>
+                  <p className="text-xs text-muted-foreground">
+                    Everything in “Delete records only”, plus products, inventory, customers, suppliers, brands, categories, bank accounts, chart of accounts and locations. Keeps the tenant, users and roles.
+                  </p>
+                </div>
+              </label>
+            </RadioGroup>
+
+            <div className="space-y-1.5">
+              <UILabel htmlFor="reset-confirm" className="text-xs">Type <span className="font-mono font-semibold">RESET</span> to confirm</UILabel>
+              <Input
+                id="reset-confirm"
+                value={resetConfirm}
+                onChange={(e) => setResetConfirm(e.target.value)}
+                placeholder="RESET"
+                autoComplete="off"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetOpen(false)} disabled={resetting}>Cancel</Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={runReset}
+              disabled={resetting || resetConfirm.trim() !== "RESET"}
+            >
+              {resetting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <RotateCcw className="h-4 w-4 mr-1.5" />}
+              {resetMode === "full" ? "Reset entire tenant" : "Delete records"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
