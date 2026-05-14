@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Warehouse, Plus, Search, AlertTriangle, ClipboardList } from "lucide-react";
+import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ArrowLeftRight } from "lucide-react";
 import { useInventory } from "@/hooks/useInventory";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,10 +20,17 @@ const Inventory = () => {
   const [adjDialogOpen, setAdjDialogOpen] = useState(false);
 
   const effectiveLocationId = locationFilter === "all" ? undefined : locationFilter;
-  const { inventoryQuery, adjustStock, adjustmentsQuery } = useInventory(effectiveLocationId);
+  const { inventoryQuery, adjustStock, adjustmentsQuery, movementsQuery } = useInventory(effectiveLocationId);
 
   const inventory = inventoryQuery.data || [];
   const adjustments = adjustmentsQuery.data || [];
+  const movements = movementsQuery.data || [];
+
+  const movementSource = (m: { reason: string; purchase_id?: string | null }) => {
+    if (m.purchase_id) return { label: "Purchase", variant: "secondary" as const };
+    if (m.reason === "sale") return { label: "Sale", variant: "default" as const };
+    return { label: m.reason, variant: "outline" as const };
+  };
 
   const filtered = inventory.filter((i) =>
     i.products?.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -62,6 +69,7 @@ const Inventory = () => {
         <TabsList>
           <TabsTrigger value="stock"><Warehouse className="mr-1 h-4 w-4" /> Stock Levels</TabsTrigger>
           <TabsTrigger value="adjustments"><ClipboardList className="mr-1 h-4 w-4" /> Adjustments</TabsTrigger>
+          <TabsTrigger value="movements"><ArrowLeftRight className="mr-1 h-4 w-4" /> Stock Movement</TabsTrigger>
         </TabsList>
 
         <TabsContent value="stock" className="space-y-4">
@@ -171,6 +179,56 @@ const Inventory = () => {
                         <TableCell>{a.reason}</TableCell>
                       </TableRow>
                     ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="movements">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Stock Movement</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Inventory changes from sales, returns and purchases.
+              </p>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Product</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead>Source</TableHead>
+                    <TableHead className="text-right">Change</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {movements.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                        No stock movement yet.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    movements.map((m) => {
+                      const src = movementSource(m);
+                      return (
+                        <TableRow key={m.id}>
+                          <TableCell className="text-muted-foreground">
+                            {new Date(m.created_at).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })}
+                          </TableCell>
+                          <TableCell className="font-medium">{m.products?.name || "—"}</TableCell>
+                          <TableCell>{m.locations?.name || "—"}</TableCell>
+                          <TableCell><Badge variant={src.variant}>{src.label}</Badge></TableCell>
+                          <TableCell className={`text-right font-medium ${m.quantity_change > 0 ? "text-green-600" : "text-destructive"}`}>
+                            {m.quantity_change > 0 ? "+" : ""}{m.quantity_change}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
