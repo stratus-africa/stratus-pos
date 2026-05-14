@@ -53,8 +53,8 @@ const Inventory = () => {
 
   const effectiveLocationId = locationFilter === "all" ? undefined : locationFilter;
   const { inventoryQuery, adjustStock, adjustmentsQuery, movementsQuery } = useInventory(effectiveLocationId, {
-    adjustmentsPage: { page: adjPage, pageSize: PAGE_SIZE },
-    movements: { page: mvPage, pageSize: PAGE_SIZE, from: mvFrom || undefined, to: mvTo || undefined, source: mvSource },
+    adjustmentsPage: { page: adjPage, pageSize: PAGE_SIZE, sort: adjSort },
+    movements: { page: mvPage, pageSize: PAGE_SIZE, from: mvFrom || undefined, to: mvTo || undefined, source: mvSource, sort: mvSort },
   });
 
   const inventory = inventoryQuery.data || [];
