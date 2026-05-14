@@ -335,6 +335,7 @@ export function BusinessProfileTab() {
           )}
         </CardContent>
       </Card>
+      </div>
 
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={saving || !name.trim()}>
