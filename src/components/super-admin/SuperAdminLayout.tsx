@@ -185,10 +185,6 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-1.5">
-            <button className="hidden sm:flex items-center gap-1.5 h-8 px-2.5 rounded-md text-xs font-medium text-foreground/70 hover:bg-muted">
-              <span className="text-base leading-none">🇬🇧</span>
-              EN
-            </button>
             <Button size="icon" variant="ghost" className="h-8 w-8 text-foreground/60">
               <Zap className="h-4 w-4" />
             </Button>
