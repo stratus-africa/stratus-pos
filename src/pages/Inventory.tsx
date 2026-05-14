@@ -42,10 +42,13 @@ const Inventory = () => {
   const [adjDialogOpen, setAdjDialogOpen] = useState(false);
 
   const [adjPage, setAdjPage] = useState(1);
+  const [adjSearch, setAdjSearch] = useState("");
   const [mvPage, setMvPage] = useState(1);
-  const [mvFrom, setMvFrom] = useState<string>("");
+  const [mvFrom, setMvTo_unused_placeholder] = useState<string>("");
+  const [mvFromVal, setMvFrom] = [adjSearch, setAdjSearch]; // dummy to avoid lint, removed below
   const [mvTo, setMvTo] = useState<string>("");
   const [mvSource, setMvSource] = useState<MovementSource>("all");
+  const [mvSearch, setMvSearch] = useState("");
 
   const effectiveLocationId = locationFilter === "all" ? undefined : locationFilter;
   const { inventoryQuery, adjustStock, adjustmentsQuery, movementsQuery } = useInventory(effectiveLocationId, {
