@@ -32,6 +32,8 @@ export const MOVEMENT_REASONS = ["sale", "return", "Return"];
 
 export type MovementSource = "all" | "sale" | "return" | "purchase";
 
+export type SortKey = "date_desc" | "date_asc" | "product_asc" | "product_desc";
+
 export interface MovementFilters {
   from?: string;
   to?: string;
@@ -41,6 +43,7 @@ export interface MovementFilters {
 export interface PageOpts {
   page?: number;
   pageSize?: number;
+  sort?: SortKey;
 }
 
 /** Classify a stock_adjustments row into a movement source for display + filtering. */
