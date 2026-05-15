@@ -121,9 +121,11 @@ const Expenses = () => {
                         <TableCell>{formatPayment(e.payment_method)}</TableCell>
                         <TableCell className="text-right font-medium">{formatKES(e.amount)}</TableCell>
                         <TableCell>
-                          <Button size="icon" variant="ghost" onClick={() => removeExpense.mutate(e.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          {canDelete && (
+                            <Button size="icon" variant="ghost" onClick={() => removeExpense.mutate(e.id)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))
