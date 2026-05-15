@@ -24,6 +24,7 @@ import { useFeatureLimit } from "@/components/FeatureGate";
 
 const Products = () => {
   const { productsQuery, createProduct, updateProduct, deleteProduct } = useProducts();
+  const { hasPermission } = (require("@/hooks/usePermissions") as typeof import("@/hooks/usePermissions")).usePermissions();
   const { query: categoriesQuery, create: createCategory, remove: removeCategory } = useCategories();
   const { query: brandsQuery, create: createBrand, remove: removeBrand } = useBrands();
   const { query: unitsQuery, create: createUnit, remove: removeUnit } = useUnits();
