@@ -416,15 +416,18 @@ const Products = () => {
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
-                              <Button size="icon" variant="ghost" onClick={() => handleEdit(p)}>
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button size="icon" variant="ghost">
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                  </Button>
-                                </AlertDialogTrigger>
+                              {canEdit && (
+                                <Button size="icon" variant="ghost" onClick={() => handleEdit(p)}>
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {canDelete && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button size="icon" variant="ghost">
+                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                  </AlertDialogTrigger>
                                 <AlertDialogContent>
                                   <AlertDialogHeader>
                                     <AlertDialogTitle>Delete "{p.name}"?</AlertDialogTitle>
