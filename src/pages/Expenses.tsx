@@ -10,8 +10,11 @@ import { CreditCard, Plus, Search, Layers, Trash2 } from "lucide-react";
 import { useExpenses, useExpenseCategories } from "@/hooks/useExpenses";
 import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
 import { QuickAddDialog } from "@/components/products/QuickAddDialog";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const Expenses = () => {
+  const { hasPermission } = usePermissions();
+  const canDelete = hasPermission("expenses.delete");
   const { query: expensesQuery, create: createExpense, remove: removeExpense } = useExpenses();
   const { query: categoriesQuery, create: createCategory, remove: removeCategory } = useExpenseCategories();
 
