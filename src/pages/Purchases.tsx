@@ -9,9 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Search, Pencil, Trash2 } from "lucide-react";
 import { usePurchases, type Purchase, type PurchaseItem } from "@/hooks/usePurchases";
 import { PurchaseFormDialog } from "@/components/purchases/PurchaseFormDialog";
+import { usePermissions } from "@/hooks/usePermissions";
 import { toast } from "sonner";
 
 const Purchases = () => {
+  const { hasPermission } = usePermissions();
+  const canEdit = hasPermission("purchases.edit");
+  const canDelete = hasPermission("purchases.delete");
   const { query: purchasesQuery, createPurchase, updatePurchase, deletePurchase, getPurchaseItems } = usePurchases();
 
   const [search, setSearch] = useState("");
