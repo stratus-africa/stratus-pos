@@ -51,7 +51,7 @@ const Suppliers = () => {
                 <TableHead>Phone</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead className="text-right">Balance</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                {(canEdit || canDelete) && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
