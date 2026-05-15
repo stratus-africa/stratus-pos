@@ -439,6 +439,7 @@ const Products = () => {
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
