@@ -295,8 +295,12 @@ export default function ChartOfAccounts() {
                       <Button variant="ghost" size="icon" title="Set opening balance" onClick={() => { setOpeningAcc(acc); setOpeningDialogOpen(true); }}>
                         <Landmark className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(acc)}><Pencil className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(acc)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      {canEdit && (
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(acc)}><Pencil className="h-4 w-4" /></Button>
+                      )}
+                      {canDelete && (
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(acc)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
