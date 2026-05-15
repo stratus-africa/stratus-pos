@@ -40,6 +40,9 @@ interface BankAccountSummary {
 
 export default function ChartOfAccounts() {
   const { business } = useBusiness();
+  const { hasPermission } = usePermissions();
+  const canEdit = hasPermission("chart_of_accounts.edit");
+  const canDelete = hasPermission("chart_of_accounts.delete");
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccountSummary[]>([]);
   const [loading, setLoading] = useState(true);
