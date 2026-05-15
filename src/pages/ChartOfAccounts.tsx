@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Search, Wallet, Building2, Landmark, BookOpen } from "lucide-react";
 import { Link } from "react-router-dom";
 import { OpeningBalanceDialog } from "@/components/accounting/OpeningBalanceDialog";
+import { usePermissions } from "@/hooks/usePermissions";
 import { toast } from "sonner";
 
 const ACCOUNT_TYPES = ["asset", "liability", "equity", "revenue", "expense"] as const;
