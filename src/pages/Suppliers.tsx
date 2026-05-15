@@ -5,9 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, Plus, Pencil, Trash2 } from "lucide-react";
 import { useSuppliers, type Supplier } from "@/hooks/usePurchases";
+import { usePermissions } from "@/hooks/usePermissions";
 import { SupplierFormDialog } from "@/components/purchases/SupplierFormDialog";
 
 const Suppliers = () => {
+  const { hasPermission } = usePermissions();
+  const canCreate = hasPermission("suppliers.create");
+  const canEdit = hasPermission("suppliers.edit");
+  const canDelete = hasPermission("suppliers.delete");
   const { query, create, update, remove } = useSuppliers();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
