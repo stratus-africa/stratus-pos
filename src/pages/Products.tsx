@@ -21,10 +21,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { useFeatureLimit } from "@/components/FeatureGate";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const Products = () => {
   const { productsQuery, createProduct, updateProduct, deleteProduct } = useProducts();
-  const { hasPermission } = (require("@/hooks/usePermissions") as typeof import("@/hooks/usePermissions")).usePermissions();
+  const { hasPermission } = usePermissions();
+  const canEdit = hasPermission("products.edit");
+  const canDelete = hasPermission("products.delete");
   const { query: categoriesQuery, create: createCategory, remove: removeCategory } = useCategories();
   const { query: brandsQuery, create: createBrand, remove: removeBrand } = useBrands();
   const { query: unitsQuery, create: createUnit, remove: removeUnit } = useUnits();
