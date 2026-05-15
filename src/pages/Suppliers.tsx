@@ -30,9 +30,11 @@ const Suppliers = () => {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-bold">Suppliers</h1>
-        <Button onClick={() => { setEditing(null); setOpen(true); }}>
-          <Plus className="h-4 w-4 mr-1" /> Add Supplier
-        </Button>
+        {canCreate && (
+          <Button onClick={() => { setEditing(null); setOpen(true); }}>
+            <Plus className="h-4 w-4 mr-1" /> Add Supplier
+          </Button>
+        )}
       </div>
 
       <div className="relative max-w-sm">
