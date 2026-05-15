@@ -70,20 +70,23 @@ const POS = () => {
     });
   }, [cashierNeedsApproval]);
 
-  const handleApproved = useCallback(async (managerUserId: string) => {
-    if (business && pendingRemoveItem.current) {
-      await logAudit({
-        business_id: business.id,
-        action: "pos_item_removed",
-        entity_type: "product",
-        entity_id: pendingRemoveItem.current.product.id,
-        description: `Removed "${pendingRemoveItem.current.product.name}" (qty ${pendingRemoveItem.current.quantity}) from POS cart with manager approval`,
-        metadata: { approved_by: managerUserId, qty: pendingRemoveItem.current.quantity },
-      });
-    }
+  const handleApproved = useCallback((managerUserId: string) => {
+    const item = pendingRemoveItem.current;
+    // Resolve immediately so the cart updates without waiting for audit logging.
     pendingRemoveResolver.current?.(true);
     pendingRemoveResolver.current = null;
     pendingRemoveItem.current = null;
+    // Fire-and-forget audit log.
+    if (business && item) {
+      void logAudit({
+        business_id: business.id,
+        action: "pos_item_removed",
+        entity_type: "product",
+        entity_id: item.product.id,
+        description: `Removed "${item.product.name}" (qty ${item.quantity}) from POS cart with manager approval`,
+        metadata: { approved_by: managerUserId, qty: item.quantity },
+      });
+    }
   }, [business]);
 
   const handleApprovalClosed = useCallback((open: boolean) => {
