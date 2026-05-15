@@ -10,8 +10,11 @@ import { CreditCard, Plus, Search, Layers, Trash2 } from "lucide-react";
 import { useExpenses, useExpenseCategories } from "@/hooks/useExpenses";
 import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
 import { QuickAddDialog } from "@/components/products/QuickAddDialog";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const Expenses = () => {
+  const { hasPermission } = usePermissions();
+  const canDelete = hasPermission("expenses.delete");
   const { query: expensesQuery, create: createExpense, remove: removeExpense } = useExpenses();
   const { query: categoriesQuery, create: createCategory, remove: removeCategory } = useExpenseCategories();
 
@@ -118,9 +121,11 @@ const Expenses = () => {
                         <TableCell>{formatPayment(e.payment_method)}</TableCell>
                         <TableCell className="text-right font-medium">{formatKES(e.amount)}</TableCell>
                         <TableCell>
-                          <Button size="icon" variant="ghost" onClick={() => removeExpense.mutate(e.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          {canDelete && (
+                            <Button size="icon" variant="ghost" onClick={() => removeExpense.mutate(e.id)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))

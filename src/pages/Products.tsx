@@ -21,9 +21,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { useFeatureLimit } from "@/components/FeatureGate";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const Products = () => {
   const { productsQuery, createProduct, updateProduct, deleteProduct } = useProducts();
+  const { hasPermission } = usePermissions();
+  const canEdit = hasPermission("products.edit");
+  const canDelete = hasPermission("products.delete");
   const { query: categoriesQuery, create: createCategory, remove: removeCategory } = useCategories();
   const { query: brandsQuery, create: createBrand, remove: removeBrand } = useBrands();
   const { query: unitsQuery, create: createUnit, remove: removeUnit } = useUnits();
@@ -330,30 +334,34 @@ const Products = () => {
               {selectedIds.size > 0 && (
                 <div className="flex items-center gap-3 pt-2 flex-wrap">
                   <span className="text-sm text-muted-foreground">{selectedIds.size} selected</span>
-                  <Button size="sm" variant="outline" onClick={() => setBulkUpdateOpen(true)}>
-                    <Pencil className="mr-1 h-4 w-4" /> Bulk Update
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button size="sm" variant="destructive" disabled={bulkDeleting}>
-                        <Trash2 className="mr-1 h-4 w-4" /> {bulkDeleting ? "Deleting..." : `Delete ${selectedIds.size}`}
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete {selectedIds.size} product{selectedIds.size > 1 ? "s" : ""}?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This action cannot be undone. The selected products will be permanently removed from your inventory.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  {canEdit && (
+                    <Button size="sm" variant="outline" onClick={() => setBulkUpdateOpen(true)}>
+                      <Pencil className="mr-1 h-4 w-4" /> Bulk Update
+                    </Button>
+                  )}
+                  {canDelete && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="destructive" disabled={bulkDeleting}>
+                          <Trash2 className="mr-1 h-4 w-4" /> {bulkDeleting ? "Deleting..." : `Delete ${selectedIds.size}`}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete {selectedIds.size} product{selectedIds.size > 1 ? "s" : ""}?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. The selected products will be permanently removed from your inventory.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
                   <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>Clear</Button>
                 </div>
               )}
@@ -412,15 +420,18 @@ const Products = () => {
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
-                              <Button size="icon" variant="ghost" onClick={() => handleEdit(p)}>
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button size="icon" variant="ghost">
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                  </Button>
-                                </AlertDialogTrigger>
+                              {canEdit && (
+                                <Button size="icon" variant="ghost" onClick={() => handleEdit(p)}>
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {canDelete && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button size="icon" variant="ghost">
+                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                  </AlertDialogTrigger>
                                 <AlertDialogContent>
                                   <AlertDialogHeader>
                                     <AlertDialogTitle>Delete "{p.name}"?</AlertDialogTitle>
@@ -432,6 +443,7 @@ const Products = () => {
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>

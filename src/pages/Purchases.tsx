@@ -9,9 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Search, Pencil, Trash2 } from "lucide-react";
 import { usePurchases, type Purchase, type PurchaseItem } from "@/hooks/usePurchases";
 import { PurchaseFormDialog } from "@/components/purchases/PurchaseFormDialog";
+import { usePermissions } from "@/hooks/usePermissions";
 import { toast } from "sonner";
 
 const Purchases = () => {
+  const { hasPermission } = usePermissions();
+  const canEdit = hasPermission("purchases.edit");
+  const canDelete = hasPermission("purchases.delete");
   const { query: purchasesQuery, createPurchase, updatePurchase, deletePurchase, getPurchaseItems } = usePurchases();
 
   const [search, setSearch] = useState("");
@@ -140,22 +144,26 @@ const Purchases = () => {
                   <div className="flex items-center justify-between">
                     {statusBadge(p.status)}
                     <div className="flex gap-1">
-                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleEditPurchase(p)}><Pencil className="h-4 w-4" /></Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button size="icon" variant="ghost" className="h-8 w-8"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete purchase {p.invoice_number || p.id.slice(0, 8)}?</AlertDialogTitle>
-                            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => deletePurchase.mutate(p.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      {canEdit && (
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleEditPurchase(p)}><Pencil className="h-4 w-4" /></Button>
+                      )}
+                      {canDelete && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="icon" variant="ghost" className="h-8 w-8"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete purchase {p.invoice_number || p.id.slice(0, 8)}?</AlertDialogTitle>
+                              <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => deletePurchase.mutate(p.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -193,22 +201,26 @@ const Purchases = () => {
                       <TableCell>{statusBadge(p.status)}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button size="icon" variant="ghost" onClick={() => handleEditPurchase(p)}><Pencil className="h-4 w-4" /></Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button size="icon" variant="ghost"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete purchase {p.invoice_number || p.id.slice(0, 8)}?</AlertDialogTitle>
-                                <AlertDialogDescription>This action cannot be undone. The purchase and all its line items will be permanently removed.</AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => deletePurchase.mutate(p.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                          {canEdit && (
+                            <Button size="icon" variant="ghost" onClick={() => handleEditPurchase(p)}><Pencil className="h-4 w-4" /></Button>
+                          )}
+                          {canDelete && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="icon" variant="ghost"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete purchase {p.invoice_number || p.id.slice(0, 8)}?</AlertDialogTitle>
+                                  <AlertDialogDescription>This action cannot be undone. The purchase and all its line items will be permanently removed.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => deletePurchase.mutate(p.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

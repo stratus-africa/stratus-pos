@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Search, Wallet, Building2, Landmark, BookOpen } from "lucide-react";
 import { Link } from "react-router-dom";
 import { OpeningBalanceDialog } from "@/components/accounting/OpeningBalanceDialog";
+import { usePermissions } from "@/hooks/usePermissions";
 import { toast } from "sonner";
 
 const ACCOUNT_TYPES = ["asset", "liability", "equity", "revenue", "expense"] as const;
@@ -39,6 +40,9 @@ interface BankAccountSummary {
 
 export default function ChartOfAccounts() {
   const { business } = useBusiness();
+  const { hasPermission } = usePermissions();
+  const canEdit = hasPermission("chart_of_accounts.edit");
+  const canDelete = hasPermission("chart_of_accounts.delete");
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccountSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -291,8 +295,12 @@ export default function ChartOfAccounts() {
                       <Button variant="ghost" size="icon" title="Set opening balance" onClick={() => { setOpeningAcc(acc); setOpeningDialogOpen(true); }}>
                         <Landmark className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(acc)}><Pencil className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(acc)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      {canEdit && (
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(acc)}><Pencil className="h-4 w-4" /></Button>
+                      )}
+                      {canDelete && (
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(acc)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -5,9 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, Plus, Pencil, Trash2 } from "lucide-react";
 import { useSuppliers, type Supplier } from "@/hooks/usePurchases";
+import { usePermissions } from "@/hooks/usePermissions";
 import { SupplierFormDialog } from "@/components/purchases/SupplierFormDialog";
 
 const Suppliers = () => {
+  const { hasPermission } = usePermissions();
+  const canCreate = hasPermission("suppliers.create");
+  const canEdit = hasPermission("suppliers.edit");
+  const canDelete = hasPermission("suppliers.delete");
   const { query, create, update, remove } = useSuppliers();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
@@ -25,9 +30,11 @@ const Suppliers = () => {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-bold">Suppliers</h1>
-        <Button onClick={() => { setEditing(null); setOpen(true); }}>
-          <Plus className="h-4 w-4 mr-1" /> Add Supplier
-        </Button>
+        {canCreate && (
+          <Button onClick={() => { setEditing(null); setOpen(true); }}>
+            <Plus className="h-4 w-4 mr-1" /> Add Supplier
+          </Button>
+        )}
       </div>
 
       <div className="relative max-w-sm">
@@ -44,7 +51,7 @@ const Suppliers = () => {
                 <TableHead>Phone</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead className="text-right">Balance</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                {(canEdit || canDelete) && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -59,14 +66,20 @@ const Suppliers = () => {
                     <TableCell>{s.phone || "—"}</TableCell>
                     <TableCell>{s.email || "—"}</TableCell>
                     <TableCell className="text-right">{formatKES(s.balance)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => { setEditing(s); setOpen(true); }}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => remove.mutate(s.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </TableCell>
+                    {(canEdit || canDelete) && (
+                      <TableCell className="text-right">
+                        {canEdit && (
+                          <Button variant="ghost" size="icon" onClick={() => { setEditing(s); setOpen(true); }}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button variant="ghost" size="icon" onClick={() => remove.mutate(s.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))
               )}
