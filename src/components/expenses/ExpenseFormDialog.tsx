@@ -154,7 +154,12 @@ export function ExpenseFormDialog({ open, onOpenChange, onSubmit, isLoading }: P
 
           <div className="space-y-2">
             <Label>Reference</Label>
-            <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Receipt/Ref #" />
+            <Input
+              value={reference}
+              onChange={(e) => { setRefTouched(true); setReference(e.target.value); }}
+              placeholder="Receipt/Ref #"
+            />
+            <p className="text-xs text-muted-foreground">Auto-generated from your numbering settings. Edit to override.</p>
           </div>
 
           <div className="space-y-2">
