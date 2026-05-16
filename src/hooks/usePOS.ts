@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Product } from "@/hooks/useProducts";
 import { pickFefoBatches } from "@/hooks/useProductBatches";
+import { consumeNext } from "@/lib/numberSeries";
 
 export interface CartItem {
   product: Product;
