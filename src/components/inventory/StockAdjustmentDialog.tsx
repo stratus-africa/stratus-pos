@@ -30,7 +30,7 @@ const REASONS = ["Purchase received", "Damage", "Loss", "Correction", "Return", 
 
 export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading }: Props) {
   const { productsQuery } = useProducts();
-  const { locations, currentLocation } = useBusiness();
+  const { business, locations, currentLocation } = useBusiness();
   const [locationId, setLocationId] = useState(currentLocation?.id || "");
   const [reason, setReason] = useState("Purchase received");
   const [notes, setNotes] = useState("");
@@ -38,23 +38,34 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
   const [barcodeInput, setBarcodeInput] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [showProductPicker, setShowProductPicker] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
   const barcodeRef = useRef<HTMLInputElement>(null);
 
   const products = productsQuery.data?.filter(p => p.is_active) || [];
 
-  // Focus barcode input when dialog opens
+  // Load any saved draft and focus barcode input when dialog opens
   useEffect(() => {
     if (open) {
+      const draft = loadDraft(business?.id);
+      if (draft && draft.lines.length > 0) {
+        setLines(draft.lines);
+        setLocationId(draft.location_id || currentLocation?.id || "");
+        setReason(draft.reason || "Purchase received");
+        setNotes(draft.notes || "");
+        setDraftSavedAt(draft.saved_at);
+        toast.info("Draft loaded", { description: `Saved ${new Date(draft.saved_at).toLocaleString()}` });
+      }
       setTimeout(() => barcodeRef.current?.focus(), 100);
     } else {
-      // Reset on close
+      // Reset on close (draft remains in storage)
       setLines([]);
       setBarcodeInput("");
       setSearchInput("");
       setNotes("");
       setShowProductPicker(false);
+      setDraftSavedAt(null);
     }
-  }, [open]);
+  }, [open, business?.id]);
 
   const addProduct = (product: Product, qty: number = 1) => {
     setLines(prev => {
