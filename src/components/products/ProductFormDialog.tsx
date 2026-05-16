@@ -15,9 +15,11 @@ interface Props {
   onSubmit: (data: ProductFormData) => void;
   product?: Product | null;
   isLoading?: boolean;
+  initialBarcode?: string;
+  initialName?: string;
 }
 
-export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoading }: Props) {
+export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoading, initialBarcode, initialName }: Props) {
   const { query: categoriesQuery } = useCategories();
   const { query: brandsQuery } = useBrands();
   const { query: unitsQuery } = useUnits();
