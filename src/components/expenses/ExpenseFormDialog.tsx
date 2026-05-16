@@ -32,7 +32,7 @@ const PAYMENT_METHODS = ["cash", "mpesa", "bank_transfer", "card", "other"];
 
 export function ExpenseFormDialog({ open, onOpenChange, onSubmit, isLoading }: Props) {
   const { query: categoriesQuery } = useExpenseCategories();
-  const { locations, currentLocation } = useBusiness();
+  const { business, locations, currentLocation } = useBusiness();
   const { user } = useAuth();
   const { data: bankAccounts = [] } = useBankAccounts();
 
@@ -43,11 +43,25 @@ export function ExpenseFormDialog({ open, onOpenChange, onSubmit, isLoading }: P
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [reference, setReference] = useState("");
+  const [refTouched, setRefTouched] = useState(false);
   const [bankAccountId, setBankAccountId] = useState<string>("none");
+
+  // Prefill reference from configured series whenever the dialog opens (and user hasn't typed)
+  useEffect(() => {
+    if (open && !refTouched) {
+      setReference(previewNext(business?.id, "expenses"));
+    }
+    if (!open) setRefTouched(false);
+  }, [open, business?.id]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    // If the user kept the prefilled reference, consume it from the series.
+    let finalRef = reference;
+    if (!refTouched && business?.id) {
+      finalRef = consumeNext(business.id, "expenses");
+    }
     onSubmit({
       category_id: categoryId === "none" ? null : categoryId,
       location_id: locationId === "none" ? null : locationId,
@@ -55,13 +69,14 @@ export function ExpenseFormDialog({ open, onOpenChange, onSubmit, isLoading }: P
       description: description || undefined,
       date,
       payment_method: paymentMethod,
-      reference: reference || undefined,
+      reference: finalRef || undefined,
       created_by: user.id,
       bank_account_id: bankAccountId === "none" ? null : bankAccountId,
     });
     setAmount(0);
     setDescription("");
     setReference("");
+    setRefTouched(false);
     setBankAccountId("none");
     onOpenChange(false);
   };
