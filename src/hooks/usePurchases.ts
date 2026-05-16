@@ -274,6 +274,15 @@ export function usePurchases() {
       items: PurchaseItem[];
       additionalPayment?: { bank_account_id: string; amount: number } | null;
     }) => {
+      if (!business) throw new Error("No business");
+      // Snapshot prior state for audit-trail (status changes, restore previews)
+      const { data: prior } = await supabase
+        .from("purchases")
+        .select("status, payment_status, total, invoice_number")
+        .eq("id", id)
+        .maybeSingle();
+      const priorStatus = prior?.status as string | undefined;
+
       // Update purchase header (payment_status will be recomputed below)
       const { error: pError } = await supabase.from("purchases").update(purchase).eq("id", id);
       if (pError) throw pError;
@@ -317,6 +326,37 @@ export function usePurchases() {
       if (newStatus !== purchase.payment_status) {
         await supabase.from("purchases").update({ payment_status: newStatus }).eq("id", id);
       }
+
+      // Audit: cancel / un-cancel transitions
+      const itemsCount = items.length;
+      const itemsQty = items.reduce((s, i) => s + Number(i.quantity || 0), 0);
+      if (priorStatus && priorStatus !== "cancelled" && purchase.status === "cancelled") {
+        await logAudit({
+          business_id: business.id,
+          action: "purchase_cancelled",
+          entity_type: "purchase",
+          entity_id: id,
+          description: `Cancelled purchase ${purchase.invoice_number || id.slice(0, 8)}${priorStatus === "received" ? " — inventory reversed at location" : ""}`,
+          metadata: {
+            invoice_number: purchase.invoice_number,
+            total: purchase.total,
+            prior_status: priorStatus,
+            inventory_reversed: priorStatus === "received",
+            items_count: itemsCount,
+            items_quantity: itemsQty,
+            payments_paid_so_far: paidSum,
+          },
+        });
+      } else if (priorStatus === "cancelled" && purchase.status === "received") {
+        await logAudit({
+          business_id: business.id,
+          action: "purchase_uncancelled",
+          entity_type: "purchase",
+          entity_id: id,
+          description: `Re-activated purchase ${purchase.invoice_number || id.slice(0, 8)} — stock re-applied at location`,
+          metadata: { invoice_number: purchase.invoice_number, total: purchase.total, items_count: itemsCount, items_quantity: itemsQty },
+        });
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["purchases"] });
@@ -324,6 +364,7 @@ export function usePurchases() {
       qc.invalidateQueries({ queryKey: ["bank_accounts"] });
       qc.invalidateQueries({ queryKey: ["bank_transactions"] });
       qc.invalidateQueries({ queryKey: ["supplier_payments"] });
+      qc.invalidateQueries({ queryKey: ["audit_logs"] });
       toast.success("Purchase updated");
     },
     onError: (e) => toast.error(e.message),
