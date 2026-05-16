@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, AlertCircle, UserPlus, ArrowLeft, ScanLine } from "lucide-react";
+import { Plus, Trash2, AlertCircle, UserPlus, ArrowLeft, ScanLine, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { useSuppliers, usePurchases, type PurchaseItem } from "@/hooks/usePurchases";
 import { useProducts } from "@/hooks/useProducts";
@@ -18,6 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { SupplierFormDialog } from "@/components/purchases/SupplierFormDialog";
 import { ProductFormDialog } from "@/components/products/ProductFormDialog";
 import BarcodeScanner from "@/components/BarcodeScanner";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function PurchaseEditor() {
