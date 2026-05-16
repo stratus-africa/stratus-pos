@@ -134,9 +134,29 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
       reason,
       notes: notes || undefined,
     });
+    clearDraft(business?.id);
+    setDraftSavedAt(null);
   };
 
-  return (
+  const handleSaveDraft = () => {
+    if (!business?.id) return;
+    if (lines.length === 0) {
+      toast.error("Add at least one product before saving a draft");
+      return;
+    }
+    saveDraft(business.id, { lines, location_id: locationId, reason, notes });
+    const now = new Date().toISOString();
+    setDraftSavedAt(now);
+    toast.success("Draft saved");
+  };
+
+  const handleDiscardDraft = () => {
+    clearDraft(business?.id);
+    setDraftSavedAt(null);
+    setLines([]);
+    setNotes("");
+    toast.success("Draft discarded");
+  };
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
