@@ -123,6 +123,8 @@ export default function PurchaseEditor() {
   const tax = vatEnabled ? subtotal * (taxRate / 100) : 0;
   const total = subtotal + tax;
 
+  // In edit mode, payment fields are optional — used to record an ADDITIONAL payment.
+  const showPaymentSection = paymentStatus !== "unpaid";
   const requiresPaidThrough = paymentStatus !== "unpaid" && !isEditing;
 
   useEffect(() => {
