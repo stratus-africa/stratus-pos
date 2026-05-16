@@ -56,6 +56,8 @@ export default function PurchaseEditor() {
   const [loadingExisting, setLoadingExisting] = useState(isEditing);
   const [productSearch, setProductSearch] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
+  const [highlightIdx, setHighlightIdx] = useState(0);
+  const suggestionRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   // Load existing purchase
   useEffect(() => {
