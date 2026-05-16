@@ -22,6 +22,7 @@ const Inventory = lazy(() => import("./pages/Inventory"));
 const Sales = lazy(() => import("./pages/Sales"));
 const Customers = lazy(() => import("./pages/Customers"));
 const Purchases = lazy(() => import("./pages/Purchases"));
+const PurchaseEditor = lazy(() => import("./pages/PurchaseEditor"));
 const Suppliers = lazy(() => import("./pages/Suppliers"));
 const Expenses = lazy(() => import("./pages/Expenses"));
 const Reports = lazy(() => import("./pages/Reports"));
@@ -182,6 +183,8 @@ const ProtectedRoutes = () => {
           <Route path="/sales" element={guard(<FeatureGate featureKey="sales"><Sales /></FeatureGate>, "sales.view")} />
           <Route path="/customers" element={guard(<FeatureGate featureKey="customers"><Customers /></FeatureGate>, "customers.view")} />
           <Route path="/purchases" element={guard(<FeatureGate featureKey="purchases"><Purchases /></FeatureGate>, "purchases.view")} />
+          <Route path="/purchases/new" element={guard(<FeatureGate featureKey="purchases"><PurchaseEditor /></FeatureGate>, "purchases.create")} />
+          <Route path="/purchases/:id/edit" element={guard(<FeatureGate featureKey="purchases"><PurchaseEditor /></FeatureGate>, "purchases.edit")} />
           <Route path="/suppliers" element={guard(<FeatureGate featureKey="purchases"><Suppliers /></FeatureGate>, "suppliers.view")} />
           <Route path="/expenses" element={guard(<FeatureGate featureKey="expenses"><Expenses /></FeatureGate>, "expenses.view")} />
           <Route path="/chart-of-accounts" element={guard(<FeatureGate featureKey="chart_of_accounts"><ChartOfAccounts /></FeatureGate>, "chart_of_accounts.view")} />

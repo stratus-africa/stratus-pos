@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,26 +8,23 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Pencil, Trash2, Wallet } from "lucide-react";
-import { usePurchases, type Purchase, type PurchaseItem } from "@/hooks/usePurchases";
+import { Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { usePurchases, type Purchase } from "@/hooks/usePurchases";
 import { useSupplierPayments } from "@/hooks/useSupplierPayments";
 import { SupplierPaymentDialog } from "@/components/purchases/SupplierPaymentDialog";
-import { PurchaseFormDialog } from "@/components/purchases/PurchaseFormDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { format } from "date-fns";
-import { toast } from "sonner";
 
 const Purchases = () => {
+  const navigate = useNavigate();
   const { hasPermission } = usePermissions();
   const canEdit = hasPermission("purchases.edit");
   const canDelete = hasPermission("purchases.delete");
-  const { query: purchasesQuery, createPurchase, updatePurchase, deletePurchase, getPurchaseItems } = usePurchases();
+  const canCreate = hasPermission("purchases.create");
+  const { query: purchasesQuery, deletePurchase } = usePurchases();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
-  const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null);
-  const [editingItems, setEditingItems] = useState<PurchaseItem[]>([]);
 
   const purchases = purchasesQuery.data || [];
   const filteredPurchases = purchases.filter((p) => {
@@ -54,49 +52,6 @@ const Purchases = () => {
     }
   };
 
-  const handleEditPurchase = async (purchase: Purchase) => {
-    try {
-      const items = await getPurchaseItems(purchase.id);
-      setEditingPurchase(purchase);
-      setEditingItems(items);
-      setPurchaseDialogOpen(true);
-    } catch {
-      toast.error("Failed to load purchase items");
-    }
-  };
-
-  const handlePurchaseSubmit = (data: {
-    purchase: {
-      supplier_id: string | null;
-      location_id: string;
-      invoice_number?: string;
-      subtotal: number;
-      tax: number;
-      total: number;
-      payment_status: string;
-      status: string;
-      vat_enabled: boolean;
-      notes?: string;
-      created_by: string;
-    };
-    items: PurchaseItem[];
-    paidThrough?: { bank_account_id: string; amount: number } | null;
-  }) => {
-    if (editingPurchase) {
-      updatePurchase.mutate({ id: editingPurchase.id, purchase: data.purchase, items: data.items }, {
-        onSuccess: () => {
-          setPurchaseDialogOpen(false);
-          setEditingPurchase(null);
-          setEditingItems([]);
-        },
-      });
-    } else {
-      createPurchase.mutate({ purchase: data.purchase, items: data.items, paidThrough: data.paidThrough }, {
-        onSuccess: () => setPurchaseDialogOpen(false),
-      });
-    }
-  };
-
   const { query: paymentsQuery, remove: removePayment } = useSupplierPayments();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const payments = paymentsQuery.data || [];
@@ -115,9 +70,11 @@ const Purchases = () => {
 
         <TabsContent value="orders" className="space-y-3">
           <div className="flex justify-end">
-            <Button size="sm" onClick={() => { setEditingPurchase(null); setEditingItems([]); setPurchaseDialogOpen(true); }}>
-              <Plus className="mr-2 h-4 w-4" /> New Purchase
-            </Button>
+            {canCreate && (
+              <Button size="sm" onClick={() => navigate("/purchases/new")}>
+                <Plus className="mr-2 h-4 w-4" /> New Purchase
+              </Button>
+            )}
           </div>
 
       <Card>
@@ -161,7 +118,7 @@ const Purchases = () => {
                     {statusBadge(p.status)}
                     <div className="flex gap-1">
                       {canEdit && (
-                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleEditPurchase(p)}><Pencil className="h-4 w-4" /></Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => navigate(`/purchases/${p.id}/edit`)}><Pencil className="h-4 w-4" /></Button>
                       )}
                       {canDelete && (
                         <AlertDialog>
@@ -218,7 +175,7 @@ const Purchases = () => {
                       <TableCell>
                         <div className="flex gap-1">
                           {canEdit && (
-                            <Button size="icon" variant="ghost" onClick={() => handleEditPurchase(p)}><Pencil className="h-4 w-4" /></Button>
+                            <Button size="icon" variant="ghost" onClick={() => navigate(`/purchases/${p.id}/edit`)}><Pencil className="h-4 w-4" /></Button>
                           )}
                           {canDelete && (
                             <AlertDialog>
@@ -307,15 +264,6 @@ const Purchases = () => {
           </Card>
         </TabsContent>
       </Tabs>
-
-      <PurchaseFormDialog
-        open={purchaseDialogOpen}
-        onOpenChange={(o) => { setPurchaseDialogOpen(o); if (!o) { setEditingPurchase(null); setEditingItems([]); } }}
-        onSubmit={handlePurchaseSubmit}
-        isLoading={createPurchase.isPending || updatePurchase.isPending}
-        editingPurchase={editingPurchase}
-        editingItems={editingItems}
-      />
 
       <SupplierPaymentDialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen} />
     </div>
