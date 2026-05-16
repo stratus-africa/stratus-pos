@@ -189,7 +189,11 @@ const Purchases = () => {
                               <AlertDialogContent>
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Delete purchase {p.invoice_number || p.id.slice(0, 8)}?</AlertDialogTitle>
-                                  <AlertDialogDescription>This action cannot be undone. The purchase and all its line items will be permanently removed.</AlertDialogDescription>
+                                  <AlertDialogDescription>
+                                    This is irreversible. {p.status === "received" ? "Stock added by this purchase will be removed from inventory. " : ""}
+                                    Any linked supplier payments will be deleted and the bank balance restored.
+                                    {p.status !== "cancelled" && " If you only want to undo the stock effect, use Cancel Purchase from the edit page instead."}
+                                  </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Cancel</AlertDialogCancel>
