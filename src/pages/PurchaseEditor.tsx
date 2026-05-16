@@ -324,23 +324,35 @@ export default function PurchaseEditor() {
               <div className="flex gap-2">
                 <Input
                   value={productSearch}
-                  onChange={(e) => setProductSearch(e.target.value)}
-                  onFocus={() => setSearchFocused(true)}
+                  onChange={(e) => { setProductSearch(e.target.value); setHighlightIdx(0); }}
+                  onFocus={() => { setSearchFocused(true); setHighlightIdx(0); }}
                   onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") {
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setSearchFocused(true);
+                      setHighlightIdx((i) => Math.min(productOptions.length - 1, i + 1));
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setHighlightIdx((i) => Math.max(0, i - 1));
+                    } else if (e.key === "Escape") {
+                      setSearchFocused(false);
+                    } else if (e.key === "Enter") {
                       e.preventDefault();
                       const q = productSearch.trim();
-                      if (!q) return;
-                      const exact = (productsQuery.data || []).find(
+                      // Prefer exact SKU/barcode match
+                      const exact = q ? (productsQuery.data || []).find(
                         (p) => (p.barcode && p.barcode.trim() === q) || (p.sku && p.sku.trim() === q)
-                      );
-                      if (exact) {
-                        addItemById(exact.id);
+                      ) : null;
+                      const target = exact || productOptions[highlightIdx] || productOptions[0];
+                      if (target) {
+                        addItemById(target.id);
                         setProductSearch("");
-                      } else if (productOptions[0]) {
-                        addItemById(productOptions[0].id);
-                        setProductSearch("");
+                        setHighlightIdx(0);
+                      } else if (q) {
+                        // No match → open create-product dialog prefilled
+                        setPendingBarcode(q);
+                        setProductDialogOpen(true);
                       }
                     }
                   }}
@@ -353,16 +365,21 @@ export default function PurchaseEditor() {
               </div>
               {searchFocused && productOptions.length > 0 && (
                 <div className="absolute z-20 mt-1 w-full max-h-72 overflow-auto rounded-md border bg-popover shadow-md">
-                  {productOptions.map((p) => (
+                  {productOptions.map((p, idx) => (
                     <button
                       type="button"
                       key={p.id}
+                      ref={(el) => { suggestionRefs.current[idx] = el; }}
+                      onMouseEnter={() => setHighlightIdx(idx)}
                       onMouseDown={(e) => {
                         e.preventDefault();
                         addItemById(p.id);
                         setProductSearch("");
+                        setHighlightIdx(0);
                       }}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center justify-between gap-3"
+                      className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between gap-3 ${
+                        idx === highlightIdx ? "bg-accent" : "hover:bg-accent"
+                      }`}
                     >
                       <span className="truncate">
                         {p.name}
