@@ -17,9 +17,10 @@ interface Props {
   isLoading?: boolean;
   initialBarcode?: string;
   initialName?: string;
+  initialSku?: string;
 }
 
-export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoading, initialBarcode, initialName }: Props) {
+export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoading, initialBarcode, initialName, initialSku }: Props) {
   const { query: categoriesQuery } = useCategories();
   const { query: brandsQuery } = useBrands();
   const { query: unitsQuery } = useUnits();
