@@ -6,10 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Search, Pencil, Trash2, Wallet } from "lucide-react";
 import { usePurchases, type Purchase, type PurchaseItem } from "@/hooks/usePurchases";
+import { useSupplierPayments } from "@/hooks/useSupplierPayments";
+import { SupplierPaymentDialog } from "@/components/purchases/SupplierPaymentDialog";
 import { PurchaseFormDialog } from "@/components/purchases/PurchaseFormDialog";
 import { usePermissions } from "@/hooks/usePermissions";
+import { format } from "date-fns";
 import { toast } from "sonner";
 
 const Purchases = () => {
