@@ -77,6 +77,13 @@ export default function PurchaseEditor() {
       .then((its) => setItems(its))
       .catch(() => toast.error("Failed to load purchase items"))
       .finally(() => setLoadingExisting(false));
+    // Existing payments linked to this purchase
+    supabase
+      .from("bank_transactions")
+      .select("id, date, amount, reference, bank_accounts(name)")
+      .eq("purchase_id", id)
+      .order("date", { ascending: false })
+      .then(({ data }) => setExistingPayments((data as any) || []));
   }, [id, purchasesQuery.data]);
 
   useEffect(() => {
