@@ -1,0 +1,11 @@
+REVOKE EXECUTE ON FUNCTION public.reverse_inventory_on_purchase_cancel() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.restore_inventory_on_purchase_delete() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.restore_inventory_on_sale_delete() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.reverse_bank_balance_on_txn_delete() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.delete_bank_txns_for_purchase() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.delete_bank_txns_for_sale() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.delete_bank_txns_for_expense() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.delete_adjustments_for_purchase() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.enforce_max_products() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.update_updated_at_column() FROM PUBLIC, anon, authenticated;

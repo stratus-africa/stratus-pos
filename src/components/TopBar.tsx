@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MapPin, FileText, Sunset, Receipt, ShoppingCart, LayoutDashboard, User as UserIcon, LogOut } from "lucide-react";
+import { MapPin, FileText, Sunset, Receipt, ShoppingCart, LayoutDashboard, User as UserIcon, LogOut, KeyRound, Building2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { usePOSSession } from "@/hooks/usePOSSession";
 import { useState } from "react";
@@ -114,25 +114,43 @@ export function TopBar() {
                 </Avatar>
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-64" aria-label="User account menu">
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium truncate">{user?.user_metadata?.full_name || user?.email}</p>
                   {user?.user_metadata?.full_name && (
                     <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                   )}
+                  {business && (
+                    <div className="mt-1 pt-1 border-t border-border space-y-0.5">
+                      <p className="text-xs text-muted-foreground inline-flex items-center gap-1 truncate">
+                        <Building2 className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{business.name}</span>
+                      </p>
+                      {currentLocation && (
+                        <p className="text-xs text-muted-foreground inline-flex items-center gap-1 truncate">
+                          <MapPin className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{currentLocation.name}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate("/profile")}>
-                <UserIcon className="mr-2 h-4 w-4" /> My Profile
+              <DropdownMenuItem onSelect={() => navigate("/profile")} aria-label="Go to my profile">
+                <UserIcon className="mr-2 h-4 w-4" aria-hidden="true" /> My Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => navigate("/profile#change-password")} aria-label="Change password">
+                <KeyRound className="mr-2 h-4 w-4" aria-hidden="true" /> Change Password
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={async () => { await signOut(); navigate("/auth"); }}
+                onSelect={() => { void (async () => { await signOut(); navigate("/auth"); })(); }}
                 className="text-destructive focus:text-destructive"
+                aria-label="Log out of your account"
               >
-                <LogOut className="mr-2 h-4 w-4" /> Log Out
+                <LogOut className="mr-2 h-4 w-4" aria-hidden="true" /> Log Out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

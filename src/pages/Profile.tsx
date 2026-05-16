@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +14,7 @@ import { User, Mail, Phone, Image as ImageIcon, Lock, Loader2, Building2 } from 
 
 export default function Profile() {
   const navigate = useNavigate();
+  const routeLocation = useLocation();
   const { user } = useAuth();
   const { business, userRole, currentLocation } = useBusiness();
 
@@ -41,6 +42,15 @@ export default function Profile() {
       setLoading(false);
     })();
   }, [user]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (routeLocation.hash === "#change-password") {
+      const el = document.getElementById("change-password");
+      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      setTimeout(() => document.getElementById("new-pwd")?.focus(), 350);
+    }
+  }, [routeLocation.hash, loading]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,7 +172,7 @@ export default function Profile() {
         </Card>
 
         {/* Password */}
-        <Card>
+        <Card id="change-password" className="scroll-mt-24">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2"><Lock className="h-4 w-4" /> Change password</CardTitle>
             <CardDescription>Use a strong password with at least 8 characters.</CardDescription>

@@ -50,6 +50,8 @@ export default function PurchaseEditor() {
   const [paidThroughAccountId, setPaidThroughAccountId] = useState("");
   const [amountPaid, setAmountPaid] = useState("");
 
+  const [existingPayments, setExistingPayments] = useState<Array<{ id: string; date: string; amount: number; reference: string | null; bank_accounts?: { name: string } | null }>>([]);
+
   const [scannerOpen, setScannerOpen] = useState(false);
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [pendingBarcode, setPendingBarcode] = useState("");
@@ -75,6 +77,13 @@ export default function PurchaseEditor() {
       .then((its) => setItems(its))
       .catch(() => toast.error("Failed to load purchase items"))
       .finally(() => setLoadingExisting(false));
+    // Existing payments linked to this purchase
+    supabase
+      .from("bank_transactions")
+      .select("id, date, amount, reference, bank_accounts(name)")
+      .eq("purchase_id", id)
+      .order("date", { ascending: false })
+      .then(({ data }) => setExistingPayments((data as any) || []));
   }, [id, purchasesQuery.data]);
 
   useEffect(() => {
@@ -467,16 +476,63 @@ export default function PurchaseEditor() {
 
         {showPaymentSection && (
           <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-base">{isEditing ? "Record Additional Payment (optional)" : "Payment"}</CardTitle></CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground mb-3">
+            <CardHeader className="pb-3"><CardTitle className="text-base">{isEditing ? "Payments" : "Payment"}</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              {isEditing && (() => {
+                const paidSoFar = existingPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
+                const additional = parseFloat(amountPaid || "0") || 0;
+                const projectedPaid = paidSoFar + additional;
+                const remaining = Math.max(0, total - projectedPaid);
+                return (
+                  <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                      <div>
+                        <div className="text-xs text-muted-foreground">Order total</div>
+                        <div className="font-semibold">{formatKES(total)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">Paid so far</div>
+                        <div className="font-semibold text-success">{formatKES(paidSoFar)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">Adding now</div>
+                        <div className="font-semibold">{formatKES(additional)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">Remaining</div>
+                        <div className={`font-semibold ${remaining <= 0.01 ? "text-success" : "text-destructive"}`}>{formatKES(remaining)}</div>
+                      </div>
+                    </div>
+                    {existingPayments.length > 0 ? (
+                      <div className="border-t pt-2">
+                        <p className="text-xs font-medium text-muted-foreground mb-1">Existing payments (kept as-is)</p>
+                        <ul className="text-xs space-y-0.5 max-h-32 overflow-auto">
+                          {existingPayments.map((p) => (
+                            <li key={p.id} className="flex justify-between gap-2">
+                              <span className="truncate">
+                                {new Date(p.date).toLocaleDateString("en-KE", { day: "2-digit", month: "short" })}
+                                {" · "}{p.bank_accounts?.name || "—"}
+                                {p.reference ? ` · ${p.reference}` : ""}
+                              </span>
+                              <span className="font-medium shrink-0">{formatKES(Number(p.amount))}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground border-t pt-2">No existing payments yet for this purchase.</p>
+                    )}
+                  </div>
+                );
+              })()}
+              <p className="text-xs text-muted-foreground">
                 {isEditing
-                  ? "Leave blank to keep existing payments unchanged. Payment status will auto-recompute from total payments."
+                  ? "Fill in below to add a NEW payment. Existing payments above will NOT be changed. Payment status auto-recomputes from the new total paid."
                   : "A payment-out record will be created in the selected bank account."}
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label>Bank Account {isEditing ? "" : "*"}</Label>
+                  <Label>{isEditing ? "Add Payment From Account" : "Bank Account *"}</Label>
                   <Select value={paidThroughAccountId} onValueChange={setPaidThroughAccountId}>
                     <SelectTrigger><SelectValue placeholder="Select account..." /></SelectTrigger>
                     <SelectContent>
@@ -487,7 +543,7 @@ export default function PurchaseEditor() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Amount Paid (KES) {isEditing ? "" : "*"}</Label>
+                  <Label>{isEditing ? "Additional Amount (KES)" : "Amount Paid (KES) *"}</Label>
                   <Input type="number" min={0} step={0.01} value={amountPaid} onChange={(e) => setAmountPaid(e.target.value)} placeholder="0.00" />
                 </div>
               </div>
