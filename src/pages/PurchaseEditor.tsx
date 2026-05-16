@@ -50,6 +50,8 @@ export default function PurchaseEditor() {
   const [paidThroughAccountId, setPaidThroughAccountId] = useState("");
   const [amountPaid, setAmountPaid] = useState("");
 
+  const [existingPayments, setExistingPayments] = useState<Array<{ id: string; date: string; amount: number; reference: string | null; bank_accounts?: { name: string } | null }>>([]);
+
   const [scannerOpen, setScannerOpen] = useState(false);
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [pendingBarcode, setPendingBarcode] = useState("");
