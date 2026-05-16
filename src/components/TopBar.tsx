@@ -17,7 +17,7 @@ import { useExpenses } from "@/hooks/useExpenses";
 
 export function TopBar() {
   const { business, locations, currentLocation, setCurrentLocation } = useBusiness();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const session = usePOSSession();
