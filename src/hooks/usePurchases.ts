@@ -254,6 +254,7 @@ export function usePurchases() {
       id,
       purchase,
       items,
+      additionalPayment,
     }: {
       id: string;
       purchase: {
@@ -267,25 +268,61 @@ export function usePurchases() {
         status: string;
         vat_enabled: boolean;
         notes?: string;
+        created_by?: string;
       };
       items: PurchaseItem[];
+      additionalPayment?: { bank_account_id: string; amount: number } | null;
     }) => {
+      // Update purchase header (payment_status will be recomputed below)
       const { error: pError } = await supabase.from("purchases").update(purchase).eq("id", id);
       if (pError) throw pError;
 
-      // Delete old items and re-insert
+      // Replace items
       const { error: dError } = await supabase.from("purchase_items").delete().eq("purchase_id", id);
       if (dError) throw dError;
-
       if (items.length > 0) {
         const { error: iError } = await supabase
           .from("purchase_items")
           .insert(items.map((i) => ({ purchase_id: id, product_id: i.product_id, quantity: i.quantity, unit_cost: i.unit_cost, total: i.total })));
         if (iError) throw iError;
       }
+
+      // Optionally record an additional payment against this purchase
+      if (additionalPayment && additionalPayment.amount > 0) {
+        let supplierName: string | null = null;
+        if (purchase.supplier_id) {
+          const { data: sup } = await supabase.from("suppliers").select("name").eq("id", purchase.supplier_id).maybeSingle();
+          supplierName = sup?.name ?? null;
+        }
+        await createPaidThroughTransaction(
+          additionalPayment.bank_account_id,
+          additionalPayment.amount,
+          { invoice_number: purchase.invoice_number, created_by: purchase.created_by || "", supplier_id: purchase.supplier_id },
+          supplierName,
+          id,
+          id,
+        );
+      }
+
+      // Recompute payment_status from linked bank transactions vs new total
+      const { data: txns } = await supabase
+        .from("bank_transactions")
+        .select("amount")
+        .eq("purchase_id", id);
+      const paidSum = (txns ?? []).reduce((s, t: any) => s + Number(t.amount || 0), 0);
+      let newStatus: string = "unpaid";
+      if (paidSum >= Number(purchase.total) - 0.01 && paidSum > 0) newStatus = "paid";
+      else if (paidSum > 0) newStatus = "partial";
+      if (newStatus !== purchase.payment_status) {
+        await supabase.from("purchases").update({ payment_status: newStatus }).eq("id", id);
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["purchases"] });
+      qc.invalidateQueries({ queryKey: ["inventory"] });
+      qc.invalidateQueries({ queryKey: ["bank_accounts"] });
+      qc.invalidateQueries({ queryKey: ["bank_transactions"] });
+      qc.invalidateQueries({ queryKey: ["supplier_payments"] });
       toast.success("Purchase updated");
     },
     onError: (e) => toast.error(e.message),
