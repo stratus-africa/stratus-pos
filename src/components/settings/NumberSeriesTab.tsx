@@ -1,36 +1,39 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { toast } from "sonner";
-import { Save, Hash } from "lucide-react";
+import { Save, Hash, Receipt, CreditCard, FileText } from "lucide-react";
 import { getSeries, setSeries, formatNumber, type NumberSeriesConfig, type SeriesKey } from "@/lib/numberSeries";
 
-const SERIES: { key: SeriesKey; title: string; description: string }[] = [
-  { key: "receipts", title: "Receipts / Sales Invoices", description: "Used for receipts printed at the point of sale." },
-  { key: "expenses", title: "Expenses", description: "Default reference number for new expense records." },
+const SERIES: { key: SeriesKey; title: string; description: string; icon: React.ReactNode }[] = [
+  { key: "receipts", title: "Receipts / Sales Invoices", description: "Used for receipts printed at the point of sale.", icon: <Receipt className="h-4 w-4" /> },
+  { key: "expenses", title: "Expenses", description: "Default reference number for new expense records.", icon: <CreditCard className="h-4 w-4" /> },
+  { key: "purchase_orders", title: "Purchase Orders", description: "Reference numbers for purchase order records.", icon: <FileText className="h-4 w-4" /> },
 ];
 
-function SeriesEditor({ businessId, k, title, description }: { businessId: string; k: SeriesKey; title: string; description: string }) {
+function SeriesEditor({ businessId, k }: { businessId: string; k: SeriesKey }) {
+  const series = SERIES.find((s) => s.key === k)!;
   const [cfg, setCfg] = useState<NumberSeriesConfig>(getSeries(businessId, k));
 
   useEffect(() => { setCfg(getSeries(businessId, k)); }, [businessId, k]);
 
   const handleSave = () => {
     setSeries(businessId, k, { ...cfg, padding: Math.max(1, cfg.padding), next: Math.max(1, cfg.next) });
-    toast.success(`${title} numbering saved`);
+    toast.success(`${series.title} numbering saved`);
   };
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base"><Hash className="h-4 w-4" /> {title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-3">
+      <CardContent className="space-y-5 pt-6">
+        <div>
+          <h3 className="text-base font-semibold flex items-center gap-2"><Hash className="h-4 w-4" /> {series.title}</h3>
+          <p className="text-sm text-muted-foreground">{series.description}</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-2">
             <Label>Prefix</Label>
             <Input value={cfg.prefix} onChange={(e) => setCfg({ ...cfg, prefix: e.target.value })} placeholder="INV-" />
@@ -61,17 +64,33 @@ function SeriesEditor({ businessId, k, title, description }: { businessId: strin
 export function NumberSeriesTab() {
   const { business } = useBusiness();
   if (!business) return null;
+
+  const [activeTab, setActiveTab] = useState<SeriesKey>("receipts");
+
   return (
     <div className="space-y-4">
       <div>
         <h2 className="text-lg font-semibold">Document Numbering</h2>
         <p className="text-sm text-muted-foreground">Define the prefix, padding and next number for your records. New documents will automatically use the next available number.</p>
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        {SERIES.map((s) => (
-          <SeriesEditor key={s.key} businessId={business.id} k={s.key} title={s.title} description={s.description} />
-        ))}
-      </div>
+
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as SeriesKey)} className="flex flex-col md:flex-row gap-4 md:gap-6">
+        <TabsList className="text-muted-foreground flex md:flex-col h-auto w-full md:w-52 bg-muted rounded-lg p-1.5 shrink-0 md:items-start md:justify-start overflow-x-auto md:overflow-visible flex-nowrap">
+          {SERIES.map((s) => (
+            <TabsTrigger key={s.key} value={s.key} className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
+              {s.icon}{s.title}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        <div className="flex-1 min-w-0">
+          {SERIES.map((s) => (
+            <TabsContent key={s.key} value={s.key} className="mt-0">
+              <SeriesEditor businessId={business.id} k={s.key} />
+            </TabsContent>
+          ))}
+        </div>
+      </Tabs>
     </div>
   );
 }

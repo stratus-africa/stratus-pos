@@ -1,7 +1,7 @@
 // Lightweight client-side number series for documents (receipts, expenses, etc.)
 // Stored in localStorage per business + type.
 
-export type SeriesKey = "receipts" | "expenses";
+export type SeriesKey = "receipts" | "expenses" | "purchase_orders";
 
 export interface NumberSeriesConfig {
   prefix: string;
@@ -12,6 +12,7 @@ export interface NumberSeriesConfig {
 const defaults: Record<SeriesKey, NumberSeriesConfig> = {
   receipts: { prefix: "INV-", padding: 5, next: 1 },
   expenses: { prefix: "EXP-", padding: 5, next: 1 },
+  purchase_orders: { prefix: "PO-", padding: 5, next: 1 },
 };
 
 const storageKey = (businessId: string, key: SeriesKey) =>
