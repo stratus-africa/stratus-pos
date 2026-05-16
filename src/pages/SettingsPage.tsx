@@ -41,6 +41,7 @@ const SettingsPage = () => {
     { key: "payments", label: "Payment Accounts", icon: <Wallet className="h-4 w-4" />, permission: "banking.view", render: () => <PaymentAccountsTab /> },
     { key: "gateways", label: "Payment Gateways", icon: <Smartphone className="h-4 w-4" />, permission: "settings.edit", render: () => <PaymentGatewaysTab /> },
     { key: "receipt", label: "Receipt", icon: <Receipt className="h-4 w-4" />, permission: "settings.edit", render: () => <ReceiptSettingsTab /> },
+    { key: "numbering", label: "Numbering", icon: <Hash className="h-4 w-4" />, permission: "settings.edit", render: () => <NumberSeriesTab /> },
     { key: "subscription", label: "Plan", icon: <CreditCard className="h-4 w-4" />, permission: "settings.view", render: () => <SubscriptionTab /> },
   ], []);
 
