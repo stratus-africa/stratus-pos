@@ -167,10 +167,16 @@ export default function PurchaseEditor() {
 
   const formatKES = (n: number) => new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(n);
 
-  const productOptions = useMemo(
-    () => (productsQuery.data || []).filter((p) => p.is_active && !items.find((i) => i.product_id === p.id)),
-    [productsQuery.data, items]
-  );
+  const productOptions = useMemo(() => {
+    const base = (productsQuery.data || []).filter((p) => p.is_active && !items.find((i) => i.product_id === p.id));
+    const q = productSearch.trim().toLowerCase();
+    if (!q) return base.slice(0, 50);
+    return base.filter((p) =>
+      p.name.toLowerCase().includes(q) ||
+      (p.sku && p.sku.toLowerCase().includes(q)) ||
+      ((p as any).barcode && (p as any).barcode.toLowerCase().includes(q))
+    ).slice(0, 50);
+  }, [productsQuery.data, items, productSearch]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
