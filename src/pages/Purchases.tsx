@@ -6,10 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Search, Pencil, Trash2, Wallet } from "lucide-react";
 import { usePurchases, type Purchase, type PurchaseItem } from "@/hooks/usePurchases";
+import { useSupplierPayments } from "@/hooks/useSupplierPayments";
+import { SupplierPaymentDialog } from "@/components/purchases/SupplierPaymentDialog";
 import { PurchaseFormDialog } from "@/components/purchases/PurchaseFormDialog";
 import { usePermissions } from "@/hooks/usePermissions";
+import { format } from "date-fns";
 import { toast } from "sonner";
 
 const Purchases = () => {
@@ -93,16 +97,28 @@ const Purchases = () => {
     }
   };
 
+  const { query: paymentsQuery, remove: removePayment } = useSupplierPayments();
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const payments = paymentsQuery.data || [];
+
   return (
     <div className="space-y-3 sm:space-y-4">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl sm:text-2xl font-bold">Purchases</h1>
-        <Button size="sm" className="sm:size-default" onClick={() => { setEditingPurchase(null); setEditingItems([]); setPurchaseDialogOpen(true); }}>
-          <Plus className="mr-1 sm:mr-2 h-4 w-4" />
-          <span className="hidden sm:inline">New Purchase</span>
-          <span className="sm:hidden">New</span>
-        </Button>
       </div>
+
+      <Tabs defaultValue="orders" className="space-y-3">
+        <TabsList>
+          <TabsTrigger value="orders">Orders</TabsTrigger>
+          <TabsTrigger value="payments">Payments</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="orders" className="space-y-3">
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => { setEditingPurchase(null); setEditingItems([]); setPurchaseDialogOpen(true); }}>
+              <Plus className="mr-2 h-4 w-4" /> New Purchase
+            </Button>
+          </div>
 
       <Card>
         <CardHeader className="pb-3">
@@ -231,6 +247,66 @@ const Purchases = () => {
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="payments" className="space-y-3">
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => setPaymentDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" /> Record Payment
+            </Button>
+          </div>
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Supplier</TableHead>
+                    <TableHead>Invoice / Purchase</TableHead>
+                    <TableHead>Paid From</TableHead>
+                    <TableHead>Reference</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="w-[60px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {payments.length === 0 ? (
+                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No supplier payments yet.</TableCell></TableRow>
+                  ) : payments.map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell>{format(new Date(p.date), "dd MMM yyyy")}</TableCell>
+                      <TableCell>{p.suppliers?.name || p.contact_name || "—"}</TableCell>
+                      <TableCell>{p.purchases?.invoice_number || (p.purchase_id ? p.purchase_id.slice(0, 8) : "—")}</TableCell>
+                      <TableCell>{p.bank_accounts?.name || "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">{p.reference || "—"}</TableCell>
+                      <TableCell className="text-right font-medium">{formatKES(Number(p.amount))}</TableCell>
+                      <TableCell>
+                        {canDelete && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button size="icon" variant="ghost"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete this payment?</AlertDialogTitle>
+                                <AlertDialogDescription>The bank balance will be restored and any linked purchase will be re-evaluated.</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => removePayment.mutate(p)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <PurchaseFormDialog
         open={purchaseDialogOpen}
@@ -240,6 +316,8 @@ const Purchases = () => {
         editingPurchase={editingPurchase}
         editingItems={editingItems}
       />
+
+      <SupplierPaymentDialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen} />
     </div>
   );
 };
