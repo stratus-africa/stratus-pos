@@ -579,6 +579,7 @@ export default function PurchaseEditor() {
         onSubmit={handleProductCreated}
         isLoading={createProduct.isPending}
         initialBarcode={pendingBarcode}
+        initialSku={pendingBarcode}
       />
     </div>
   );
