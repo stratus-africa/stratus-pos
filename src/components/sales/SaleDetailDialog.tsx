@@ -21,6 +21,7 @@ interface Props {
 export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
   const { getSaleDetails } = useSales();
   const { business } = useBusiness();
+  const { user } = useAuth();
   const [items, setItems] = useState<SaleItem[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
