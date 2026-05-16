@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Save, Loader2, Building2, Phone, Mail, MapPin, FileText, UserCheck, Palette, PackageOpen, Briefcase, ShoppingCart } from "lucide-react";
+import { Save, Loader2, Building2, Phone, Mail, MapPin, FileText, PackageOpen, Briefcase, ShoppingCart } from "lucide-react";
 import { THEMES, DEFAULT_THEME, applyTheme, type ThemeKey, BUSINESS_TYPE_OPTIONS, type BusinessType } from "@/lib/themes";
 
 export function BusinessProfileTab() {
