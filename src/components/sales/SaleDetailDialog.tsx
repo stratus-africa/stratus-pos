@@ -6,9 +6,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Separator } from "@/components/ui/separator";
 import { Sale, SaleItem, Payment, useSales } from "@/hooks/useSales";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { Printer } from "lucide-react";
 import { toast } from "sonner";
+import { loadReceiptConfig } from "@/lib/receiptTemplate";
 
 interface Props {
   open: boolean;
