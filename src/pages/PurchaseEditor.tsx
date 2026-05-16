@@ -465,14 +465,18 @@ export default function PurchaseEditor() {
           </CardContent>
         </Card>
 
-        {requiresPaidThrough && (
+        {showPaymentSection && (
           <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-base">Payment</CardTitle></CardHeader>
+            <CardHeader className="pb-3"><CardTitle className="text-base">{isEditing ? "Record Additional Payment (optional)" : "Payment"}</CardTitle></CardHeader>
             <CardContent>
-              <p className="text-xs text-muted-foreground mb-3">A payment-out record will be created in the selected bank account.</p>
+              <p className="text-xs text-muted-foreground mb-3">
+                {isEditing
+                  ? "Leave blank to keep existing payments unchanged. Payment status will auto-recompute from total payments."
+                  : "A payment-out record will be created in the selected bank account."}
+              </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label>Bank Account *</Label>
+                  <Label>Bank Account {isEditing ? "" : "*"}</Label>
                   <Select value={paidThroughAccountId} onValueChange={setPaidThroughAccountId}>
                     <SelectTrigger><SelectValue placeholder="Select account..." /></SelectTrigger>
                     <SelectContent>
@@ -483,7 +487,7 @@ export default function PurchaseEditor() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Amount Paid (KES) *</Label>
+                  <Label>Amount Paid (KES) {isEditing ? "" : "*"}</Label>
                   <Input type="number" min={0} step={0.01} value={amountPaid} onChange={(e) => setAmountPaid(e.target.value)} placeholder="0.00" />
                 </div>
               </div>
