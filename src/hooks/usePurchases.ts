@@ -140,9 +140,10 @@ export function usePurchases() {
   const createPaidThroughTransaction = async (
     bankAccountId: string,
     amount: number,
-    purchase: { invoice_number?: string; created_by: string },
+    purchase: { invoice_number?: string; created_by: string; supplier_id?: string | null },
     supplierName: string | null,
     purchaseRef: string,
+    purchaseId: string,
   ) => {
     if (!business) return;
     const ref = purchase.invoice_number || `PUR-${purchaseRef.slice(0, 8)}`;
@@ -157,8 +158,24 @@ export function usePurchases() {
       category: "Purchases",
       contact_name: supplierName,
       created_by: purchase.created_by,
-    });
+      purchase_id: purchaseId,
+      supplier_id: purchase.supplier_id ?? null,
+    } as any);
     if (btErr) throw btErr;
+
+    // Decrement bank account balance
+    const { data: acc } = await supabase
+      .from("bank_accounts")
+      .select("id, balance")
+      .eq("id", bankAccountId)
+      .maybeSingle();
+    if (acc) {
+      await supabase
+        .from("bank_accounts")
+        .update({ balance: Number(acc.balance) - amount })
+        .eq("id", acc.id);
+    }
+  };
 
     // Decrement bank account balance
     const { data: acc } = await supabase
