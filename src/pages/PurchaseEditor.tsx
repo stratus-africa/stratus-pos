@@ -81,6 +81,10 @@ export default function PurchaseEditor() {
     if (!isEditing && currentLocation?.id && !locationId) setLocationId(currentLocation.id);
   }, [currentLocation?.id, isEditing, locationId]);
 
+  useEffect(() => {
+    suggestionRefs.current[highlightIdx]?.scrollIntoView({ block: "nearest" });
+  }, [highlightIdx]);
+
   const selectedSupplier = !supplierId ? null : suppliersQuery.data?.find((s) => s.id === supplierId);
   const supplierMissingPin = vatEnabled && selectedSupplier && !selectedSupplier.kra_pin?.trim();
   const noSupplier = !supplierId;
