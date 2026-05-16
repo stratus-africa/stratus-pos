@@ -162,7 +162,7 @@ export default function Profile() {
         </Card>
 
         {/* Password */}
-        <Card>
+        <Card id="change-password" className="scroll-mt-24">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2"><Lock className="h-4 w-4" /> Change password</CardTitle>
             <CardDescription>Use a strong password with at least 8 characters.</CardDescription>
