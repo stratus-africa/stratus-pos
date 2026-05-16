@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, AlertCircle, UserPlus, ArrowLeft, ScanLine } from "lucide-react";
+import { Plus, Trash2, AlertCircle, UserPlus, ArrowLeft, ScanLine, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { useSuppliers, usePurchases, type PurchaseItem } from "@/hooks/usePurchases";
 import { useProducts } from "@/hooks/useProducts";
@@ -18,6 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { SupplierFormDialog } from "@/components/purchases/SupplierFormDialog";
 import { ProductFormDialog } from "@/components/products/ProductFormDialog";
 import BarcodeScanner from "@/components/BarcodeScanner";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function PurchaseEditor() {
@@ -45,7 +46,7 @@ export default function PurchaseEditor() {
   const vatEnabled = orgVatEnabled && vatEnabledLocal;
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<PurchaseItem[]>([]);
-  const [addProductId, setAddProductId] = useState("");
+  
   const [paidThroughAccountId, setPaidThroughAccountId] = useState("");
   const [amountPaid, setAmountPaid] = useState("");
 
@@ -55,6 +56,8 @@ export default function PurchaseEditor() {
   const [loadingExisting, setLoadingExisting] = useState(isEditing);
   const [productSearch, setProductSearch] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
+  const [highlightIdx, setHighlightIdx] = useState(0);
+  const suggestionRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   // Load existing purchase
   useEffect(() => {
@@ -77,6 +80,10 @@ export default function PurchaseEditor() {
   useEffect(() => {
     if (!isEditing && currentLocation?.id && !locationId) setLocationId(currentLocation.id);
   }, [currentLocation?.id, isEditing, locationId]);
+
+  useEffect(() => {
+    suggestionRefs.current[highlightIdx]?.scrollIntoView({ block: "nearest" });
+  }, [highlightIdx]);
 
   const selectedSupplier = !supplierId ? null : suppliersQuery.data?.find((s) => s.id === supplierId);
   const supplierMissingPin = vatEnabled && selectedSupplier && !selectedSupplier.kra_pin?.trim();
@@ -116,6 +123,8 @@ export default function PurchaseEditor() {
   const tax = vatEnabled ? subtotal * (taxRate / 100) : 0;
   const total = subtotal + tax;
 
+  // In edit mode, payment fields are optional — used to record an ADDITIONAL payment.
+  const showPaymentSection = paymentStatus !== "unpaid";
   const requiresPaidThrough = paymentStatus !== "unpaid" && !isEditing;
 
   useEffect(() => {
@@ -195,6 +204,12 @@ export default function PurchaseEditor() {
       paidThrough = { bank_account_id: paidThroughAccountId, amount: amt };
     }
 
+    // In edit mode: optional additional payment if user fills in fields
+    let additionalPayment: { bank_account_id: string; amount: number } | null = null;
+    if (isEditing && showPaymentSection && paidThroughAccountId && parseFloat(amountPaid || "0") > 0) {
+      additionalPayment = { bank_account_id: paidThroughAccountId, amount: parseFloat(amountPaid) };
+    }
+
     const purchase = {
       supplier_id: supplierId,
       location_id: locationId,
@@ -208,7 +223,7 @@ export default function PurchaseEditor() {
     };
 
     if (isEditing && id) {
-      updatePurchase.mutate({ id, purchase, items }, { onSuccess: () => navigate("/purchases") });
+      updatePurchase.mutate({ id, purchase, items, additionalPayment }, { onSuccess: () => navigate("/purchases") });
     } else {
       createPurchase.mutate({ purchase, items, paidThrough }, { onSuccess: () => navigate("/purchases") });
     }
@@ -321,23 +336,35 @@ export default function PurchaseEditor() {
               <div className="flex gap-2">
                 <Input
                   value={productSearch}
-                  onChange={(e) => setProductSearch(e.target.value)}
-                  onFocus={() => setSearchFocused(true)}
+                  onChange={(e) => { setProductSearch(e.target.value); setHighlightIdx(0); }}
+                  onFocus={() => { setSearchFocused(true); setHighlightIdx(0); }}
                   onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") {
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setSearchFocused(true);
+                      setHighlightIdx((i) => Math.min(productOptions.length - 1, i + 1));
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setHighlightIdx((i) => Math.max(0, i - 1));
+                    } else if (e.key === "Escape") {
+                      setSearchFocused(false);
+                    } else if (e.key === "Enter") {
                       e.preventDefault();
                       const q = productSearch.trim();
-                      if (!q) return;
-                      const exact = (productsQuery.data || []).find(
+                      // Prefer exact SKU/barcode match
+                      const exact = q ? (productsQuery.data || []).find(
                         (p) => (p.barcode && p.barcode.trim() === q) || (p.sku && p.sku.trim() === q)
-                      );
-                      if (exact) {
-                        addItemById(exact.id);
+                      ) : null;
+                      const target = exact || productOptions[highlightIdx] || productOptions[0];
+                      if (target) {
+                        addItemById(target.id);
                         setProductSearch("");
-                      } else if (productOptions[0]) {
-                        addItemById(productOptions[0].id);
-                        setProductSearch("");
+                        setHighlightIdx(0);
+                      } else if (q) {
+                        // No match → open create-product dialog prefilled
+                        setPendingBarcode(q);
+                        setProductDialogOpen(true);
                       }
                     }
                   }}
@@ -350,16 +377,21 @@ export default function PurchaseEditor() {
               </div>
               {searchFocused && productOptions.length > 0 && (
                 <div className="absolute z-20 mt-1 w-full max-h-72 overflow-auto rounded-md border bg-popover shadow-md">
-                  {productOptions.map((p) => (
+                  {productOptions.map((p, idx) => (
                     <button
                       type="button"
                       key={p.id}
+                      ref={(el) => { suggestionRefs.current[idx] = el; }}
+                      onMouseEnter={() => setHighlightIdx(idx)}
                       onMouseDown={(e) => {
                         e.preventDefault();
                         addItemById(p.id);
                         setProductSearch("");
+                        setHighlightIdx(0);
                       }}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center justify-between gap-3"
+                      className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between gap-3 ${
+                        idx === highlightIdx ? "bg-accent" : "hover:bg-accent"
+                      }`}
                     >
                       <span className="truncate">
                         {p.name}
@@ -433,14 +465,18 @@ export default function PurchaseEditor() {
           </CardContent>
         </Card>
 
-        {requiresPaidThrough && (
+        {showPaymentSection && (
           <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-base">Payment</CardTitle></CardHeader>
+            <CardHeader className="pb-3"><CardTitle className="text-base">{isEditing ? "Record Additional Payment (optional)" : "Payment"}</CardTitle></CardHeader>
             <CardContent>
-              <p className="text-xs text-muted-foreground mb-3">A payment-out record will be created in the selected bank account.</p>
+              <p className="text-xs text-muted-foreground mb-3">
+                {isEditing
+                  ? "Leave blank to keep existing payments unchanged. Payment status will auto-recompute from total payments."
+                  : "A payment-out record will be created in the selected bank account."}
+              </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label>Bank Account *</Label>
+                  <Label>Bank Account {isEditing ? "" : "*"}</Label>
                   <Select value={paidThroughAccountId} onValueChange={setPaidThroughAccountId}>
                     <SelectTrigger><SelectValue placeholder="Select account..." /></SelectTrigger>
                     <SelectContent>
@@ -451,7 +487,7 @@ export default function PurchaseEditor() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Amount Paid (KES) *</Label>
+                  <Label>Amount Paid (KES) {isEditing ? "" : "*"}</Label>
                   <Input type="number" min={0} step={0.01} value={amountPaid} onChange={(e) => setAmountPaid(e.target.value)} placeholder="0.00" />
                 </div>
               </div>
@@ -466,11 +502,60 @@ export default function PurchaseEditor() {
           </CardContent>
         </Card>
 
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => navigate("/purchases")}>Cancel</Button>
-          <Button type="submit" disabled={createPurchase.isPending || updatePurchase.isPending || items.length === 0 || !!supplierMissingPin || noSupplier}>
-            {createPurchase.isPending || updatePurchase.isPending ? "Saving..." : isEditing ? "Update Purchase" : "Create Purchase"}
-          </Button>
+        <div className="flex flex-wrap justify-between gap-2">
+          <div>
+            {isEditing && status !== "cancelled" && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button type="button" variant="outline" className="text-destructive border-destructive/40 hover:bg-destructive/10">
+                    <Ban className="mr-2 h-4 w-4" /> Cancel Purchase
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Cancel this purchase?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {status === "received"
+                        ? "Stock added by this purchase will be reversed from inventory at the purchase location. Linked supplier payments remain so you can refund them separately."
+                        : "The purchase will be marked as cancelled. No inventory changes (it was never received)."}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Keep purchase</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => {
+                        if (!id || !user) return;
+                        updatePurchase.mutate({
+                          id,
+                          purchase: {
+                            supplier_id: supplierId,
+                            location_id: locationId,
+                            invoice_number: invoiceNumber || undefined,
+                            subtotal, tax, total,
+                            payment_status: paymentStatus,
+                            status: "cancelled",
+                            vat_enabled: vatEnabled,
+                            notes: notes || undefined,
+                            created_by: user.id,
+                          },
+                          items,
+                        }, { onSuccess: () => { toast.success("Purchase cancelled"); navigate("/purchases"); } });
+                      }}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Cancel purchase
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={() => navigate("/purchases")}>Back</Button>
+            <Button type="submit" disabled={createPurchase.isPending || updatePurchase.isPending || items.length === 0 || !!supplierMissingPin || noSupplier}>
+              {createPurchase.isPending || updatePurchase.isPending ? "Saving..." : isEditing ? "Update Purchase" : "Create Purchase"}
+            </Button>
+          </div>
         </div>
       </form>
 
@@ -494,6 +579,7 @@ export default function PurchaseEditor() {
         onSubmit={handleProductCreated}
         isLoading={createProduct.isPending}
         initialBarcode={pendingBarcode}
+        initialSku={pendingBarcode}
       />
     </div>
   );

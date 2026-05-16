@@ -17,9 +17,10 @@ interface Props {
   isLoading?: boolean;
   initialBarcode?: string;
   initialName?: string;
+  initialSku?: string;
 }
 
-export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoading, initialBarcode, initialName }: Props) {
+export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoading, initialBarcode, initialName, initialSku }: Props) {
   const { query: categoriesQuery } = useCategories();
   const { query: brandsQuery } = useBrands();
   const { query: unitsQuery } = useUnits();
@@ -63,14 +64,14 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
       setSelectedTaxRateId(matched?.id || "manual");
     } else {
       setForm({
-        name: initialName || "", sku: "", barcode: initialBarcode || "", category_id: null, brand_id: null, unit_id: null,
+        name: initialName || "", sku: initialSku || "", barcode: initialBarcode || "", category_id: null, brand_id: null, unit_id: null,
         purchase_price: 0, selling_price: 0, tax_rate: 16, is_active: true, allow_decimal_quantity: false,
       });
       // Default to first standard rate if available
       const defaultRate = taxRatesQuery.data?.find((tr) => tr.type === "standard");
       setSelectedTaxRateId(defaultRate?.id || "manual");
     }
-  }, [product, open, taxRatesQuery.data, initialBarcode, initialName]);
+  }, [product, open, taxRatesQuery.data, initialBarcode, initialName, initialSku]);
 
   const handleTaxRateChange = (taxRateId: string) => {
     setSelectedTaxRateId(taxRateId);
