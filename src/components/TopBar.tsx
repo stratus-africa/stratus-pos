@@ -5,7 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, FileText, Sunset, Receipt, ShoppingCart, LayoutDashboard } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { MapPin, FileText, Sunset, Receipt, ShoppingCart, LayoutDashboard, User as UserIcon, LogOut } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { usePOSSession } from "@/hooks/usePOSSession";
 import { useState } from "react";
