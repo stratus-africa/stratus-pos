@@ -243,7 +243,7 @@ export default function PurchaseEditor() {
   }
 
   return (
-    <div className="space-y-4 max-w-5xl mx-auto">
+    <div className="space-y-4 w-full">
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={() => navigate("/purchases")}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
