@@ -97,16 +97,28 @@ const Purchases = () => {
     }
   };
 
+  const { query: paymentsQuery, remove: removePayment } = useSupplierPayments();
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const payments = paymentsQuery.data || [];
+
   return (
     <div className="space-y-3 sm:space-y-4">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl sm:text-2xl font-bold">Purchases</h1>
-        <Button size="sm" className="sm:size-default" onClick={() => { setEditingPurchase(null); setEditingItems([]); setPurchaseDialogOpen(true); }}>
-          <Plus className="mr-1 sm:mr-2 h-4 w-4" />
-          <span className="hidden sm:inline">New Purchase</span>
-          <span className="sm:hidden">New</span>
-        </Button>
       </div>
+
+      <Tabs defaultValue="orders" className="space-y-3">
+        <TabsList>
+          <TabsTrigger value="orders">Orders</TabsTrigger>
+          <TabsTrigger value="payments">Payments</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="orders" className="space-y-3">
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => { setEditingPurchase(null); setEditingItems([]); setPurchaseDialogOpen(true); }}>
+              <Plus className="mr-2 h-4 w-4" /> New Purchase
+            </Button>
+          </div>
 
       <Card>
         <CardHeader className="pb-3">
