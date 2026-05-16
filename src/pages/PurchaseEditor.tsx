@@ -502,11 +502,60 @@ export default function PurchaseEditor() {
           </CardContent>
         </Card>
 
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => navigate("/purchases")}>Cancel</Button>
-          <Button type="submit" disabled={createPurchase.isPending || updatePurchase.isPending || items.length === 0 || !!supplierMissingPin || noSupplier}>
-            {createPurchase.isPending || updatePurchase.isPending ? "Saving..." : isEditing ? "Update Purchase" : "Create Purchase"}
-          </Button>
+        <div className="flex flex-wrap justify-between gap-2">
+          <div>
+            {isEditing && status !== "cancelled" && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button type="button" variant="outline" className="text-destructive border-destructive/40 hover:bg-destructive/10">
+                    <Ban className="mr-2 h-4 w-4" /> Cancel Purchase
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Cancel this purchase?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {status === "received"
+                        ? "Stock added by this purchase will be reversed from inventory at the purchase location. Linked supplier payments remain so you can refund them separately."
+                        : "The purchase will be marked as cancelled. No inventory changes (it was never received)."}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Keep purchase</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => {
+                        if (!id || !user) return;
+                        updatePurchase.mutate({
+                          id,
+                          purchase: {
+                            supplier_id: supplierId,
+                            location_id: locationId,
+                            invoice_number: invoiceNumber || undefined,
+                            subtotal, tax, total,
+                            payment_status: paymentStatus,
+                            status: "cancelled",
+                            vat_enabled: vatEnabled,
+                            notes: notes || undefined,
+                            created_by: user.id,
+                          },
+                          items,
+                        }, { onSuccess: () => { toast.success("Purchase cancelled"); navigate("/purchases"); } });
+                      }}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Cancel purchase
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={() => navigate("/purchases")}>Back</Button>
+            <Button type="submit" disabled={createPurchase.isPending || updatePurchase.isPending || items.length === 0 || !!supplierMissingPin || noSupplier}>
+              {createPurchase.isPending || updatePurchase.isPending ? "Saving..." : isEditing ? "Update Purchase" : "Create Purchase"}
+            </Button>
+          </div>
         </div>
       </form>
 
