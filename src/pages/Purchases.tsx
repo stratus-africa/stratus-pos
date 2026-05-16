@@ -247,6 +247,66 @@ const Purchases = () => {
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="payments" className="space-y-3">
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => setPaymentDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" /> Record Payment
+            </Button>
+          </div>
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Supplier</TableHead>
+                    <TableHead>Invoice / Purchase</TableHead>
+                    <TableHead>Paid From</TableHead>
+                    <TableHead>Reference</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="w-[60px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {payments.length === 0 ? (
+                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No supplier payments yet.</TableCell></TableRow>
+                  ) : payments.map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell>{format(new Date(p.date), "dd MMM yyyy")}</TableCell>
+                      <TableCell>{p.suppliers?.name || p.contact_name || "—"}</TableCell>
+                      <TableCell>{p.purchases?.invoice_number || (p.purchase_id ? p.purchase_id.slice(0, 8) : "—")}</TableCell>
+                      <TableCell>{p.bank_accounts?.name || "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">{p.reference || "—"}</TableCell>
+                      <TableCell className="text-right font-medium">{formatKES(Number(p.amount))}</TableCell>
+                      <TableCell>
+                        {canDelete && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button size="icon" variant="ghost"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete this payment?</AlertDialogTitle>
+                                <AlertDialogDescription>The bank balance will be restored and any linked purchase will be re-evaluated.</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => removePayment.mutate(p)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <PurchaseFormDialog
         open={purchaseDialogOpen}
@@ -256,6 +316,8 @@ const Purchases = () => {
         editingPurchase={editingPurchase}
         editingItems={editingItems}
       />
+
+      <SupplierPaymentDialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen} />
     </div>
   );
 };
