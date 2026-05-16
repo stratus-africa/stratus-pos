@@ -143,8 +143,10 @@ export type Database = {
           description: string | null
           expense_id: string | null
           id: string
+          purchase_id: string | null
           reference: string | null
           sale_id: string | null
+          supplier_id: string | null
           type: string
           updated_at: string
         }
@@ -160,8 +162,10 @@ export type Database = {
           description?: string | null
           expense_id?: string | null
           id?: string
+          purchase_id?: string | null
           reference?: string | null
           sale_id?: string | null
+          supplier_id?: string | null
           type?: string
           updated_at?: string
         }
@@ -177,8 +181,10 @@ export type Database = {
           description?: string | null
           expense_id?: string | null
           id?: string
+          purchase_id?: string | null
           reference?: string | null
           sale_id?: string | null
+          supplier_id?: string | null
           type?: string
           updated_at?: string
         }
