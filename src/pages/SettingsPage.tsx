@@ -9,6 +9,7 @@ import { SubscriptionTab } from "@/components/settings/SubscriptionTab";
 import { RolesPermissionsTab } from "@/components/settings/RolesPermissionsTab";
 import { PaymentAccountsTab } from "@/components/settings/PaymentAccountsTab";
 import { PaymentGatewaysTab } from "@/components/settings/PaymentGatewaysTab";
+import { NumberSeriesTab } from "@/components/settings/NumberSeriesTab";
 import { useSearchParams } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useMemo } from "react";
