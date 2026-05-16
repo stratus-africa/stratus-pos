@@ -41,6 +41,76 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
   const [search, setSearch] = useState("");
   const [actionFilter, setActionFilter] = useState<string>("all");
   const [entityFilter, setEntityFilter] = useState<string>("all");
+  const [previewLog, setPreviewLog] = useState<AuditLog | null>(null);
+
+  const formatKES = (n: number) =>
+    new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(Number(n || 0));
+
+  const hasSnapshot = (l: AuditLog) => !!(l.metadata && l.metadata.snapshot);
+
+  const printSnapshot = (l: AuditLog) => {
+    const snap = l.metadata?.snapshot;
+    if (!snap) return;
+    const p = snap.purchase || {};
+    const items = snap.items || [];
+    const payments = snap.payments || [];
+    const win = window.open("", "_blank", "width=820,height=900");
+    if (!win) return;
+    const rows = items.map((it: any) => `
+      <tr>
+        <td>${it.products?.name || "—"}${it.products?.sku ? ` <span style="color:#888">(${it.products.sku})</span>` : ""}</td>
+        <td style="text-align:right">${Number(it.quantity || 0)}</td>
+        <td style="text-align:right">${formatKES(Number(it.unit_cost || 0))}</td>
+        <td style="text-align:right">${formatKES(Number(it.total || 0))}</td>
+      </tr>`).join("");
+    const payRows = payments.map((pay: any) => `
+      <tr>
+        <td>${pay.date || ""}</td>
+        <td>${pay.bank_accounts?.name || "—"}</td>
+        <td>${pay.reference || ""}</td>
+        <td style="text-align:right">${formatKES(Number(pay.amount || 0))}</td>
+      </tr>`).join("");
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Deleted Purchase ${p.invoice_number || ""}</title>
+      <style>
+        body{font-family:ui-sans-serif,system-ui,Arial;color:#1e293b;padding:24px;max-width:780px;margin:auto}
+        h1{font-size:18px;margin:0 0 4px}
+        h2{font-size:13px;margin:18px 0 6px;color:#475569;text-transform:uppercase;letter-spacing:.05em}
+        .meta{font-size:12px;color:#64748b;margin-bottom:14px}
+        .banner{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:14px}
+        table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+        th,td{border-bottom:1px solid #e2e8f0;padding:6px 8px;text-align:left}
+        th{background:#f8fafc;font-weight:600}
+        .totals{margin-top:10px;text-align:right;font-size:13px}
+        .totals div{margin:2px 0}
+        .grand{font-weight:700;font-size:14px}
+        @media print{ .noprint{display:none} }
+      </style></head><body>
+      <div class="noprint" style="text-align:right;margin-bottom:10px">
+        <button onclick="window.print()" style="padding:6px 12px;background:#1e293b;color:white;border:0;border-radius:4px;cursor:pointer">Print</button>
+      </div>
+      <div class="banner"><strong>DELETED RECORD</strong> — Purchase deleted on ${format(new Date(l.created_at), "dd MMM yyyy HH:mm")} by ${l.user_name || l.user_email || "—"}</div>
+      <h1>Purchase ${p.invoice_number || (p.id ? String(p.id).slice(0, 8) : "")}</h1>
+      <div class="meta">
+        Supplier: ${p.suppliers?.name || "—"} · Location: ${p.locations?.name || "—"}<br/>
+        Status at deletion: <strong>${p.status || "—"}</strong> · Payment: ${p.payment_status || "—"}<br/>
+        Created: ${p.created_at ? format(new Date(p.created_at), "dd MMM yyyy") : "—"}
+      </div>
+      <h2>Items (${items.length})</h2>
+      <table><thead><tr><th>Product</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit Cost</th><th style="text-align:right">Total</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="4" style="text-align:center;color:#94a3b8">No items</td></tr>`}</tbody></table>
+      <div class="totals">
+        <div>Subtotal: ${formatKES(Number(p.subtotal || 0))}</div>
+        <div>Tax: ${formatKES(Number(p.tax || 0))}</div>
+        <div class="grand">Total: ${formatKES(Number(p.total || 0))}</div>
+      </div>
+      ${payments.length ? `<h2>Linked Payments (reversed)</h2>
+      <table><thead><tr><th>Date</th><th>Account</th><th>Reference</th><th style="text-align:right">Amount</th></tr></thead>
+      <tbody>${payRows}</tbody></table>` : ""}
+      ${p.notes ? `<h2>Notes</h2><div style="font-size:12px;white-space:pre-wrap">${p.notes}</div>` : ""}
+      <div style="margin-top:24px;font-size:10px;color:#94a3b8">Audit ID: ${l.id}</div>
+      </body></html>`);
+    win.document.close();
+  };
 
   const actions = useMemo(
     () => Array.from(new Set(logs.map((l) => l.action))).sort(),
