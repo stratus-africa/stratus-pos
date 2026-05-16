@@ -53,6 +53,8 @@ export default function PurchaseEditor() {
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [pendingBarcode, setPendingBarcode] = useState("");
   const [loadingExisting, setLoadingExisting] = useState(isEditing);
+  const [productSearch, setProductSearch] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
 
   // Load existing purchase
   useEffect(() => {
@@ -165,10 +167,16 @@ export default function PurchaseEditor() {
 
   const formatKES = (n: number) => new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(n);
 
-  const productOptions = useMemo(
-    () => (productsQuery.data || []).filter((p) => p.is_active && !items.find((i) => i.product_id === p.id)),
-    [productsQuery.data, items]
-  );
+  const productOptions = useMemo(() => {
+    const base = (productsQuery.data || []).filter((p) => p.is_active && !items.find((i) => i.product_id === p.id));
+    const q = productSearch.trim().toLowerCase();
+    if (!q) return base.slice(0, 50);
+    return base.filter((p) =>
+      p.name.toLowerCase().includes(q) ||
+      (p.sku && p.sku.toLowerCase().includes(q)) ||
+      ((p as any).barcode && (p as any).barcode.toLowerCase().includes(q))
+    ).slice(0, 50);
+  }, [productsQuery.data, items, productSearch]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -305,25 +313,79 @@ export default function PurchaseEditor() {
         </Card>
 
         <Card>
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardHeader className="pb-3">
             <CardTitle className="text-base">Items</CardTitle>
-            <Button type="button" variant="outline" size="sm" onClick={() => setScannerOpen(true)}>
-              <ScanLine className="mr-2 h-4 w-4" /> Scan Barcode
-            </Button>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex gap-2">
-              <Select value={addProductId} onValueChange={setAddProductId}>
-                <SelectTrigger className="flex-1"><SelectValue placeholder="Select product to add..." /></SelectTrigger>
-                <SelectContent>
+            <div className="relative">
+              <div className="flex gap-2">
+                <Input
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  onFocus={() => setSearchFocused(true)}
+                  onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const q = productSearch.trim();
+                      if (!q) return;
+                      const exact = (productsQuery.data || []).find(
+                        (p) => (p.barcode && p.barcode.trim() === q) || (p.sku && p.sku.trim() === q)
+                      );
+                      if (exact) {
+                        addItemById(exact.id);
+                        setProductSearch("");
+                      } else if (productOptions[0]) {
+                        addItemById(productOptions[0].id);
+                        setProductSearch("");
+                      }
+                    }
+                  }}
+                  placeholder="Scan barcode or type to search products..."
+                  className="flex-1"
+                />
+                <Button type="button" size="icon" variant="outline" onClick={() => setScannerOpen(true)} title="Scan barcode">
+                  <ScanLine className="h-4 w-4" />
+                </Button>
+              </div>
+              {searchFocused && productOptions.length > 0 && (
+                <div className="absolute z-20 mt-1 w-full max-h-72 overflow-auto rounded-md border bg-popover shadow-md">
                   {productOptions.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name} — {formatKES(p.purchase_price)}</SelectItem>
+                    <button
+                      type="button"
+                      key={p.id}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        addItemById(p.id);
+                        setProductSearch("");
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center justify-between gap-3"
+                    >
+                      <span className="truncate">
+                        {p.name}
+                        {p.sku && <span className="ml-2 text-xs text-muted-foreground">{p.sku}</span>}
+                      </span>
+                      <span className="text-xs text-muted-foreground shrink-0">{formatKES(p.purchase_price)}</span>
+                    </button>
                   ))}
-                </SelectContent>
-              </Select>
-              <Button type="button" size="icon" onClick={() => { if (addProductId) { addItemById(addProductId); setAddProductId(""); } }} disabled={!addProductId}>
-                <Plus className="h-4 w-4" />
-              </Button>
+                </div>
+              )}
+              {searchFocused && productSearch.trim() && productOptions.length === 0 && (
+                <div className="absolute z-20 mt-1 w-full rounded-md border bg-popover shadow-md p-3 text-sm space-y-2">
+                  <p className="text-muted-foreground">No matching product.</p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setPendingBarcode(productSearch.trim());
+                      setProductDialogOpen(true);
+                    }}
+                  >
+                    <Plus className="mr-1 h-3 w-3" /> Create "{productSearch.trim()}"
+                  </Button>
+                </div>
+              )}
             </div>
 
             {items.length > 0 ? (
