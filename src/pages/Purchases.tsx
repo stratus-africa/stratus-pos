@@ -70,9 +70,11 @@ const Purchases = () => {
 
         <TabsContent value="orders" className="space-y-3">
           <div className="flex justify-end">
-            <Button size="sm" onClick={() => { setEditingPurchase(null); setEditingItems([]); setPurchaseDialogOpen(true); }}>
-              <Plus className="mr-2 h-4 w-4" /> New Purchase
-            </Button>
+            {canCreate && (
+              <Button size="sm" onClick={() => navigate("/purchases/new")}>
+                <Plus className="mr-2 h-4 w-4" /> New Purchase
+              </Button>
+            )}
           </div>
 
       <Card>
@@ -116,7 +118,7 @@ const Purchases = () => {
                     {statusBadge(p.status)}
                     <div className="flex gap-1">
                       {canEdit && (
-                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleEditPurchase(p)}><Pencil className="h-4 w-4" /></Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => navigate(`/purchases/${p.id}/edit`)}><Pencil className="h-4 w-4" /></Button>
                       )}
                       {canDelete && (
                         <AlertDialog>
@@ -173,7 +175,7 @@ const Purchases = () => {
                       <TableCell>
                         <div className="flex gap-1">
                           {canEdit && (
-                            <Button size="icon" variant="ghost" onClick={() => handleEditPurchase(p)}><Pencil className="h-4 w-4" /></Button>
+                            <Button size="icon" variant="ghost" onClick={() => navigate(`/purchases/${p.id}/edit`)}><Pencil className="h-4 w-4" /></Button>
                           )}
                           {canDelete && (
                             <AlertDialog>
@@ -262,15 +264,6 @@ const Purchases = () => {
           </Card>
         </TabsContent>
       </Tabs>
-
-      <PurchaseFormDialog
-        open={purchaseDialogOpen}
-        onOpenChange={(o) => { setPurchaseDialogOpen(o); if (!o) { setEditingPurchase(null); setEditingItems([]); } }}
-        onSubmit={handlePurchaseSubmit}
-        isLoading={createPurchase.isPending || updatePurchase.isPending}
-        editingPurchase={editingPurchase}
-        editingItems={editingItems}
-      />
 
       <SupplierPaymentDialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen} />
     </div>
