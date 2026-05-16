@@ -234,6 +234,7 @@ export function usePurchases() {
           purchase,
           supplierName,
           purchaseId,
+          purchaseId,
         );
       }
     },
