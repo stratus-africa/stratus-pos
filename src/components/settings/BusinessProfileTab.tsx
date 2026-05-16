@@ -202,33 +202,6 @@ export function BusinessProfileTab() {
         </CardContent>
       </Card>
 
-      {/* Accountant */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <UserCheck className="h-5 w-5" />
-            Accountant
-          </CardTitle>
-          <CardDescription>Add your accountant's contact information for reference and reporting.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-2">
-              <Label>Accountant Name</Label>
-              <Input value={accountantName} onChange={(e) => setAccountantName(e.target.value)} placeholder="John Doe" />
-            </div>
-            <div className="space-y-2">
-              <Label>Accountant Email</Label>
-              <Input value={accountantEmail} onChange={(e) => setAccountantEmail(e.target.value)} placeholder="accountant@example.com" />
-            </div>
-            <div className="space-y-2">
-              <Label>Accountant Phone</Label>
-              <Input value={accountantPhone} onChange={(e) => setAccountantPhone(e.target.value)} placeholder="+254 7XX XXX XXX" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Business Rules */}
       <Card>
         <CardHeader>
