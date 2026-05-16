@@ -372,14 +372,62 @@ export function usePurchases() {
 
   const deletePurchase = useMutation({
     mutationFn: async (id: string) => {
+      if (!business) throw new Error("No business");
+      // Snapshot purchase, items, and linked bank txns BEFORE delete so the audit log
+      // is rich enough to print a deleted-record preview later.
+      const { data: purchaseSnap } = await supabase
+        .from("purchases")
+        .select("*, suppliers(name), locations(name)")
+        .eq("id", id)
+        .maybeSingle();
+      const { data: itemsSnap } = await supabase
+        .from("purchase_items")
+        .select("quantity, unit_cost, total, products(name, sku)")
+        .eq("purchase_id", id);
+      const { data: paymentsSnap } = await supabase
+        .from("bank_transactions")
+        .select("date, amount, reference, description, bank_accounts(name)")
+        .eq("purchase_id", id);
+
+      const paidSum = (paymentsSnap ?? []).reduce((s, t: any) => s + Number(t.amount || 0), 0);
+      const itemsQty = (itemsSnap ?? []).reduce((s: number, r: any) => s + Number(r.quantity || 0), 0);
+
       // Delete items first
       const { error: iError } = await supabase.from("purchase_items").delete().eq("purchase_id", id);
       if (iError) throw iError;
       const { error } = await supabase.from("purchases").delete().eq("id", id);
       if (error) throw error;
+
+      if (purchaseSnap) {
+        await logAudit({
+          business_id: business.id,
+          action: "purchase_deleted",
+          entity_type: "purchase",
+          entity_id: id,
+          description: `Deleted purchase ${purchaseSnap.invoice_number || id.slice(0, 8)} — ${
+            purchaseSnap.status === "received" ? "inventory reversed" : "no inventory effect"
+          }; ${paymentsSnap?.length || 0} linked payment(s) reversed`,
+          metadata: {
+            invoice_number: purchaseSnap.invoice_number,
+            total: purchaseSnap.total,
+            prior_status: purchaseSnap.status,
+            inventory_reversed: purchaseSnap.status === "received",
+            items_count: itemsSnap?.length || 0,
+            items_quantity: itemsQty,
+            payments_reversed_count: paymentsSnap?.length || 0,
+            payments_reversed_amount: paidSum,
+            snapshot: {
+              purchase: purchaseSnap,
+              items: itemsSnap || [],
+              payments: paymentsSnap || [],
+            },
+          },
+        });
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["purchases"] });
+      qc.invalidateQueries({ queryKey: ["audit_logs"] });
       toast.success("Purchase deleted");
     },
     onError: (e) => toast.error(e.message),
