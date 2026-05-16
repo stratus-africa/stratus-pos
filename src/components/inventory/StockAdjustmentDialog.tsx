@@ -298,10 +298,21 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
             <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} />
           </div>
 
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">{lines.length} product{lines.length !== 1 ? "s" : ""}</span>
-            <div className="flex gap-2">
+          <div className="flex flex-wrap justify-between items-center gap-2">
+            <div className="flex flex-col text-sm text-muted-foreground">
+              <span>{lines.length} product{lines.length !== 1 ? "s" : ""}</span>
+              {draftSavedAt && (
+                <span className="text-xs flex items-center gap-1"><FileText className="h-3 w-3" /> Draft saved {new Date(draftSavedAt).toLocaleString()}</span>
+              )}
+            </div>
+            <div className="flex gap-2 flex-wrap">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+              {draftSavedAt && (
+                <Button type="button" variant="ghost" onClick={handleDiscardDraft}>Discard Draft</Button>
+              )}
+              <Button type="button" variant="secondary" onClick={handleSaveDraft} disabled={lines.length === 0}>
+                <Save className="mr-1 h-4 w-4" /> Save as Draft
+              </Button>
               <Button type="submit" disabled={isLoading || lines.length === 0 || !locationId}>
                 Adjust {lines.length} Product{lines.length !== 1 ? "s" : ""}
               </Button>
