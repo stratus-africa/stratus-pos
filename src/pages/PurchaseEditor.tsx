@@ -46,7 +46,7 @@ export default function PurchaseEditor() {
   const vatEnabled = orgVatEnabled && vatEnabledLocal;
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<PurchaseItem[]>([]);
-  const [addProductId, setAddProductId] = useState("");
+  
   const [paidThroughAccountId, setPaidThroughAccountId] = useState("");
   const [amountPaid, setAmountPaid] = useState("");
 
