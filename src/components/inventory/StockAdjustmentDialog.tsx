@@ -8,8 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useProducts, Product } from "@/hooks/useProducts";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { Barcode, Plus, Trash2, Search } from "lucide-react";
+import { Barcode, Plus, Trash2, Search, Save, FileText } from "lucide-react";
 import { toast } from "sonner";
+import { loadDraft, saveDraft, clearDraft } from "@/lib/stockAdjustmentDraft";
 
 interface AdjustmentLine {
   product_id: string;
@@ -29,7 +30,7 @@ const REASONS = ["Purchase received", "Damage", "Loss", "Correction", "Return", 
 
 export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading }: Props) {
   const { productsQuery } = useProducts();
-  const { locations, currentLocation } = useBusiness();
+  const { business, locations, currentLocation } = useBusiness();
   const [locationId, setLocationId] = useState(currentLocation?.id || "");
   const [reason, setReason] = useState("Purchase received");
   const [notes, setNotes] = useState("");
@@ -37,23 +38,34 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
   const [barcodeInput, setBarcodeInput] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [showProductPicker, setShowProductPicker] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
   const barcodeRef = useRef<HTMLInputElement>(null);
 
   const products = productsQuery.data?.filter(p => p.is_active) || [];
 
-  // Focus barcode input when dialog opens
+  // Load any saved draft and focus barcode input when dialog opens
   useEffect(() => {
     if (open) {
+      const draft = loadDraft(business?.id);
+      if (draft && draft.lines.length > 0) {
+        setLines(draft.lines);
+        setLocationId(draft.location_id || currentLocation?.id || "");
+        setReason(draft.reason || "Purchase received");
+        setNotes(draft.notes || "");
+        setDraftSavedAt(draft.saved_at);
+        toast.info("Draft loaded", { description: `Saved ${new Date(draft.saved_at).toLocaleString()}` });
+      }
       setTimeout(() => barcodeRef.current?.focus(), 100);
     } else {
-      // Reset on close
+      // Reset on close (draft remains in storage)
       setLines([]);
       setBarcodeInput("");
       setSearchInput("");
       setNotes("");
       setShowProductPicker(false);
+      setDraftSavedAt(null);
     }
-  }, [open]);
+  }, [open, business?.id]);
 
   const addProduct = (product: Product, qty: number = 1) => {
     setLines(prev => {
@@ -122,6 +134,28 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
       reason,
       notes: notes || undefined,
     });
+    clearDraft(business?.id);
+    setDraftSavedAt(null);
+  };
+
+  const handleSaveDraft = () => {
+    if (!business?.id) return;
+    if (lines.length === 0) {
+      toast.error("Add at least one product before saving a draft");
+      return;
+    }
+    saveDraft(business.id, { lines, location_id: locationId, reason, notes });
+    const now = new Date().toISOString();
+    setDraftSavedAt(now);
+    toast.success("Draft saved");
+  };
+
+  const handleDiscardDraft = () => {
+    clearDraft(business?.id);
+    setDraftSavedAt(null);
+    setLines([]);
+    setNotes("");
+    toast.success("Draft discarded");
   };
 
   return (
@@ -264,10 +298,21 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
             <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} />
           </div>
 
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">{lines.length} product{lines.length !== 1 ? "s" : ""}</span>
-            <div className="flex gap-2">
+          <div className="flex flex-wrap justify-between items-center gap-2">
+            <div className="flex flex-col text-sm text-muted-foreground">
+              <span>{lines.length} product{lines.length !== 1 ? "s" : ""}</span>
+              {draftSavedAt && (
+                <span className="text-xs flex items-center gap-1"><FileText className="h-3 w-3" /> Draft saved {new Date(draftSavedAt).toLocaleString()}</span>
+              )}
+            </div>
+            <div className="flex gap-2 flex-wrap">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+              {draftSavedAt && (
+                <Button type="button" variant="ghost" onClick={handleDiscardDraft}>Discard Draft</Button>
+              )}
+              <Button type="button" variant="secondary" onClick={handleSaveDraft} disabled={lines.length === 0}>
+                <Save className="mr-1 h-4 w-4" /> Save as Draft
+              </Button>
               <Button type="submit" disabled={isLoading || lines.length === 0 || !locationId}>
                 Adjust {lines.length} Product{lines.length !== 1 ? "s" : ""}
               </Button>
