@@ -25,9 +25,6 @@ export function BusinessProfileTab() {
   const [address, setAddress] = useState((business as any)?.address || "");
   const [kraPin, setKraPin] = useState((business as any)?.kra_pin || "");
   const [vatEnabled, setVatEnabled] = useState((business as { vat_enabled?: boolean })?.vat_enabled ?? true);
-  const [accountantName, setAccountantName] = useState((business as { accountant_name?: string })?.accountant_name || "");
-  const [accountantEmail, setAccountantEmail] = useState((business as { accountant_email?: string })?.accountant_email || "");
-  const [accountantPhone, setAccountantPhone] = useState((business as { accountant_phone?: string })?.accountant_phone || "");
   const [themeColor, setThemeColor] = useState<ThemeKey>(((business as { theme_color?: ThemeKey })?.theme_color || DEFAULT_THEME) as ThemeKey);
   const [preventOverselling, setPreventOverselling] = useState((business as { prevent_overselling?: boolean })?.prevent_overselling ?? false);
   const [requireManagerToRemove, setRequireManagerToRemove] = useState((business as { pos_require_manager_to_remove_item?: boolean })?.pos_require_manager_to_remove_item ?? false);
