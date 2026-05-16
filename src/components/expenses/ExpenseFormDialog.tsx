@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { useExpenseCategories } from "@/hooks/useExpenses";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
+import { consumeNext, previewNext } from "@/lib/numberSeries";
 
 interface Props {
   open: boolean;
