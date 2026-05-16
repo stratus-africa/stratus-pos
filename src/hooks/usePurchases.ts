@@ -177,20 +177,6 @@ export function usePurchases() {
     }
   };
 
-    // Decrement bank account balance
-    const { data: acc } = await supabase
-      .from("bank_accounts")
-      .select("id, balance")
-      .eq("id", bankAccountId)
-      .maybeSingle();
-    if (acc) {
-      await supabase
-        .from("bank_accounts")
-        .update({ balance: Number(acc.balance) - amount })
-        .eq("id", acc.id);
-    }
-  };
-
   const createPurchase = useMutation({
     mutationFn: async ({
       purchase,
