@@ -53,6 +53,8 @@ export default function PurchaseEditor() {
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [pendingBarcode, setPendingBarcode] = useState("");
   const [loadingExisting, setLoadingExisting] = useState(isEditing);
+  const [productSearch, setProductSearch] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
 
   // Load existing purchase
   useEffect(() => {
