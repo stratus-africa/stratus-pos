@@ -5,7 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, FileText, Sunset, Receipt, ShoppingCart, LayoutDashboard } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { MapPin, FileText, Sunset, Receipt, ShoppingCart, LayoutDashboard, User as UserIcon, LogOut } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { usePOSSession } from "@/hooks/usePOSSession";
 import { useState } from "react";
@@ -16,7 +17,7 @@ import { useExpenses } from "@/hooks/useExpenses";
 
 export function TopBar() {
   const { business, locations, currentLocation, setCurrentLocation } = useBusiness();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const session = usePOSSession();
@@ -101,16 +102,40 @@ export function TopBar() {
               </Button>
             </>
           )}
-          <button
-            type="button"
-            onClick={() => navigate("/profile")}
-            className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            aria-label="Open profile"
-          >
-            <Avatar className="h-7 w-7">
-              <AvatarFallback className="text-xs bg-primary text-primary-foreground">{initials}</AvatarFallback>
-            </Avatar>
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label="Open user menu"
+              >
+                <Avatar className="h-7 w-7">
+                  <AvatarFallback className="text-xs bg-primary text-primary-foreground">{initials}</AvatarFallback>
+                </Avatar>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium truncate">{user?.user_metadata?.full_name || user?.email}</p>
+                  {user?.user_metadata?.full_name && (
+                    <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                  )}
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate("/profile")}>
+                <UserIcon className="mr-2 h-4 w-4" /> My Profile
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={async () => { await signOut(); navigate("/auth"); }}
+                className="text-destructive focus:text-destructive"
+              >
+                <LogOut className="mr-2 h-4 w-4" /> Log Out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
