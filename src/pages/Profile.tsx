@@ -43,6 +43,15 @@ export default function Profile() {
     })();
   }, [user]);
 
+  useEffect(() => {
+    if (loading) return;
+    if (routeLocation.hash === "#change-password") {
+      const el = document.getElementById("change-password");
+      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      setTimeout(() => document.getElementById("new-pwd")?.focus(), 350);
+    }
+  }, [routeLocation.hash, loading]);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
