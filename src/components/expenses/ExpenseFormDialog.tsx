@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { useExpenseCategories } from "@/hooks/useExpenses";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
+import { consumeNext, previewNext } from "@/lib/numberSeries";
 
 interface Props {
   open: boolean;
@@ -31,7 +32,7 @@ const PAYMENT_METHODS = ["cash", "mpesa", "bank_transfer", "card", "other"];
 
 export function ExpenseFormDialog({ open, onOpenChange, onSubmit, isLoading }: Props) {
   const { query: categoriesQuery } = useExpenseCategories();
-  const { locations, currentLocation } = useBusiness();
+  const { business, locations, currentLocation } = useBusiness();
   const { user } = useAuth();
   const { data: bankAccounts = [] } = useBankAccounts();
 
@@ -42,11 +43,25 @@ export function ExpenseFormDialog({ open, onOpenChange, onSubmit, isLoading }: P
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [reference, setReference] = useState("");
+  const [refTouched, setRefTouched] = useState(false);
   const [bankAccountId, setBankAccountId] = useState<string>("none");
+
+  // Prefill reference from configured series whenever the dialog opens (and user hasn't typed)
+  useEffect(() => {
+    if (open && !refTouched) {
+      setReference(previewNext(business?.id, "expenses"));
+    }
+    if (!open) setRefTouched(false);
+  }, [open, business?.id]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    // If the user kept the prefilled reference, consume it from the series.
+    let finalRef = reference;
+    if (!refTouched && business?.id) {
+      finalRef = consumeNext(business.id, "expenses");
+    }
     onSubmit({
       category_id: categoryId === "none" ? null : categoryId,
       location_id: locationId === "none" ? null : locationId,
@@ -54,13 +69,14 @@ export function ExpenseFormDialog({ open, onOpenChange, onSubmit, isLoading }: P
       description: description || undefined,
       date,
       payment_method: paymentMethod,
-      reference: reference || undefined,
+      reference: finalRef || undefined,
       created_by: user.id,
       bank_account_id: bankAccountId === "none" ? null : bankAccountId,
     });
     setAmount(0);
     setDescription("");
     setReference("");
+    setRefTouched(false);
     setBankAccountId("none");
     onOpenChange(false);
   };
@@ -138,7 +154,12 @@ export function ExpenseFormDialog({ open, onOpenChange, onSubmit, isLoading }: P
 
           <div className="space-y-2">
             <Label>Reference</Label>
-            <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Receipt/Ref #" />
+            <Input
+              value={reference}
+              onChange={(e) => { setRefTouched(true); setReference(e.target.value); }}
+              placeholder="Receipt/Ref #"
+            />
+            <p className="text-xs text-muted-foreground">Auto-generated from your numbering settings. Edit to override.</p>
           </div>
 
           <div className="space-y-2">

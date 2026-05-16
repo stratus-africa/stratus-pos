@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Save, Loader2, Building2, Phone, Mail, MapPin, FileText, UserCheck, Palette, PackageOpen, Briefcase, ShoppingCart } from "lucide-react";
+import { Save, Loader2, Building2, Phone, Mail, MapPin, FileText, PackageOpen, Briefcase, ShoppingCart } from "lucide-react";
 import { THEMES, DEFAULT_THEME, applyTheme, type ThemeKey, BUSINESS_TYPE_OPTIONS, type BusinessType } from "@/lib/themes";
 
 export function BusinessProfileTab() {
@@ -25,9 +25,6 @@ export function BusinessProfileTab() {
   const [address, setAddress] = useState((business as any)?.address || "");
   const [kraPin, setKraPin] = useState((business as any)?.kra_pin || "");
   const [vatEnabled, setVatEnabled] = useState((business as { vat_enabled?: boolean })?.vat_enabled ?? true);
-  const [accountantName, setAccountantName] = useState((business as { accountant_name?: string })?.accountant_name || "");
-  const [accountantEmail, setAccountantEmail] = useState((business as { accountant_email?: string })?.accountant_email || "");
-  const [accountantPhone, setAccountantPhone] = useState((business as { accountant_phone?: string })?.accountant_phone || "");
   const [themeColor, setThemeColor] = useState<ThemeKey>(((business as { theme_color?: ThemeKey })?.theme_color || DEFAULT_THEME) as ThemeKey);
   const [preventOverselling, setPreventOverselling] = useState((business as { prevent_overselling?: boolean })?.prevent_overselling ?? false);
   const [requireManagerToRemove, setRequireManagerToRemove] = useState((business as { pos_require_manager_to_remove_item?: boolean })?.pos_require_manager_to_remove_item ?? false);
@@ -65,9 +62,6 @@ export function BusinessProfileTab() {
         address: address.trim() || null,
         kra_pin: kraPin.trim() || null,
         vat_enabled: vatEnabled,
-        accountant_name: accountantName.trim() || null,
-        accountant_email: accountantEmail.trim() || null,
-        accountant_phone: accountantPhone.trim() || null,
         theme_color: themeColor,
         prevent_overselling: preventOverselling,
         pos_require_manager_to_remove_item: requireManagerToRemove,
@@ -205,33 +199,6 @@ export function BusinessProfileTab() {
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Accountant */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <UserCheck className="h-5 w-5" />
-            Accountant
-          </CardTitle>
-          <CardDescription>Add your accountant's contact information for reference and reporting.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-2">
-              <Label>Accountant Name</Label>
-              <Input value={accountantName} onChange={(e) => setAccountantName(e.target.value)} placeholder="John Doe" />
-            </div>
-            <div className="space-y-2">
-              <Label>Accountant Email</Label>
-              <Input value={accountantEmail} onChange={(e) => setAccountantEmail(e.target.value)} placeholder="accountant@example.com" />
-            </div>
-            <div className="space-y-2">
-              <Label>Accountant Phone</Label>
-              <Input value={accountantPhone} onChange={(e) => setAccountantPhone(e.target.value)} placeholder="+254 7XX XXX XXX" />
-            </div>
-          </div>
         </CardContent>
       </Card>
 

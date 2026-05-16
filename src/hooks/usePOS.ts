@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Product } from "@/hooks/useProducts";
 import { pickFefoBatches } from "@/hooks/useProductBatches";
+import { consumeNext } from "@/lib/numberSeries";
 
 export interface CartItem {
   product: Product;
@@ -171,8 +172,8 @@ export function usePOS() {
       const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
       const paymentStatus = totalPaid >= cartTotal ? "paid" : totalPaid > 0 ? "partial" : "unpaid";
 
-      // Generate invoice number
-      const invoiceNumber = `INV-${Date.now().toString(36).toUpperCase()}`;
+      // Generate invoice number using configured series
+      const invoiceNumber = consumeNext(business.id, "receipts");
 
       const saleId = crypto.randomUUID();
 

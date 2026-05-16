@@ -6,9 +6,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Separator } from "@/components/ui/separator";
 import { Sale, SaleItem, Payment, useSales } from "@/hooks/useSales";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { Printer } from "lucide-react";
 import { toast } from "sonner";
+import { loadReceiptConfig } from "@/lib/receiptTemplate";
 
 interface Props {
   open: boolean;
@@ -19,6 +21,7 @@ interface Props {
 export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
   const { getSaleDetails } = useSales();
   const { business } = useBusiness();
+  const { user } = useAuth();
   const [items, setItems] = useState<SaleItem[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
@@ -44,15 +47,22 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
       toast.info("Loading receipt details…");
       return;
     }
-    const win = window.open("", "_blank", "width=320,height=600");
+    const win = window.open("", "_blank", "width=340,height=600");
     if (!win) {
       toast.error("Popup blocked. Allow popups to print receipts.");
       return;
     }
-    const businessName = business?.name || "";
+    const cfg = loadReceiptConfig(business?.id);
+    const businessName = cfg.header || business?.name || "";
+    const businessAddress = (business as { address?: string } | null)?.address || "";
+    const businessPhone = (business as { phone?: string } | null)?.phone || "";
+    const logoUrl = business?.logo_url || "";
+    const currency = business?.currency || "KES";
     const locationName = sale.locations?.name || "";
     const customerName = sale.customers?.name || "";
     const fmt = (n: number | string) => Number(n || 0).toLocaleString();
+    const servedBy = ((user?.user_metadata as { full_name?: string } | undefined)?.full_name) || user?.email || "—";
+    const printedAt = format(new Date(), "PPp");
 
     const itemRows = items.map((it) => `
       <tr>
@@ -69,37 +79,47 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
     win.document.write(`
       <html><head><title>Receipt ${escapeHtml(sale.invoice_number || "")}</title>
       <style>
-        body { font-family: monospace; font-size: 12px; width: 280px; margin: 0 auto; padding: 10px; color:#000; }
+        body { font-family: ${cfg.fontFamily}; font-size: ${cfg.fontSize}px; width: 300px; margin: 0 auto; padding: 10px; color:#000; line-height:1.45; }
         .center { text-align: center; }
         .right { text-align: right; }
         .bold { font-weight: bold; }
+        .header-name { font-weight: bold; font-size: ${cfg.headerFontSize}px; }
         .line { border-top: 1px dashed #000; margin: 6px 0; }
         .row { display: flex; justify-content: space-between; }
         table { width: 100%; border-collapse: collapse; }
         td { padding: 2px 0; vertical-align: top; }
-        .total { font-weight: bold; font-size: 13px; }
+        .total { font-weight: bold; font-size: ${cfg.fontSize + 1}px; }
         .reprint { text-align:center; font-size: 10px; margin-top: 4px; letter-spacing: 1px; }
+        .footer-small { text-align:center; font-size: ${Math.max(9, cfg.fontSize - 1)}px; opacity: 0.85; }
+        .logo { max-height: 64px; max-width: 100%; margin: 0 auto 4px; display:block; object-fit: contain; }
         @media print { body { margin: 0; } }
       </style></head><body>
         <div class="center">
-          <div class="bold" style="font-size:13px">${escapeHtml(businessName)}</div>
-          <div>${escapeHtml(locationName)}</div>
-          <div>${format(new Date(sale.created_at), "PPp")}</div>
+          ${cfg.showLogo && logoUrl ? `<img class="logo" src="${escapeHtml(logoUrl)}" alt="logo" />` : ""}
+          <div class="header-name">${escapeHtml(businessName)}</div>
+          ${cfg.showAddress && businessAddress ? `<div>${escapeHtml(businessAddress)}</div>` : ""}
+          ${cfg.showPhone && businessPhone ? `<div>${escapeHtml(businessPhone)}</div>` : ""}
+          ${locationName ? `<div>${escapeHtml(locationName)}</div>` : ""}
         </div>
         <div class="line"></div>
         <div>Invoice: ${escapeHtml(sale.invoice_number || "—")}</div>
+        <div>Date: ${format(new Date(sale.created_at), "PPp")}</div>
         ${customerName ? `<div>Customer: ${escapeHtml(customerName)}</div>` : ""}
         <div class="line"></div>
         <table><tbody>${itemRows}</tbody></table>
         <div class="line"></div>
         <div class="row"><span>Subtotal</span><span>${fmt(sale.subtotal)}</span></div>
-        ${Number(sale.tax) > 0 ? `<div class="row"><span>VAT</span><span>${fmt(sale.tax)}</span></div>` : ""}
+        ${cfg.showTaxBreakdown && Number(sale.tax) > 0 ? `<div class="row"><span>VAT</span><span>${fmt(sale.tax)}</span></div>` : ""}
         ${Number(sale.discount) > 0 ? `<div class="row"><span>Discount</span><span>-${fmt(sale.discount)}</span></div>` : ""}
-        <div class="row total"><span>TOTAL</span><span>KES ${fmt(sale.total)}</span></div>
+        <div class="row total"><span>TOTAL</span><span>${escapeHtml(currency)} ${fmt(sale.total)}</span></div>
         <div class="line"></div>
         ${paymentRows || `<div class="row"><span>Unpaid</span><span>—</span></div>`}
         <div class="line"></div>
-        <div class="center">Thank you for shopping with us!</div>
+        <div class="center">${escapeHtml(cfg.thankYouMessage || "")}</div>
+        ${cfg.footer ? `<div class="center" style="white-space:pre-wrap">${escapeHtml(cfg.footer)}</div>` : ""}
+        ${(cfg.showServedBy || cfg.showPrintedAt) ? `<div class="line"></div>` : ""}
+        ${cfg.showServedBy ? `<div class="footer-small">Served by: ${escapeHtml(servedBy)}</div>` : ""}
+        ${cfg.showPrintedAt ? `<div class="footer-small">Printed: ${escapeHtml(printedAt)}</div>` : ""}
         <div class="reprint">*** REPRINT ***</div>
         <script>window.onload = function(){ window.print(); setTimeout(function(){ window.close(); }, 200); };</script>
       </body></html>

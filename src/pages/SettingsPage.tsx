@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, MapPin, Users, Receipt, CreditCard, ShieldCheck, Wallet, Smartphone, Palette } from "lucide-react";
+import { Building2, MapPin, Users, Receipt, CreditCard, ShieldCheck, Wallet, Smartphone, Palette, Hash } from "lucide-react";
 import { BusinessProfileTab } from "@/components/settings/BusinessProfileTab";
 import { BrandingTab } from "@/components/settings/BrandingTab";
 import { LocationsTab } from "@/components/settings/LocationsTab";
@@ -9,6 +9,7 @@ import { SubscriptionTab } from "@/components/settings/SubscriptionTab";
 import { RolesPermissionsTab } from "@/components/settings/RolesPermissionsTab";
 import { PaymentAccountsTab } from "@/components/settings/PaymentAccountsTab";
 import { PaymentGatewaysTab } from "@/components/settings/PaymentGatewaysTab";
+import { NumberSeriesTab } from "@/components/settings/NumberSeriesTab";
 import { useSearchParams } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useMemo } from "react";
@@ -40,6 +41,7 @@ const SettingsPage = () => {
     { key: "payments", label: "Payment Accounts", icon: <Wallet className="h-4 w-4" />, permission: "banking.view", render: () => <PaymentAccountsTab /> },
     { key: "gateways", label: "Payment Gateways", icon: <Smartphone className="h-4 w-4" />, permission: "settings.edit", render: () => <PaymentGatewaysTab /> },
     { key: "receipt", label: "Receipt", icon: <Receipt className="h-4 w-4" />, permission: "settings.edit", render: () => <ReceiptSettingsTab /> },
+    { key: "numbering", label: "Numbering", icon: <Hash className="h-4 w-4" />, permission: "settings.edit", render: () => <NumberSeriesTab /> },
     { key: "subscription", label: "Plan", icon: <CreditCard className="h-4 w-4" />, permission: "settings.view", render: () => <SubscriptionTab /> },
   ], []);
 
