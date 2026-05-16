@@ -204,6 +204,12 @@ export default function PurchaseEditor() {
       paidThrough = { bank_account_id: paidThroughAccountId, amount: amt };
     }
 
+    // In edit mode: optional additional payment if user fills in fields
+    let additionalPayment: { bank_account_id: string; amount: number } | null = null;
+    if (isEditing && showPaymentSection && paidThroughAccountId && parseFloat(amountPaid || "0") > 0) {
+      additionalPayment = { bank_account_id: paidThroughAccountId, amount: parseFloat(amountPaid) };
+    }
+
     const purchase = {
       supplier_id: supplierId,
       location_id: locationId,
@@ -217,7 +223,7 @@ export default function PurchaseEditor() {
     };
 
     if (isEditing && id) {
-      updatePurchase.mutate({ id, purchase, items }, { onSuccess: () => navigate("/purchases") });
+      updatePurchase.mutate({ id, purchase, items, additionalPayment }, { onSuccess: () => navigate("/purchases") });
     } else {
       createPurchase.mutate({ purchase, items, paidThrough }, { onSuccess: () => navigate("/purchases") });
     }
