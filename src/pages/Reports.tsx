@@ -31,6 +31,7 @@ const Reports = () => {
         .from("sales")
         .select("*, customers(name), locations(name), sale_items(quantity, unit_price, discount, total, batch_id, products(name, purchase_price), product_batches:batch_id(batch_number, expiry_date))")
         .eq("business_id", business.id)
+        .neq("status", "cancelled")
         .gte("created_at", `${from}T00:00:00`)
         .lte("created_at", `${to}T23:59:59`)
         .order("created_at", { ascending: false });
@@ -98,6 +99,7 @@ const Reports = () => {
         .from("purchases")
         .select("*, suppliers(name), locations(name)")
         .eq("business_id", business.id)
+        .neq("status", "cancelled")
         .gte("created_at", `${from}T00:00:00`)
         .lte("created_at", `${to}T23:59:59`)
         .order("created_at", { ascending: false });
