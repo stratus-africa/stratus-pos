@@ -14,6 +14,7 @@ import { User, Mail, Phone, Image as ImageIcon, Lock, Loader2, Building2 } from 
 
 export default function Profile() {
   const navigate = useNavigate();
+  const routeLocation = useLocation();
   const { user } = useAuth();
   const { business, userRole, currentLocation } = useBusiness();
 
