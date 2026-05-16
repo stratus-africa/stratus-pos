@@ -8,8 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useProducts, Product } from "@/hooks/useProducts";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { Barcode, Plus, Trash2, Search } from "lucide-react";
+import { Barcode, Plus, Trash2, Search, Save, FileText } from "lucide-react";
 import { toast } from "sonner";
+import { loadDraft, saveDraft, clearDraft } from "@/lib/stockAdjustmentDraft";
 
 interface AdjustmentLine {
   product_id: string;
