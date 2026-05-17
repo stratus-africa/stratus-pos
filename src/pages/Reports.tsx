@@ -14,7 +14,7 @@ import PnLReportTab from "@/components/reports/PnLReportTab";
 import PurchasesReportTab from "@/components/reports/PurchasesReportTab";
 import ExpensesReportTab from "@/components/reports/ExpensesReportTab";
 import AuditLogReportTab from "@/components/reports/AuditLogReportTab";
-import { useFeatureLimit } from "@/components/FeatureGate";
+import { useFeatureLimit, RequireFeature } from "@/components/FeatureGate";
 
 const today = new Date().toISOString().split("T")[0];
 const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
@@ -220,11 +220,13 @@ const Reports = () => {
             <ExpensesReportTab expenses={expenses} from={from} to={to} loading={loading} />
           </TabsContent>
           <TabsContent value="inventory" className="mt-0">
-            <InventoryReportTab inventory={inventory} loading={loading} />
+            <InventoryReportTab inventory={inventory} loading={loading} showBatches={hasFeatureKey("batch_tracking")} />
           </TabsContent>
           {showPnL && (
             <TabsContent value="pnl" className="mt-0">
-              <PnLReportTab totalRevenue={totalRevenue} totalCOGS={totalCOGS} grossProfit={grossProfit} totalExpenses={totalExpenses} netProfit={netProfit} expenseByCategory={expenseByCategory} from={from} to={to} loading={loading} />
+              <RequireFeature featureKey="accounting">
+                <PnLReportTab totalRevenue={totalRevenue} totalCOGS={totalCOGS} grossProfit={grossProfit} totalExpenses={totalExpenses} netProfit={netProfit} expenseByCategory={expenseByCategory} from={from} to={to} loading={loading} />
+              </RequireFeature>
             </TabsContent>
           )}
           <TabsContent value="audit" className="mt-0">

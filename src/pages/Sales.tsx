@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Eye, Trash2 } from "lucide-react";
+import { Search, Eye, Trash2, Ban, RotateCcw } from "lucide-react";
 import { useSales, Sale } from "@/hooks/useSales";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -13,11 +13,12 @@ import SaleDetailDialog from "@/components/sales/SaleDetailDialog";
 import { format } from "date-fns";
 
 const Sales = () => {
-  const { salesQuery, deleteSale } = useSales();
+  const { salesQuery, deleteSale, cancelSale } = useSales();
   const { userRole } = useBusiness();
   const { hasPermission } = usePermissions();
   const isCashier = userRole === "cashier";
   const canDelete = hasPermission("sales.delete") && !isCashier;
+  const canCancel = !isCashier;
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -106,18 +107,48 @@ const Sales = () => {
                     <TableCell>{sale.locations?.name}</TableCell>
                     <TableCell className="text-right font-medium">KES {Number(sale.total).toLocaleString()}</TableCell>
                     <TableCell>
-                      <Badge variant={sale.payment_status === "paid" ? "default" : sale.payment_status === "partial" ? "secondary" : "destructive"}>
-                        {sale.payment_status}
-                      </Badge>
+                      {sale.status === "cancelled" ? (
+                        <Badge variant="outline" className="border-destructive text-destructive">Cancelled</Badge>
+                      ) : (
+                        <Badge variant={sale.payment_status === "paid" ? "default" : sale.payment_status === "partial" ? "secondary" : "destructive"}>
+                          {sale.payment_status}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => { setSelectedSale(sale); setDetailOpen(true); }}>
+                      <Button variant="ghost" size="icon" onClick={() => { setSelectedSale(sale); setDetailOpen(true); }} aria-label="View sale">
                         <Eye className="h-4 w-4" />
                       </Button>
+                      {canCancel && sale.status !== "cancelled" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Cancel sale"
+                          title="Cancel sale (reverse stock movements)"
+                          onClick={() => {
+                            if (!confirm(`Cancel sale ${sale.invoice_number || ""}? Inventory will be restored and stock movement records removed.`)) return;
+                            cancelSale.mutate({ id: sale.id, cancel: true });
+                          }}
+                        >
+                          <Ban className="h-4 w-4 text-warning" />
+                        </Button>
+                      )}
+                      {canCancel && sale.status === "cancelled" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Reactivate sale"
+                          title="Reactivate sale"
+                          onClick={() => cancelSale.mutate({ id: sale.id, cancel: false })}
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      )}
                       {canDelete && (
                         <Button
                           variant="ghost"
                           size="icon"
+                          aria-label="Delete sale"
                           onClick={() => {
                             if (!canDelete) return;
                             if (!confirm("Delete this sale? Inventory will be restored.")) return;

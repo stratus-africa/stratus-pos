@@ -212,5 +212,47 @@ export function useSales() {
     onError: (e) => toast.error(e.message),
   });
 
-  return { salesQuery, getSaleDetails, deleteSale };
+  const cancelSale = useMutation({
+    mutationFn: async ({ id, cancel = true }: { id: string; cancel?: boolean }) => {
+      if (cashierOnly) throw new Error("Cashiers cannot cancel sales.");
+      const { data: saleSnap } = await supabase
+        .from("sales")
+        .select("invoice_number, total, business_id, status")
+        .eq("id", id)
+        .maybeSingle();
+
+      const nextStatus = cancel ? "cancelled" : "completed";
+      const { error } = await supabase
+        .from("sales")
+        .update({ status: nextStatus })
+        .eq("id", id);
+      if (error) throw error;
+
+      // Remove linked bank transactions when voiding (mirrors delete behaviour)
+      if (cancel) {
+        await supabase.from("bank_transactions").delete().eq("sale_id", id);
+      }
+
+      if (saleSnap?.business_id) {
+        const { logAudit } = await import("@/lib/audit");
+        await logAudit({
+          business_id: saleSnap.business_id,
+          action: cancel ? "sale_cancelled" : "sale_reactivated",
+          entity_type: "sale",
+          entity_id: id,
+          description: `${cancel ? "Cancelled" : "Reactivated"} sale ${saleSnap.invoice_number || id} (KES ${Number(saleSnap.total || 0).toLocaleString()})`,
+          metadata: { invoice_number: saleSnap.invoice_number, total: saleSnap.total, previous_status: saleSnap.status, new_status: nextStatus },
+        });
+      }
+    },
+    onSuccess: (_d, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["stock_movements"] });
+      toast.success(vars.cancel ? "Sale cancelled — inventory restored" : "Sale reactivated");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  return { salesQuery, getSaleDetails, deleteSale, cancelSale };
 }
