@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.delete_adjustments_for_sale() FROM PUBLIC, anon, authenticated;
