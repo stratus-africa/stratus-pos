@@ -9,9 +9,10 @@ import { formatKES, downloadCSV } from "./reportUtils";
 interface InventoryReportTabProps {
   inventory: any[];
   loading: boolean;
+  showBatches?: boolean;
 }
 
-const InventoryReportTab = ({ inventory, loading }: InventoryReportTabProps) => {
+const InventoryReportTab = ({ inventory, loading, showBatches = true }: InventoryReportTabProps) => {
   const formatBatches = (b: { batch_number: string; expiry_date: string | null; quantity: number }[]) =>
     b.map(x => `${x.batch_number}${x.expiry_date ? ` (exp ${x.expiry_date})` : ""}: ${x.quantity}`).join(" | ");
 
