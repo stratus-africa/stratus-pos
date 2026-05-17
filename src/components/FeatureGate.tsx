@@ -40,6 +40,22 @@ export function FeatureGate({ requiredTier, featureKey, children, fallback }: Fe
 }
 
 /**
+ * Route guard. Use to protect a route or section so users on plans
+ * without the given feature key are blocked from rendering it
+ * (and redirected to the subscription tab).
+ */
+export function RequireFeature({ featureKey, children }: { featureKey: string; children: React.ReactNode }) {
+  const { hasFeatureKey, isLoading } = useSubscription();
+  if (isLoading) return null;
+  if (!hasFeatureKey(featureKey)) {
+    return (
+      <FeatureGate featureKey={featureKey}>{children}</FeatureGate>
+    );
+  }
+  return <>{children}</>;
+}
+
+/**
  * Returns plan-driven feature limits and access flags.
  * Limits and access come directly from the user's resolved subscription_package
  * + its package_features rows.
