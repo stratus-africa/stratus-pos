@@ -17,13 +17,16 @@ const InventoryReportTab = ({ inventory, loading, showBatches = true }: Inventor
     b.map(x => `${x.batch_number}${x.expiry_date ? ` (exp ${x.expiry_date})` : ""}: ${x.quantity}`).join(" | ");
 
   const downloadInventoryCSV = () => {
-    const headers = ["Product", "SKU", "Category", "Brand", "Qty", "Low Stock Threshold", "Purchase Price", "Selling Price", "Stock Value", "Batches"];
-    const rows = inventory.map((i: any) => [
-      i.products?.name || "", i.products?.sku || "", i.products?.categories?.name || "", i.products?.brands?.name || "",
-      i.quantity, i.low_stock_threshold, i.products?.purchase_price || 0, i.products?.selling_price || 0,
-      Number(i.quantity) * Number(i.products?.purchase_price || 0),
-      formatBatches(i._batches || []),
-    ].map(String));
+    const baseHeaders = ["Product", "SKU", "Category", "Brand", "Qty", "Low Stock Threshold", "Purchase Price", "Selling Price", "Stock Value"];
+    const headers = showBatches ? [...baseHeaders, "Batches"] : baseHeaders;
+    const rows = inventory.map((i: any) => {
+      const base = [
+        i.products?.name || "", i.products?.sku || "", i.products?.categories?.name || "", i.products?.brands?.name || "",
+        i.quantity, i.low_stock_threshold, i.products?.purchase_price || 0, i.products?.selling_price || 0,
+        Number(i.quantity) * Number(i.products?.purchase_price || 0),
+      ];
+      return (showBatches ? [...base, formatBatches(i._batches || [])] : base).map(String);
+    });
     downloadCSV(`inventory_report.csv`, headers, rows);
     toast.success("Inventory report downloaded");
   };
