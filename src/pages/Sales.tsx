@@ -13,11 +13,12 @@ import SaleDetailDialog from "@/components/sales/SaleDetailDialog";
 import { format } from "date-fns";
 
 const Sales = () => {
-  const { salesQuery, deleteSale } = useSales();
+  const { salesQuery, deleteSale, cancelSale } = useSales();
   const { userRole } = useBusiness();
   const { hasPermission } = usePermissions();
   const isCashier = userRole === "cashier";
   const canDelete = hasPermission("sales.delete") && !isCashier;
+  const canCancel = !isCashier;
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
