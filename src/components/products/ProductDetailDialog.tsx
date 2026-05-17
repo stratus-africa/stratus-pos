@@ -8,6 +8,7 @@ import { Package, ShoppingCart, Truck, ClipboardList, Layers } from "lucide-reac
 import type { Product } from "@/hooks/useProducts";
 import { useBusiness } from "@/contexts/BusinessContext";
 import BatchesTab from "@/components/products/BatchesTab";
+import { useFeatureLimit } from "@/components/FeatureGate";
 
 interface ProductDetailDialogProps {
   product: Product | null;
@@ -22,7 +23,8 @@ const fmtDate = (d: string) => new Date(d).toLocaleString("en-KE", { dateStyle: 
 
 export default function ProductDetailDialog({ product, open, onOpenChange }: ProductDetailDialogProps) {
   const { business } = useBusiness();
-  const showBatches = (business as any)?.business_type === "pharmacy";
+  const { hasFeatureKey } = useFeatureLimit();
+  const showBatches = hasFeatureKey("batch_tracking") && (business as any)?.business_type === "pharmacy";
   const productId = product?.id;
 
   const inventoryQuery = useQuery({
