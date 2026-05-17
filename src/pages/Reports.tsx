@@ -14,12 +14,15 @@ import PnLReportTab from "@/components/reports/PnLReportTab";
 import PurchasesReportTab from "@/components/reports/PurchasesReportTab";
 import ExpensesReportTab from "@/components/reports/ExpensesReportTab";
 import AuditLogReportTab from "@/components/reports/AuditLogReportTab";
+import { useFeatureLimit } from "@/components/FeatureGate";
 
 const today = new Date().toISOString().split("T")[0];
 const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
 
 const Reports = () => {
   const { business, currentLocation } = useBusiness();
+  const { hasFeatureKey } = useFeatureLimit();
+  const showPnL = hasFeatureKey("accounting");
   const [from, setFrom] = useState(thirtyDaysAgo);
   const [to, setTo] = useState(today);
 
@@ -196,9 +199,11 @@ const Reports = () => {
           <TabsTrigger value="inventory" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
             <Package className="h-4 w-4" /> Inventory
           </TabsTrigger>
-          <TabsTrigger value="pnl" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
-            <TrendingUp className="h-4 w-4" /> P&amp;L
-          </TabsTrigger>
+          {showPnL && (
+            <TabsTrigger value="pnl" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
+              <TrendingUp className="h-4 w-4" /> P&amp;L
+            </TabsTrigger>
+          )}
           <TabsTrigger value="audit" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
             <ClipboardList className="h-4 w-4" /> Audit Trail
           </TabsTrigger>
@@ -217,9 +222,11 @@ const Reports = () => {
           <TabsContent value="inventory" className="mt-0">
             <InventoryReportTab inventory={inventory} loading={loading} />
           </TabsContent>
-          <TabsContent value="pnl" className="mt-0">
-            <PnLReportTab totalRevenue={totalRevenue} totalCOGS={totalCOGS} grossProfit={grossProfit} totalExpenses={totalExpenses} netProfit={netProfit} expenseByCategory={expenseByCategory} from={from} to={to} loading={loading} />
-          </TabsContent>
+          {showPnL && (
+            <TabsContent value="pnl" className="mt-0">
+              <PnLReportTab totalRevenue={totalRevenue} totalCOGS={totalCOGS} grossProfit={grossProfit} totalExpenses={totalExpenses} netProfit={netProfit} expenseByCategory={expenseByCategory} from={from} to={to} loading={loading} />
+            </TabsContent>
+          )}
           <TabsContent value="audit" className="mt-0">
             <AuditLogReportTab logs={auditLogs} loading={auditReport.isLoading} from={from} to={to} />
           </TabsContent>
