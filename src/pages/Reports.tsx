@@ -21,6 +21,8 @@ const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split("
 
 const Reports = () => {
   const { business, currentLocation } = useBusiness();
+  const { hasFeatureKey } = useFeatureLimit();
+  const showPnL = hasFeatureKey("accounting");
   const [from, setFrom] = useState(thirtyDaysAgo);
   const [to, setTo] = useState(today);
 
