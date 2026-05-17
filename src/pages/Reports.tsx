@@ -222,9 +222,11 @@ const Reports = () => {
           <TabsContent value="inventory" className="mt-0">
             <InventoryReportTab inventory={inventory} loading={loading} />
           </TabsContent>
-          <TabsContent value="pnl" className="mt-0">
-            <PnLReportTab totalRevenue={totalRevenue} totalCOGS={totalCOGS} grossProfit={grossProfit} totalExpenses={totalExpenses} netProfit={netProfit} expenseByCategory={expenseByCategory} from={from} to={to} loading={loading} />
-          </TabsContent>
+          {showPnL && (
+            <TabsContent value="pnl" className="mt-0">
+              <PnLReportTab totalRevenue={totalRevenue} totalCOGS={totalCOGS} grossProfit={grossProfit} totalExpenses={totalExpenses} netProfit={netProfit} expenseByCategory={expenseByCategory} from={from} to={to} loading={loading} />
+            </TabsContent>
+          )}
           <TabsContent value="audit" className="mt-0">
             <AuditLogReportTab logs={auditLogs} loading={auditReport.isLoading} from={from} to={to} />
           </TabsContent>
