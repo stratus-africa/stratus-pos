@@ -107,18 +107,48 @@ const Sales = () => {
                     <TableCell>{sale.locations?.name}</TableCell>
                     <TableCell className="text-right font-medium">KES {Number(sale.total).toLocaleString()}</TableCell>
                     <TableCell>
-                      <Badge variant={sale.payment_status === "paid" ? "default" : sale.payment_status === "partial" ? "secondary" : "destructive"}>
-                        {sale.payment_status}
-                      </Badge>
+                      {sale.status === "cancelled" ? (
+                        <Badge variant="outline" className="border-destructive text-destructive">Cancelled</Badge>
+                      ) : (
+                        <Badge variant={sale.payment_status === "paid" ? "default" : sale.payment_status === "partial" ? "secondary" : "destructive"}>
+                          {sale.payment_status}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => { setSelectedSale(sale); setDetailOpen(true); }}>
+                      <Button variant="ghost" size="icon" onClick={() => { setSelectedSale(sale); setDetailOpen(true); }} aria-label="View sale">
                         <Eye className="h-4 w-4" />
                       </Button>
+                      {canCancel && sale.status !== "cancelled" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Cancel sale"
+                          title="Cancel sale (reverse stock movements)"
+                          onClick={() => {
+                            if (!confirm(`Cancel sale ${sale.invoice_number || ""}? Inventory will be restored and stock movement records removed.`)) return;
+                            cancelSale.mutate({ id: sale.id, cancel: true });
+                          }}
+                        >
+                          <Ban className="h-4 w-4 text-warning" />
+                        </Button>
+                      )}
+                      {canCancel && sale.status === "cancelled" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Reactivate sale"
+                          title="Reactivate sale"
+                          onClick={() => cancelSale.mutate({ id: sale.id, cancel: false })}
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      )}
                       {canDelete && (
                         <Button
                           variant="ghost"
                           size="icon"
+                          aria-label="Delete sale"
                           onClick={() => {
                             if (!canDelete) return;
                             if (!confirm("Delete this sale? Inventory will be restored.")) return;
