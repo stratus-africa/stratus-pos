@@ -14,6 +14,7 @@ import PnLReportTab from "@/components/reports/PnLReportTab";
 import PurchasesReportTab from "@/components/reports/PurchasesReportTab";
 import ExpensesReportTab from "@/components/reports/ExpensesReportTab";
 import AuditLogReportTab from "@/components/reports/AuditLogReportTab";
+import { useFeatureLimit } from "@/components/FeatureGate";
 
 const today = new Date().toISOString().split("T")[0];
 const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
