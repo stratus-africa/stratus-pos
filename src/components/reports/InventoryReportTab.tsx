@@ -50,7 +50,7 @@ const InventoryReportTab = ({ inventory, loading, showBatches = true }: Inventor
         <div className="max-h-96 overflow-auto rounded border">
           <Table>
             <TableHeader><TableRow>
-              <TableHead>Product</TableHead><TableHead>SKU</TableHead><TableHead>Category</TableHead><TableHead className="text-right">Qty</TableHead><TableHead>Batches</TableHead><TableHead className="text-right">Value</TableHead><TableHead>Status</TableHead>
+              <TableHead>Product</TableHead><TableHead>SKU</TableHead><TableHead>Category</TableHead><TableHead className="text-right">Qty</TableHead>{showBatches && <TableHead>Batches</TableHead>}<TableHead className="text-right">Value</TableHead><TableHead>Status</TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {inventory.map((i: any) => {
@@ -62,17 +62,19 @@ const InventoryReportTab = ({ inventory, loading, showBatches = true }: Inventor
                     <TableCell>{i.products?.sku || "-"}</TableCell>
                     <TableCell>{i.products?.categories?.name || "-"}</TableCell>
                     <TableCell className="text-right">{i.quantity}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[220px] truncate" title={formatBatches(batches)}>
-                      {batches.length === 0 ? "—" : batches.length === 1
-                        ? `${batches[0].batch_number}${batches[0].expiry_date ? ` · exp ${batches[0].expiry_date}` : ""}`
-                        : `${batches.length} batches`}
-                    </TableCell>
+                    {showBatches && (
+                      <TableCell className="text-xs text-muted-foreground max-w-[220px] truncate" title={formatBatches(batches)}>
+                        {batches.length === 0 ? "—" : batches.length === 1
+                          ? `${batches[0].batch_number}${batches[0].expiry_date ? ` · exp ${batches[0].expiry_date}` : ""}`
+                          : `${batches.length} batches`}
+                      </TableCell>
+                    )}
                     <TableCell className="text-right">{formatKES(Number(i.quantity) * Number(i.products?.purchase_price || 0))}</TableCell>
                     <TableCell>{low ? <Badge variant="destructive">Low Stock</Badge> : <Badge variant="outline">OK</Badge>}</TableCell>
                   </TableRow>
                 );
               })}
-              {inventory.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No inventory data</TableCell></TableRow>}
+              {inventory.length === 0 && <TableRow><TableCell colSpan={showBatches ? 7 : 6} className="text-center text-muted-foreground py-8">No inventory data</TableCell></TableRow>}
             </TableBody>
           </Table>
         </div>
