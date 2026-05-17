@@ -276,6 +276,7 @@ export function usePOS() {
         reason: "sale",
         notes: `Sale ${invoiceNumber}`,
         created_by: user.id,
+        sale_id: saleId,
       }));
       await supabase.from("stock_adjustments").insert(adjustments);
 
