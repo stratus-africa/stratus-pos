@@ -24,7 +24,7 @@ const fmtDate = (d: string) => new Date(d).toLocaleString("en-KE", { dateStyle: 
 export default function ProductDetailDialog({ product, open, onOpenChange }: ProductDetailDialogProps) {
   const { business } = useBusiness();
   const { hasFeatureKey } = useFeatureLimit();
-  const showBatches = hasFeatureKey("batch_tracking") && (business as any)?.business_type === "pharmacy";
+  const showBatches = hasFeatureKey("batch_tracking") && (business as any)?.business_type === "pharmacy" && (business as any)?.track_batches === true;
   const productId = product?.id;
 
   const inventoryQuery = useQuery({
