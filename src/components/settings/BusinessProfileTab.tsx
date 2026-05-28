@@ -68,6 +68,7 @@ export function BusinessProfileTab() {
         pos_require_manager_to_remove_item: requireManagerToRemove,
         pos_manager_approver_id: managerApproverId === "any" ? null : managerApproverId,
         business_type: businessType,
+        track_batches: businessType === "pharmacy" ? trackBatches : false,
       } as never)
       .eq("id", business.id);
 
