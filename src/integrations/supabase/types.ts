@@ -325,6 +325,7 @@ export type Database = {
           tax_rate: number | null
           theme_color: string
           timezone: string
+          track_batches: boolean
           updated_at: string
           vat_enabled: boolean
         }
@@ -357,6 +358,7 @@ export type Database = {
           tax_rate?: number | null
           theme_color?: string
           timezone?: string
+          track_batches?: boolean
           updated_at?: string
           vat_enabled?: boolean
         }
@@ -389,6 +391,7 @@ export type Database = {
           tax_rate?: number | null
           theme_color?: string
           timezone?: string
+          track_batches?: boolean
           updated_at?: string
           vat_enabled?: boolean
         }
