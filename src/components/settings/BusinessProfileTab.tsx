@@ -135,6 +135,15 @@ export function BusinessProfileTab() {
               </Select>
               <p className="text-xs text-muted-foreground">Industry helps us tailor features. Pharmacy unlocks batch & expiry tracking.</p>
             </div>
+            {businessType === "pharmacy" && (
+              <div className="sm:col-span-2 flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <Label className="text-base">Enable Batch Tracking</Label>
+                  <p className="text-sm text-muted-foreground">Track batch numbers and expiry dates on products and inventory.</p>
+                </div>
+                <Switch checked={trackBatches} onCheckedChange={setTrackBatches} />
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
