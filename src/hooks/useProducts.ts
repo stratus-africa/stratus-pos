@@ -24,6 +24,15 @@ export interface Product {
   units?: { name: string; abbreviation: string | null } | null;
 }
 
+export interface ProductInitialBatch {
+  batch_number: string;
+  expiry_date: string | null;
+  manufacture_date?: string | null;
+  quantity: number;
+  unit_cost?: number;
+  location_id?: string | null;
+}
+
 export interface ProductFormData {
   name: string;
   sku?: string;
@@ -36,6 +45,7 @@ export interface ProductFormData {
   tax_rate?: number;
   is_active?: boolean;
   allow_decimal_quantity?: boolean;
+  initial_batches?: ProductInitialBatch[];
 }
 
 export function useProducts() {
