@@ -1,0 +1,1 @@
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS track_batches boolean NOT NULL DEFAULT false;

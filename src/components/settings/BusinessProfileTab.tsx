@@ -30,6 +30,7 @@ export function BusinessProfileTab() {
   const [requireManagerToRemove, setRequireManagerToRemove] = useState((business as { pos_require_manager_to_remove_item?: boolean })?.pos_require_manager_to_remove_item ?? false);
   const [managerApproverId, setManagerApproverId] = useState<string>(((business as any)?.pos_manager_approver_id) || "any");
   const [businessType, setBusinessType] = useState<BusinessType>(((business as { business_type?: BusinessType })?.business_type || "general") as BusinessType);
+  const [trackBatches, setTrackBatches] = useState<boolean>((business as { track_batches?: boolean })?.track_batches ?? false);
   const [managers, setManagers] = useState<{ user_id: string; full_name: string | null; email: string | null }[]>([]);
 
   useEffect(() => {
@@ -67,6 +68,7 @@ export function BusinessProfileTab() {
         pos_require_manager_to_remove_item: requireManagerToRemove,
         pos_manager_approver_id: managerApproverId === "any" ? null : managerApproverId,
         business_type: businessType,
+        track_batches: businessType === "pharmacy" ? trackBatches : false,
       } as never)
       .eq("id", business.id);
 
@@ -133,6 +135,15 @@ export function BusinessProfileTab() {
               </Select>
               <p className="text-xs text-muted-foreground">Industry helps us tailor features. Pharmacy unlocks batch & expiry tracking.</p>
             </div>
+            {businessType === "pharmacy" && (
+              <div className="sm:col-span-2 flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <Label className="text-base">Enable Batch Tracking</Label>
+                  <p className="text-sm text-muted-foreground">Track batch numbers and expiry dates on products and inventory.</p>
+                </div>
+                <Switch checked={trackBatches} onCheckedChange={setTrackBatches} />
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

@@ -24,6 +24,15 @@ export interface Product {
   units?: { name: string; abbreviation: string | null } | null;
 }
 
+export interface ProductInitialBatch {
+  batch_number: string;
+  expiry_date: string | null;
+  manufacture_date?: string | null;
+  quantity: number;
+  unit_cost?: number;
+  location_id?: string | null;
+}
+
 export interface ProductFormData {
   name: string;
   sku?: string;
@@ -36,6 +45,7 @@ export interface ProductFormData {
   tax_rate?: number;
   is_active?: boolean;
   allow_decimal_quantity?: boolean;
+  initial_batches?: ProductInitialBatch[];
 }
 
 export function useProducts() {
@@ -71,20 +81,43 @@ export function useProducts() {
   const createProduct = useMutation({
     mutationFn: async (form: ProductFormData) => {
       if (!business) throw new Error("No business");
-      const { error } = await supabase
+      const { initial_batches, ...productData } = form;
+      const { data: created, error } = await supabase
         .from("products")
-        .insert({ ...form, business_id: business.id });
+        .insert({ ...productData, business_id: business.id })
+        .select("id")
+        .single();
       if (error) throw error;
+      if (initial_batches && initial_batches.length > 0 && created?.id) {
+        const rows = initial_batches
+          .filter((b) => b.batch_number.trim().length > 0)
+          .map((b) => ({
+            business_id: business.id,
+            product_id: created.id,
+            location_id: b.location_id || null,
+            batch_number: b.batch_number.trim(),
+            manufacture_date: b.manufacture_date || null,
+            expiry_date: b.expiry_date || null,
+            quantity: b.quantity || 0,
+            unit_cost: b.unit_cost ?? productData.purchase_price ?? 0,
+            is_active: true,
+          }));
+        if (rows.length > 0) {
+          const { error: bErr } = await supabase.from("product_batches" as any).insert(rows as any);
+          if (bErr) throw bErr;
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["product_batches"] });
       toast.success("Product created");
     },
     onError: (e) => toast.error(e.message),
   });
 
   const updateProduct = useMutation({
-    mutationFn: async ({ id, ...form }: ProductFormData & { id: string }) => {
+    mutationFn: async ({ id, initial_batches: _ib, ...form }: ProductFormData & { id: string }) => {
       const { error } = await supabase.from("products").update(form).eq("id", id);
       if (error) throw error;
     },
