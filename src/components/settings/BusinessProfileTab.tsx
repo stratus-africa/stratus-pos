@@ -30,6 +30,7 @@ export function BusinessProfileTab() {
   const [requireManagerToRemove, setRequireManagerToRemove] = useState((business as { pos_require_manager_to_remove_item?: boolean })?.pos_require_manager_to_remove_item ?? false);
   const [managerApproverId, setManagerApproverId] = useState<string>(((business as any)?.pos_manager_approver_id) || "any");
   const [businessType, setBusinessType] = useState<BusinessType>(((business as { business_type?: BusinessType })?.business_type || "general") as BusinessType);
+  const [trackBatches, setTrackBatches] = useState<boolean>((business as { track_batches?: boolean })?.track_batches ?? false);
   const [managers, setManagers] = useState<{ user_id: string; full_name: string | null; email: string | null }[]>([]);
 
   useEffect(() => {
