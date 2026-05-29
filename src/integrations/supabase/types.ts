@@ -1439,6 +1439,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "purchase_items_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "product_batches"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "purchase_items_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
@@ -1589,6 +1596,13 @@ export type Database = {
           unit_price?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "sale_items_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "product_batches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sale_items_product_id_fkey"
             columns: ["product_id"]
