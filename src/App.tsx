@@ -151,7 +151,7 @@ const BusinessSuspended = () => {
 const ProtectedRoutes = () => {
   const { user, loading: authLoading } = useAuth();
   const { needsOnboarding, loading: bizLoading, userRole, isSuspended } = useBusiness();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, isLoading: permsLoading } = usePermissions();
   const location = useLocation();
 
   if (authLoading || bizLoading) return <PageLoader />;
@@ -161,8 +161,12 @@ const ProtectedRoutes = () => {
 
   // Permission-first guard: a granted permission grants access regardless of role.
   // `permission` is optional — when omitted, the route is open to any signed-in user.
+  // While permissions are still loading, show a loader instead of flashing AccessDenied.
   const guard = (element: React.ReactNode, permission?: string) => {
-    if (permission && !hasPermission(permission)) return <AccessDenied />;
+    if (permission) {
+      if (permsLoading) return <PageLoader />;
+      if (!hasPermission(permission)) return <AccessDenied />;
+    }
     return element;
   };
 
