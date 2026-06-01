@@ -105,11 +105,12 @@ export function applyTheme(themeKey: string | undefined | null) {
 }
 
 // Business types — drives industry-specific feature gating
-export type BusinessType = "general" | "minimart" | "liquor_store" | "pharmacy";
+export type BusinessType = "general" | "minimart" | "liquor_store" | "pharmacy" | "clothing";
 
 export const BUSINESS_TYPE_OPTIONS: { value: BusinessType; label: string }[] = [
   { value: "general", label: "General / Other" },
   { value: "minimart", label: "Minimart" },
   { value: "liquor_store", label: "Liquor Store" },
   { value: "pharmacy", label: "Pharmacy" },
+  { value: "clothing", label: "Clothing & Apparel" },
 ];

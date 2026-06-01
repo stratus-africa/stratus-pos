@@ -5,11 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { useCategories, useBrands, useUnits, type ProductFormData, type Product, type ProductInitialBatch } from "@/hooks/useProducts";
+import { useCategories, useBrands, useUnits, type ProductFormData, type Product, type ProductInitialBatch, type ProductVariantInput } from "@/hooks/useProducts";
 import { useTaxRates } from "@/hooks/useTaxRates";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useFeatureLimit } from "@/components/FeatureGate";
-import { Plus, Trash2, FlaskConical } from "lucide-react";
+import { Plus, Trash2, FlaskConical, Shirt, ImageIcon, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Props {
   open: boolean;
@@ -30,10 +32,12 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
   const { business, locations, currentLocation } = useBusiness();
   const { hasFeatureKey } = useFeatureLimit();
   const vatEnabled = business?.vat_enabled !== false;
+  const businessType = (business as any)?.business_type;
+  const isClothing = businessType === "clothing";
   const batchesEnabled =
     !product &&
     hasFeatureKey("batch_tracking") &&
-    (business as any)?.business_type === "pharmacy" &&
+    businessType === "pharmacy" &&
     (business as any)?.track_batches === true;
 
   const [form, setForm] = useState<ProductFormData>({
@@ -48,10 +52,13 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
     tax_rate: 16,
     is_active: true,
     allow_decimal_quantity: false,
+    image_url: null,
   });
 
   const [selectedTaxRateId, setSelectedTaxRateId] = useState<string>("manual");
   const [batches, setBatches] = useState<ProductInitialBatch[]>([]);
+  const [variants, setVariants] = useState<ProductVariantInput[]>([]);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     if (product) {
@@ -67,20 +74,34 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
         tax_rate: product.tax_rate ?? 16,
         is_active: product.is_active,
         allow_decimal_quantity: product.allow_decimal_quantity ?? false,
+        image_url: product.image_url ?? null,
       });
       const matched = taxRatesQuery.data?.find((tr) => tr.rate === (product.tax_rate ?? 16));
       setSelectedTaxRateId(matched?.id || "manual");
       setBatches([]);
+      // Load existing variants when editing
+      if (isClothing && open) {
+        (async () => {
+          const { data } = await supabase
+            .from("product_variants" as any)
+            .select("id,color,size,sku,barcode,purchase_price,selling_price,image_url,is_active")
+            .eq("product_id", product.id);
+          setVariants(((data as any[]) || []) as ProductVariantInput[]);
+        })();
+      } else {
+        setVariants([]);
+      }
     } else {
       setForm({
         name: initialName || "", sku: initialSku || "", barcode: initialBarcode || "", category_id: null, brand_id: null, unit_id: null,
-        purchase_price: 0, selling_price: 0, tax_rate: 16, is_active: true, allow_decimal_quantity: false,
+        purchase_price: 0, selling_price: 0, tax_rate: 16, is_active: true, allow_decimal_quantity: false, image_url: null,
       });
       const defaultRate = taxRatesQuery.data?.find((tr) => tr.type === "standard");
       setSelectedTaxRateId(defaultRate?.id || "manual");
       setBatches([]);
+      setVariants([]);
     }
-  }, [product, open, taxRatesQuery.data, initialBarcode, initialName, initialSku]);
+  }, [product, open, taxRatesQuery.data, initialBarcode, initialName, initialSku, isClothing]);
 
   const handleTaxRateChange = (taxRateId: string) => {
     setSelectedTaxRateId(taxRateId);
@@ -112,13 +133,71 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
     setBatches((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  const addVariant = () => {
+    setVariants((prev) => [
+      ...prev,
+      {
+        color: "",
+        size: "",
+        sku: "",
+        barcode: "",
+        purchase_price: form.purchase_price,
+        selling_price: form.selling_price,
+        image_url: null,
+        is_active: true,
+      },
+    ]);
+  };
+  const updateVariant = (idx: number, patch: Partial<ProductVariantInput>) =>
+    setVariants((prev) => prev.map((v, i) => (i === idx ? { ...v, ...patch } : v)));
+  const removeVariant = (idx: number) =>
+    setVariants((prev) => prev.filter((_, i) => i !== idx));
+
+  const uploadImage = async (file: File): Promise<string | null> => {
+    if (!business?.id) return null;
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `${business.id}/${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from("product-images").upload(path, file, { upsert: false });
+    if (error) {
+      toast.error("Image upload failed: " + error.message);
+      return null;
+    }
+    const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  const handleMainImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const url = await uploadImage(file);
+      if (url) setForm((f) => ({ ...f, image_url: url }));
+    } finally {
+      setUploadingImage(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleVariantImageUpload = async (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = await uploadImage(file);
+    if (url) updateVariant(idx, { image_url: url });
+    e.target.value = "";
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const validBatches = batchesEnabled ? batches.filter((b) => b.batch_number.trim()) : [];
+    const validVariants = isClothing
+      ? variants.filter((v) => (v.color && v.color.trim()) || (v.size && v.size.trim()))
+      : [];
     onSubmit({
       ...form,
       tax_rate: vatEnabled ? form.tax_rate : 0,
       ...(validBatches.length > 0 ? { initial_batches: validBatches } : {}),
+      ...(isClothing ? { variants: validVariants } : {}),
     });
   };
 
@@ -253,6 +332,104 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
               />
             </div>
           </div>
+
+          {isClothing && (
+            <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="h-4 w-4 text-primary" />
+                <Label className="text-sm font-semibold">Product Image</Label>
+              </div>
+              <div className="flex items-center gap-4">
+                {form.image_url ? (
+                  <img src={form.image_url} alt="Product" className="h-20 w-20 rounded-md object-cover border" />
+                ) : (
+                  <div className="h-20 w-20 rounded-md border bg-muted flex items-center justify-center">
+                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex flex-col gap-2">
+                  <Input type="file" accept="image/*" onChange={handleMainImageUpload} disabled={uploadingImage} className="text-sm" />
+                  {uploadingImage && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Uploading...
+                    </p>
+                  )}
+                  {form.image_url && (
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setForm({ ...form, image_url: null })}>
+                      Remove image
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isClothing && (
+            <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Shirt className="h-4 w-4 text-primary" />
+                  <Label className="text-sm font-semibold">Variants (Color &amp; Size)</Label>
+                </div>
+                <Button type="button" size="sm" variant="outline" onClick={addVariant}>
+                  <Plus className="h-4 w-4 mr-1" /> Add Variant
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Add color and size combinations. Each variant can have its own SKU, price, and image.
+              </p>
+              {variants.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">No variants added yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {variants.map((v, idx) => (
+                    <div key={idx} className="grid grid-cols-12 gap-2 items-end border rounded-md p-2 bg-background">
+                      <div className="col-span-2 space-y-1">
+                        <Label className="text-xs">Color</Label>
+                        <Input value={v.color ?? ""} onChange={(e) => updateVariant(idx, { color: e.target.value })} placeholder="e.g. Red" />
+                      </div>
+                      <div className="col-span-2 space-y-1">
+                        <Label className="text-xs">Size</Label>
+                        <Input value={v.size ?? ""} onChange={(e) => updateVariant(idx, { size: e.target.value })} placeholder="e.g. M" />
+                      </div>
+                      <div className="col-span-2 space-y-1">
+                        <Label className="text-xs">SKU</Label>
+                        <Input value={v.sku ?? ""} onChange={(e) => updateVariant(idx, { sku: e.target.value })} />
+                      </div>
+                      <div className="col-span-2 space-y-1">
+                        <Label className="text-xs">Price</Label>
+                        <Input
+                          type="number" min={0} step={0.01}
+                          value={v.selling_price ?? 0}
+                          onChange={(e) => updateVariant(idx, { selling_price: parseFloat(e.target.value) || 0 })}
+                        />
+                      </div>
+                      <div className="col-span-3 space-y-1">
+                        <Label className="text-xs">Image</Label>
+                        <div className="flex items-center gap-2">
+                          {v.image_url && (
+                            <img src={v.image_url} alt="" className="h-9 w-9 rounded object-cover border" />
+                          )}
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleVariantImageUpload(idx, e)}
+                            className="text-xs"
+                          />
+                        </div>
+                      </div>
+                      <div className="col-span-1">
+                        <Button type="button" size="icon" variant="ghost" onClick={() => removeVariant(idx)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
 
           {batchesEnabled && (
             <div className="rounded-lg border bg-muted/20 p-4 space-y-3">

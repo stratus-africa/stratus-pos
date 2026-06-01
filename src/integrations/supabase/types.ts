@@ -1273,6 +1273,54 @@ export type Database = {
         }
         Relationships: []
       }
+      product_variants: {
+        Row: {
+          barcode: string | null
+          business_id: string
+          color: string | null
+          created_at: string
+          id: string
+          image_url: string | null
+          is_active: boolean
+          product_id: string
+          purchase_price: number
+          selling_price: number
+          size: string | null
+          sku: string | null
+          updated_at: string
+        }
+        Insert: {
+          barcode?: string | null
+          business_id: string
+          color?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          product_id: string
+          purchase_price?: number
+          selling_price?: number
+          size?: string | null
+          sku?: string | null
+          updated_at?: string
+        }
+        Update: {
+          barcode?: string | null
+          business_id?: string
+          color?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          product_id?: string
+          purchase_price?: number
+          selling_price?: number
+          size?: string | null
+          sku?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           allow_decimal_quantity: boolean
