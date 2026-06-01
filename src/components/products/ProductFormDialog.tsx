@@ -32,10 +32,12 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
   const { business, locations, currentLocation } = useBusiness();
   const { hasFeatureKey } = useFeatureLimit();
   const vatEnabled = business?.vat_enabled !== false;
+  const businessType = (business as any)?.business_type;
+  const isClothing = businessType === "clothing";
   const batchesEnabled =
     !product &&
     hasFeatureKey("batch_tracking") &&
-    (business as any)?.business_type === "pharmacy" &&
+    businessType === "pharmacy" &&
     (business as any)?.track_batches === true;
 
   const [form, setForm] = useState<ProductFormData>({
@@ -50,10 +52,13 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
     tax_rate: 16,
     is_active: true,
     allow_decimal_quantity: false,
+    image_url: null,
   });
 
   const [selectedTaxRateId, setSelectedTaxRateId] = useState<string>("manual");
   const [batches, setBatches] = useState<ProductInitialBatch[]>([]);
+  const [variants, setVariants] = useState<ProductVariantInput[]>([]);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     if (product) {
