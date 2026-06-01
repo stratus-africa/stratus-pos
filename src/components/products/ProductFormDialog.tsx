@@ -74,20 +74,34 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
         tax_rate: product.tax_rate ?? 16,
         is_active: product.is_active,
         allow_decimal_quantity: product.allow_decimal_quantity ?? false,
+        image_url: product.image_url ?? null,
       });
       const matched = taxRatesQuery.data?.find((tr) => tr.rate === (product.tax_rate ?? 16));
       setSelectedTaxRateId(matched?.id || "manual");
       setBatches([]);
+      // Load existing variants when editing
+      if (isClothing && open) {
+        (async () => {
+          const { data } = await supabase
+            .from("product_variants" as any)
+            .select("id,color,size,sku,barcode,purchase_price,selling_price,image_url,is_active")
+            .eq("product_id", product.id);
+          setVariants(((data as any[]) || []) as ProductVariantInput[]);
+        })();
+      } else {
+        setVariants([]);
+      }
     } else {
       setForm({
         name: initialName || "", sku: initialSku || "", barcode: initialBarcode || "", category_id: null, brand_id: null, unit_id: null,
-        purchase_price: 0, selling_price: 0, tax_rate: 16, is_active: true, allow_decimal_quantity: false,
+        purchase_price: 0, selling_price: 0, tax_rate: 16, is_active: true, allow_decimal_quantity: false, image_url: null,
       });
       const defaultRate = taxRatesQuery.data?.find((tr) => tr.type === "standard");
       setSelectedTaxRateId(defaultRate?.id || "manual");
       setBatches([]);
+      setVariants([]);
     }
-  }, [product, open, taxRatesQuery.data, initialBarcode, initialName, initialSku]);
+  }, [product, open, taxRatesQuery.data, initialBarcode, initialName, initialSku, isClothing]);
 
   const handleTaxRateChange = (taxRateId: string) => {
     setSelectedTaxRateId(taxRateId);
@@ -119,13 +133,71 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
     setBatches((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  const addVariant = () => {
+    setVariants((prev) => [
+      ...prev,
+      {
+        color: "",
+        size: "",
+        sku: "",
+        barcode: "",
+        purchase_price: form.purchase_price,
+        selling_price: form.selling_price,
+        image_url: null,
+        is_active: true,
+      },
+    ]);
+  };
+  const updateVariant = (idx: number, patch: Partial<ProductVariantInput>) =>
+    setVariants((prev) => prev.map((v, i) => (i === idx ? { ...v, ...patch } : v)));
+  const removeVariant = (idx: number) =>
+    setVariants((prev) => prev.filter((_, i) => i !== idx));
+
+  const uploadImage = async (file: File): Promise<string | null> => {
+    if (!business?.id) return null;
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `${business.id}/${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from("product-images").upload(path, file, { upsert: false });
+    if (error) {
+      toast.error("Image upload failed: " + error.message);
+      return null;
+    }
+    const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  const handleMainImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const url = await uploadImage(file);
+      if (url) setForm((f) => ({ ...f, image_url: url }));
+    } finally {
+      setUploadingImage(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleVariantImageUpload = async (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = await uploadImage(file);
+    if (url) updateVariant(idx, { image_url: url });
+    e.target.value = "";
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const validBatches = batchesEnabled ? batches.filter((b) => b.batch_number.trim()) : [];
+    const validVariants = isClothing
+      ? variants.filter((v) => (v.color && v.color.trim()) || (v.size && v.size.trim()))
+      : [];
     onSubmit({
       ...form,
       tax_rate: vatEnabled ? form.tax_rate : 0,
       ...(validBatches.length > 0 ? { initial_batches: validBatches } : {}),
+      ...(isClothing ? { variants: validVariants } : {}),
     });
   };
 
