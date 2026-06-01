@@ -95,7 +95,7 @@ export function useProducts() {
   const createProduct = useMutation({
     mutationFn: async (form: ProductFormData) => {
       if (!business) throw new Error("No business");
-      const { initial_batches, ...productData } = form;
+      const { initial_batches, variants, ...productData } = form;
       const { data: created, error } = await supabase
         .from("products")
         .insert({ ...productData, business_id: business.id })
@@ -121,22 +121,68 @@ export function useProducts() {
           if (bErr) throw bErr;
         }
       }
+      if (variants && variants.length > 0 && created?.id) {
+        const vRows = variants
+          .filter((v) => (v.color && v.color.trim()) || (v.size && v.size.trim()))
+          .map((v) => ({
+            business_id: business.id,
+            product_id: created.id,
+            color: v.color?.trim() || null,
+            size: v.size?.trim() || null,
+            sku: v.sku?.trim() || null,
+            barcode: v.barcode?.trim() || null,
+            purchase_price: v.purchase_price ?? productData.purchase_price ?? 0,
+            selling_price: v.selling_price ?? productData.selling_price ?? 0,
+            image_url: v.image_url || null,
+            is_active: v.is_active ?? true,
+          }));
+        if (vRows.length > 0) {
+          const { error: vErr } = await supabase.from("product_variants" as any).insert(vRows as any);
+          if (vErr) throw vErr;
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["product_batches"] });
+      queryClient.invalidateQueries({ queryKey: ["product_variants"] });
       toast.success("Product created");
     },
     onError: (e) => toast.error(e.message),
   });
 
   const updateProduct = useMutation({
-    mutationFn: async ({ id, initial_batches: _ib, ...form }: ProductFormData & { id: string }) => {
+    mutationFn: async ({ id, initial_batches: _ib, variants, ...form }: ProductFormData & { id: string }) => {
+      if (!business) throw new Error("No business");
       const { error } = await supabase.from("products").update(form).eq("id", id);
       if (error) throw error;
+      if (variants) {
+        // Replace strategy: delete existing then re-insert the provided set
+        const { error: delErr } = await supabase.from("product_variants" as any).delete().eq("product_id", id);
+        if (delErr) throw delErr;
+        const vRows = variants
+          .filter((v) => (v.color && v.color.trim()) || (v.size && v.size.trim()))
+          .map((v) => ({
+            business_id: business.id,
+            product_id: id,
+            color: v.color?.trim() || null,
+            size: v.size?.trim() || null,
+            sku: v.sku?.trim() || null,
+            barcode: v.barcode?.trim() || null,
+            purchase_price: v.purchase_price ?? form.purchase_price ?? 0,
+            selling_price: v.selling_price ?? form.selling_price ?? 0,
+            image_url: v.image_url || null,
+            is_active: v.is_active ?? true,
+          }));
+        if (vRows.length > 0) {
+          const { error: vErr } = await supabase.from("product_variants" as any).insert(vRows as any);
+          if (vErr) throw vErr;
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["product_variants"] });
       toast.success("Product updated");
     },
     onError: (e) => toast.error(e.message),
