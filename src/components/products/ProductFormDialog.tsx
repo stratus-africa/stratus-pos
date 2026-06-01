@@ -333,6 +333,104 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
             </div>
           </div>
 
+          {isClothing && (
+            <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="h-4 w-4 text-primary" />
+                <Label className="text-sm font-semibold">Product Image</Label>
+              </div>
+              <div className="flex items-center gap-4">
+                {form.image_url ? (
+                  <img src={form.image_url} alt="Product" className="h-20 w-20 rounded-md object-cover border" />
+                ) : (
+                  <div className="h-20 w-20 rounded-md border bg-muted flex items-center justify-center">
+                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex flex-col gap-2">
+                  <Input type="file" accept="image/*" onChange={handleMainImageUpload} disabled={uploadingImage} className="text-sm" />
+                  {uploadingImage && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Uploading...
+                    </p>
+                  )}
+                  {form.image_url && (
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setForm({ ...form, image_url: null })}>
+                      Remove image
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isClothing && (
+            <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Shirt className="h-4 w-4 text-primary" />
+                  <Label className="text-sm font-semibold">Variants (Color &amp; Size)</Label>
+                </div>
+                <Button type="button" size="sm" variant="outline" onClick={addVariant}>
+                  <Plus className="h-4 w-4 mr-1" /> Add Variant
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Add color and size combinations. Each variant can have its own SKU, price, and image.
+              </p>
+              {variants.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">No variants added yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {variants.map((v, idx) => (
+                    <div key={idx} className="grid grid-cols-12 gap-2 items-end border rounded-md p-2 bg-background">
+                      <div className="col-span-2 space-y-1">
+                        <Label className="text-xs">Color</Label>
+                        <Input value={v.color ?? ""} onChange={(e) => updateVariant(idx, { color: e.target.value })} placeholder="e.g. Red" />
+                      </div>
+                      <div className="col-span-2 space-y-1">
+                        <Label className="text-xs">Size</Label>
+                        <Input value={v.size ?? ""} onChange={(e) => updateVariant(idx, { size: e.target.value })} placeholder="e.g. M" />
+                      </div>
+                      <div className="col-span-2 space-y-1">
+                        <Label className="text-xs">SKU</Label>
+                        <Input value={v.sku ?? ""} onChange={(e) => updateVariant(idx, { sku: e.target.value })} />
+                      </div>
+                      <div className="col-span-2 space-y-1">
+                        <Label className="text-xs">Price</Label>
+                        <Input
+                          type="number" min={0} step={0.01}
+                          value={v.selling_price ?? 0}
+                          onChange={(e) => updateVariant(idx, { selling_price: parseFloat(e.target.value) || 0 })}
+                        />
+                      </div>
+                      <div className="col-span-3 space-y-1">
+                        <Label className="text-xs">Image</Label>
+                        <div className="flex items-center gap-2">
+                          {v.image_url && (
+                            <img src={v.image_url} alt="" className="h-9 w-9 rounded object-cover border" />
+                          )}
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleVariantImageUpload(idx, e)}
+                            className="text-xs"
+                          />
+                        </div>
+                      </div>
+                      <div className="col-span-1">
+                        <Button type="button" size="icon" variant="ghost" onClick={() => removeVariant(idx)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+
           {batchesEnabled && (
             <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
               <div className="flex items-center justify-between">
