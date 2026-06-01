@@ -33,6 +33,18 @@ export interface ProductInitialBatch {
   location_id?: string | null;
 }
 
+export interface ProductVariantInput {
+  id?: string;
+  color: string | null;
+  size: string | null;
+  sku?: string | null;
+  barcode?: string | null;
+  purchase_price?: number;
+  selling_price?: number;
+  image_url?: string | null;
+  is_active?: boolean;
+}
+
 export interface ProductFormData {
   name: string;
   sku?: string;
@@ -45,7 +57,9 @@ export interface ProductFormData {
   tax_rate?: number;
   is_active?: boolean;
   allow_decimal_quantity?: boolean;
+  image_url?: string | null;
   initial_batches?: ProductInitialBatch[];
+  variants?: ProductVariantInput[];
 }
 
 export function useProducts() {
