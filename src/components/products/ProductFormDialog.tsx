@@ -5,11 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { useCategories, useBrands, useUnits, type ProductFormData, type Product, type ProductInitialBatch } from "@/hooks/useProducts";
+import { useCategories, useBrands, useUnits, type ProductFormData, type Product, type ProductInitialBatch, type ProductVariantInput } from "@/hooks/useProducts";
 import { useTaxRates } from "@/hooks/useTaxRates";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useFeatureLimit } from "@/components/FeatureGate";
-import { Plus, Trash2, FlaskConical } from "lucide-react";
+import { Plus, Trash2, FlaskConical, Shirt, ImageIcon, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Props {
   open: boolean;
