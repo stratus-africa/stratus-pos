@@ -39,7 +39,7 @@ function scheduleChunkReload(error: unknown): boolean {
   return true;
 }
 
-const lazy = <T extends { default: ComponentType<unknown> }>(loader: () => Promise<T>) =>
+const lazy = <T extends { default: ComponentType<any> }>(loader: () => Promise<T>) =>
   reactLazy(() =>
     loader().catch((error) => {
       if (scheduleChunkReload(error)) return new Promise<T>(() => undefined);
