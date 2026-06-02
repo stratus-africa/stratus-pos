@@ -30,20 +30,54 @@ Deno.serve(async (req) => {
     }
     const userId = userData.user.id;
 
-    const { action } = (await req.json().catch(() => ({}))) as { action?: string };
+    const { action, subscriptionId } = (await req.json().catch(() => ({}))) as {
+      action?: string;
+      subscriptionId?: string;
+    };
 
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { data: sub } = await admin
-      .from("subscriptions")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // If a subscriptionId is supplied, verify the caller is a super admin and target that row.
+    let sub: any = null;
+    if (subscriptionId) {
+      const { data: isAdmin } = await admin.rpc("is_super_admin", { _user_id: userId });
+      if (!isAdmin) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data } = await admin
+        .from("subscriptions")
+        .select("*")
+        .eq("id", subscriptionId)
+        .maybeSingle();
+      sub = data;
+    } else {
+      const { data } = await admin
+        .from("subscriptions")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      sub = data;
+    }
+
+    // Super-admin cancel for comp/free plans (no Paystack code): just mark cancelled.
+    if (action === "cancel" && subscriptionId && sub && !sub.paystack_subscription_code) {
+      await admin
+        .from("subscriptions")
+        .update({ status: "canceled", cancel_at_period_end: true })
+        .eq("id", sub.id);
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (!sub?.paystack_subscription_code || !sub?.paystack_email_token) {
       return new Response(JSON.stringify({ error: "No active subscription" }), {
