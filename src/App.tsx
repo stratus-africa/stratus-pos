@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { Component, lazy as reactLazy, Suspense, type ComponentType, type ErrorInfo, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -11,6 +11,78 @@ import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import { SuperAdminLayout } from "@/components/super-admin/SuperAdminLayout";
 import { FeatureGate } from "@/components/FeatureGate";
 import { usePermissions } from "@/hooks/usePermissions";
+
+const CHUNK_RELOAD_KEY = "__chunk_reload_at__";
+const CHUNK_RELOAD_COOLDOWN_MS = 10_000;
+let chunkReloadScheduled = false;
+
+function isChunkLoadError(error: unknown): boolean {
+  const message = typeof error === "string" ? error : (error as { message?: string })?.message ?? "";
+  return /dynamically imported module|Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError/i.test(message);
+}
+
+function scheduleChunkReload(error: unknown): boolean {
+  if (!isChunkLoadError(error) || chunkReloadScheduled) return false;
+
+  try {
+    const lastReload = Number(sessionStorage.getItem(CHUNK_RELOAD_KEY) || 0);
+    if (Date.now() - lastReload < CHUNK_RELOAD_COOLDOWN_MS) return false;
+    sessionStorage.setItem(CHUNK_RELOAD_KEY, String(Date.now()));
+  } catch {
+    // Ignore storage failures and still attempt a full refresh.
+  }
+
+  chunkReloadScheduled = true;
+  const nextUrl = new URL(window.location.href);
+  nextUrl.searchParams.set("__app_reload", String(Date.now()));
+  window.location.replace(nextUrl.toString());
+  return true;
+}
+
+const lazy = <T extends { default: ComponentType<unknown> }>(loader: () => Promise<T>) =>
+  reactLazy(() =>
+    loader().catch((error) => {
+      if (scheduleChunkReload(error)) return new Promise<T>(() => undefined);
+      throw error;
+    })
+  );
+
+class ChunkErrorBoundary extends Component<{ children: ReactNode }, { error: unknown }> {
+  state = { error: null };
+
+  static getDerivedStateFromError(error: unknown) {
+    return { error };
+  }
+
+  componentDidCatch(error: unknown, info: ErrorInfo) {
+    if (!scheduleChunkReload(error)) console.error(error, info);
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 text-center">
+        <h2 className="text-xl font-semibold">Update required</h2>
+        <p className="max-w-md text-sm text-muted-foreground">
+          The app was updated while this page was open. Refresh to load the latest version.
+        </p>
+        <button
+          type="button"
+          className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          onClick={() => {
+            try {
+              sessionStorage.removeItem(CHUNK_RELOAD_KEY);
+            } catch {}
+            window.location.reload();
+          }}
+        >
+          Refresh
+        </button>
+      </div>
+    );
+  }
+}
 
 // Lazy-loaded pages
 const Onboarding = lazy(() => import("./pages/Onboarding"));
