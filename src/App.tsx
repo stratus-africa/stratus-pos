@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { Component, lazy as reactLazy, Suspense, type ComponentType, type ErrorInfo, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -11,6 +11,78 @@ import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import { SuperAdminLayout } from "@/components/super-admin/SuperAdminLayout";
 import { FeatureGate } from "@/components/FeatureGate";
 import { usePermissions } from "@/hooks/usePermissions";
+
+const CHUNK_RELOAD_KEY = "__chunk_reload_at__";
+const CHUNK_RELOAD_COOLDOWN_MS = 10_000;
+let chunkReloadScheduled = false;
+
+function isChunkLoadError(error: unknown): boolean {
+  const message = typeof error === "string" ? error : (error as { message?: string })?.message ?? "";
+  return /dynamically imported module|Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError/i.test(message);
+}
+
+function scheduleChunkReload(error: unknown): boolean {
+  if (!isChunkLoadError(error) || chunkReloadScheduled) return false;
+
+  try {
+    const lastReload = Number(sessionStorage.getItem(CHUNK_RELOAD_KEY) || 0);
+    if (Date.now() - lastReload < CHUNK_RELOAD_COOLDOWN_MS) return false;
+    sessionStorage.setItem(CHUNK_RELOAD_KEY, String(Date.now()));
+  } catch {
+    // Ignore storage failures and still attempt a full refresh.
+  }
+
+  chunkReloadScheduled = true;
+  const nextUrl = new URL(window.location.href);
+  nextUrl.searchParams.set("__app_reload", String(Date.now()));
+  window.location.replace(nextUrl.toString());
+  return true;
+}
+
+const lazy = <T extends { default: ComponentType<any> }>(loader: () => Promise<T>) =>
+  reactLazy(() =>
+    loader().catch((error) => {
+      if (scheduleChunkReload(error)) return new Promise<T>(() => undefined);
+      throw error;
+    })
+  );
+
+class ChunkErrorBoundary extends Component<{ children: ReactNode }, { error: unknown }> {
+  state = { error: null };
+
+  static getDerivedStateFromError(error: unknown) {
+    return { error };
+  }
+
+  componentDidCatch(error: unknown, info: ErrorInfo) {
+    if (!scheduleChunkReload(error)) console.error(error, info);
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 text-center">
+        <h2 className="text-xl font-semibold">Update required</h2>
+        <p className="max-w-md text-sm text-muted-foreground">
+          The app was updated while this page was open. Refresh to load the latest version.
+        </p>
+        <button
+          type="button"
+          className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          onClick={() => {
+            try {
+              sessionStorage.removeItem(CHUNK_RELOAD_KEY);
+            } catch {}
+            window.location.reload();
+          }}
+        >
+          Refresh
+        </button>
+      </div>
+    );
+  }
+}
 
 // Lazy-loaded pages
 const Onboarding = lazy(() => import("./pages/Onboarding"));
@@ -99,35 +171,37 @@ const SuperAdminRoutes = () => {
 
   return (
     <SuperAdminLayout>
-      <Suspense fallback={<PageLoader />}>
-        <Routes>
-          <Route path="/" element={<SuperAdminDashboard />} />
-          <Route path="/businesses" element={<SuperAdminBusinesses />} />
-          <Route path="/businesses/:id" element={<SuperAdminTenantDetail />} />
-          <Route path="/businesses/:id/edit" element={<SuperAdminBusinessEdit />} />
-          <Route path="/subscriptions" element={<SuperAdminSubscriptions />} />
-          <Route path="/users" element={<SuperAdminUsers />} />
-          <Route path="/packages" element={<SuperAdminPackages />} />
-          <Route path="/packages/new" element={<SuperAdminPackageEdit />} />
-          <Route path="/packages/:id/edit" element={<SuperAdminPackageEdit />} />
-          <Route path="/landing" element={<SuperAdminLanding />} />
-          <Route path="/activity" element={<SuperAdminActivity />} />
-          <Route path="/payments" element={<SuperAdminPaymentsOverview />} />
-          <Route path="/cms/hero" element={<CmsHero />} />
-          <Route path="/cms/features" element={<CmsFeatures />} />
-          <Route path="/cms/stats" element={<CmsStats />} />
-          <Route path="/cms/how-it-works" element={<CmsHowItWorks />} />
-          <Route path="/cms/testimonials" element={<CmsTestimonials />} />
-          <Route path="/cms/faq" element={<CmsFaq />} />
-          <Route path="/cms/pricing" element={<CmsPricing />} />
-          <Route path="/cms/cta" element={<CmsCta />} />
-          <Route path="/settings" element={<SuperAdminSettings />} />
-          <Route path="/settings/payments/paystack" element={<PaystackSettings />} />
-          <Route path="/settings/payments/mpesa" element={<MpesaSettings />} />
-          <Route path="/settings/payments/pesapal" element={<PesapalSettings />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </Suspense>
+      <ChunkErrorBoundary>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/" element={<SuperAdminDashboard />} />
+            <Route path="/businesses" element={<SuperAdminBusinesses />} />
+            <Route path="/businesses/:id" element={<SuperAdminTenantDetail />} />
+            <Route path="/businesses/:id/edit" element={<SuperAdminBusinessEdit />} />
+            <Route path="/subscriptions" element={<SuperAdminSubscriptions />} />
+            <Route path="/users" element={<SuperAdminUsers />} />
+            <Route path="/packages" element={<SuperAdminPackages />} />
+            <Route path="/packages/new" element={<SuperAdminPackageEdit />} />
+            <Route path="/packages/:id/edit" element={<SuperAdminPackageEdit />} />
+            <Route path="/landing" element={<SuperAdminLanding />} />
+            <Route path="/activity" element={<SuperAdminActivity />} />
+            <Route path="/payments" element={<SuperAdminPaymentsOverview />} />
+            <Route path="/cms/hero" element={<CmsHero />} />
+            <Route path="/cms/features" element={<CmsFeatures />} />
+            <Route path="/cms/stats" element={<CmsStats />} />
+            <Route path="/cms/how-it-works" element={<CmsHowItWorks />} />
+            <Route path="/cms/testimonials" element={<CmsTestimonials />} />
+            <Route path="/cms/faq" element={<CmsFaq />} />
+            <Route path="/cms/pricing" element={<CmsPricing />} />
+            <Route path="/cms/cta" element={<CmsCta />} />
+            <Route path="/settings" element={<SuperAdminSettings />} />
+            <Route path="/settings/payments/paystack" element={<PaystackSettings />} />
+            <Route path="/settings/payments/mpesa" element={<MpesaSettings />} />
+            <Route path="/settings/payments/pesapal" element={<PesapalSettings />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
+      </ChunkErrorBoundary>
     </SuperAdminLayout>
   );
 };
@@ -178,29 +252,31 @@ const ProtectedRoutes = () => {
 
   return (
     <AppLayout>
-      <Suspense fallback={<PageLoader />}>
-        <Routes>
-          <Route path="/" element={rootElement} />
-          <Route path="/pos" element={guard(<FeatureGate featureKey="pos"><POS /></FeatureGate>, "pos.view")} />
-          <Route path="/products" element={guard(<FeatureGate featureKey="products"><Products /></FeatureGate>, "products.view")} />
-          <Route path="/inventory" element={guard(<FeatureGate featureKey="inventory"><Inventory /></FeatureGate>, "inventory.view")} />
-          <Route path="/sales" element={guard(<FeatureGate featureKey="sales"><Sales /></FeatureGate>, "sales.view")} />
-          <Route path="/customers" element={guard(<FeatureGate featureKey="customers"><Customers /></FeatureGate>, "customers.view")} />
-          <Route path="/purchases" element={guard(<FeatureGate featureKey="purchases"><Purchases /></FeatureGate>, "purchases.view")} />
-          <Route path="/purchases/new" element={guard(<FeatureGate featureKey="purchases"><PurchaseEditor /></FeatureGate>, "purchases.create")} />
-          <Route path="/purchases/:id/edit" element={guard(<FeatureGate featureKey="purchases"><PurchaseEditor /></FeatureGate>, "purchases.edit")} />
-          <Route path="/suppliers" element={guard(<FeatureGate featureKey="purchases"><Suppliers /></FeatureGate>, "suppliers.view")} />
-          <Route path="/expenses" element={guard(<FeatureGate featureKey="expenses"><Expenses /></FeatureGate>, "expenses.view")} />
-          <Route path="/chart-of-accounts" element={guard(<FeatureGate featureKey="chart_of_accounts"><ChartOfAccounts /></FeatureGate>, "chart_of_accounts.view")} />
-          <Route path="/journal-entries" element={guard(<FeatureGate featureKey="chart_of_accounts"><JournalEntries /></FeatureGate>, "chart_of_accounts.view")} />
-          <Route path="/banking" element={guard(<FeatureGate featureKey="banking"><Banking /></FeatureGate>, "banking.view")} />
-          <Route path="/reports" element={guard(<FeatureGate featureKey="reports"><Reports /></FeatureGate>, "report.sales")} />
-          <Route path="/settings" element={guard(<SettingsPage />, "settings.view")} />
-          <Route path="/profile" element={guard(<Profile />)} />
-          <Route path="/roles" element={<Navigate to="/settings?tab=roles" replace />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </Suspense>
+      <ChunkErrorBoundary>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/" element={rootElement} />
+            <Route path="/pos" element={guard(<FeatureGate featureKey="pos"><POS /></FeatureGate>, "pos.view")} />
+            <Route path="/products" element={guard(<FeatureGate featureKey="products"><Products /></FeatureGate>, "products.view")} />
+            <Route path="/inventory" element={guard(<FeatureGate featureKey="inventory"><Inventory /></FeatureGate>, "inventory.view")} />
+            <Route path="/sales" element={guard(<FeatureGate featureKey="sales"><Sales /></FeatureGate>, "sales.view")} />
+            <Route path="/customers" element={guard(<FeatureGate featureKey="customers"><Customers /></FeatureGate>, "customers.view")} />
+            <Route path="/purchases" element={guard(<FeatureGate featureKey="purchases"><Purchases /></FeatureGate>, "purchases.view")} />
+            <Route path="/purchases/new" element={guard(<FeatureGate featureKey="purchases"><PurchaseEditor /></FeatureGate>, "purchases.create")} />
+            <Route path="/purchases/:id/edit" element={guard(<FeatureGate featureKey="purchases"><PurchaseEditor /></FeatureGate>, "purchases.edit")} />
+            <Route path="/suppliers" element={guard(<FeatureGate featureKey="purchases"><Suppliers /></FeatureGate>, "suppliers.view")} />
+            <Route path="/expenses" element={guard(<FeatureGate featureKey="expenses"><Expenses /></FeatureGate>, "expenses.view")} />
+            <Route path="/chart-of-accounts" element={guard(<FeatureGate featureKey="chart_of_accounts"><ChartOfAccounts /></FeatureGate>, "chart_of_accounts.view")} />
+            <Route path="/journal-entries" element={guard(<FeatureGate featureKey="chart_of_accounts"><JournalEntries /></FeatureGate>, "chart_of_accounts.view")} />
+            <Route path="/banking" element={guard(<FeatureGate featureKey="banking"><Banking /></FeatureGate>, "banking.view")} />
+            <Route path="/reports" element={guard(<FeatureGate featureKey="reports"><Reports /></FeatureGate>, "report.sales")} />
+            <Route path="/settings" element={guard(<SettingsPage />, "settings.view")} />
+            <Route path="/profile" element={guard(<Profile />)} />
+            <Route path="/roles" element={<Navigate to="/settings?tab=roles" replace />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
+      </ChunkErrorBoundary>
     </AppLayout>
   );
 };
@@ -213,22 +289,24 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <BusinessProvider>
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
-                <Route path="/landing" element={<Landing />} />
-                <Route path="/pricing" element={<Pricing />} />
-                <Route path="/terms" element={<Terms />} />
-                <Route path="/privacy" element={<Privacy />} />
-                <Route path="/refund-policy" element={<Refund />} />
-                <Route path="/onboarding" element={<Onboarding />} />
-                <Route path="/sign-in" element={<SignIn />} />
-                <Route path="/auth" element={<Navigate to="/sign-in" replace />} />
-                <Route path="/super-admin/login" element={<SuperAdminLogin />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/super-admin/*" element={<SuperAdminRoutes />} />
-                <Route path="/*" element={<ProtectedRoutes />} />
-              </Routes>
-            </Suspense>
+            <ChunkErrorBoundary>
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  <Route path="/landing" element={<Landing />} />
+                  <Route path="/pricing" element={<Pricing />} />
+                  <Route path="/terms" element={<Terms />} />
+                  <Route path="/privacy" element={<Privacy />} />
+                  <Route path="/refund-policy" element={<Refund />} />
+                  <Route path="/onboarding" element={<Onboarding />} />
+                  <Route path="/sign-in" element={<SignIn />} />
+                  <Route path="/auth" element={<Navigate to="/sign-in" replace />} />
+                  <Route path="/super-admin/login" element={<SuperAdminLogin />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="/super-admin/*" element={<SuperAdminRoutes />} />
+                  <Route path="/*" element={<ProtectedRoutes />} />
+                </Routes>
+              </Suspense>
+            </ChunkErrorBoundary>
           </BusinessProvider>
         </AuthProvider>
       </BrowserRouter>
