@@ -72,33 +72,53 @@ export default function SuperAdminSubscriptions() {
 
     const userIds = Array.from(new Set(subs.map((s) => s.user_id)));
     let profiles: any[] = [];
-    let bizByOwner = new Map<string, any>();
+    const bizById = new Map<string, any>();
+    const bizByUser = new Map<string, any>();
 
     if (userIds.length) {
-      const [profRes, bizRes, rolesRes] = await Promise.all([
+      const [profRes, ownedBizRes, rolesRes] = await Promise.all([
         supabase.from("profiles").select("id, email, full_name, business_id").in("id", userIds),
         supabase.from("businesses").select("id, name, owner_id").in("owner_id", userIds),
         supabase.from("user_roles").select("user_id, business_id").eq("role", "admin").in("user_id", userIds),
       ]);
       profiles = profRes.data || [];
-      (bizRes.data || []).forEach((b) => bizByOwner.set(b.owner_id, b));
+      const ownedBiz = ownedBizRes.data || [];
+      const roleRows = (rolesRes.data || []) as any[];
 
-      // Fallback: also map via admin role's business
-      const adminBizIds = (rolesRes.data || []).map((r) => r.business_id).filter(Boolean);
-      if (adminBizIds.length) {
-        const { data: bizFromRoles } = await supabase.from("businesses").select("id, name").in("id", adminBizIds);
-        const bizMap = new Map((bizFromRoles || []).map((b) => [b.id, b]));
-        (rolesRes.data || []).forEach((r: any) => {
-          if (!bizByOwner.get(r.user_id) && bizMap.get(r.business_id)) {
-            bizByOwner.set(r.user_id, { ...bizMap.get(r.business_id), owner_id: r.user_id });
-          }
-        });
+      // Collect all business ids referenced by profile.business_id, owner, or admin role
+      const allBizIds = Array.from(new Set([
+        ...profiles.map((p) => p.business_id).filter(Boolean),
+        ...ownedBiz.map((b) => b.id),
+        ...roleRows.map((r) => r.business_id).filter(Boolean),
+      ]));
+
+      if (allBizIds.length) {
+        const { data: bizRows } = await supabase
+          .from("businesses")
+          .select("id, name, owner_id")
+          .in("id", allBizIds);
+        (bizRows || []).forEach((b: any) => bizById.set(b.id, b));
       }
+      ownedBiz.forEach((b: any) => bizById.set(b.id, b));
+
+      // Map user -> business (prefer profile.business_id, then owner, then admin role)
+      profiles.forEach((p) => {
+        const b = p.business_id ? bizById.get(p.business_id) : null;
+        if (b) bizByUser.set(p.id, b);
+      });
+      ownedBiz.forEach((b: any) => {
+        if (b.owner_id && !bizByUser.get(b.owner_id)) bizByUser.set(b.owner_id, b);
+      });
+      roleRows.forEach((r) => {
+        if (!bizByUser.get(r.user_id) && bizById.get(r.business_id)) {
+          bizByUser.set(r.user_id, bizById.get(r.business_id));
+        }
+      });
     }
 
     const enriched: SubRow[] = subs.map((s) => {
       const prof = profiles.find((p) => p.id === s.user_id);
-      const biz = bizByOwner.get(s.user_id);
+      const biz = bizByUser.get(s.user_id);
       const plan = plans.find((p) => p.id === s.product_id) || plans[0];
       return {
         id: s.id,
