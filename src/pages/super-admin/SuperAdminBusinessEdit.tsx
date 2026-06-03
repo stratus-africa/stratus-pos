@@ -224,14 +224,15 @@ export default function SuperAdminBusinessEdit() {
         .eq("id", sub.id);
       if (error) { toast.error(error.message); setPlanSaving(false); return; }
     } else {
-      const { error } = await supabase.from("subscriptions").insert({
+      const { error } = await supabase.from("subscriptions").upsert({
         user_id: ownerId,
         product_id: plan.id,
         status: "active",
         environment: "live",
+        cancel_at_period_end: false,
         current_period_start: new Date().toISOString(),
         current_period_end: periodEndIso,
-      } as any);
+      } as any, { onConflict: "user_id,environment" });
       if (error) { toast.error(error.message); setPlanSaving(false); return; }
     }
     toast.success("Plan updated — features activated for tenant");
