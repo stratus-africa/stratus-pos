@@ -2219,6 +2219,29 @@ export type Database = {
         Args: { _business_id: string }
         Returns: number
       }
+      get_public_package_features: {
+        Args: never
+        Returns: {
+          feature_key: string
+          feature_label: string
+          package_id: string
+        }[]
+      }
+      get_public_subscription_packages: {
+        Args: never
+        Returns: {
+          description: string
+          id: string
+          max_locations: number
+          max_products: number
+          max_users: number
+          monthly_price_kes: number
+          name: string
+          sort_order: number
+          trial_days: number
+          yearly_price_kes: number
+        }[]
+      }
       get_user_business_id: { Args: { _user_id: string }; Returns: string }
       has_active_subscription: {
         Args: { check_env?: string; user_uuid: string }
@@ -2229,6 +2252,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_payment_provider_enabled: {
+        Args: { _provider: string }
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }

@@ -49,18 +49,11 @@ export default function Landing() {
 
   useEffect(() => {
     const fetch = async () => {
-      const { data: pkgs } = await supabase
-        .from("subscription_packages")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order");
+      const { data: pkgs } = await (supabase as any).rpc("get_public_subscription_packages");
 
       if (!pkgs || pkgs.length === 0) return;
 
-      const { data: feats } = await supabase
-        .from("package_features")
-        .select("*")
-        .eq("enabled", true);
+      const { data: feats } = await (supabase as any).rpc("get_public_package_features");
 
       const result: PkgDisplay[] = (pkgs as any[]).map(p => ({
         id: p.id,
