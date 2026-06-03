@@ -123,6 +123,7 @@ export default function SuperAdminBusinessEdit() {
         .from("subscriptions")
         .select("id, status, product_id, current_period_end, user_id")
         .eq("user_id", ownerId)
+        .eq("environment", "live")
         .order("created_at", { ascending: false })
         .limit(1);
       const s = (subs?.[0] as SubRow) || null;
