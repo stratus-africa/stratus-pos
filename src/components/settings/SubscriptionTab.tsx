@@ -77,12 +77,8 @@ export function SubscriptionTab() {
     fetchPkgs();
     // Load Pesapal availability so we can show its button
     (async () => {
-      const { data } = await (supabase as any)
-        .from("app_settings")
-        .select("value")
-        .eq("key", "pesapal")
-        .maybeSingle();
-      setPesapalEnabled(!!(data?.value as any)?.enabled);
+      const { data } = await (supabase as any).rpc("is_payment_provider_enabled", { _provider: "pesapal" });
+      setPesapalEnabled(!!data);
     })();
   }, []);
 
