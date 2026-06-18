@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, Package, TrendingUp, ShoppingCart, Receipt, ClipboardList, Sun } from "lucide-react";
+import { BarChart3, Package, TrendingUp, ShoppingCart, Receipt, ClipboardList, Sun, CalendarDays } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -15,6 +15,7 @@ import PurchasesReportTab from "@/components/reports/PurchasesReportTab";
 import ExpensesReportTab from "@/components/reports/ExpensesReportTab";
 import AuditLogReportTab from "@/components/reports/AuditLogReportTab";
 import EndOfDayReportTab from "@/components/reports/EndOfDayReportTab";
+import DailySalesReportTab from "@/components/reports/DailySalesReportTab";
 import { useFeatureLimit, RequireFeature } from "@/components/FeatureGate";
 
 const today = new Date().toISOString().split("T")[0];
