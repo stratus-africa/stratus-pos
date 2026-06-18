@@ -126,7 +126,7 @@ export default function EndOfDayReportTab() {
     const byCashier = new Map<string, { name: string; total: number; count: number }>();
     sales.forEach((s: any) => {
       const id = s.created_by;
-      const cur = byCashier.get(id) || { name: s.profiles?.full_name || "Unknown", total: 0, count: 0 };
+      const cur = byCashier.get(id) || { name: cashierMap.get(id) || "Unknown", total: 0, count: 0 };
       cur.total += Number(s.total);
       cur.count += 1;
       byCashier.set(id, cur);
@@ -174,7 +174,7 @@ export default function EndOfDayReportTab() {
     const rows = summary.sales.map((s: any) => [
       new Date(s.created_at).toLocaleTimeString(),
       s.invoice_number || "",
-      s.profiles?.full_name || "",
+      cashierMap.get(s.created_by) || "",
       s.customers?.name || "Walk-in",
       Number(s.subtotal).toFixed(2),
       Number(s.tax).toFixed(2),
@@ -350,7 +350,7 @@ export default function EndOfDayReportTab() {
                     const diff = Number(s.cash_difference || 0);
                     return (
                       <TableRow key={s.id}>
-                        <TableCell>{s.opened_profile?.full_name || "—"}</TableCell>
+                        <TableCell>{cashierMap.get(s.opened_by) || "—"}</TableCell>
                         <TableCell>{s.cash_account?.name || "—"}</TableCell>
                         <TableCell className="text-right">{formatKES(Number(s.opening_float || 0))}</TableCell>
                         <TableCell className="text-right">{formatKES(Number(s.closing_cash || 0))}</TableCell>
@@ -373,7 +373,7 @@ export default function EndOfDayReportTab() {
               {summary.sessions.filter((s: any) => s.notes).map((s: any) => (
                 <div key={s.id} className="border-l-2 border-primary/50 pl-3">
                   <div className="text-xs text-muted-foreground">
-                    {s.opened_profile?.full_name || "Cashier"} · {s.cash_account?.name || "Drawer"}
+                    {cashierMap.get(s.opened_by) || "Cashier"} · {s.cash_account?.name || "Drawer"}
                   </div>
                   <div>{s.notes}</div>
                 </div>
@@ -413,7 +413,7 @@ export default function EndOfDayReportTab() {
                   <TableRow key={s.id}>
                     <TableCell>{new Date(s.created_at).toLocaleTimeString()}</TableCell>
                     <TableCell>{s.invoice_number || "—"}</TableCell>
-                    <TableCell>{s.profiles?.full_name || "—"}</TableCell>
+                    <TableCell>{cashierMap.get(s.created_by) || "—"}</TableCell>
                     <TableCell>{s.customers?.name || "Walk-in"}</TableCell>
                     <TableCell className="text-right">{formatKES(Number(s.total))}</TableCell>
                     <TableCell><Badge variant="outline" className="capitalize">{s.status}</Badge></TableCell>
