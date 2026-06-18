@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, Package, TrendingUp, ShoppingCart, Receipt, ClipboardList, Sun } from "lucide-react";
+import { BarChart3, Package, TrendingUp, ShoppingCart, Receipt, ClipboardList, Sun, CalendarDays } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -15,6 +15,7 @@ import PurchasesReportTab from "@/components/reports/PurchasesReportTab";
 import ExpensesReportTab from "@/components/reports/ExpensesReportTab";
 import AuditLogReportTab from "@/components/reports/AuditLogReportTab";
 import EndOfDayReportTab from "@/components/reports/EndOfDayReportTab";
+import DailySalesReportTab from "@/components/reports/DailySalesReportTab";
 import { useFeatureLimit, RequireFeature } from "@/components/FeatureGate";
 
 const today = new Date().toISOString().split("T")[0];
@@ -205,6 +206,9 @@ const Reports = () => {
               <TrendingUp className="h-4 w-4" /> P&amp;L
             </TabsTrigger>
           )}
+          <TabsTrigger value="daily-sales" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
+            <CalendarDays className="h-4 w-4" /> Daily Sales
+          </TabsTrigger>
           <TabsTrigger value="eod" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
             <Sun className="h-4 w-4" /> End of Day
           </TabsTrigger>
@@ -233,6 +237,9 @@ const Reports = () => {
               </RequireFeature>
             </TabsContent>
           )}
+          <TabsContent value="daily-sales" className="mt-0">
+            <DailySalesReportTab />
+          </TabsContent>
           <TabsContent value="eod" className="mt-0">
             <EndOfDayReportTab />
           </TabsContent>
