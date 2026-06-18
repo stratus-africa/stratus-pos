@@ -61,7 +61,7 @@ export default function EndOfDayReportTab() {
 
       const salesQ = supabase
         .from("sales")
-        .select("id, invoice_number, status, subtotal, tax, discount, total, created_at, created_by, customers(name), payments(method, amount), profiles:created_by(full_name)")
+        .select("id, invoice_number, status, subtotal, tax, discount, total, created_at, created_by, customers(name), payments(method, amount)")
         .eq("business_id", business.id)
         .gte("created_at", start)
         .lte("created_at", end)
@@ -77,7 +77,7 @@ export default function EndOfDayReportTab() {
 
       const sessionsQ = supabase
         .from("pos_sessions")
-        .select("*, opened_profile:opened_by(full_name), cash_account:cash_account_id(name)")
+        .select("*, cash_account:cash_account_id(name)")
         .eq("business_id", business.id)
         .gte("opened_at", start)
         .lte("opened_at", end);
@@ -103,6 +103,12 @@ export default function EndOfDayReportTab() {
     const cashierIds = new Set((data.sessions || []).map((s: any) => s.opened_by));
     return data.sales.filter((s: any) => cashierIds.has(s.created_by));
   }, [data, drawerId]);
+
+  const cashierMap = useMemo(() => {
+    const m = new Map<string, string>();
+    (cashiersQ.data || []).forEach((c: any) => m.set(c.id, c.full_name || c.email || "Unknown"));
+    return m;
+  }, [cashiersQ.data]);
 
   const summary = useMemo(() => {
     const sales = filteredSales.filter((s: any) => s.status !== "cancelled");
