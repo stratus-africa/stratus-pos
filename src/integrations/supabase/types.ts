@@ -328,6 +328,7 @@ export type Database = {
           track_batches: boolean
           updated_at: string
           vat_enabled: boolean
+          zoho_reports_enabled: boolean
         }
         Insert: {
           accountant_email?: string | null
@@ -361,6 +362,7 @@ export type Database = {
           track_batches?: boolean
           updated_at?: string
           vat_enabled?: boolean
+          zoho_reports_enabled?: boolean
         }
         Update: {
           accountant_email?: string | null
@@ -394,6 +396,7 @@ export type Database = {
           track_batches?: boolean
           updated_at?: string
           vat_enabled?: boolean
+          zoho_reports_enabled?: boolean
         }
         Relationships: []
       }

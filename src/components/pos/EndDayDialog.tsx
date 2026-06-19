@@ -6,11 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Sunset, Loader2, Landmark, Wallet, AlertTriangle, ShieldCheck, ArrowRight, Info, MapPin } from "lucide-react";
+import { Sunset, Loader2, Landmark, Wallet, AlertTriangle, ShieldCheck, ArrowRight, Info, MapPin, FileSpreadsheet, Download, CheckCircle2 } from "lucide-react";
 import { useBankAccounts, BankAccount } from "@/hooks/useBankAccounts";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { toast } from "sonner";
+import { downloadCSV } from "@/components/reports/reportUtils";
 import type { POSSession } from "@/hooks/usePOSSession";
 
 interface AccountReconciliation {
@@ -36,9 +37,13 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
   const [adminPin, setAdminPin] = useState("");
   const [adminApprovalStep, setAdminApprovalStep] = useState(false);
   const [verifyingAdmin, setVerifyingAdmin] = useState(false);
+  const [exportedInvoice, setExportedInvoice] = useState(false);
+  const [exportedPayments, setExportedPayments] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState<null | "invoice" | "payments">(null);
   const { data: bankAccounts = [] } = useBankAccounts();
   const { business, currentLocation, locations } = useBusiness();
   const multipleTills = locations.length > 1;
+  const zohoReportsEnabled = !!(business as { zoho_reports_enabled?: boolean })?.zoho_reports_enabled;
 
   // Calculate expected amounts per account from session payments
   useEffect(() => {
@@ -292,7 +297,123 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
     setAdminPin("");
     setAdminApprovalStep(false);
     setReconciliations([]);
+    setExportedInvoice(false);
+    setExportedPayments(false);
   };
+
+  const fmtDMY = (iso: string) => {
+    const d = new Date(iso);
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    return `${dd}/${mm}/${d.getFullYear()}`;
+  };
+
+  const depositFor = (m: string) => {
+    const k = (m || "").toLowerCase();
+    if (k === "cash") return "Cash in hand";
+    if (k.includes("mpesa") || k === "m-pesa") return "Mpesa";
+    if (k.includes("paybill")) return "Paybill";
+    if (k.includes("card")) return "Card";
+    if (k.includes("bank")) return "Bank";
+    return m || "";
+  };
+
+  const fetchSessionSales = async () => {
+    if (!business || !currentLocation || !session) return [] as any[];
+    const { data, error } = await supabase
+      .from("sales")
+      .select(`*, customers(name), payments(method, amount, reference),
+        sale_items(quantity, unit_price, total, products(name, units(name)))`)
+      .eq("business_id", business.id)
+      .eq("location_id", currentLocation.id)
+      .gte("created_at", session.opened_at)
+      .order("created_at", { ascending: true });
+    if (error) {
+      toast.error("Failed to load sales for export: " + error.message);
+      return [];
+    }
+    // also fetch cashier names
+    const ids = Array.from(new Set((data || []).map((s: any) => s.created_by).filter(Boolean)));
+    let cashierMap = new Map<string, string>();
+    if (ids.length) {
+      const { data: profs } = await supabase.from("profiles").select("id, full_name, email").in("id", ids as string[]);
+      (profs || []).forEach((p: any) => cashierMap.set(p.id, p.full_name || p.email || ""));
+    }
+    return (data || []).map((s: any) => ({ ...s, _cashier: cashierMap.get(s.created_by) || "" }));
+  };
+
+  const stamp = () => new Date().toISOString().slice(0, 10);
+
+  const handleExportInvoiceCsv = async () => {
+    setExportingCsv("invoice");
+    const sales = await fetchSessionSales();
+    const filtered = sales.filter((s: any) => s.status !== "cancelled" && s.status !== "voided");
+    if (!filtered.length) {
+      toast.info("No sales to export.");
+      setExportingCsv(null);
+      return;
+    }
+    const headers = ["Invoice Date","Invoice Number","Customer Name","Is Inclusive Tax","Due Date","Balance","Item Name","Quantity","Item Total","Usage unit","Item Price","Sales person"];
+    const rows: string[][] = [];
+    for (const s of filtered) {
+      const saleDate = String(s.created_at).slice(0, 10);
+      const customer = s.customers?.name || "Walk-in Customer";
+      for (const li of (s.sale_items || [])) {
+        rows.push([
+          saleDate, s.invoice_number || "", customer, "true", saleDate,
+          Number(s.total).toFixed(2),
+          li.products?.name || "", String(li.quantity ?? ""),
+          Number(li.total ?? 0).toFixed(2),
+          li.products?.units?.name || "pcs",
+          Number(li.unit_price ?? 0).toFixed(2),
+          s._cashier,
+        ]);
+      }
+    }
+    downloadCSV(`Invoice_${stamp()}.csv`, headers, rows);
+    setExportedInvoice(true);
+    setExportingCsv(null);
+    toast.success("Invoice CSV exported");
+  };
+
+  const handleExportPaymentsCsv = async () => {
+    setExportingCsv("payments");
+    const sales = await fetchSessionSales();
+    const filtered = sales.filter((s: any) => s.status !== "cancelled" && s.status !== "voided");
+    if (!filtered.length) {
+      toast.info("No payments to export.");
+      setExportingCsv(null);
+      return;
+    }
+    const headers = ["Payment Number","Mode","Description","Exchange Rate","Amount","Reference Number","Currency Code","Payment Number Suffix","Customer Name","Payment Type","Date","Deposit To","Payment Status","Amount Applied to Invoice","Invoice Number","Invoice Date"];
+    const rows: string[][] = [];
+    let n = 0;
+    filtered.forEach((s: any) => {
+      const isRefund = s.status === "refunded" || s.status === "refund";
+      const desc = isRefund ? "Refund" : "";
+      const ptype = isRefund ? "Refund" : "Invoice Payment";
+      const pstatus = isRefund ? "Refunded" : "Paid";
+      const customer = s.customers?.name || "Walk-in Customer";
+      const sDate = fmtDMY(String(s.created_at).slice(0, 10));
+      const pays = (s.payments && s.payments.length) ? s.payments : [{ method: "Cash", amount: s.total, reference: "" }];
+      pays.forEach((p: any) => {
+        n += 1;
+        rows.push([
+          String(n), p.method || "", desc, "1",
+          Number(p.amount ?? 0).toFixed(2),
+          p.reference || "", "KES", String(n),
+          customer, ptype, sDate, depositFor(p.method),
+          pstatus, Number(p.amount ?? 0).toFixed(2),
+          s.invoice_number || "", sDate,
+        ]);
+      });
+    });
+    downloadCSV(`Customer_Payment_${stamp()}.csv`, headers, rows);
+    setExportedPayments(true);
+    setExportingCsv(null);
+    toast.success("Payments CSV exported");
+  };
+
 
   const handleOpenChange = (val: boolean) => {
     if (!val) resetState();
@@ -514,6 +635,62 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
                 rows={2}
               />
             </div>
+
+            {/* Zoho Reports CSV export prompt */}
+            {zohoReportsEnabled && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 space-y-3">
+                <div className="flex items-start gap-2">
+                  <FileSpreadsheet className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-emerald-800">Export Zoho Reports</p>
+                    <p className="text-xs text-emerald-700/80 mt-0.5">
+                      Download the Invoice CSV and Payments CSV for this session before closing the register. Files are Zoho Books compatible.
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={exportedInvoice ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={handleExportInvoiceCsv}
+                    disabled={exportingCsv !== null}
+                    className="justify-start"
+                  >
+                    {exportingCsv === "invoice" ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    ) : exportedInvoice ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-emerald-600" />
+                    ) : (
+                      <Download className="h-3.5 w-3.5 mr-1.5" />
+                    )}
+                    Invoice CSV
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={exportedPayments ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={handleExportPaymentsCsv}
+                    disabled={exportingCsv !== null}
+                    className="justify-start"
+                  >
+                    {exportingCsv === "payments" ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    ) : exportedPayments ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-emerald-600" />
+                    ) : (
+                      <Download className="h-3.5 w-3.5 mr-1.5" />
+                    )}
+                    Payments CSV
+                  </Button>
+                </div>
+                {!(exportedInvoice && exportedPayments) && (
+                  <p className="text-[11px] text-emerald-700/70">
+                    Tip: export both files before closing — you won't be able to come back to this session afterwards.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           /* Admin approval step */

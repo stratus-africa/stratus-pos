@@ -31,6 +31,7 @@ export function BusinessProfileTab() {
   const [managerApproverId, setManagerApproverId] = useState<string>(((business as any)?.pos_manager_approver_id) || "any");
   const [businessType, setBusinessType] = useState<BusinessType>(((business as { business_type?: BusinessType })?.business_type || "general") as BusinessType);
   const [trackBatches, setTrackBatches] = useState<boolean>((business as { track_batches?: boolean })?.track_batches ?? false);
+  const [zohoReportsEnabled, setZohoReportsEnabled] = useState<boolean>((business as { zoho_reports_enabled?: boolean })?.zoho_reports_enabled ?? false);
   const [managers, setManagers] = useState<{ user_id: string; full_name: string | null; email: string | null }[]>([]);
 
   useEffect(() => {
@@ -69,6 +70,7 @@ export function BusinessProfileTab() {
         pos_manager_approver_id: managerApproverId === "any" ? null : managerApproverId,
         business_type: businessType,
         track_batches: businessType === "pharmacy" ? trackBatches : false,
+        zoho_reports_enabled: zohoReportsEnabled,
       } as never)
       .eq("id", business.id);
 
@@ -261,6 +263,18 @@ export function BusinessProfileTab() {
               </p>
             </div>
           )}
+
+          <Separator />
+
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base">Enable Zoho Reports</Label>
+              <p className="text-sm text-muted-foreground">
+                Prompt cashiers to export Invoice CSV and Payments CSV (Zoho Books format) during End of Day Reconciliation before closing the register.
+              </p>
+            </div>
+            <Switch checked={zohoReportsEnabled} onCheckedChange={setZohoReportsEnabled} />
+          </div>
         </CardContent>
       </Card>
       </div>
