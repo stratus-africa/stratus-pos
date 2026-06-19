@@ -635,6 +635,62 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
                 rows={2}
               />
             </div>
+
+            {/* Zoho Reports CSV export prompt */}
+            {zohoReportsEnabled && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 space-y-3">
+                <div className="flex items-start gap-2">
+                  <FileSpreadsheet className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-emerald-800">Export Zoho Reports</p>
+                    <p className="text-xs text-emerald-700/80 mt-0.5">
+                      Download the Invoice CSV and Payments CSV for this session before closing the register. Files are Zoho Books compatible.
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={exportedInvoice ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={handleExportInvoiceCsv}
+                    disabled={exportingCsv !== null}
+                    className="justify-start"
+                  >
+                    {exportingCsv === "invoice" ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    ) : exportedInvoice ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-emerald-600" />
+                    ) : (
+                      <Download className="h-3.5 w-3.5 mr-1.5" />
+                    )}
+                    Invoice CSV
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={exportedPayments ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={handleExportPaymentsCsv}
+                    disabled={exportingCsv !== null}
+                    className="justify-start"
+                  >
+                    {exportingCsv === "payments" ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    ) : exportedPayments ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-emerald-600" />
+                    ) : (
+                      <Download className="h-3.5 w-3.5 mr-1.5" />
+                    )}
+                    Payments CSV
+                  </Button>
+                </div>
+                {!(exportedInvoice && exportedPayments) && (
+                  <p className="text-[11px] text-emerald-700/70">
+                    Tip: export both files before closing — you won't be able to come back to this session afterwards.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           /* Admin approval step */
