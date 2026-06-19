@@ -316,7 +316,9 @@ export default function EndOfDayReportTab() {
           </div>
           <Badge variant="outline" className="h-8">{summary.txCount} sales</Badge>
           <div className="flex-1" />
-          <Button variant="outline" size="sm" onClick={exportCsv}><Download className="h-4 w-4 mr-1" /> CSV</Button>
+          <Button variant="outline" size="sm" onClick={exportCsv}><Download className="h-4 w-4 mr-1" /> Summary CSV</Button>
+          <Button variant="outline" size="sm" onClick={exportInvoiceCsv}><Download className="h-4 w-4 mr-1" /> Invoice CSV</Button>
+          <Button variant="outline" size="sm" onClick={exportPaymentCsv}><Download className="h-4 w-4 mr-1" /> Payments CSV</Button>
           <Button variant="outline" size="sm" onClick={printReport}><Printer className="h-4 w-4 mr-1" /> Print</Button>
         </CardContent>
       </Card>
