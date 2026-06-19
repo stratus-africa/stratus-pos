@@ -6,11 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Sunset, Loader2, Landmark, Wallet, AlertTriangle, ShieldCheck, ArrowRight, Info, MapPin } from "lucide-react";
+import { Sunset, Loader2, Landmark, Wallet, AlertTriangle, ShieldCheck, ArrowRight, Info, MapPin, FileSpreadsheet, Download, CheckCircle2 } from "lucide-react";
 import { useBankAccounts, BankAccount } from "@/hooks/useBankAccounts";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { toast } from "sonner";
+import { downloadCSV } from "@/components/reports/reportUtils";
 import type { POSSession } from "@/hooks/usePOSSession";
 
 interface AccountReconciliation {
@@ -36,9 +37,13 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
   const [adminPin, setAdminPin] = useState("");
   const [adminApprovalStep, setAdminApprovalStep] = useState(false);
   const [verifyingAdmin, setVerifyingAdmin] = useState(false);
+  const [exportedInvoice, setExportedInvoice] = useState(false);
+  const [exportedPayments, setExportedPayments] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState<null | "invoice" | "payments">(null);
   const { data: bankAccounts = [] } = useBankAccounts();
   const { business, currentLocation, locations } = useBusiness();
   const multipleTills = locations.length > 1;
+  const zohoReportsEnabled = !!(business as { zoho_reports_enabled?: boolean })?.zoho_reports_enabled;
 
   // Calculate expected amounts per account from session payments
   useEffect(() => {
