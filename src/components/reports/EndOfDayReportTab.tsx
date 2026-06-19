@@ -61,7 +61,7 @@ export default function EndOfDayReportTab() {
 
       const salesQ = supabase
         .from("sales")
-        .select("id, invoice_number, status, subtotal, tax, discount, total, created_at, created_by, customers(name), payments(method, amount, reference, created_at), sale_items(quantity, unit_price, total, products(name, unit))")
+        .select("id, invoice_number, status, subtotal, tax, discount, total, created_at, created_by, customers(name), payments(method, amount, reference, created_at), sale_items(quantity, unit_price, total, products(name, units(name)))")
         .eq("business_id", business.id)
         .gte("created_at", start)
         .lte("created_at", end)
