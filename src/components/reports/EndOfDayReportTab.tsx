@@ -222,7 +222,7 @@ export default function EndOfDayReportTab() {
           li.products?.name || "",
           String(li.quantity ?? ""),
           Number(li.total ?? 0).toFixed(2),
-          li.products?.unit || "pcs",
+          li.products?.units?.name || "pcs",
           Number(li.unit_price ?? 0).toFixed(2),
           salesPerson,
         ]);
