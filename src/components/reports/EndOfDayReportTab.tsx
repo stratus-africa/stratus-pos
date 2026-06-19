@@ -185,6 +185,82 @@ export default function EndOfDayReportTab() {
     downloadCSV(`End_of_Day_${date}.csv`, headers, rows);
   };
 
+  const fmtDMY = (iso: string) => {
+    const d = new Date(iso);
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    return `${dd}/${mm}/${d.getFullYear()}`;
+  };
+
+  const depositFor = (m: string) => {
+    const k = (m || "").toLowerCase();
+    if (k === "cash") return "Cash in hand";
+    if (k.includes("mpesa") || k === "m-pesa") return "Mpesa";
+    if (k.includes("paybill")) return "Paybill";
+    if (k.includes("card")) return "Card";
+    if (k.includes("bank")) return "Bank";
+    return m || "";
+  };
+
+  const exportInvoiceCsv = () => {
+    const filtered = summary.sales.filter((s: any) => s.status !== "cancelled" && s.status !== "voided");
+    if (!filtered.length) return;
+    const headers = ["Invoice Date","Invoice Number","Customer Name","Is Inclusive Tax","Due Date","Balance","Item Name","Quantity","Item Total","Usage unit","Item Price","Sales person"];
+    const rows: string[][] = [];
+    for (const s of filtered) {
+      const saleDate = String(s.created_at).slice(0, 10);
+      const customer = s.customers?.name || "Walk-in Customer";
+      const salesPerson = cashierMap.get(s.created_by) || "";
+      for (const li of (s.sale_items || [])) {
+        rows.push([
+          saleDate,
+          s.invoice_number || "",
+          customer,
+          "true",
+          saleDate,
+          Number(s.total).toFixed(2),
+          li.products?.name || "",
+          String(li.quantity ?? ""),
+          Number(li.total ?? 0).toFixed(2),
+          li.products?.unit || "pcs",
+          Number(li.unit_price ?? 0).toFixed(2),
+          salesPerson,
+        ]);
+      }
+    }
+    downloadCSV(`Invoice_${date}.csv`, headers, rows);
+  };
+
+  const exportPaymentCsv = () => {
+    const filtered = summary.sales.filter((s: any) => s.status !== "cancelled" && s.status !== "voided");
+    if (!filtered.length) return;
+    const headers = ["Payment Number","Mode","Description","Exchange Rate","Amount","Reference Number","Currency Code","Payment Number Suffix","Customer Name","Payment Type","Date","Deposit To","Payment Status","Amount Applied to Invoice","Invoice Number","Invoice Date"];
+    const rows: string[][] = [];
+    const ordered = [...filtered].sort((a: any, b: any) => +new Date(a.created_at) - +new Date(b.created_at));
+    let n = 0;
+    ordered.forEach((s: any) => {
+      const isRefund = s.status === "refunded" || s.status === "refund";
+      const desc = isRefund ? "Refund" : "";
+      const ptype = isRefund ? "Refund" : "Invoice Payment";
+      const pstatus = isRefund ? "Refunded" : "Paid";
+      const customer = s.customers?.name || "Walk-in Customer";
+      const sDate = fmtDMY(String(s.created_at).slice(0, 10));
+      const pays = (s.payments && s.payments.length) ? s.payments : [{ method: "Cash", amount: s.total, reference: "" }];
+      pays.forEach((p: any) => {
+        n += 1;
+        rows.push([
+          String(n), p.method || "", desc, "1",
+          Number(p.amount ?? 0).toFixed(2),
+          p.reference || "", "KES", String(n),
+          customer, ptype, sDate, depositFor(p.method),
+          pstatus, Number(p.amount ?? 0).toFixed(2),
+          s.invoice_number || "", sDate,
+        ]);
+      });
+    });
+    downloadCSV(`Customer_Payment_${date}.csv`, headers, rows);
+  };
+
   const printReport = () => {
     const win = window.open("", "_blank");
     if (!win) return;
