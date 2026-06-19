@@ -1,0 +1,1 @@
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS zoho_reports_enabled boolean NOT NULL DEFAULT false;
