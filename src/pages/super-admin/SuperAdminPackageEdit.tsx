@@ -111,7 +111,7 @@ export default function SuperAdminPackageEdit() {
         monthly_price_kes: Number(pkg.monthly_price_kes || 0),
         yearly_price_kes: Number(pkg.yearly_price_kes || 0),
         is_active: pkg.is_active,
-        is_private: false,
+        is_private: pkg.is_public === false,
         free_trial: (pkg.trial_days || 0) > 0,
         trial_days: pkg.trial_days || 14,
         max_products: pkg.max_products,
