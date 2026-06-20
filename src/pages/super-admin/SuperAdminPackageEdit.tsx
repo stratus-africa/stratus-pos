@@ -111,7 +111,7 @@ export default function SuperAdminPackageEdit() {
         monthly_price_kes: Number(pkg.monthly_price_kes || 0),
         yearly_price_kes: Number(pkg.yearly_price_kes || 0),
         is_active: pkg.is_active,
-        is_private: pkg.is_public === false,
+        is_private: false,
         free_trial: (pkg.trial_days || 0) > 0,
         trial_days: pkg.trial_days || 14,
         max_products: pkg.max_products,
@@ -164,8 +164,7 @@ export default function SuperAdminPackageEdit() {
         max_suppliers: form.max_suppliers,
         trial_days: form.free_trial ? form.trial_days : 0,
         is_active: form.is_active,
-        is_public: !form.is_private,
-      } as any;
+      };
 
       let pkgId = id;
       if (isNew) {
