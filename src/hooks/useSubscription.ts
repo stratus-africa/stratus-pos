@@ -79,7 +79,7 @@ export function useSubscription() {
       }
       return {
         packages: allPkgs as unknown as SubscriptionPackage[],
-        features: (featRes.data || []) as PackageFeature[],
+        features: ((featRes.data || []) as any[]).map((f) => ({ ...f, enabled: true })) as PackageFeature[],
       };
     },
     staleTime: 60_000,
