@@ -47,6 +47,7 @@ export function SubscriptionTab() {
         .from("subscription_packages")
         .select("*")
         .eq("is_active", true)
+        .eq("is_public", true)
         .order("sort_order");
 
       if (!pkgs || pkgs.length === 0) {

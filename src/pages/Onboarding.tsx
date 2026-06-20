@@ -142,6 +142,7 @@ const CreateWorkspaceForm = ({ hasUser }: { hasUser: boolean }) => {
         .from("subscription_packages")
         .select("id, name, monthly_price_kes, yearly_price_kes, trial_days, max_products, max_users, max_locations")
         .eq("is_active", true)
+        .eq("is_public", true)
         .order("monthly_price_kes", { ascending: true });
       const list = (data as Plan[]) || [];
       setPlans(list);
