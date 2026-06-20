@@ -1806,6 +1806,7 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
+          is_public: boolean
           max_customers: number
           max_locations: number
           max_products: number
@@ -1829,6 +1830,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          is_public?: boolean
           max_customers?: number
           max_locations?: number
           max_products?: number
@@ -1852,6 +1854,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          is_public?: boolean
           max_customers?: number
           max_locations?: number
           max_products?: number
