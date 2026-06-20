@@ -62,15 +62,24 @@ export function useSubscription() {
   });
 
   const { data: packagesData, isLoading: pkgLoading } = useQuery({
-    queryKey: ["subscription_packages_with_features"],
+    queryKey: ["subscription_packages_with_features", subscription?.product_id ?? null],
     queryFn: async () => {
-      const [{ data: pkgs }, { data: feats }] = await Promise.all([
-        supabase.from("subscription_packages").select("*").eq("is_active", true).order("sort_order"),
-        supabase.from("package_features").select("package_id, feature_key, enabled"),
+      const [pubRes, featRes] = await Promise.all([
+        (supabase as any).rpc("get_public_subscription_packages"),
+        (supabase as any).rpc("get_public_package_features"),
       ]);
+      const publicPkgs: any[] = pubRes.data || [];
+      let allPkgs = publicPkgs;
+      // If the user is subscribed to a private/hidden package, fetch it separately.
+      if (subscription?.product_id && !publicPkgs.find((p) => p.id === subscription.product_id)) {
+        const { data: priv } = await (supabase as any).rpc("get_subscription_package_safe", {
+          _id: subscription.product_id,
+        });
+        if (priv && priv.length > 0) allPkgs = [...publicPkgs, priv[0]];
+      }
       return {
-        packages: (pkgs || []) as unknown as SubscriptionPackage[],
-        features: (feats || []) as PackageFeature[],
+        packages: allPkgs as unknown as SubscriptionPackage[],
+        features: (featRes.data || []) as PackageFeature[],
       };
     },
     staleTime: 60_000,
