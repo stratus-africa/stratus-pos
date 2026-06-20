@@ -1046,6 +1046,13 @@ export type Database = {
             referencedRelation: "subscription_packages"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "package_features_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_packages_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       payment_method_accounts: {
@@ -2206,7 +2213,69 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      subscription_packages_safe: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string | null
+          is_active: boolean | null
+          is_public: boolean | null
+          max_customers: number | null
+          max_locations: number | null
+          max_products: number | null
+          max_suppliers: number | null
+          max_users: number | null
+          monthly_price: number | null
+          monthly_price_kes: number | null
+          name: string | null
+          sort_order: number | null
+          trial_days: number | null
+          updated_at: string | null
+          yearly_price: number | null
+          yearly_price_kes: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          is_public?: boolean | null
+          max_customers?: number | null
+          max_locations?: number | null
+          max_products?: number | null
+          max_suppliers?: number | null
+          max_users?: number | null
+          monthly_price?: number | null
+          monthly_price_kes?: number | null
+          name?: string | null
+          sort_order?: number | null
+          trial_days?: number | null
+          updated_at?: string | null
+          yearly_price?: number | null
+          yearly_price_kes?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          is_public?: boolean | null
+          max_customers?: number | null
+          max_locations?: number | null
+          max_products?: number | null
+          max_suppliers?: number | null
+          max_users?: number | null
+          monthly_price?: number | null
+          monthly_price_kes?: number | null
+          name?: string | null
+          sort_order?: number | null
+          trial_days?: number | null
+          updated_at?: string | null
+          yearly_price?: number | null
+          yearly_price_kes?: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       decrement_batch_quantity: {
