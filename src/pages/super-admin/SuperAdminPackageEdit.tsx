@@ -164,7 +164,8 @@ export default function SuperAdminPackageEdit() {
         max_suppliers: form.max_suppliers,
         trial_days: form.free_trial ? form.trial_days : 0,
         is_active: form.is_active,
-      };
+        is_public: !form.is_private,
+      } as any;
 
       let pkgId = id;
       if (isNew) {
