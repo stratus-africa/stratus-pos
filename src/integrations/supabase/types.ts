@@ -2307,8 +2307,30 @@ export type Database = {
         Returns: {
           description: string
           id: string
+          is_public: boolean
+          max_customers: number
           max_locations: number
           max_products: number
+          max_suppliers: number
+          max_users: number
+          monthly_price_kes: number
+          name: string
+          sort_order: number
+          trial_days: number
+          yearly_price_kes: number
+        }[]
+      }
+      get_subscription_package_safe: {
+        Args: { _id: string }
+        Returns: {
+          description: string
+          id: string
+          is_active: boolean
+          is_public: boolean
+          max_customers: number
+          max_locations: number
+          max_products: number
+          max_suppliers: number
           max_users: number
           monthly_price_kes: number
           name: string

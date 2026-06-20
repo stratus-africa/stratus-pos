@@ -138,13 +138,18 @@ const CreateWorkspaceForm = ({ hasUser }: { hasUser: boolean }) => {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from("subscription_packages")
-        .select("id, name, monthly_price_kes, yearly_price_kes, trial_days, max_products, max_users, max_locations")
-        .eq("is_active", true)
-        .eq("is_public", true)
-        .order("monthly_price_kes", { ascending: true });
-      const list = (data as Plan[]) || [];
+      const { data } = await (supabase as any).rpc("get_public_subscription_packages");
+      const list = ((data as any[]) || [])
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          monthly_price_kes: p.monthly_price_kes,
+          yearly_price_kes: p.yearly_price_kes,
+          trial_days: p.trial_days,
+          max_products: p.max_products,
+          max_users: p.max_users,
+          max_locations: p.max_locations,
+        })) as Plan[];
       setPlans(list);
       const def = list.find(p => Number(p.monthly_price_kes) === 0) || list[0];
       if (def) setSelectedPlanId(def.id);
