@@ -1046,6 +1046,13 @@ export type Database = {
             referencedRelation: "subscription_packages"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "package_features_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_packages_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       payment_method_accounts: {
@@ -1806,6 +1813,7 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
+          is_public: boolean
           max_customers: number
           max_locations: number
           max_products: number
@@ -1829,6 +1837,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          is_public?: boolean
           max_customers?: number
           max_locations?: number
           max_products?: number
@@ -1852,6 +1861,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          is_public?: boolean
           max_customers?: number
           max_locations?: number
           max_products?: number
@@ -2203,7 +2213,69 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      subscription_packages_safe: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string | null
+          is_active: boolean | null
+          is_public: boolean | null
+          max_customers: number | null
+          max_locations: number | null
+          max_products: number | null
+          max_suppliers: number | null
+          max_users: number | null
+          monthly_price: number | null
+          monthly_price_kes: number | null
+          name: string | null
+          sort_order: number | null
+          trial_days: number | null
+          updated_at: string | null
+          yearly_price: number | null
+          yearly_price_kes: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          is_public?: boolean | null
+          max_customers?: number | null
+          max_locations?: number | null
+          max_products?: number | null
+          max_suppliers?: number | null
+          max_users?: number | null
+          monthly_price?: number | null
+          monthly_price_kes?: number | null
+          name?: string | null
+          sort_order?: number | null
+          trial_days?: number | null
+          updated_at?: string | null
+          yearly_price?: number | null
+          yearly_price_kes?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          is_public?: boolean | null
+          max_customers?: number | null
+          max_locations?: number | null
+          max_products?: number | null
+          max_suppliers?: number | null
+          max_users?: number | null
+          monthly_price?: number | null
+          monthly_price_kes?: number | null
+          name?: string | null
+          sort_order?: number | null
+          trial_days?: number | null
+          updated_at?: string | null
+          yearly_price?: number | null
+          yearly_price_kes?: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       decrement_batch_quantity: {
@@ -2235,8 +2307,30 @@ export type Database = {
         Returns: {
           description: string
           id: string
+          is_public: boolean
+          max_customers: number
           max_locations: number
           max_products: number
+          max_suppliers: number
+          max_users: number
+          monthly_price_kes: number
+          name: string
+          sort_order: number
+          trial_days: number
+          yearly_price_kes: number
+        }[]
+      }
+      get_subscription_package_safe: {
+        Args: { _id: string }
+        Returns: {
+          description: string
+          id: string
+          is_active: boolean
+          is_public: boolean
+          max_customers: number
+          max_locations: number
+          max_products: number
+          max_suppliers: number
           max_users: number
           monthly_price_kes: number
           name: string
@@ -2252,6 +2346,14 @@ export type Database = {
       }
       has_role: {
         Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      has_role_in_business: {
+        Args: {
+          _business_id: string
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
