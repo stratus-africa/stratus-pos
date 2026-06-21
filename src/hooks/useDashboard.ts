@@ -42,7 +42,7 @@ interface DashboardData {
 
 export function useDashboard(): DashboardData {
   const { business, currentLocation } = useBusiness();
-  const [dateFilter, setDateFilter] = useState("today");
+  const [dateFilter, setDateFilter] = useState("30days");
   const [data, setData] = useState<Omit<DashboardData, "dateFilter" | "setDateFilter">>({
     todaySales: 0,
     todayCount: 0,

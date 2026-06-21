@@ -1,0 +1,1 @@
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS pos_show_stock_qty boolean NOT NULL DEFAULT true;

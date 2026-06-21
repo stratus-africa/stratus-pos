@@ -31,7 +31,7 @@ export function BusinessProfileTab() {
   const [managerApproverId, setManagerApproverId] = useState<string>(((business as any)?.pos_manager_approver_id) || "any");
   const [businessType, setBusinessType] = useState<BusinessType>(((business as { business_type?: BusinessType })?.business_type || "general") as BusinessType);
   const [trackBatches, setTrackBatches] = useState<boolean>((business as { track_batches?: boolean })?.track_batches ?? false);
-  const [zohoReportsEnabled, setZohoReportsEnabled] = useState<boolean>((business as { zoho_reports_enabled?: boolean })?.zoho_reports_enabled ?? false);
+  const [posShowStockQty, setPosShowStockQty] = useState<boolean>((business as { pos_show_stock_qty?: boolean })?.pos_show_stock_qty ?? true);
   const [managers, setManagers] = useState<{ user_id: string; full_name: string | null; email: string | null }[]>([]);
 
   useEffect(() => {
@@ -70,7 +70,7 @@ export function BusinessProfileTab() {
         pos_manager_approver_id: managerApproverId === "any" ? null : managerApproverId,
         business_type: businessType,
         track_batches: businessType === "pharmacy" ? trackBatches : false,
-        zoho_reports_enabled: zohoReportsEnabled,
+        pos_show_stock_qty: posShowStockQty,
       } as never)
       .eq("id", business.id);
 
@@ -268,12 +268,12 @@ export function BusinessProfileTab() {
 
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-base">Enable Zoho Reports</Label>
+              <Label className="text-base">Show stock quantity on POS</Label>
               <p className="text-sm text-muted-foreground">
-                Prompt cashiers to export Invoice CSV and Payments CSV (Zoho Books format) during End of Day Reconciliation before closing the register.
+                Display the available quantity badge next to each product in the POS product listing. Turn off to hide stock quantities from cashiers.
               </p>
             </div>
-            <Switch checked={zohoReportsEnabled} onCheckedChange={setZohoReportsEnabled} />
+            <Switch checked={posShowStockQty} onCheckedChange={setPosShowStockQty} />
           </div>
         </CardContent>
       </Card>
