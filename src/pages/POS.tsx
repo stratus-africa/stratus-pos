@@ -60,6 +60,7 @@ const POS = () => {
     locationOverride === null || locationOverride === undefined ? businessRequires : !!locationOverride;
   // Admins/managers/stores managers don't need extra approval — they ARE the approvers.
   const cashierNeedsApproval = requireManagerToRemove && userRole === "cashier";
+  const showStockQty = (business as { pos_show_stock_qty?: boolean })?.pos_show_stock_qty ?? true;
 
   const handleBeforeRemove = useCallback((item: CartItem): Promise<boolean> => {
     if (!cashierNeedsApproval) return Promise.resolve(true);
@@ -251,36 +252,58 @@ const POS = () => {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {activeProducts.map((p) => {
-                const qty = stockMap.get(p.id) ?? 0;
-                const lowStock = qty <= 0;
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => pos.addToCart(p)}
-                    className="flex items-center justify-between w-full gap-3 px-4 py-4 sm:py-3 min-h-[64px] sm:min-h-[56px] rounded-lg border bg-card hover:bg-accent transition-colors text-left"
-                  >
-                    <div className="flex-1 min-w-0 flex flex-col items-start gap-1">
-                      <span className="font-medium text-sm leading-tight truncate w-full">{p.name}</span>
-                      <div className="flex items-center gap-2 flex-nowrap whitespace-nowrap">
-                        <Badge variant={lowStock ? "destructive" : "secondary"} className="text-[10px] font-normal shrink-0">
-                          Qty: {qty}
-                        </Badge>
-                        {p.sku && (
-                          <span className="text-xs text-muted-foreground truncate">{p.sku}</span>
+            <div className="rounded-lg border overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/60 text-muted-foreground">
+                  <tr className="text-left">
+                    <th className="px-3 py-2 font-medium">Product</th>
+                    {showStockQty && <th className="px-3 py-2 font-medium hidden sm:table-cell">Stock</th>}
+                    <th className="px-3 py-2 font-medium text-right">Price</th>
+                  </tr>
+                </thead>
+                <tbody className="theme-alt-rows">
+                  {activeProducts.map((p) => {
+                    const qty = stockMap.get(p.id) ?? 0;
+                    const lowStock = qty <= 0;
+                    return (
+                      <tr
+                        key={p.id}
+                        onClick={() => pos.addToCart(p)}
+                        className="cursor-pointer border-b last:border-0 hover:bg-accent/60 transition-colors"
+                      >
+                        <td className="px-3 py-2.5 align-middle">
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-medium truncate">{p.name}</span>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              {p.sku && <span className="truncate">{p.sku}</span>}
+                              {showStockQty && (
+                                <Badge variant={lowStock ? "destructive" : "secondary"} className="sm:hidden text-[10px] font-normal">
+                                  Qty: {qty}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        {showStockQty && (
+                          <td className="px-3 py-2.5 align-middle hidden sm:table-cell">
+                            <Badge variant={lowStock ? "destructive" : "secondary"} className="text-[10px] font-normal">
+                              {qty}
+                            </Badge>
+                          </td>
                         )}
-                      </div>
-                    </div>
-                    <span className="font-semibold text-primary min-w-[80px] text-right text-xl shrink-0">
-                      KES {Number(p.selling_price).toLocaleString()}
-                    </span>
-                  </button>
-                );
-              })}
-              {activeProducts.length === 0 && (
-                <p className="col-span-full text-center py-10 text-muted-foreground">No products found</p>
-              )}
+                        <td className="px-3 py-2.5 align-middle text-right font-semibold text-primary whitespace-nowrap">
+                          KES {Number(p.selling_price).toLocaleString()}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {activeProducts.length === 0 && (
+                    <tr>
+                      <td colSpan={showStockQty ? 3 : 2} className="text-center py-10 text-muted-foreground">No products found</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           )}
         </ScrollArea>
