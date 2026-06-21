@@ -216,7 +216,7 @@ const Reports = () => {
 
         <div className="flex-1 min-w-0">
           <TabsContent value="sales" className="mt-0">
-            <SalesReportTab sales={sales} topProducts={topProducts} totalRevenue={totalRevenue} totalTax={totalTax} totalDiscount={totalDiscount} from={from} to={to} loading={loading} />
+            <DailySalesReportTab />
           </TabsContent>
           <TabsContent value="purchases" className="mt-0">
             <PurchasesReportTab purchases={purchases} from={from} to={to} loading={loading} />
