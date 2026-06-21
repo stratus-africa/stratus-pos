@@ -35,7 +35,7 @@ export default function DailySalesReportTab() {
       if (!business) return [];
       const q = supabase
         .from("sales")
-        .select("id, invoice_number, status, subtotal, tax, discount, total, created_at, customers(name), payments(method, amount), sale_items(quantity, unit_price, total, products(name, units(name))))")
+        .select("id, invoice_number, status, subtotal, tax, discount, total, created_at, customers(name), payments(method, amount), sale_items(quantity, unit_price, total, products(name, units(name)))")
         .eq("business_id", business.id)
         .gte("created_at", `${date}T00:00:00`)
         .lte("created_at", `${date}T23:59:59`)
