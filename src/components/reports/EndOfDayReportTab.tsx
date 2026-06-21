@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Printer, Sun } from "lucide-react";
+import { Download, Printer, Sun, ChevronDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { formatKES, downloadCSV } from "./reportUtils";
@@ -317,8 +318,17 @@ export default function EndOfDayReportTab() {
           <Badge variant="outline" className="h-8">{summary.txCount} sales</Badge>
           <div className="flex-1" />
           <Button variant="outline" size="sm" onClick={exportCsv}><Download className="h-4 w-4 mr-1" /> Summary CSV</Button>
-          <Button variant="outline" size="sm" onClick={exportInvoiceCsv}><Download className="h-4 w-4 mr-1" /> Invoice CSV</Button>
-          <Button variant="outline" size="sm" onClick={exportPaymentCsv}><Download className="h-4 w-4 mr-1" /> Payments CSV</Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-1" /> Export CSV <ChevronDown className="h-4 w-4 ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportInvoiceCsv}>Invoice CSV</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportPaymentCsv}>Payments CSV</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button variant="outline" size="sm" onClick={printReport}><Printer className="h-4 w-4 mr-1" /> Print</Button>
         </CardContent>
       </Card>
