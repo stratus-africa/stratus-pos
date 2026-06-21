@@ -206,9 +206,6 @@ const Reports = () => {
               <TrendingUp className="h-4 w-4" /> P&amp;L
             </TabsTrigger>
           )}
-          <TabsTrigger value="daily-sales" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
-            <CalendarDays className="h-4 w-4" /> Daily Sales
-          </TabsTrigger>
           <TabsTrigger value="eod" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
             <Sun className="h-4 w-4" /> End of Day
           </TabsTrigger>
