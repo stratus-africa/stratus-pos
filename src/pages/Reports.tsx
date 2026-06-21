@@ -234,9 +234,6 @@ const Reports = () => {
               </RequireFeature>
             </TabsContent>
           )}
-          <TabsContent value="daily-sales" className="mt-0">
-            <DailySalesReportTab />
-          </TabsContent>
           <TabsContent value="eod" className="mt-0">
             <EndOfDayReportTab />
           </TabsContent>
