@@ -88,16 +88,31 @@ export default function DailySalesReportTab() {
   }, [sales]);
 
   const exportCsv = () => {
-    if (!stats.active.length) return;
-    const rows = stats.active.map((s: any) => [
-      new Date(s.created_at).toLocaleTimeString(),
-      s.invoice_number || "",
-      s.customers?.name || "Walk-in",
-      (s.payments || []).map((p: any) => `${p.method}:${p.amount}`).join("|"),
-      s.status,
-      Number(s.total).toFixed(2),
-    ]);
-    downloadCSV(`Daily_Sales_${date}.csv`, ["Time", "Invoice", "Customer", "Payments", "Status", "Total"], rows);
+    const filtered = stats.active.filter((s: any) => s.status !== "voided");
+    if (!filtered.length) return;
+    const headers = ["Invoice Date","Invoice Number","Customer Name","Is Inclusive Tax","Due Date","Balance","Item Name","Quantity","Item Total","Usage unit","Item Price","Sales person"];
+    const rows: string[][] = [];
+    for (const s of filtered) {
+      const saleDate = String(s.created_at).slice(0, 10);
+      const customer = s.customers?.name || "Walk-in Customer";
+      for (const li of (s.sale_items || [])) {
+        rows.push([
+          saleDate,
+          s.invoice_number || "",
+          customer,
+          "true",
+          saleDate,
+          Number(s.total).toFixed(2),
+          li.products?.name || "",
+          String(li.quantity ?? ""),
+          Number(li.total ?? 0).toFixed(2),
+          li.products?.units?.name || "pcs",
+          Number(li.unit_price ?? 0).toFixed(2),
+          "",
+        ]);
+      }
+    }
+    downloadCSV(`Invoice_${date}.csv`, headers, rows);
   };
 
   if (query.isLoading) return <div className="text-center py-12 text-muted-foreground">Loading…</div>;
