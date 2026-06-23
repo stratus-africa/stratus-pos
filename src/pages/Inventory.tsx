@@ -38,11 +38,15 @@ const downloadCsv = (filename: string, headers: string[], rows: (string | number
 };
 
 const Inventory = () => {
-  const { locations, currentLocation } = useBusiness();
+  const { locations, currentLocation, business } = useBusiness();
   const { user } = useAuth();
+  const { hasPermission } = usePermissions();
+  const canEditAdjustments = hasPermission("inventory.edit");
+  const { createPurchase } = usePurchases();
   const [locationFilter, setLocationFilter] = useState<string>(currentLocation?.id || "all");
   const [search, setSearch] = useState("");
   const [adjDialogOpen, setAdjDialogOpen] = useState(false);
+  const [editingAdj, setEditingAdj] = useState<StockAdjustment | null>(null);
 
   const [adjPage, setAdjPage] = useState(1);
   const [adjSearch, setAdjSearch] = useState("");
@@ -55,7 +59,7 @@ const Inventory = () => {
   const [mvSort, setMvSort] = useState<SortKey>("date_desc");
 
   const effectiveLocationId = locationFilter === "all" ? undefined : locationFilter;
-  const { inventoryQuery, adjustStock, adjustmentsQuery, movementsQuery } = useInventory(effectiveLocationId, {
+  const { inventoryQuery, adjustStock, editAdjustment, adjustmentsQuery, movementsQuery } = useInventory(effectiveLocationId, {
     adjustmentsPage: { page: adjPage, pageSize: PAGE_SIZE, sort: adjSort },
     movements: { page: mvPage, pageSize: PAGE_SIZE, from: mvFrom || undefined, to: mvTo || undefined, source: mvSource, sort: mvSort },
   });
@@ -83,8 +87,34 @@ const Inventory = () => {
 
   const lowStockCount = inventory.filter((i) => i.quantity <= i.low_stock_threshold).length;
 
-  const handleAdjust = (data: { items: { product_id: string; quantity_change: number }[]; location_id: string; reason: string; notes?: string }) => {
-    if (!user) return;
+  const handleAdjust = (data: AdjustStockSubmit) => {
+    if (!user || !business) return;
+    // For Purchase received, create a Purchase order — it handles inventory + stock_adjustments rows
+    if (data.purchase) {
+      const items = data.items.map((it) => {
+        const qty = Math.abs(it.quantity_change);
+        const unit_cost = it.unit_cost || 0;
+        return { product_id: it.product_id, quantity: qty, unit_cost, total: qty * unit_cost };
+      });
+      const subtotal = items.reduce((s, i) => s + i.total, 0);
+      createPurchase.mutate({
+        purchase: {
+          supplier_id: data.purchase.supplier_id,
+          location_id: data.location_id,
+          invoice_number: data.purchase.invoice_number,
+          subtotal,
+          tax: 0,
+          total: subtotal,
+          payment_status: "unpaid",
+          status: "received",
+          vat_enabled: false,
+          notes: data.notes,
+          created_by: user.id,
+        },
+        items,
+      });
+      return;
+    }
     adjustStock.mutate({ ...data, created_by: user.id });
   };
 
