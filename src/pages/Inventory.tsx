@@ -6,11 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ArrowLeftRight, Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ArrowLeftRight, Download, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 import { useInventory, classifyMovement, type MovementSource, type SortKey, type StockAdjustment } from "@/hooks/useInventory";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { StockAdjustmentDialog } from "@/components/inventory/StockAdjustmentDialog";
+import { usePermissions } from "@/hooks/usePermissions";
+import { usePurchases } from "@/hooks/usePurchases";
+import { StockAdjustmentDialog, type AdjustStockSubmit } from "@/components/inventory/StockAdjustmentDialog";
+import { EditAdjustmentDialog } from "@/components/inventory/EditAdjustmentDialog";
 
 const PAGE_SIZE = 25;
 
