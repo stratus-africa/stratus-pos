@@ -259,5 +259,5 @@ export function useInventory(
     enabled: !!business,
   });
 
-  return { inventoryQuery, adjustStock, adjustmentsQuery, movementsQuery };
+  return { inventoryQuery, adjustStock, editAdjustment, adjustmentsQuery, movementsQuery };
 }
