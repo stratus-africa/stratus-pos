@@ -6,11 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ArrowLeftRight, Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ArrowLeftRight, Download, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 import { useInventory, classifyMovement, type MovementSource, type SortKey, type StockAdjustment } from "@/hooks/useInventory";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { StockAdjustmentDialog } from "@/components/inventory/StockAdjustmentDialog";
+import { usePermissions } from "@/hooks/usePermissions";
+import { usePurchases } from "@/hooks/usePurchases";
+import { StockAdjustmentDialog, type AdjustStockSubmit } from "@/components/inventory/StockAdjustmentDialog";
+import { EditAdjustmentDialog } from "@/components/inventory/EditAdjustmentDialog";
 
 const PAGE_SIZE = 25;
 
@@ -35,11 +38,15 @@ const downloadCsv = (filename: string, headers: string[], rows: (string | number
 };
 
 const Inventory = () => {
-  const { locations, currentLocation } = useBusiness();
+  const { locations, currentLocation, business } = useBusiness();
   const { user } = useAuth();
+  const { hasPermission } = usePermissions();
+  const canEditAdjustments = hasPermission("inventory.edit");
+  const { createPurchase } = usePurchases();
   const [locationFilter, setLocationFilter] = useState<string>(currentLocation?.id || "all");
   const [search, setSearch] = useState("");
   const [adjDialogOpen, setAdjDialogOpen] = useState(false);
+  const [editingAdj, setEditingAdj] = useState<StockAdjustment | null>(null);
 
   const [adjPage, setAdjPage] = useState(1);
   const [adjSearch, setAdjSearch] = useState("");
@@ -52,7 +59,7 @@ const Inventory = () => {
   const [mvSort, setMvSort] = useState<SortKey>("date_desc");
 
   const effectiveLocationId = locationFilter === "all" ? undefined : locationFilter;
-  const { inventoryQuery, adjustStock, adjustmentsQuery, movementsQuery } = useInventory(effectiveLocationId, {
+  const { inventoryQuery, adjustStock, editAdjustment, adjustmentsQuery, movementsQuery } = useInventory(effectiveLocationId, {
     adjustmentsPage: { page: adjPage, pageSize: PAGE_SIZE, sort: adjSort },
     movements: { page: mvPage, pageSize: PAGE_SIZE, from: mvFrom || undefined, to: mvTo || undefined, source: mvSource, sort: mvSort },
   });
@@ -80,8 +87,34 @@ const Inventory = () => {
 
   const lowStockCount = inventory.filter((i) => i.quantity <= i.low_stock_threshold).length;
 
-  const handleAdjust = (data: { items: { product_id: string; quantity_change: number }[]; location_id: string; reason: string; notes?: string }) => {
-    if (!user) return;
+  const handleAdjust = (data: AdjustStockSubmit) => {
+    if (!user || !business) return;
+    // For Purchase received, create a Purchase order — it handles inventory + stock_adjustments rows
+    if (data.purchase) {
+      const items = data.items.map((it) => {
+        const qty = Math.abs(it.quantity_change);
+        const unit_cost = it.unit_cost || 0;
+        return { product_id: it.product_id, quantity: qty, unit_cost, total: qty * unit_cost };
+      });
+      const subtotal = items.reduce((s, i) => s + i.total, 0);
+      createPurchase.mutate({
+        purchase: {
+          supplier_id: data.purchase.supplier_id,
+          location_id: data.location_id,
+          invoice_number: data.purchase.invoice_number,
+          subtotal,
+          tax: 0,
+          total: subtotal,
+          payment_status: "unpaid",
+          status: "received",
+          vat_enabled: false,
+          notes: data.notes,
+          created_by: user.id,
+        },
+        items,
+      });
+      return;
+    }
     adjustStock.mutate({ ...data, created_by: user.id });
   };
 
@@ -237,12 +270,13 @@ const Inventory = () => {
                     <TableHead>Location</TableHead>
                     <TableHead className="text-right">Change</TableHead>
                     <TableHead>Reason</TableHead>
+                    {canEditAdjustments && <TableHead className="w-16 text-right">Edit</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {adjustmentsFiltered.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={canEditAdjustments ? 6 : 5} className="text-center text-muted-foreground py-8">
                         {adjSearch ? "No adjustments match your search." : "No adjustments yet."}
                       </TableCell>
                     </TableRow>
@@ -256,6 +290,13 @@ const Inventory = () => {
                           {a.quantity_change > 0 ? "+" : ""}{a.quantity_change}
                         </TableCell>
                         <TableCell>{a.reason}</TableCell>
+                        {canEditAdjustments && (
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingAdj(a)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))
                   )}
@@ -398,7 +439,15 @@ const Inventory = () => {
         open={adjDialogOpen}
         onOpenChange={setAdjDialogOpen}
         onSubmit={handleAdjust}
-        isLoading={adjustStock.isPending}
+        isLoading={adjustStock.isPending || createPurchase.isPending}
+      />
+
+      <EditAdjustmentDialog
+        open={!!editingAdj}
+        adjustment={editingAdj}
+        onOpenChange={(o) => !o && setEditingAdj(null)}
+        onSubmit={(data) => editAdjustment.mutate(data, { onSuccess: () => setEditingAdj(null) })}
+        isLoading={editAdjustment.isPending}
       />
     </div>
   );

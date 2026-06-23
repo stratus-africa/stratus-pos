@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useProducts, Product } from "@/hooks/useProducts";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { Barcode, Plus, Trash2, Search, Save, FileText } from "lucide-react";
+import { useInventory } from "@/hooks/useInventory";
+import { useSuppliers } from "@/hooks/usePurchases";
+import { Barcode, Trash2, Save, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { loadDraft, saveDraft, clearDraft } from "@/lib/stockAdjustmentDraft";
 
@@ -17,12 +19,25 @@ interface AdjustmentLine {
   product_name: string;
   sku: string | null;
   quantity_change: number;
+  unit_cost?: number;
+}
+
+export interface AdjustStockSubmit {
+  items: { product_id: string; quantity_change: number; unit_cost?: number }[];
+  location_id: string;
+  reason: string;
+  notes?: string;
+  purchase?: {
+    supplier_id: string | null;
+    invoice_number: string;
+    purchase_date: string;
+  };
 }
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: { items: { product_id: string; quantity_change: number }[]; location_id: string; reason: string; notes?: string }) => void;
+  onSubmit: (data: AdjustStockSubmit) => void;
   isLoading?: boolean;
 }
 
@@ -32,18 +47,28 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
   const { productsQuery } = useProducts();
   const { business, locations, currentLocation } = useBusiness();
   const [locationId, setLocationId] = useState(currentLocation?.id || "");
+  const { inventoryQuery } = useInventory(locationId || undefined);
+  const { query: suppliersQuery } = useSuppliers();
   const [reason, setReason] = useState("Purchase received");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<AdjustmentLine[]>([]);
   const [barcodeInput, setBarcodeInput] = useState("");
   const [searchInput, setSearchInput] = useState("");
-  const [showProductPicker, setShowProductPicker] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
+  const [supplierId, setSupplierId] = useState<string>("none");
+  const [supplierInvoice, setSupplierInvoice] = useState("");
+  const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().slice(0, 10));
   const barcodeRef = useRef<HTMLInputElement>(null);
 
   const products = productsQuery.data?.filter(p => p.is_active) || [];
+  const inventoryByProduct = useMemo(() => {
+    const map = new Map<string, number>();
+    (inventoryQuery.data || []).forEach((i) => map.set(i.product_id, Number(i.quantity)));
+    return map;
+  }, [inventoryQuery.data]);
 
-  // Load any saved draft and focus barcode input when dialog opens
+  const isPurchase = reason === "Purchase received";
+
   useEffect(() => {
     if (open) {
       const draft = loadDraft(business?.id);
@@ -57,12 +82,13 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
       }
       setTimeout(() => barcodeRef.current?.focus(), 100);
     } else {
-      // Reset on close (draft remains in storage)
       setLines([]);
       setBarcodeInput("");
       setSearchInput("");
       setNotes("");
-      setShowProductPicker(false);
+      setSupplierId("none");
+      setSupplierInvoice("");
+      setPurchaseDate(new Date().toISOString().slice(0, 10));
       setDraftSavedAt(null);
     }
   }, [open, business?.id]);
@@ -82,6 +108,7 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
         product_name: product.name,
         sku: product.sku,
         quantity_change: qty,
+        unit_cost: product.purchase_price || 0,
       }];
     });
   };
@@ -109,7 +136,14 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
     ));
   };
 
+  const handleUnitCostChange = (productId: string, cost: number) => {
+    setLines(prev => prev.map(l =>
+      l.product_id === productId ? { ...l, unit_cost: cost } : l
+    ));
+  };
+
   const filteredProducts = products.filter(p => {
+    if (!searchInput) return true;
     const q = searchInput.toLowerCase();
     return (
       p.name.toLowerCase().includes(q) ||
@@ -128,11 +162,20 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
       toast.error("Select a location");
       return;
     }
+    if (isPurchase && !supplierInvoice.trim()) {
+      toast.error("Supplier invoice number is required for Purchase received");
+      return;
+    }
     onSubmit({
-      items: lines.map(l => ({ product_id: l.product_id, quantity_change: l.quantity_change })),
+      items: lines.map(l => ({ product_id: l.product_id, quantity_change: l.quantity_change, unit_cost: l.unit_cost })),
       location_id: locationId,
       reason,
       notes: notes || undefined,
+      purchase: isPurchase ? {
+        supplier_id: supplierId === "none" ? null : supplierId,
+        invoice_number: supplierInvoice.trim(),
+        purchase_date: purchaseDate,
+      } : undefined,
     });
     clearDraft(business?.id);
     setDraftSavedAt(null);
@@ -160,74 +203,72 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Adjust Stock — Multiple Products</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Barcode scanner input */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <Barcode className="h-4 w-4" /> Scan Barcode / SKU
-            </Label>
-            <Input
-              ref={barcodeRef}
-              placeholder="Scan or type barcode/SKU and press Enter..."
-              value={barcodeInput}
-              onChange={e => setBarcodeInput(e.target.value)}
-              onKeyDown={handleBarcodeScan}
-              autoComplete="off"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Barcode className="h-4 w-4" /> Scan Barcode / SKU
+              </Label>
+              <Input
+                ref={barcodeRef}
+                placeholder="Scan or type barcode/SKU and press Enter..."
+                value={barcodeInput}
+                onChange={e => setBarcodeInput(e.target.value)}
+                onKeyDown={handleBarcodeScan}
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Search products</Label>
+              <Input
+                placeholder="Search by name, SKU, or barcode..."
+                value={searchInput}
+                onChange={e => setSearchInput(e.target.value)}
+              />
+            </div>
           </div>
 
-          {/* Manual product search */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setShowProductPicker(!showProductPicker)}>
-                <Search className="mr-1 h-4 w-4" /> Search & Add Product
-              </Button>
-            </div>
-            {showProductPicker && (
-              <div className="border rounded-md p-3 space-y-2 bg-muted/30">
-                <Input
-                  placeholder="Search by name, SKU, or barcode..."
-                  value={searchInput}
-                  onChange={e => setSearchInput(e.target.value)}
-                  autoFocus
-                />
-                <div className="max-h-40 overflow-y-auto space-y-1">
-                  {filteredProducts.slice(0, 20).map(p => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      className="w-full text-left px-3 py-2 rounded hover:bg-accent text-sm flex justify-between items-center"
-                      onClick={() => {
-                        addProduct(p);
-                        setSearchInput("");
-                        setShowProductPicker(false);
-                      }}
-                    >
-                      <span className="font-medium">{p.name}</span>
-                      <span className="text-muted-foreground text-xs">{p.sku || p.barcode || ""}</span>
-                    </button>
-                  ))}
-                  {filteredProducts.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-2">No products found</p>
-                  )}
-                </div>
-              </div>
+          {/* Product picker — always visible */}
+          <div className="border rounded-md p-3 space-y-1 bg-muted/30 max-h-56 overflow-y-auto">
+            {filteredProducts.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-2">No products found</p>
+            ) : (
+              filteredProducts.map(p => {
+                const stock = inventoryByProduct.get(p.id) ?? 0;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className="w-full text-left px-3 py-2 rounded hover:bg-accent text-sm flex justify-between items-center gap-3"
+                    onClick={() => addProduct(p)}
+                  >
+                    <span className="font-medium truncate">{p.name}</span>
+                    <span className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
+                      <span>{p.sku || p.barcode || ""}</span>
+                      <span className="font-medium text-foreground">Stock: {stock}</span>
+                    </span>
+                  </button>
+                );
+              })
             )}
           </div>
 
           {/* Lines table */}
-          {lines.length > 0 && (
+          {lines.length > 0 ? (
             <div className="border rounded-md overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Product</TableHead>
                     <TableHead>SKU</TableHead>
+                    <TableHead className="text-right">Current Stock</TableHead>
                     <TableHead className="w-32">Qty Change</TableHead>
+                    <TableHead className="text-right">New Stock</TableHead>
+                    {isPurchase && <TableHead className="w-32">Unit Cost</TableHead>}
                     <TableHead className="w-12"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -235,10 +276,13 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
                   {lines.map(l => {
                     const product = products.find(p => p.id === l.product_id);
                     const allowDecimal = product?.allow_decimal_quantity ?? false;
+                    const current = inventoryByProduct.get(l.product_id) ?? 0;
+                    const next = current + (Number(l.quantity_change) || 0);
                     return (
                       <TableRow key={l.product_id}>
                         <TableCell className="font-medium">{l.product_name}</TableCell>
                         <TableCell className="text-muted-foreground text-sm">{l.sku || "—"}</TableCell>
+                        <TableCell className="text-right">{current}</TableCell>
                         <TableCell>
                           <Input
                             type="number"
@@ -248,6 +292,18 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
                             className="h-8"
                           />
                         </TableCell>
+                        <TableCell className={`text-right font-medium ${next < 0 ? "text-destructive" : ""}`}>{next}</TableCell>
+                        {isPurchase && (
+                          <TableCell>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={l.unit_cost ?? 0}
+                              onChange={e => handleUnitCostChange(l.product_id, parseFloat(e.target.value) || 0)}
+                              className="h-8"
+                            />
+                          </TableCell>
+                        )}
                         <TableCell>
                           <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRemoveLine(l.product_id)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
@@ -259,15 +315,13 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
                 </TableBody>
               </Table>
             </div>
-          )}
-
-          {lines.length === 0 && (
+          ) : (
             <div className="text-center py-6 text-muted-foreground text-sm border rounded-md border-dashed">
-              Scan barcodes or search to add products
+              Scan barcodes, search, or click a product above to add
             </div>
           )}
 
-          {/* Location, Reason, Notes */}
+          {/* Location, Reason */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Location *</Label>
@@ -292,6 +346,35 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
               </Select>
             </div>
           </div>
+
+          {/* Purchase-specific fields */}
+          {isPurchase && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border rounded-md p-3 bg-muted/20">
+              <div className="space-y-2">
+                <Label>Supplier</Label>
+                <Select value={supplierId} onValueChange={setSupplierId}>
+                  <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— None —</SelectItem>
+                    {(suppliersQuery.data || []).map(s => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Supplier Invoice Number *</Label>
+                <Input value={supplierInvoice} onChange={e => setSupplierInvoice(e.target.value)} placeholder="INV-001" required />
+              </div>
+              <div className="space-y-2">
+                <Label>Date of Purchase *</Label>
+                <Input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} required />
+              </div>
+              <div className="md:col-span-3 text-xs text-muted-foreground">
+                A matching Purchase order will be created automatically.
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Notes</Label>

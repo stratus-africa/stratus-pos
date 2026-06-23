@@ -141,6 +141,53 @@ export function useInventory(
     onError: (e) => toast.error(e.message),
   });
 
+  const editAdjustment = useMutation({
+    mutationFn: async (input: { id: string; quantity_change: number; reason: string; notes: string | null }) => {
+      const { data: existing, error: loadErr } = await supabase
+        .from("stock_adjustments")
+        .select("id, product_id, location_id, quantity_change")
+        .eq("id", input.id)
+        .maybeSingle();
+      if (loadErr) throw loadErr;
+      if (!existing) throw new Error("Adjustment not found");
+
+      const delta = Number(input.quantity_change) - Number(existing.quantity_change);
+
+      const { error: updErr } = await supabase
+        .from("stock_adjustments")
+        .update({ quantity_change: input.quantity_change, reason: input.reason, notes: input.notes })
+        .eq("id", input.id);
+      if (updErr) throw updErr;
+
+      if (delta !== 0) {
+        const { data: inv } = await supabase
+          .from("inventory")
+          .select("id, quantity")
+          .eq("product_id", existing.product_id)
+          .eq("location_id", existing.location_id)
+          .maybeSingle();
+        if (inv) {
+          const { error } = await supabase
+            .from("inventory")
+            .update({ quantity: Number(inv.quantity) + delta })
+            .eq("id", inv.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("inventory")
+            .insert({ product_id: existing.product_id, location_id: existing.location_id, quantity: delta });
+          if (error) throw error;
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["stock_adjustments"] });
+      toast.success("Adjustment updated");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const adjPage = Math.max(1, opts.adjustmentsPage?.page ?? 1);
   const adjPageSize = opts.adjustmentsPage?.pageSize ?? 25;
   const adjSort: SortKey = opts.adjustmentsPage?.sort ?? "date_desc";
@@ -212,5 +259,5 @@ export function useInventory(
     enabled: !!business,
   });
 
-  return { inventoryQuery, adjustStock, adjustmentsQuery, movementsQuery };
+  return { inventoryQuery, adjustStock, editAdjustment, adjustmentsQuery, movementsQuery };
 }
