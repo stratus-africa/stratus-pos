@@ -270,12 +270,13 @@ const Inventory = () => {
                     <TableHead>Location</TableHead>
                     <TableHead className="text-right">Change</TableHead>
                     <TableHead>Reason</TableHead>
+                    {canEditAdjustments && <TableHead className="w-16 text-right">Edit</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {adjustmentsFiltered.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={canEditAdjustments ? 6 : 5} className="text-center text-muted-foreground py-8">
                         {adjSearch ? "No adjustments match your search." : "No adjustments yet."}
                       </TableCell>
                     </TableRow>
@@ -289,6 +290,13 @@ const Inventory = () => {
                           {a.quantity_change > 0 ? "+" : ""}{a.quantity_change}
                         </TableCell>
                         <TableCell>{a.reason}</TableCell>
+                        {canEditAdjustments && (
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingAdj(a)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))
                   )}
