@@ -439,7 +439,15 @@ const Inventory = () => {
         open={adjDialogOpen}
         onOpenChange={setAdjDialogOpen}
         onSubmit={handleAdjust}
-        isLoading={adjustStock.isPending}
+        isLoading={adjustStock.isPending || createPurchase.isPending}
+      />
+
+      <EditAdjustmentDialog
+        open={!!editingAdj}
+        adjustment={editingAdj}
+        onOpenChange={(o) => !o && setEditingAdj(null)}
+        onSubmit={(data) => editAdjustment.mutate(data, { onSuccess: () => setEditingAdj(null) })}
+        isLoading={editAdjustment.isPending}
       />
     </div>
   );
