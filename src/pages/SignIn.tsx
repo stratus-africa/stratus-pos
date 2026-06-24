@@ -11,7 +11,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Mail, Lock, Eye, EyeOff, ArrowLeft, ArrowRight, CheckCircle2, TrendingUp, ShoppingBag, Monitor, Folder } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowLeft, ArrowRight, CheckCircle2, TrendingUp, ShoppingBag, Folder } from "lucide-react";
 
 const HIGHLIGHTS = [
   "Lightning fast checkout in under 3 seconds",
