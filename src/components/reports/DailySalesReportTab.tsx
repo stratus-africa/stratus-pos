@@ -1,17 +1,18 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, TrendingUp, ShoppingCart } from "lucide-react";
+import { TrendingUp, ShoppingCart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { formatKES, downloadCSV } from "./reportUtils";
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
+interface Props {
+  from: string;
+  to: string;
+  onRegisterExport?: (fn: (() => void) | null) => void;
+}
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
@@ -25,20 +26,19 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
   );
 }
 
-export default function DailySalesReportTab() {
+export default function DailySalesReportTab({ from, to, onRegisterExport }: Props) {
   const { business, currentLocation } = useBusiness();
-  const [date, setDate] = useState(todayStr());
 
   const query = useQuery({
-    queryKey: ["daily-sales-report", business?.id, currentLocation?.id, date],
+    queryKey: ["daily-sales-report", business?.id, currentLocation?.id, from, to],
     queryFn: async () => {
       if (!business) return [];
       const q = supabase
         .from("sales")
         .select("id, invoice_number, status, subtotal, tax, discount, total, created_at, customers(name), payments(method, amount), sale_items(quantity, unit_price, total, products(name, units(name)))")
         .eq("business_id", business.id)
-        .gte("created_at", `${date}T00:00:00`)
-        .lte("created_at", `${date}T23:59:59`)
+        .gte("created_at", `${from}T00:00:00`)
+        .lte("created_at", `${to}T23:59:59`)
         .order("created_at", { ascending: true });
       if (currentLocation) q.eq("location_id", currentLocation.id);
       const { data, error } = await q;
@@ -87,51 +87,47 @@ export default function DailySalesReportTab() {
     };
   }, [sales]);
 
-  const exportCsv = () => {
-    const filtered = stats.active.filter((s: any) => s.status !== "voided");
-    if (!filtered.length) return;
-    const headers = ["Invoice Date","Invoice Number","Customer Name","Is Inclusive Tax","Due Date","Balance","Item Name","Quantity","Item Total","Usage unit","Item Price","Sales person"];
-    const rows: string[][] = [];
-    for (const s of filtered) {
-      const saleDate = String(s.created_at).slice(0, 10);
-      const customer = s.customers?.name || "Walk-in Customer";
-      for (const li of (s.sale_items || [])) {
-        rows.push([
-          saleDate,
-          s.invoice_number || "",
-          customer,
-          "true",
-          saleDate,
-          Number(s.total).toFixed(2),
-          li.products?.name || "",
-          String(li.quantity ?? ""),
-          Number(li.total ?? 0).toFixed(2),
-          li.products?.units?.name || "pcs",
-          Number(li.unit_price ?? 0).toFixed(2),
-          "",
-        ]);
+  // Register the export function with parent toolbar
+  useEffect(() => {
+    if (!onRegisterExport) return;
+    const exportCsv = () => {
+      const filtered = stats.active.filter((s: any) => s.status !== "voided");
+      if (!filtered.length) return;
+      const headers = ["Invoice Date","Invoice Number","Customer Name","Is Inclusive Tax","Due Date","Balance","Item Name","Quantity","Item Total","Usage unit","Item Price","Sales person"];
+      const rows: string[][] = [];
+      for (const s of filtered) {
+        const saleDate = String(s.created_at).slice(0, 10);
+        const customer = s.customers?.name || "Walk-in Customer";
+        for (const li of (s.sale_items || [])) {
+          rows.push([
+            saleDate,
+            s.invoice_number || "",
+            customer,
+            "true",
+            saleDate,
+            Number(s.total).toFixed(2),
+            li.products?.name || "",
+            String(li.quantity ?? ""),
+            Number(li.total ?? 0).toFixed(2),
+            li.products?.units?.name || "pcs",
+            Number(li.unit_price ?? 0).toFixed(2),
+            "",
+          ]);
+        }
       }
-    }
-    downloadCSV(`Invoice_${date}.csv`, headers, rows);
-  };
+      downloadCSV(`Invoice_${from}_to_${to}.csv`, headers, rows);
+    };
+    onRegisterExport(exportCsv);
+    return () => onRegisterExport(null);
+  }, [stats, from, to, onRegisterExport]);
 
   if (query.isLoading) return <div className="text-center py-12 text-muted-foreground">Loading…</div>;
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardContent className="flex flex-wrap items-end gap-3 pt-4">
-          <div>
-            <Label>Date</Label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-48" />
-          </div>
-          <Badge variant="outline" className="h-8">{stats.count} sales</Badge>
-          <div className="flex-1" />
-          <Button variant="outline" size="sm" onClick={exportCsv}>
-            <Download className="h-4 w-4 mr-1" /> Export CSV
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="flex items-center gap-2">
+        <Badge variant="outline" className="h-7">{stats.count} sales</Badge>
+      </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Stat label="Total Revenue" value={formatKES(stats.revenue)} />
@@ -226,12 +222,12 @@ export default function DailySalesReportTab() {
             <TableBody>
               {stats.active.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-sm text-muted-foreground">No sales for this day.</TableCell>
+                  <TableCell colSpan={5} className="text-sm text-muted-foreground">No sales in this range.</TableCell>
                 </TableRow>
               ) : (
                 stats.active.map((s: any) => (
                   <TableRow key={s.id}>
-                    <TableCell>{new Date(s.created_at).toLocaleTimeString()}</TableCell>
+                    <TableCell>{new Date(s.created_at).toLocaleString()}</TableCell>
                     <TableCell>{s.invoice_number || "—"}</TableCell>
                     <TableCell>{s.customers?.name || "Walk-in"}</TableCell>
                     <TableCell className="text-right">{formatKES(Number(s.total))}</TableCell>
