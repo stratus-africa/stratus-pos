@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,19 @@ const Sales = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const saved = Number(localStorage.getItem("sales_page_size"));
+    return [25, 50, 100, 200].includes(saved) ? saved : 25;
+  });
+  const [page, setPage] = useState(1);
+  const [suspendedPageSize, setSuspendedPageSize] = useState<number>(() => {
+    const saved = Number(localStorage.getItem("suspended_page_size"));
+    return [25, 50, 100, 200].includes(saved) ? saved : 25;
+  });
+  const [suspendedPage, setSuspendedPage] = useState(1);
+
+  useEffect(() => { localStorage.setItem("sales_page_size", String(pageSize)); }, [pageSize]);
+  useEffect(() => { localStorage.setItem("suspended_page_size", String(suspendedPageSize)); }, [suspendedPageSize]);
 
   const sales = salesQuery.data ?? [];
 
@@ -58,9 +71,21 @@ const Sales = () => {
     return matchesSearch && matchesStatus;
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredSales.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedSales = useMemo(
+    () => filteredSales.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filteredSales, currentPage, pageSize],
+  );
+  useEffect(() => { setPage(1); }, [search, statusFilter, pageSize]);
+
   const totalSales = sales.reduce((s, v) => s + Number(v.total), 0);
   const paidSales = sales.filter((s) => s.payment_status === "paid").length;
   const suspended = suspendedQuery.data || [];
+  const suspendedTotalPages = Math.max(1, Math.ceil(suspended.length / suspendedPageSize));
+  const suspendedCurrentPage = Math.min(suspendedPage, suspendedTotalPages);
+  const paginatedSuspended = suspended.slice((suspendedCurrentPage - 1) * suspendedPageSize, suspendedCurrentPage * suspendedPageSize);
+  useEffect(() => { setSuspendedPage(1); }, [suspendedPageSize]);
 
   const cancelSuspended = async (id: string) => {
     if (!confirm("Discard this suspended sale?")) return;
@@ -148,7 +173,7 @@ const Sales = () => {
               ) : filteredSales.length === 0 ? (
                 <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No sales found. Create sales from the POS screen.</TableCell></TableRow>
               ) : (
-                filteredSales.map((sale) => (
+                paginatedSales.map((sale) => (
                   <TableRow key={sale.id}>
                     <TableCell className="font-medium">{sale.invoice_number || "—"}</TableCell>
                     <TableCell>{format(new Date(sale.created_at), "PP")}</TableCell>
@@ -215,6 +240,26 @@ const Sales = () => {
           </Table>
         </CardContent>
       </Card>
+
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-1">
+        <div className="text-sm text-muted-foreground">
+          Showing {filteredSales.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredSales.length)} of {filteredSales.length}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Rows per page</span>
+          <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+            <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {[25, 50, 100, 200].map((n) => (
+                <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>Previous</Button>
+          <span className="text-sm">Page {currentPage} of {totalPages}</span>
+          <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)}>Next</Button>
+        </div>
+      </div>
         </TabsContent>
 
         <TabsContent value="suspended">
@@ -238,7 +283,7 @@ const Sales = () => {
                   ) : suspended.length === 0 ? (
                     <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No suspended sales.</TableCell></TableRow>
                   ) : (
-                    suspended.map((s: any) => {
+                    paginatedSuspended.map((s: any) => {
                       const cart = (s.cart || []) as any[];
                       const itemCount = cart.reduce((a, l) => a + Number(l.quantity || 0), 0);
                       const total = cart.reduce((a, l) => a + Number(l.unit_price || 0) * Number(l.quantity || 0) - Number(l.discount || 0), 0);
@@ -266,6 +311,26 @@ const Sales = () => {
               </Table>
             </CardContent>
           </Card>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-1 mt-4">
+            <div className="text-sm text-muted-foreground">
+              Showing {suspended.length === 0 ? 0 : (suspendedCurrentPage - 1) * suspendedPageSize + 1}–{Math.min(suspendedCurrentPage * suspendedPageSize, suspended.length)} of {suspended.length}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Rows per page</span>
+              <Select value={String(suspendedPageSize)} onValueChange={(v) => setSuspendedPageSize(Number(v))}>
+                <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[25, 50, 100, 200].map((n) => (
+                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="sm" disabled={suspendedCurrentPage <= 1} onClick={() => setSuspendedPage(suspendedCurrentPage - 1)}>Previous</Button>
+              <span className="text-sm">Page {suspendedCurrentPage} of {suspendedTotalPages}</span>
+              <Button variant="outline" size="sm" disabled={suspendedCurrentPage >= suspendedTotalPages} onClick={() => setSuspendedPage(suspendedCurrentPage + 1)}>Next</Button>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
 
