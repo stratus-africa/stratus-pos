@@ -173,7 +173,7 @@ const Sales = () => {
               ) : filteredSales.length === 0 ? (
                 <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No sales found. Create sales from the POS screen.</TableCell></TableRow>
               ) : (
-                filteredSales.map((sale) => (
+                paginatedSales.map((sale) => (
                   <TableRow key={sale.id}>
                     <TableCell className="font-medium">{sale.invoice_number || "—"}</TableCell>
                     <TableCell>{format(new Date(sale.created_at), "PP")}</TableCell>
