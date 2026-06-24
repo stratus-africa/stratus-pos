@@ -1,21 +1,28 @@
 import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Eye, Trash2, Ban, RotateCcw } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Search, Eye, Trash2, Ban, RotateCcw, Pause, Play, X } from "lucide-react";
 import { useSales, Sale } from "@/hooks/useSales";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import SaleDetailDialog from "@/components/sales/SaleDetailDialog";
 import { format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 const Sales = () => {
   const { salesQuery, deleteSale, cancelSale } = useSales();
-  const { userRole } = useBusiness();
+  const { business, userRole } = useBusiness();
   const { hasPermission } = usePermissions();
+  const navigate = useNavigate();
+  const qc = useQueryClient();
   const isCashier = userRole === "cashier";
   const canDelete = hasPermission("sales.delete") && !isCashier;
   const canCancel = !isCashier;
@@ -27,6 +34,22 @@ const Sales = () => {
 
   const sales = salesQuery.data ?? [];
 
+  // Suspended sales for this business
+  const suspendedQuery = useQuery({
+    queryKey: ["suspended_sales_all", business?.id],
+    queryFn: async () => {
+      if (!business) return [];
+      const { data, error } = await supabase
+        .from("suspended_sales")
+        .select("*, locations(name)")
+        .eq("business_id", business.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!business,
+  });
+
   const filteredSales = sales.filter((s) => {
     const matchesSearch =
       (s.invoice_number || "").toLowerCase().includes(search.toLowerCase()) ||
@@ -37,11 +60,37 @@ const Sales = () => {
 
   const totalSales = sales.reduce((s, v) => s + Number(v.total), 0);
   const paidSales = sales.filter((s) => s.payment_status === "paid").length;
+  const suspended = suspendedQuery.data || [];
+
+  const cancelSuspended = async (id: string) => {
+    if (!confirm("Discard this suspended sale?")) return;
+    const { error } = await supabase.from("suspended_sales").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["suspended_sales_all"] });
+    qc.invalidateQueries({ queryKey: ["suspended_sales"] });
+    toast.success("Suspended sale discarded");
+  };
+
+  const resumeSuspended = (s: any) => {
+    // Send user to the POS, suspended carts can be resumed from the Held bar on POS
+    navigate("/pos");
+    toast.info(`Resume "${s.label}" from the Held bar on POS`);
+  };
 
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">{isCashier ? "My Transactions" : "Sales"}</h1>
 
+      <Tabs defaultValue="sales" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="sales"><Eye className="h-4 w-4 mr-1" /> Sales</TabsTrigger>
+          <TabsTrigger value="suspended">
+            <Pause className="h-4 w-4 mr-1" /> Suspended
+            {suspended.length > 0 && <Badge variant="secondary" className="ml-2">{suspended.length}</Badge>}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="sales" className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6">
@@ -166,6 +215,59 @@ const Sales = () => {
           </Table>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="suspended">
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Suspended On</TableHead>
+                    <TableHead>Label</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead className="text-right">Items</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {suspendedQuery.isLoading ? (
+                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
+                  ) : suspended.length === 0 ? (
+                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No suspended sales.</TableCell></TableRow>
+                  ) : (
+                    suspended.map((s: any) => {
+                      const cart = (s.cart || []) as any[];
+                      const itemCount = cart.reduce((a, l) => a + Number(l.quantity || 0), 0);
+                      const total = cart.reduce((a, l) => a + Number(l.unit_price || 0) * Number(l.quantity || 0) - Number(l.discount || 0), 0);
+                      return (
+                        <TableRow key={s.id}>
+                          <TableCell>{format(new Date(s.created_at), "PPp")}</TableCell>
+                          <TableCell className="font-medium">{s.label}</TableCell>
+                          <TableCell>{s.customer_name || "Walk-in"}</TableCell>
+                          <TableCell>{s.locations?.name || "—"}</TableCell>
+                          <TableCell className="text-right">{itemCount}</TableCell>
+                          <TableCell className="text-right">KES {total.toLocaleString()}</TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" title="Resume on POS" onClick={() => resumeSuspended(s)}>
+                              <Play className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" title="Discard" onClick={() => cancelSuspended(s.id)}>
+                              <X className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <SaleDetailDialog open={detailOpen} onOpenChange={setDetailOpen} sale={selectedSale} />
     </div>
