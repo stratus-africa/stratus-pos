@@ -10,7 +10,9 @@ export type ThemeKey =
   | "forest-green"
   | "jade-green"
   | "cobalt-blue"
-  | "teal";
+  | "teal"
+  | "byzantium";
+
 
 export interface ThemeDef {
   key: ThemeKey;
@@ -69,6 +71,14 @@ export const THEMES: Record<ThemeKey, ThemeDef> = {
     primaryGlow: "180 65% 44%",
     alt: "180 60% 95%",
     swatch: "#188F8F",
+  },
+  "byzantium": {
+    key: "byzantium",
+    label: "Byzantium",
+    primary: "317 51% 28%",
+    primaryGlow: "317 48% 42%",
+    alt: "317 50% 96%",
+    swatch: "#702963",
   },
 };
 
