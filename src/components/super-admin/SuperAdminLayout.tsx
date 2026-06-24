@@ -12,7 +12,7 @@ import {
   FileText,
   PieChart,
   Globe,
-  LayoutTemplate,
+  
   Sparkles,
   LayoutGrid,
   DollarSign,
@@ -64,7 +64,7 @@ const navGroups: NavGroup[] = [
     label: "CMS",
     items: [
       { title: "Landing Page", url: "/super-admin/landing", icon: Globe },
-      { title: "Landing layouts", url: "/super-admin/landing-layouts", icon: LayoutTemplate },
+      
       { title: "Hero Section", url: "/super-admin/cms/hero", icon: Sparkles },
       { title: "Features", url: "/super-admin/cms/features", icon: LayoutGrid },
       { title: "Pricing Section", url: "/super-admin/cms/pricing", icon: DollarSign },
