@@ -71,7 +71,7 @@ const Inventory = () => {
 
   const [activeTab, setActiveTab] = useState<string>(initialStr("tab", "stock"));
   const [locationFilter, setLocationFilter] = useState<string>(currentLocation?.id || "all");
-  const [search, setSearch] = useState(initialStr("q", ""));
+  const [search, setSearch] = useState<string>(initialStr("q", ""));
   const [adjDialogOpen, setAdjDialogOpen] = useState(false);
   const [editingAdj, setEditingAdj] = useState<StockAdjustment | null>(null);
 
@@ -81,7 +81,7 @@ const Inventory = () => {
 
   const [adjPage, setAdjPage] = useState(initialNum("aPage", 1));
   const [adjPageSize, setAdjPageSize] = useState<number>(initialSize("aSize", LS_KEYS.adj));
-  const [adjSearch, setAdjSearch] = useState(initialStr("aQ", ""));
+  const [adjSearch, setAdjSearch] = useState<string>(initialStr("aQ", ""));
   const [adjSort, setAdjSort] = useState<SortKey>(initialStr<SortKey>("aSort", "date_desc"));
 
   const [mvPage, setMvPage] = useState(initialNum("mPage", 1));
@@ -89,7 +89,7 @@ const Inventory = () => {
   const [mvFrom, setMvFrom] = useState<string>(initialStr("mFrom", ""));
   const [mvTo, setMvTo] = useState<string>(initialStr("mTo", ""));
   const [mvSource, setMvSource] = useState<MovementSource>(initialStr<MovementSource>("mSrc", "all"));
-  const [mvSearch, setMvSearch] = useState(initialStr("mQ", ""));
+  const [mvSearch, setMvSearch] = useState<string>(initialStr("mQ", ""));
   const [mvSort, setMvSort] = useState<SortKey>(initialStr<SortKey>("mSort", "date_desc"));
 
   // Sync state -> URL
