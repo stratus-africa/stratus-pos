@@ -44,7 +44,7 @@ const TABS: { key: TabKey; label: string; icon: any }[] = [
 
 const PROVIDERS = [
   { id: "paystack", label: "Paystack",   description: "Card & mobile money for Africa.",      route: "/super-admin/settings/payments/paystack" },
-  { id: "pesapal",  label: "Pesapal",    description: "Card, M-Pesa & Airtel for East Africa.", route: "/super-admin/settings/payments/pesapal" },
+  
   { id: "mpesa",    label: "M-Pesa",     description: "Daraja STK Push & Till payments.",     route: "/super-admin/settings/payments/mpesa" },
 ];
 
