@@ -15,7 +15,7 @@ import { usePurchases } from "@/hooks/usePurchases";
 import { StockAdjustmentDialog, type AdjustStockSubmit } from "@/components/inventory/StockAdjustmentDialog";
 import { EditAdjustmentDialog } from "@/components/inventory/EditAdjustmentDialog";
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE_OPTIONS = [25, 100, 200] as const;
 
 const sourceMeta: Record<"sale" | "return" | "purchase" | "other", { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   sale: { label: "Sale", variant: "default" },
@@ -48,10 +48,14 @@ const Inventory = () => {
   const [adjDialogOpen, setAdjDialogOpen] = useState(false);
   const [editingAdj, setEditingAdj] = useState<StockAdjustment | null>(null);
 
+  const [stockPage, setStockPage] = useState(1);
+  const [stockPageSize, setStockPageSize] = useState<number>(25);
   const [adjPage, setAdjPage] = useState(1);
+  const [adjPageSize, setAdjPageSize] = useState<number>(25);
   const [adjSearch, setAdjSearch] = useState("");
   const [adjSort, setAdjSort] = useState<SortKey>("date_desc");
   const [mvPage, setMvPage] = useState(1);
+  const [mvPageSize, setMvPageSize] = useState<number>(25);
   const [mvFrom, setMvFrom] = useState<string>("");
   const [mvTo, setMvTo] = useState<string>("");
   const [mvSource, setMvSource] = useState<MovementSource>("all");
@@ -60,8 +64,8 @@ const Inventory = () => {
 
   const effectiveLocationId = locationFilter === "all" ? undefined : locationFilter;
   const { inventoryQuery, adjustStock, editAdjustment, adjustmentsQuery, movementsQuery } = useInventory(effectiveLocationId, {
-    adjustmentsPage: { page: adjPage, pageSize: PAGE_SIZE, sort: adjSort },
-    movements: { page: mvPage, pageSize: PAGE_SIZE, from: mvFrom || undefined, to: mvTo || undefined, source: mvSource, sort: mvSort },
+    adjustmentsPage: { page: adjPage, pageSize: adjPageSize, sort: adjSort },
+    movements: { page: mvPage, pageSize: mvPageSize, from: mvFrom || undefined, to: mvTo || undefined, source: mvSource, sort: mvSort },
   });
 
   const inventory = inventoryQuery.data || [];
@@ -77,13 +81,18 @@ const Inventory = () => {
     ? movements.filter((m) => (m.products?.name || "").toLowerCase().includes(mvSearch.toLowerCase()))
     : movements;
 
-  const adjPages = Math.max(1, Math.ceil(adjCount / PAGE_SIZE));
-  const mvPages = Math.max(1, Math.ceil(mvCount / PAGE_SIZE));
+  const adjPages = Math.max(1, Math.ceil(adjCount / adjPageSize));
+  const mvPages = Math.max(1, Math.ceil(mvCount / mvPageSize));
 
   const filtered = inventory.filter((i) =>
     i.products?.name?.toLowerCase().includes(search.toLowerCase()) ||
     i.products?.sku?.toLowerCase().includes(search.toLowerCase())
   );
+
+  const stockCount = filtered.length;
+  const stockPages = Math.max(1, Math.ceil(stockCount / stockPageSize));
+  const stockPageSafe = Math.min(stockPage, stockPages);
+  const stockPaged = filtered.slice((stockPageSafe - 1) * stockPageSize, stockPageSafe * stockPageSize);
 
   const lowStockCount = inventory.filter((i) => i.quantity <= i.low_stock_threshold).length;
 
