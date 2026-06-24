@@ -311,6 +311,26 @@ const Sales = () => {
               </Table>
             </CardContent>
           </Card>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-1 mt-4">
+            <div className="text-sm text-muted-foreground">
+              Showing {suspended.length === 0 ? 0 : (suspendedCurrentPage - 1) * suspendedPageSize + 1}–{Math.min(suspendedCurrentPage * suspendedPageSize, suspended.length)} of {suspended.length}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Rows per page</span>
+              <Select value={String(suspendedPageSize)} onValueChange={(v) => setSuspendedPageSize(Number(v))}>
+                <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[25, 50, 100, 200].map((n) => (
+                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="sm" disabled={suspendedCurrentPage <= 1} onClick={() => setSuspendedPage(suspendedCurrentPage - 1)}>Previous</Button>
+              <span className="text-sm">Page {suspendedCurrentPage} of {suspendedTotalPages}</span>
+              <Button variant="outline" size="sm" disabled={suspendedCurrentPage >= suspendedTotalPages} onClick={() => setSuspendedPage(suspendedCurrentPage + 1)}>Next</Button>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
 
