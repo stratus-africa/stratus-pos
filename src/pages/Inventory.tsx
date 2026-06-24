@@ -258,9 +258,25 @@ const Inventory = () => {
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Search by product name or SKU..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+                  <Input
+                    placeholder="Search by product name or SKU..."
+                    value={search}
+                    onChange={(e) => { setSearch(e.target.value); setStockPage(1); }}
+                    className="pl-9"
+                  />
                 </div>
-                <Select value={locationFilter} onValueChange={setLocationFilter}>
+                <Select value={stockSort} onValueChange={(v) => { setStockSort(v as StockSort); setStockPage(1); }}>
+                  <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="name_asc">Product (A–Z)</SelectItem>
+                    <SelectItem value="name_desc">Product (Z–A)</SelectItem>
+                    <SelectItem value="sku_asc">SKU (A–Z)</SelectItem>
+                    <SelectItem value="sku_desc">SKU (Z–A)</SelectItem>
+                    <SelectItem value="qty_desc">Quantity (high → low)</SelectItem>
+                    <SelectItem value="qty_asc">Quantity (low → high)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={locationFilter} onValueChange={(v) => { setLocationFilter(v); setStockPage(1); }}>
                   <SelectTrigger className="w-[180px]"><SelectValue placeholder="Location" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Locations</SelectItem>
