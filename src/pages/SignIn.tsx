@@ -70,30 +70,117 @@ export default function SignIn() {
 
   return (
     <div className="min-h-screen grid lg:grid-cols-[1fr_minmax(420px,520px)] bg-white">
-      <aside className="relative hidden lg:flex flex-col items-center justify-center p-12 overflow-hidden bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-600 text-white">
-        <div className="absolute -top-32 -left-32 w-[450px] h-[450px] rounded-full bg-white/15 blur-2xl" aria-hidden />
-        <div className="absolute -bottom-40 -right-20 w-[500px] h-[500px] rounded-full bg-white/10 blur-3xl" aria-hidden />
-        <div className="relative max-w-md">
-          <div className="h-14 w-14 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/20 flex items-center justify-center mb-8 shadow-md">
-            <Box className="h-7 w-7" />
+      <aside className="relative hidden lg:flex flex-col justify-between p-12 overflow-hidden text-white bg-[radial-gradient(ellipse_at_top_right,_#3b4ed1_0%,_#1a2270_45%,_#0b1140_100%)]">
+        {/* top gradient hairline */}
+        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-emerald-300/70 to-transparent" aria-hidden />
+        {/* glow accents */}
+        <div className="absolute -top-40 -right-32 w-[520px] h-[520px] rounded-full bg-indigo-400/20 blur-3xl" aria-hidden />
+        <div className="absolute -bottom-40 -left-32 w-[520px] h-[520px] rounded-full bg-blue-500/15 blur-3xl" aria-hidden />
+        {/* sparkles */}
+        <div className="absolute top-24 right-40 w-1.5 h-1.5 rounded-full bg-white/60" aria-hidden />
+        <div className="absolute top-1/2 left-16 w-1 h-1 rounded-full bg-white/40" aria-hidden />
+        <div className="absolute bottom-40 right-24 w-1 h-1 rounded-full bg-white/50" aria-hidden />
+
+        {/* header */}
+        <div className="relative">
+          <div className="flex items-center gap-3 mb-5">
+            <h1 className="text-5xl font-extrabold tracking-tight">StratusPOS</h1>
+            <span className="px-3 py-1 rounded-full text-[10px] font-semibold tracking-[0.18em] uppercase bg-white/10 border border-white/15 backdrop-blur-sm">
+              Premium POS
+            </span>
           </div>
-          <h1 className="text-4xl lg:text-5xl font-bold leading-tight tracking-tight mb-5">
-            Welcome back to<br />StratusPOS
-          </h1>
-          <p className="text-white/85 leading-relaxed mb-10 text-base">
-            Sign in to manage your inventory, sales and team — all from one workspace.
+          <p className="text-white/70 leading-relaxed max-w-md text-[15px]">
+            One workspace for sales, inventory, customers and reporting — designed to feel effortless on every device.
           </p>
-          <ul className="space-y-4 pt-8 border-t border-white/25">
-            {HIGHLIGHTS.map(h => (
-              <li key={h} className="flex items-center gap-3 text-white">
-                <span className="h-7 w-7 rounded-full bg-white/15 border border-white/25 flex items-center justify-center shrink-0">
-                  <CheckCircle2 className="h-4 w-4" />
-                </span>
-                <span className="text-[15px]">{h}</span>
-              </li>
-            ))}
-          </ul>
         </div>
+
+        {/* illustration */}
+        <div className="relative flex-1 flex items-center justify-center my-8">
+          {/* floating: Today's Sales */}
+          <div className="absolute top-2 left-2 z-20 bg-white rounded-full pl-2 pr-5 py-2 shadow-2xl flex items-center gap-3">
+            <span className="h-9 w-9 rounded-full bg-indigo-600 flex items-center justify-center">
+              <TrendingUp className="h-4 w-4 text-white" />
+            </span>
+            <div className="text-slate-900 leading-tight">
+              <div className="text-[10px] text-slate-500">Today's Sales</div>
+              <div className="text-sm font-bold">$2,847</div>
+            </div>
+          </div>
+
+          {/* floating: brand tag */}
+          <div className="absolute top-[34%] left-1/2 -translate-x-1/2 z-20 bg-white rounded-md px-3 py-1.5 shadow-lg">
+            <span className="text-[11px] font-bold text-slate-900 tracking-tight">StratusPOS</span>
+          </div>
+
+          {/* shop card */}
+          <div className="relative w-[340px] h-[260px]">
+            {/* roof */}
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 w-[300px] h-12 bg-gradient-to-b from-sky-400 to-blue-500 [clip-path:polygon(8%_100%,_92%_100%,_100%_0,_0_0)] shadow-lg" aria-hidden />
+            {/* roof lines */}
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 w-[300px] h-12 opacity-30 [clip-path:polygon(8%_100%,_92%_100%,_100%_0,_0_0)]" style={{ backgroundImage: "repeating-linear-gradient(110deg, rgba(255,255,255,0.4) 0 1px, transparent 1px 18px)" }} aria-hidden />
+            {/* body */}
+            <div className="absolute top-[60px] left-1/2 -translate-x-1/2 w-[280px] h-[190px] rounded-b-lg bg-gradient-to-b from-white/15 to-white/5 backdrop-blur-sm border border-white/15">
+              {/* shelves */}
+              <div className="absolute top-5 left-5 right-5 flex gap-2">
+                <div className="h-6 w-10 rounded bg-blue-400/80" />
+                <div className="h-6 w-8 rounded bg-indigo-300/70" />
+                <div className="h-6 w-12 rounded bg-cyan-300/80" />
+                <div className="h-6 w-8 rounded bg-blue-300/70" />
+              </div>
+              <div className="absolute top-5 left-5 right-5 mt-9 flex gap-2">
+                <div className="h-6 w-8 rounded bg-indigo-400/80" />
+                <div className="h-6 w-6 rounded-full bg-cyan-300/80" />
+                <div className="h-6 w-12 rounded bg-blue-300/70" />
+              </div>
+
+              {/* clerk + counter */}
+              <div className="absolute bottom-3 left-4 flex items-end gap-2">
+                {/* clerk */}
+                <div className="flex flex-col items-center">
+                  <div className="h-6 w-6 rounded-full bg-amber-200 border border-amber-300" />
+                  <div className="h-10 w-9 -mt-1 rounded-t-md bg-sky-500" />
+                </div>
+                {/* monitor on counter */}
+                <div className="relative">
+                  <div className="h-12 w-16 rounded bg-slate-800 border border-slate-700 flex items-start p-1.5">
+                    <div className="h-1.5 w-10 rounded bg-cyan-300" />
+                  </div>
+                  <Folder className="absolute -right-7 top-0 h-9 w-9 text-slate-700 fill-slate-800" />
+                </div>
+              </div>
+              {/* customer */}
+              <div className="absolute bottom-3 right-6 flex flex-col items-center">
+                <div className="h-5 w-5 rounded-full bg-amber-200 border border-amber-300" />
+                <div className="h-9 w-8 -mt-1 rounded-t-md bg-indigo-500" />
+              </div>
+            </div>
+            {/* shadow under shop */}
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-56 h-3 rounded-full bg-black/30 blur-md" aria-hidden />
+          </div>
+
+          {/* floating: Orders */}
+          <div className="absolute bottom-4 right-0 z-20 bg-white rounded-full pl-2 pr-5 py-2 shadow-2xl flex items-center gap-3">
+            <span className="h-9 w-9 rounded-full bg-cyan-500 flex items-center justify-center">
+              <ShoppingBag className="h-4 w-4 text-white" />
+            </span>
+            <div className="text-slate-900 leading-tight">
+              <div className="text-[10px] text-slate-500">Orders</div>
+              <div className="text-sm font-bold">142</div>
+            </div>
+          </div>
+        </div>
+
+        {/* highlights */}
+        <ul className="relative space-y-3.5">
+          {HIGHLIGHTS.map(h => (
+            <li key={h} className="flex items-center gap-3">
+              <span className="h-6 w-6 rounded-full bg-cyan-400/20 border border-cyan-300/40 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="h-3.5 w-3.5 text-cyan-200" />
+              </span>
+              <span className="text-[13px] text-white/85 font-medium">{h}</span>
+            </li>
+          ))}
+        </ul>
       </aside>
 
       <main className="flex items-center justify-center p-6 sm:p-10">
