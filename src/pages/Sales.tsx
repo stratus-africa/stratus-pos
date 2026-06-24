@@ -71,9 +71,21 @@ const Sales = () => {
     return matchesSearch && matchesStatus;
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredSales.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedSales = useMemo(
+    () => filteredSales.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filteredSales, currentPage, pageSize],
+  );
+  useEffect(() => { setPage(1); }, [search, statusFilter, pageSize]);
+
   const totalSales = sales.reduce((s, v) => s + Number(v.total), 0);
   const paidSales = sales.filter((s) => s.payment_status === "paid").length;
   const suspended = suspendedQuery.data || [];
+  const suspendedTotalPages = Math.max(1, Math.ceil(suspended.length / suspendedPageSize));
+  const suspendedCurrentPage = Math.min(suspendedPage, suspendedTotalPages);
+  const paginatedSuspended = suspended.slice((suspendedCurrentPage - 1) * suspendedPageSize, suspendedCurrentPage * suspendedPageSize);
+  useEffect(() => { setSuspendedPage(1); }, [suspendedPageSize]);
 
   const cancelSuspended = async (id: string) => {
     if (!confirm("Discard this suspended sale?")) return;
