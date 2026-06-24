@@ -457,7 +457,16 @@ const Inventory = () => {
                   )}
                 </TableBody>
               </Table>
-              <div className="flex items-center justify-between border-t px-4 py-2 text-sm text-muted-foreground">
+              <div className="flex items-center justify-between border-t px-4 py-2 text-sm text-muted-foreground gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span>Rows per page</span>
+                  <Select value={String(mvPageSize)} onValueChange={(v) => { setMvPageSize(Number(v)); setMvPage(1); }}>
+                    <SelectTrigger className="h-8 w-[80px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <span>{mvCount === 0 ? "0 records" : `Page ${mvPage} of ${mvPages} • ${mvCount} record${mvCount === 1 ? "" : "s"}`}</span>
                 <div className="flex gap-1">
                   <Button variant="outline" size="sm" onClick={() => setMvPage((p) => Math.max(1, p - 1))} disabled={mvPage <= 1}>
