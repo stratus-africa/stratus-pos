@@ -31,6 +31,19 @@ const Sales = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const saved = Number(localStorage.getItem("sales_page_size"));
+    return [25, 50, 100, 200].includes(saved) ? saved : 25;
+  });
+  const [page, setPage] = useState(1);
+  const [suspendedPageSize, setSuspendedPageSize] = useState<number>(() => {
+    const saved = Number(localStorage.getItem("suspended_page_size"));
+    return [25, 50, 100, 200].includes(saved) ? saved : 25;
+  });
+  const [suspendedPage, setSuspendedPage] = useState(1);
+
+  useEffect(() => { localStorage.setItem("sales_page_size", String(pageSize)); }, [pageSize]);
+  useEffect(() => { localStorage.setItem("suspended_page_size", String(suspendedPageSize)); }, [suspendedPageSize]);
 
   const sales = salesQuery.data ?? [];
 
