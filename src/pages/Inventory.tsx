@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,17 @@ import { StockAdjustmentDialog, type AdjustStockSubmit } from "@/components/inve
 import { EditAdjustmentDialog } from "@/components/inventory/EditAdjustmentDialog";
 
 const PAGE_SIZE_OPTIONS = [25, 100, 200] as const;
+type StockSort = "name_asc" | "name_desc" | "sku_asc" | "sku_desc" | "qty_asc" | "qty_desc";
+
+const LS_KEYS = { stock: "inv.stock.size", adj: "inv.adj.size", mv: "inv.mv.size" } as const;
+const readStoredSize = (key: string, fallback = 25): number => {
+  if (typeof window === "undefined") return fallback;
+  const v = Number(window.localStorage.getItem(key));
+  return (PAGE_SIZE_OPTIONS as readonly number[]).includes(v) ? v : fallback;
+};
+const writeStoredSize = (key: string, v: number) => {
+  try { window.localStorage.setItem(key, String(v)); } catch { /* ignore */ }
+};
 
 const sourceMeta: Record<"sale" | "return" | "purchase" | "other", { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   sale: { label: "Sale", variant: "default" },
