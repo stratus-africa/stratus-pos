@@ -337,7 +337,7 @@ const Inventory = () => {
               <div className="flex items-center justify-between border-t px-4 py-2 text-sm text-muted-foreground gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
                   <span>Rows per page</span>
-                  <Select value={String(stockPageSize)} onValueChange={(v) => { setStockPageSize(Number(v)); setStockPage(1); }}>
+                  <Select value={String(stockPageSize)} onValueChange={(v) => updateStockSize(Number(v))}>
                     <SelectTrigger className="h-8 w-[80px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
@@ -368,7 +368,7 @@ const Inventory = () => {
                   <Input
                     placeholder="Search product..."
                     value={adjSearch}
-                    onChange={(e) => setAdjSearch(e.target.value)}
+                    onChange={(e) => { setAdjSearch(e.target.value); setAdjPage(1); }}
                     className="pl-9 h-9 w-[220px]"
                   />
                 </div>
@@ -430,7 +430,7 @@ const Inventory = () => {
               <div className="flex items-center justify-between border-t px-4 py-2 text-sm text-muted-foreground gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
                   <span>Rows per page</span>
-                  <Select value={String(adjPageSize)} onValueChange={(v) => { setAdjPageSize(Number(v)); setAdjPage(1); }}>
+                  <Select value={String(adjPageSize)} onValueChange={(v) => updateAdjSize(Number(v))}>
                     <SelectTrigger className="h-8 w-[80px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
@@ -471,7 +471,7 @@ const Inventory = () => {
                     <Input
                       placeholder="Search product..."
                       value={mvSearch}
-                      onChange={(e) => setMvSearch(e.target.value)}
+                      onChange={(e) => { setMvSearch(e.target.value); setMvPage(1); }}
                       className="pl-9 h-9 w-[220px]"
                     />
                   </div>
@@ -556,7 +556,7 @@ const Inventory = () => {
               <div className="flex items-center justify-between border-t px-4 py-2 text-sm text-muted-foreground gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
                   <span>Rows per page</span>
-                  <Select value={String(mvPageSize)} onValueChange={(v) => { setMvPageSize(Number(v)); setMvPage(1); }}>
+                  <Select value={String(mvPageSize)} onValueChange={(v) => updateMvSize(Number(v))}>
                     <SelectTrigger className="h-8 w-[80px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
