@@ -283,7 +283,7 @@ const Sales = () => {
                   ) : suspended.length === 0 ? (
                     <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No suspended sales.</TableCell></TableRow>
                   ) : (
-                    suspended.map((s: any) => {
+                    paginatedSuspended.map((s: any) => {
                       const cart = (s.cart || []) as any[];
                       const itemCount = cart.reduce((a, l) => a + Number(l.quantity || 0), 0);
                       const total = cart.reduce((a, l) => a + Number(l.unit_price || 0) * Number(l.quantity || 0) - Number(l.discount || 0), 0);
