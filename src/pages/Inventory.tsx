@@ -55,24 +55,76 @@ const Inventory = () => {
   const { hasPermission } = usePermissions();
   const canEditAdjustments = hasPermission("inventory.edit");
   const { createPurchase } = usePurchases();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const initialNum = (key: string, fallback: number) => {
+    const n = Number(searchParams.get(key));
+    return Number.isFinite(n) && n > 0 ? n : fallback;
+  };
+  const initialStr = <T extends string>(key: string, fallback: T): T =>
+    (searchParams.get(key) as T) || fallback;
+  const initialSize = (key: string, lsKey: string) => {
+    const fromUrl = Number(searchParams.get(key));
+    if ((PAGE_SIZE_OPTIONS as readonly number[]).includes(fromUrl)) return fromUrl;
+    return readStoredSize(lsKey);
+  };
+
+  const [activeTab, setActiveTab] = useState<string>(initialStr("tab", "stock"));
   const [locationFilter, setLocationFilter] = useState<string>(currentLocation?.id || "all");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialStr("q", ""));
   const [adjDialogOpen, setAdjDialogOpen] = useState(false);
   const [editingAdj, setEditingAdj] = useState<StockAdjustment | null>(null);
 
-  const [stockPage, setStockPage] = useState(1);
-  const [stockPageSize, setStockPageSize] = useState<number>(25);
-  const [adjPage, setAdjPage] = useState(1);
-  const [adjPageSize, setAdjPageSize] = useState<number>(25);
-  const [adjSearch, setAdjSearch] = useState("");
-  const [adjSort, setAdjSort] = useState<SortKey>("date_desc");
-  const [mvPage, setMvPage] = useState(1);
-  const [mvPageSize, setMvPageSize] = useState<number>(25);
-  const [mvFrom, setMvFrom] = useState<string>("");
-  const [mvTo, setMvTo] = useState<string>("");
-  const [mvSource, setMvSource] = useState<MovementSource>("all");
-  const [mvSearch, setMvSearch] = useState("");
-  const [mvSort, setMvSort] = useState<SortKey>("date_desc");
+  const [stockPage, setStockPage] = useState(initialNum("sPage", 1));
+  const [stockPageSize, setStockPageSize] = useState<number>(initialSize("sSize", LS_KEYS.stock));
+  const [stockSort, setStockSort] = useState<StockSort>(initialStr<StockSort>("sSort", "name_asc"));
+
+  const [adjPage, setAdjPage] = useState(initialNum("aPage", 1));
+  const [adjPageSize, setAdjPageSize] = useState<number>(initialSize("aSize", LS_KEYS.adj));
+  const [adjSearch, setAdjSearch] = useState(initialStr("aQ", ""));
+  const [adjSort, setAdjSort] = useState<SortKey>(initialStr<SortKey>("aSort", "date_desc"));
+
+  const [mvPage, setMvPage] = useState(initialNum("mPage", 1));
+  const [mvPageSize, setMvPageSize] = useState<number>(initialSize("mSize", LS_KEYS.mv));
+  const [mvFrom, setMvFrom] = useState<string>(initialStr("mFrom", ""));
+  const [mvTo, setMvTo] = useState<string>(initialStr("mTo", ""));
+  const [mvSource, setMvSource] = useState<MovementSource>(initialStr<MovementSource>("mSrc", "all"));
+  const [mvSearch, setMvSearch] = useState(initialStr("mQ", ""));
+  const [mvSort, setMvSort] = useState<SortKey>(initialStr<SortKey>("mSort", "date_desc"));
+
+  // Sync state -> URL
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    const setOrDel = (k: string, v: string | number, def: string | number) => {
+      if (String(v) === String(def)) next.delete(k);
+      else next.set(k, String(v));
+    };
+    setOrDel("tab", activeTab, "stock");
+    setOrDel("q", search, "");
+    setOrDel("sPage", stockPage, 1);
+    setOrDel("sSize", stockPageSize, 25);
+    setOrDel("sSort", stockSort, "name_asc");
+    setOrDel("aPage", adjPage, 1);
+    setOrDel("aSize", adjPageSize, 25);
+    setOrDel("aQ", adjSearch, "");
+    setOrDel("aSort", adjSort, "date_desc");
+    setOrDel("mPage", mvPage, 1);
+    setOrDel("mSize", mvPageSize, 25);
+    setOrDel("mQ", mvSearch, "");
+    setOrDel("mFrom", mvFrom, "");
+    setOrDel("mTo", mvTo, "");
+    setOrDel("mSrc", mvSource, "all");
+    setOrDel("mSort", mvSort, "date_desc");
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, search, stockPage, stockPageSize, stockSort,
+      adjPage, adjPageSize, adjSearch, adjSort,
+      mvPage, mvPageSize, mvSearch, mvFrom, mvTo, mvSource, mvSort]);
+
+  // Persist page size selections
+  const updateStockSize = (n: number) => { setStockPageSize(n); writeStoredSize(LS_KEYS.stock, n); setStockPage(1); };
+  const updateAdjSize = (n: number) => { setAdjPageSize(n); writeStoredSize(LS_KEYS.adj, n); setAdjPage(1); };
+  const updateMvSize = (n: number) => { setMvPageSize(n); writeStoredSize(LS_KEYS.mv, n); setMvPage(1); };
 
   const effectiveLocationId = locationFilter === "all" ? undefined : locationFilter;
   const { inventoryQuery, adjustStock, editAdjustment, adjustmentsQuery, movementsQuery } = useInventory(effectiveLocationId, {
@@ -101,10 +153,26 @@ const Inventory = () => {
     i.products?.sku?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const stockCount = filtered.length;
+  const sortedStock = [...filtered].sort((a, b) => {
+    const an = a.products?.name || "";
+    const bn = b.products?.name || "";
+    const as = a.products?.sku || "";
+    const bs = b.products?.sku || "";
+    switch (stockSort) {
+      case "name_asc": return an.localeCompare(bn);
+      case "name_desc": return bn.localeCompare(an);
+      case "sku_asc": return as.localeCompare(bs);
+      case "sku_desc": return bs.localeCompare(as);
+      case "qty_asc": return a.quantity - b.quantity;
+      case "qty_desc": return b.quantity - a.quantity;
+      default: return 0;
+    }
+  });
+
+  const stockCount = sortedStock.length;
   const stockPages = Math.max(1, Math.ceil(stockCount / stockPageSize));
   const stockPageSafe = Math.min(stockPage, stockPages);
-  const stockPaged = filtered.slice((stockPageSafe - 1) * stockPageSize, stockPageSafe * stockPageSize);
+  const stockPaged = sortedStock.slice((stockPageSafe - 1) * stockPageSize, stockPageSafe * stockPageSize);
 
   const lowStockCount = inventory.filter((i) => i.quantity <= i.low_stock_threshold).length;
 
