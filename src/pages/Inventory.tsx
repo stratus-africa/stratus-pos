@@ -15,7 +15,7 @@ import { usePurchases } from "@/hooks/usePurchases";
 import { StockAdjustmentDialog, type AdjustStockSubmit } from "@/components/inventory/StockAdjustmentDialog";
 import { EditAdjustmentDialog } from "@/components/inventory/EditAdjustmentDialog";
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE_OPTIONS = [25, 100, 200] as const;
 
 const sourceMeta: Record<"sale" | "return" | "purchase" | "other", { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   sale: { label: "Sale", variant: "default" },
@@ -48,10 +48,14 @@ const Inventory = () => {
   const [adjDialogOpen, setAdjDialogOpen] = useState(false);
   const [editingAdj, setEditingAdj] = useState<StockAdjustment | null>(null);
 
+  const [stockPage, setStockPage] = useState(1);
+  const [stockPageSize, setStockPageSize] = useState<number>(25);
   const [adjPage, setAdjPage] = useState(1);
+  const [adjPageSize, setAdjPageSize] = useState<number>(25);
   const [adjSearch, setAdjSearch] = useState("");
   const [adjSort, setAdjSort] = useState<SortKey>("date_desc");
   const [mvPage, setMvPage] = useState(1);
+  const [mvPageSize, setMvPageSize] = useState<number>(25);
   const [mvFrom, setMvFrom] = useState<string>("");
   const [mvTo, setMvTo] = useState<string>("");
   const [mvSource, setMvSource] = useState<MovementSource>("all");
@@ -60,8 +64,8 @@ const Inventory = () => {
 
   const effectiveLocationId = locationFilter === "all" ? undefined : locationFilter;
   const { inventoryQuery, adjustStock, editAdjustment, adjustmentsQuery, movementsQuery } = useInventory(effectiveLocationId, {
-    adjustmentsPage: { page: adjPage, pageSize: PAGE_SIZE, sort: adjSort },
-    movements: { page: mvPage, pageSize: PAGE_SIZE, from: mvFrom || undefined, to: mvTo || undefined, source: mvSource, sort: mvSort },
+    adjustmentsPage: { page: adjPage, pageSize: adjPageSize, sort: adjSort },
+    movements: { page: mvPage, pageSize: mvPageSize, from: mvFrom || undefined, to: mvTo || undefined, source: mvSource, sort: mvSort },
   });
 
   const inventory = inventoryQuery.data || [];
@@ -77,13 +81,18 @@ const Inventory = () => {
     ? movements.filter((m) => (m.products?.name || "").toLowerCase().includes(mvSearch.toLowerCase()))
     : movements;
 
-  const adjPages = Math.max(1, Math.ceil(adjCount / PAGE_SIZE));
-  const mvPages = Math.max(1, Math.ceil(mvCount / PAGE_SIZE));
+  const adjPages = Math.max(1, Math.ceil(adjCount / adjPageSize));
+  const mvPages = Math.max(1, Math.ceil(mvCount / mvPageSize));
 
   const filtered = inventory.filter((i) =>
     i.products?.name?.toLowerCase().includes(search.toLowerCase()) ||
     i.products?.sku?.toLowerCase().includes(search.toLowerCase())
   );
+
+  const stockCount = filtered.length;
+  const stockPages = Math.max(1, Math.ceil(stockCount / stockPageSize));
+  const stockPageSafe = Math.min(stockPage, stockPages);
+  const stockPaged = filtered.slice((stockPageSafe - 1) * stockPageSize, stockPageSafe * stockPageSize);
 
   const lowStockCount = inventory.filter((i) => i.quantity <= i.low_stock_threshold).length;
 
@@ -196,14 +205,14 @@ const Inventory = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.length === 0 ? (
+                  {stockPaged.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                         No inventory records. Adjust stock to get started.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filtered.map((i) => {
+                    stockPaged.map((i) => {
                       const isLow = i.quantity <= i.low_stock_threshold;
                       const isOut = i.quantity <= 0;
                       return (
@@ -229,6 +238,26 @@ const Inventory = () => {
                   )}
                 </TableBody>
               </Table>
+              <div className="flex items-center justify-between border-t px-4 py-2 text-sm text-muted-foreground gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span>Rows per page</span>
+                  <Select value={String(stockPageSize)} onValueChange={(v) => { setStockPageSize(Number(v)); setStockPage(1); }}>
+                    <SelectTrigger className="h-8 w-[80px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <span>{stockCount === 0 ? "0 records" : `Page ${stockPageSafe} of ${stockPages} • ${stockCount} record${stockCount === 1 ? "" : "s"}`}</span>
+                <div className="flex gap-1">
+                  <Button variant="outline" size="sm" onClick={() => setStockPage((p) => Math.max(1, p - 1))} disabled={stockPageSafe <= 1}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setStockPage((p) => Math.min(stockPages, p + 1))} disabled={stockPageSafe >= stockPages}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -302,7 +331,16 @@ const Inventory = () => {
                   )}
                 </TableBody>
               </Table>
-              <div className="flex items-center justify-between border-t px-4 py-2 text-sm text-muted-foreground">
+              <div className="flex items-center justify-between border-t px-4 py-2 text-sm text-muted-foreground gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span>Rows per page</span>
+                  <Select value={String(adjPageSize)} onValueChange={(v) => { setAdjPageSize(Number(v)); setAdjPage(1); }}>
+                    <SelectTrigger className="h-8 w-[80px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <span>{adjCount === 0 ? "0 records" : `Page ${adjPage} of ${adjPages} • ${adjCount} record${adjCount === 1 ? "" : "s"}`}</span>
                 <div className="flex gap-1">
                   <Button variant="outline" size="sm" onClick={() => setAdjPage((p) => Math.max(1, p - 1))} disabled={adjPage <= 1}>
@@ -419,7 +457,16 @@ const Inventory = () => {
                   )}
                 </TableBody>
               </Table>
-              <div className="flex items-center justify-between border-t px-4 py-2 text-sm text-muted-foreground">
+              <div className="flex items-center justify-between border-t px-4 py-2 text-sm text-muted-foreground gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span>Rows per page</span>
+                  <Select value={String(mvPageSize)} onValueChange={(v) => { setMvPageSize(Number(v)); setMvPage(1); }}>
+                    <SelectTrigger className="h-8 w-[80px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <span>{mvCount === 0 ? "0 records" : `Page ${mvPage} of ${mvPages} • ${mvCount} record${mvCount === 1 ? "" : "s"}`}</span>
                 <div className="flex gap-1">
                   <Button variant="outline" size="sm" onClick={() => setMvPage((p) => Math.max(1, p - 1))} disabled={mvPage <= 1}>
