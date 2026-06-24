@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,17 @@ import { StockAdjustmentDialog, type AdjustStockSubmit } from "@/components/inve
 import { EditAdjustmentDialog } from "@/components/inventory/EditAdjustmentDialog";
 
 const PAGE_SIZE_OPTIONS = [25, 100, 200] as const;
+type StockSort = "name_asc" | "name_desc" | "sku_asc" | "sku_desc" | "qty_asc" | "qty_desc";
+
+const LS_KEYS = { stock: "inv.stock.size", adj: "inv.adj.size", mv: "inv.mv.size" } as const;
+const readStoredSize = (key: string, fallback = 25): number => {
+  if (typeof window === "undefined") return fallback;
+  const v = Number(window.localStorage.getItem(key));
+  return (PAGE_SIZE_OPTIONS as readonly number[]).includes(v) ? v : fallback;
+};
+const writeStoredSize = (key: string, v: number) => {
+  try { window.localStorage.setItem(key, String(v)); } catch { /* ignore */ }
+};
 
 const sourceMeta: Record<"sale" | "return" | "purchase" | "other", { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   sale: { label: "Sale", variant: "default" },
@@ -43,24 +55,76 @@ const Inventory = () => {
   const { hasPermission } = usePermissions();
   const canEditAdjustments = hasPermission("inventory.edit");
   const { createPurchase } = usePurchases();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const initialNum = (key: string, fallback: number) => {
+    const n = Number(searchParams.get(key));
+    return Number.isFinite(n) && n > 0 ? n : fallback;
+  };
+  const initialStr = <T extends string>(key: string, fallback: T): T =>
+    (searchParams.get(key) as T) || fallback;
+  const initialSize = (key: string, lsKey: string) => {
+    const fromUrl = Number(searchParams.get(key));
+    if ((PAGE_SIZE_OPTIONS as readonly number[]).includes(fromUrl)) return fromUrl;
+    return readStoredSize(lsKey);
+  };
+
+  const [activeTab, setActiveTab] = useState<string>(initialStr("tab", "stock"));
   const [locationFilter, setLocationFilter] = useState<string>(currentLocation?.id || "all");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState<string>(initialStr("q", ""));
   const [adjDialogOpen, setAdjDialogOpen] = useState(false);
   const [editingAdj, setEditingAdj] = useState<StockAdjustment | null>(null);
 
-  const [stockPage, setStockPage] = useState(1);
-  const [stockPageSize, setStockPageSize] = useState<number>(25);
-  const [adjPage, setAdjPage] = useState(1);
-  const [adjPageSize, setAdjPageSize] = useState<number>(25);
-  const [adjSearch, setAdjSearch] = useState("");
-  const [adjSort, setAdjSort] = useState<SortKey>("date_desc");
-  const [mvPage, setMvPage] = useState(1);
-  const [mvPageSize, setMvPageSize] = useState<number>(25);
-  const [mvFrom, setMvFrom] = useState<string>("");
-  const [mvTo, setMvTo] = useState<string>("");
-  const [mvSource, setMvSource] = useState<MovementSource>("all");
-  const [mvSearch, setMvSearch] = useState("");
-  const [mvSort, setMvSort] = useState<SortKey>("date_desc");
+  const [stockPage, setStockPage] = useState(initialNum("sPage", 1));
+  const [stockPageSize, setStockPageSize] = useState<number>(initialSize("sSize", LS_KEYS.stock));
+  const [stockSort, setStockSort] = useState<StockSort>(initialStr<StockSort>("sSort", "name_asc"));
+
+  const [adjPage, setAdjPage] = useState(initialNum("aPage", 1));
+  const [adjPageSize, setAdjPageSize] = useState<number>(initialSize("aSize", LS_KEYS.adj));
+  const [adjSearch, setAdjSearch] = useState<string>(initialStr("aQ", ""));
+  const [adjSort, setAdjSort] = useState<SortKey>(initialStr<SortKey>("aSort", "date_desc"));
+
+  const [mvPage, setMvPage] = useState(initialNum("mPage", 1));
+  const [mvPageSize, setMvPageSize] = useState<number>(initialSize("mSize", LS_KEYS.mv));
+  const [mvFrom, setMvFrom] = useState<string>(initialStr("mFrom", ""));
+  const [mvTo, setMvTo] = useState<string>(initialStr("mTo", ""));
+  const [mvSource, setMvSource] = useState<MovementSource>(initialStr<MovementSource>("mSrc", "all"));
+  const [mvSearch, setMvSearch] = useState<string>(initialStr("mQ", ""));
+  const [mvSort, setMvSort] = useState<SortKey>(initialStr<SortKey>("mSort", "date_desc"));
+
+  // Sync state -> URL
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    const setOrDel = (k: string, v: string | number, def: string | number) => {
+      if (String(v) === String(def)) next.delete(k);
+      else next.set(k, String(v));
+    };
+    setOrDel("tab", activeTab, "stock");
+    setOrDel("q", search, "");
+    setOrDel("sPage", stockPage, 1);
+    setOrDel("sSize", stockPageSize, 25);
+    setOrDel("sSort", stockSort, "name_asc");
+    setOrDel("aPage", adjPage, 1);
+    setOrDel("aSize", adjPageSize, 25);
+    setOrDel("aQ", adjSearch, "");
+    setOrDel("aSort", adjSort, "date_desc");
+    setOrDel("mPage", mvPage, 1);
+    setOrDel("mSize", mvPageSize, 25);
+    setOrDel("mQ", mvSearch, "");
+    setOrDel("mFrom", mvFrom, "");
+    setOrDel("mTo", mvTo, "");
+    setOrDel("mSrc", mvSource, "all");
+    setOrDel("mSort", mvSort, "date_desc");
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, search, stockPage, stockPageSize, stockSort,
+      adjPage, adjPageSize, adjSearch, adjSort,
+      mvPage, mvPageSize, mvSearch, mvFrom, mvTo, mvSource, mvSort]);
+
+  // Persist page size selections
+  const updateStockSize = (n: number) => { setStockPageSize(n); writeStoredSize(LS_KEYS.stock, n); setStockPage(1); };
+  const updateAdjSize = (n: number) => { setAdjPageSize(n); writeStoredSize(LS_KEYS.adj, n); setAdjPage(1); };
+  const updateMvSize = (n: number) => { setMvPageSize(n); writeStoredSize(LS_KEYS.mv, n); setMvPage(1); };
 
   const effectiveLocationId = locationFilter === "all" ? undefined : locationFilter;
   const { inventoryQuery, adjustStock, editAdjustment, adjustmentsQuery, movementsQuery } = useInventory(effectiveLocationId, {
@@ -89,10 +153,26 @@ const Inventory = () => {
     i.products?.sku?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const stockCount = filtered.length;
+  const sortedStock = [...filtered].sort((a, b) => {
+    const an = a.products?.name || "";
+    const bn = b.products?.name || "";
+    const as = a.products?.sku || "";
+    const bs = b.products?.sku || "";
+    switch (stockSort) {
+      case "name_asc": return an.localeCompare(bn);
+      case "name_desc": return bn.localeCompare(an);
+      case "sku_asc": return as.localeCompare(bs);
+      case "sku_desc": return bs.localeCompare(as);
+      case "qty_asc": return a.quantity - b.quantity;
+      case "qty_desc": return b.quantity - a.quantity;
+      default: return 0;
+    }
+  });
+
+  const stockCount = sortedStock.length;
   const stockPages = Math.max(1, Math.ceil(stockCount / stockPageSize));
   const stockPageSafe = Math.min(stockPage, stockPages);
-  const stockPaged = filtered.slice((stockPageSafe - 1) * stockPageSize, stockPageSafe * stockPageSize);
+  const stockPaged = sortedStock.slice((stockPageSafe - 1) * stockPageSize, stockPageSafe * stockPageSize);
 
   const lowStockCount = inventory.filter((i) => i.quantity <= i.low_stock_threshold).length;
 
@@ -165,7 +245,7 @@ const Inventory = () => {
         </Card>
       )}
 
-      <Tabs defaultValue="stock" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="stock"><Warehouse className="mr-1 h-4 w-4" /> Stock Levels</TabsTrigger>
           <TabsTrigger value="adjustments"><ClipboardList className="mr-1 h-4 w-4" /> Adjustments</TabsTrigger>
@@ -178,9 +258,25 @@ const Inventory = () => {
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Search by product name or SKU..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+                  <Input
+                    placeholder="Search by product name or SKU..."
+                    value={search}
+                    onChange={(e) => { setSearch(e.target.value); setStockPage(1); }}
+                    className="pl-9"
+                  />
                 </div>
-                <Select value={locationFilter} onValueChange={setLocationFilter}>
+                <Select value={stockSort} onValueChange={(v) => { setStockSort(v as StockSort); setStockPage(1); }}>
+                  <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="name_asc">Product (A–Z)</SelectItem>
+                    <SelectItem value="name_desc">Product (Z–A)</SelectItem>
+                    <SelectItem value="sku_asc">SKU (A–Z)</SelectItem>
+                    <SelectItem value="sku_desc">SKU (Z–A)</SelectItem>
+                    <SelectItem value="qty_desc">Quantity (high → low)</SelectItem>
+                    <SelectItem value="qty_asc">Quantity (low → high)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={locationFilter} onValueChange={(v) => { setLocationFilter(v); setStockPage(1); }}>
                   <SelectTrigger className="w-[180px]"><SelectValue placeholder="Location" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Locations</SelectItem>
@@ -241,7 +337,7 @@ const Inventory = () => {
               <div className="flex items-center justify-between border-t px-4 py-2 text-sm text-muted-foreground gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
                   <span>Rows per page</span>
-                  <Select value={String(stockPageSize)} onValueChange={(v) => { setStockPageSize(Number(v)); setStockPage(1); }}>
+                  <Select value={String(stockPageSize)} onValueChange={(v) => updateStockSize(Number(v))}>
                     <SelectTrigger className="h-8 w-[80px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
@@ -272,7 +368,7 @@ const Inventory = () => {
                   <Input
                     placeholder="Search product..."
                     value={adjSearch}
-                    onChange={(e) => setAdjSearch(e.target.value)}
+                    onChange={(e) => { setAdjSearch(e.target.value); setAdjPage(1); }}
                     className="pl-9 h-9 w-[220px]"
                   />
                 </div>
@@ -334,7 +430,7 @@ const Inventory = () => {
               <div className="flex items-center justify-between border-t px-4 py-2 text-sm text-muted-foreground gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
                   <span>Rows per page</span>
-                  <Select value={String(adjPageSize)} onValueChange={(v) => { setAdjPageSize(Number(v)); setAdjPage(1); }}>
+                  <Select value={String(adjPageSize)} onValueChange={(v) => updateAdjSize(Number(v))}>
                     <SelectTrigger className="h-8 w-[80px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
@@ -375,7 +471,7 @@ const Inventory = () => {
                     <Input
                       placeholder="Search product..."
                       value={mvSearch}
-                      onChange={(e) => setMvSearch(e.target.value)}
+                      onChange={(e) => { setMvSearch(e.target.value); setMvPage(1); }}
                       className="pl-9 h-9 w-[220px]"
                     />
                   </div>
@@ -460,7 +556,7 @@ const Inventory = () => {
               <div className="flex items-center justify-between border-t px-4 py-2 text-sm text-muted-foreground gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
                   <span>Rows per page</span>
-                  <Select value={String(mvPageSize)} onValueChange={(v) => { setMvPageSize(Number(v)); setMvPage(1); }}>
+                  <Select value={String(mvPageSize)} onValueChange={(v) => updateMvSize(Number(v))}>
                     <SelectTrigger className="h-8 w-[80px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
