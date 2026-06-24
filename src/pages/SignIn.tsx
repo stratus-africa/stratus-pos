@@ -11,13 +11,12 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Mail, Lock, Eye, EyeOff, ArrowLeft, ArrowRight, Box, CheckCircle2 } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowLeft, ArrowRight, CheckCircle2, TrendingUp, ShoppingBag, Monitor, Folder } from "lucide-react";
 
 const HIGHLIGHTS = [
-  "Dedicated workspace & database",
-  "POS, inventory, purchases & sales",
-  "Multi-warehouse & barcode support",
-  "Ready in under 60 seconds",
+  "Lightning fast checkout in under 3 seconds",
+  "Real-time analytics for every store",
+  "Bank-grade security & role-based access",
 ];
 
 export default function SignIn() {
