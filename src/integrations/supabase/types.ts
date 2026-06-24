@@ -2040,6 +2040,60 @@ export type Database = {
         }
         Relationships: []
       }
+      suspended_sales: {
+        Row: {
+          business_id: string
+          cart: Json
+          created_at: string
+          created_by: string
+          customer_id: string | null
+          customer_name: string | null
+          id: string
+          label: string
+          location_id: string
+          updated_at: string
+        }
+        Insert: {
+          business_id: string
+          cart: Json
+          created_at?: string
+          created_by: string
+          customer_id?: string | null
+          customer_name?: string | null
+          id?: string
+          label: string
+          location_id: string
+          updated_at?: string
+        }
+        Update: {
+          business_id?: string
+          cart?: Json
+          created_at?: string
+          created_by?: string
+          customer_id?: string | null
+          customer_name?: string | null
+          id?: string
+          label?: string
+          location_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suspended_sales_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suspended_sales_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tax_rates: {
         Row: {
           business_id: string
