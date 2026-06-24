@@ -1,8 +1,8 @@
 import { useState, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Product } from "@/hooks/useProducts";
 import { pickFefoBatches } from "@/hooks/useProductBatches";
@@ -38,12 +38,35 @@ export function usePOS() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState<string | null>(null);
-  const [heldSales, setHeldSales] = useState<HeldSale[]>([]);
   const [processing, setProcessing] = useState(false);
+
+  // Persisted suspended sales (DB-backed, scoped to business + location)
+  const heldQuery = useQuery({
+    queryKey: ["suspended_sales", business?.id, currentLocation?.id],
+    queryFn: async (): Promise<HeldSale[]> => {
+      if (!business || !currentLocation) return [];
+      const { data, error } = await supabase
+        .from("suspended_sales")
+        .select("*")
+        .eq("business_id", business.id)
+        .eq("location_id", currentLocation.id)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data || []).map((r: any) => ({
+        id: r.id,
+        label: r.label,
+        cart: (r.cart as CartItem[]) || [],
+        customerId: r.customer_id,
+        customerName: r.customer_name,
+        createdAt: new Date(r.created_at),
+      }));
+    },
+    enabled: !!business && !!currentLocation,
+  });
+  const heldSales: HeldSale[] = heldQuery.data || [];
 
   const preventOverselling = (business as { prevent_overselling?: boolean } | null)?.prevent_overselling === true;
 
-  // Read cached inventory to enforce stock limits without an extra fetch.
   const inventoryRows = (queryClient.getQueryData<{ product_id: string; quantity: number }[]>(
     ["inventory", currentLocation?.id]
   ) || []);
@@ -84,7 +107,6 @@ export function usePOS() {
             return { ...i, quantity: available };
           }
         }
-        // Decimal handling: if product disallows decimals, round down.
         if (!i.product.allow_decimal_quantity && updates.quantity !== undefined) {
           next.quantity = Math.floor(next.quantity);
         }
@@ -114,43 +136,50 @@ export function usePOS() {
     : 0;
   const cartTotal = cartSubtotal;
 
-  // Hold current sale
-  const holdSale = useCallback(() => {
-    if (cart.length === 0) return;
-    const held: HeldSale = {
-      id: crypto.randomUUID(),
-      label: customerName || `Sale #${heldSales.length + 1}`,
-      cart: [...cart],
-      customerId,
-      customerName,
-      createdAt: new Date(),
-    };
-    setHeldSales((prev) => [...prev, held]);
+  // Hold current sale — persist to suspended_sales table so it survives reload & syncs across devices
+  const holdSale = useCallback(async () => {
+    if (!business || !currentLocation || !user || cart.length === 0) return;
+    const label = customerName || `Sale ${new Date().toLocaleTimeString()}`;
+    const { error } = await supabase.from("suspended_sales").insert({
+      business_id: business.id,
+      location_id: currentLocation.id,
+      label,
+      customer_id: customerId,
+      customer_name: customerName,
+      cart: cart as any,
+      created_by: user.id,
+    });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["suspended_sales"] });
     clearCart();
-    toast.info("Sale held");
-  }, [cart, customerId, customerName, heldSales.length, clearCart]);
+    toast.info("Sale suspended");
+  }, [cart, customerId, customerName, business, currentLocation, user, queryClient, clearCart]);
 
   // Resume a held sale
-  const resumeSale = useCallback((id: string) => {
+  const resumeSale = useCallback(async (id: string) => {
     const held = heldSales.find((h) => h.id === id);
     if (!held) return;
-    // If current cart has items, hold it first
-    if (cart.length > 0) holdSale();
+    if (cart.length > 0) await holdSale();
     setCart(held.cart);
     setCustomerId(held.customerId);
     setCustomerName(held.customerName);
-    setHeldSales((prev) => prev.filter((h) => h.id !== id));
-  }, [heldSales, cart, holdSale]);
+    await supabase.from("suspended_sales").delete().eq("id", id);
+    queryClient.invalidateQueries({ queryKey: ["suspended_sales"] });
+  }, [heldSales, cart, holdSale, queryClient]);
 
-  const removeHeldSale = useCallback((id: string) => {
-    setHeldSales((prev) => prev.filter((h) => h.id !== id));
-  }, []);
+  const removeHeldSale = useCallback(async (id: string) => {
+    const { error } = await supabase.from("suspended_sales").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    queryClient.invalidateQueries({ queryKey: ["suspended_sales"] });
+  }, [queryClient]);
 
   // Complete sale
   const completeSale = async (payments: PaymentEntry[], bankAccountId?: string | null) => {
     if (!business || !currentLocation || !user || cart.length === 0) return null;
 
-    // Server-of-truth stock check before committing if overselling is disallowed.
     if (preventOverselling) {
       const productIds = cart.map((i) => i.product.id);
       const { data: stockRows } = await supabase
@@ -172,12 +201,10 @@ export function usePOS() {
       const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
       const paymentStatus = totalPaid >= cartTotal ? "paid" : totalPaid > 0 ? "partial" : "unpaid";
 
-      // Generate invoice number using configured series
       const invoiceNumber = consumeNext(business.id, "receipts");
 
       const saleId = crypto.randomUUID();
 
-      // Create sale
       const { error: saleErr } = await supabase.from("sales").insert({
         id: saleId,
         business_id: business.id,
@@ -194,7 +221,6 @@ export function usePOS() {
       });
       if (saleErr) throw saleErr;
 
-      // Insert sale items — for pharmacy businesses, FEFO-pick a batch per line.
       const isPharmacy = (business as any)?.business_type === "pharmacy";
       const saleItems: any[] = [];
       const batchDeductions: { batch_id: string; quantity: number }[] = [];
@@ -203,7 +229,6 @@ export function usePOS() {
         let batchId: string | null = null;
         if (isPharmacy) {
           const picks = await pickFefoBatches(i.product.id, currentLocation.id, i.quantity);
-          // Use the earliest-expiry batch as the line's batch_id; track all picks for deduction.
           if (picks.length > 0) batchId = picks[0].batch_id;
           batchDeductions.push(...picks);
         }
@@ -220,7 +245,6 @@ export function usePOS() {
       const { error: itemsErr } = await supabase.from("sale_items").insert(saleItems);
       if (itemsErr) throw itemsErr;
 
-      // Decrement batch quantities (FEFO)
       if (batchDeductions.length > 0) {
         await Promise.all(
           batchDeductions.map((p) =>
@@ -229,7 +253,6 @@ export function usePOS() {
         );
       }
 
-      // Insert payments
       if (payments.length > 0) {
         const paymentRows = payments.filter((p) => p.amount > 0).map((p) => ({
           sale_id: saleId,
@@ -243,7 +266,6 @@ export function usePOS() {
         }
       }
 
-      // Batch deduct inventory and create adjustments
       const inventoryUpdates = await Promise.all(
         cart.map(async (item) => {
           const { data: inv } = await supabase
@@ -256,7 +278,6 @@ export function usePOS() {
         })
       );
 
-      // Update inventory quantities
       await Promise.all(
         inventoryUpdates
           .filter(({ inv }) => inv)
@@ -268,7 +289,6 @@ export function usePOS() {
           )
       );
 
-      // Batch insert stock adjustments
       const adjustments = cart.map((item) => ({
         product_id: item.product.id,
         location_id: currentLocation.id,
@@ -280,7 +300,6 @@ export function usePOS() {
       }));
       await supabase.from("stock_adjustments").insert(adjustments);
 
-      // Auto-create linked bank transaction for the sale
       if (bankAccountId) {
         const { error: btErr } = await supabase.from("bank_transactions").insert({
           business_id: business.id,
@@ -297,7 +316,6 @@ export function usePOS() {
         });
         if (btErr) console.error("Bank txn error:", btErr);
 
-        // Update account balance
         const { data: acc } = await supabase.from("bank_accounts").select("balance").eq("id", bankAccountId).single();
         if (acc) {
           await supabase.from("bank_accounts").update({ balance: acc.balance + Math.min(totalPaid, cartTotal) }).eq("id", bankAccountId);
