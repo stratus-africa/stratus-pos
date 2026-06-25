@@ -96,79 +96,98 @@ export default function SignIn() {
 
         {/* illustration */}
         <div className="relative flex-1 flex items-center justify-center my-8">
-          {/* floating: Today's Sales */}
-          <div className="absolute top-2 left-2 z-20 bg-white rounded-full pl-2 pr-5 py-2 shadow-2xl flex items-center gap-3">
-            <span className="h-9 w-9 rounded-full bg-indigo-600 flex items-center justify-center">
-              <TrendingUp className="h-4 w-4 text-white" />
-            </span>
-            <div className="text-slate-900 leading-tight">
-              <div className="text-[10px] text-slate-500">Today's Sales</div>
-              <div className="text-sm font-bold">$2,847</div>
+          <div className="relative w-[420px] h-[360px]">
+            {/* sparkles */}
+            <div className="absolute top-20 left-20 text-white/80 text-sm" aria-hidden>✦</div>
+            <div className="absolute top-28 right-10 text-white/60 text-xs" aria-hidden>✦</div>
+            <div className="absolute bottom-24 left-6 text-white/40 text-xs" aria-hidden>✦</div>
+            <div className="absolute bottom-12 right-2 text-white/50 text-sm" aria-hidden>✦</div>
+
+            {/* floating: Today's Sales (upper-left, overlapping roof) */}
+            <div className="absolute top-6 -left-2 z-30 bg-white rounded-2xl pl-3 pr-5 py-2.5 shadow-2xl flex items-center gap-3">
+              <span className="h-10 w-10 rounded-full bg-indigo-600 flex items-center justify-center shrink-0">
+                <TrendingUp className="h-4 w-4 text-white" />
+              </span>
+              <div className="text-slate-900 leading-tight">
+                <div className="text-[11px] text-slate-500">Today's Sales</div>
+                <div className="text-sm font-bold">KES 2,847</div>
+              </div>
             </div>
-          </div>
 
-          {/* floating: brand tag */}
-          <div className="absolute top-[34%] left-1/2 -translate-x-1/2 z-20 bg-white rounded-md px-3 py-1.5 shadow-lg">
-            <span className="text-[11px] font-bold text-slate-900 tracking-tight">StratusPOS</span>
-          </div>
+            {/* StratusPOS sign on roof */}
+            <div className="absolute top-14 left-1/2 -translate-x-1/2 z-20 bg-white rounded-md px-3 py-1.5 shadow-lg">
+              <span className="text-[11px] font-bold text-slate-900 tracking-tight">StratusPOS</span>
+            </div>
 
-          {/* shop card */}
-          <div className="relative w-[340px] h-[260px]">
             {/* roof */}
-            <div className="absolute top-6 left-1/2 -translate-x-1/2 w-[300px] h-12 bg-gradient-to-b from-sky-400 to-blue-500 [clip-path:polygon(8%_100%,_92%_100%,_100%_0,_0_0)] shadow-lg" aria-hidden />
-            {/* roof lines */}
-            <div className="absolute top-6 left-1/2 -translate-x-1/2 w-[300px] h-12 opacity-30 [clip-path:polygon(8%_100%,_92%_100%,_100%_0,_0_0)]" style={{ backgroundImage: "repeating-linear-gradient(110deg, rgba(255,255,255,0.4) 0 1px, transparent 1px 18px)" }} aria-hidden />
+            <div className="absolute top-[72px] left-1/2 -translate-x-1/2 w-[360px] h-14 bg-gradient-to-b from-sky-400 to-blue-500 [clip-path:polygon(7%_100%,_93%_100%,_100%_0,_0_0)] shadow-lg" aria-hidden />
+            <div className="absolute top-[72px] left-1/2 -translate-x-1/2 w-[360px] h-14 opacity-30 [clip-path:polygon(7%_100%,_93%_100%,_100%_0,_0_0)]" style={{ backgroundImage: "repeating-linear-gradient(110deg, rgba(255,255,255,0.5) 0 1px, transparent 1px 20px)" }} aria-hidden />
+
             {/* body */}
-            <div className="absolute top-[60px] left-1/2 -translate-x-1/2 w-[280px] h-[190px] rounded-b-lg bg-gradient-to-b from-white/15 to-white/5 backdrop-blur-sm border border-white/15">
-              {/* shelves */}
-              <div className="absolute top-5 left-5 right-5 flex gap-2">
-                <div className="h-6 w-10 rounded bg-blue-400/80" />
-                <div className="h-6 w-8 rounded bg-indigo-300/70" />
-                <div className="h-6 w-12 rounded bg-cyan-300/80" />
-                <div className="h-6 w-8 rounded bg-blue-300/70" />
+            <div className="absolute top-[126px] left-1/2 -translate-x-1/2 w-[340px] h-[220px] rounded-b-xl bg-gradient-to-b from-white/12 to-white/[0.04] backdrop-blur-sm border border-white/15 overflow-hidden">
+              {/* shelves row 1 */}
+              <div className="absolute top-6 left-6 flex gap-2.5">
+                <div className="h-7 w-10 rounded bg-blue-400/80" />
+                <div className="h-7 w-9 rounded bg-indigo-300/70" />
+                <div className="h-7 w-7 rounded bg-white/80" />
+                <div className="h-7 w-10 rounded bg-cyan-300/80" />
               </div>
-              <div className="absolute top-5 left-5 right-5 mt-9 flex gap-2">
-                <div className="h-6 w-8 rounded bg-indigo-400/80" />
-                <div className="h-6 w-6 rounded-full bg-cyan-300/80" />
-                <div className="h-6 w-12 rounded bg-blue-300/70" />
+              {/* shelves row 2 */}
+              <div className="absolute top-[68px] left-6 flex gap-2.5 items-center">
+                <div className="h-7 w-9 rounded bg-indigo-400/80" />
+                <div className="h-7 w-7 rounded-full bg-cyan-300/80" />
+                <div className="h-7 w-10 rounded bg-blue-300/70" />
               </div>
 
-              {/* clerk + counter */}
-              <div className="absolute bottom-3 left-4 flex items-end gap-2">
-                {/* clerk */}
-                <div className="flex flex-col items-center">
-                  <div className="h-6 w-6 rounded-full bg-amber-200 border border-amber-300" />
-                  <div className="h-10 w-9 -mt-1 rounded-t-md bg-sky-500" />
+              {/* counter base */}
+              <div className="absolute bottom-0 left-0 right-0 h-14 bg-white/90" />
+
+              {/* clerk (left) */}
+              <div className="absolute bottom-3 left-12 flex flex-col items-center z-10">
+                <div className="relative h-7 w-7 rounded-full bg-amber-200 border border-amber-300">
+                  <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-2.5 h-1 border-b-2 border-slate-700 rounded-b-full" />
+                  <div className="absolute top-2 left-1.5 w-0.5 h-0.5 rounded-full bg-slate-800" />
+                  <div className="absolute top-2 right-1.5 w-0.5 h-0.5 rounded-full bg-slate-800" />
                 </div>
-                {/* monitor on counter */}
-                <div className="relative">
-                  <div className="h-12 w-16 rounded bg-slate-800 border border-slate-700 flex items-start p-1.5">
-                    <div className="h-1.5 w-10 rounded bg-cyan-300" />
-                  </div>
-                  <Folder className="absolute -right-7 top-0 h-9 w-9 text-slate-700 fill-slate-800" />
+                <div className="relative h-12 w-10 -mt-1 rounded-t-md bg-sky-500">
+                  {/* pointing arm */}
+                  <div className="absolute -right-5 top-1.5 w-8 h-1.5 bg-sky-500 rotate-[-20deg] origin-left rounded-full" />
                 </div>
               </div>
-              {/* customer */}
-              <div className="absolute bottom-3 right-6 flex flex-col items-center">
-                <div className="h-5 w-5 rounded-full bg-amber-200 border border-amber-300" />
-                <div className="h-9 w-8 -mt-1 rounded-t-md bg-indigo-500" />
+
+              {/* monitor with cyan screen */}
+              <div className="absolute bottom-10 left-[130px] z-20">
+                <div className="h-10 w-14 rounded-md bg-slate-800 border border-slate-700 p-1.5 shadow-lg">
+                  <div className="h-1 w-8 rounded bg-cyan-300 mb-1" />
+                  <div className="h-1 w-6 rounded bg-cyan-300/70" />
+                </div>
+              </div>
+
+              {/* till behind monitor */}
+              <div className="absolute bottom-10 left-[188px] z-10 h-10 w-12 rounded-md bg-slate-700 border border-slate-600" />
+
+              {/* customer (right) */}
+              <div className="absolute bottom-3 right-12 flex flex-col items-center z-10">
+                <div className="h-6 w-6 rounded-full bg-amber-200 border border-amber-300" />
+                <div className="h-11 w-9 -mt-1 rounded-t-md bg-indigo-500" />
               </div>
             </div>
+
             {/* shadow under shop */}
-            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-56 h-3 rounded-full bg-black/30 blur-md" aria-hidden />
-          </div>
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-72 h-3 rounded-full bg-black/40 blur-md" aria-hidden />
 
-          {/* floating: Orders */}
-          <div className="absolute bottom-4 right-0 z-20 bg-white rounded-full pl-2 pr-5 py-2 shadow-2xl flex items-center gap-3">
-            <span className="h-9 w-9 rounded-full bg-cyan-500 flex items-center justify-center">
-              <ShoppingBag className="h-4 w-4 text-white" />
-            </span>
-            <div className="text-slate-900 leading-tight">
-              <div className="text-[10px] text-slate-500">Orders</div>
-              <div className="text-sm font-bold">142</div>
+            {/* floating: Orders (lower-right) */}
+            <div className="absolute -bottom-2 right-0 z-30 bg-white rounded-2xl pl-3 pr-6 py-2.5 shadow-2xl flex items-center gap-3">
+              <span className="h-10 w-10 rounded-full bg-cyan-500 flex items-center justify-center shrink-0">
+                <ShoppingBag className="h-4 w-4 text-white" />
+              </span>
+              <div className="text-slate-900 leading-tight">
+                <div className="text-[11px] text-slate-500">Orders</div>
+                <div className="text-sm font-bold">142</div>
+              </div>
             </div>
           </div>
-        </div>
+
 
         {/* highlights */}
         <ul className="relative space-y-3.5">
