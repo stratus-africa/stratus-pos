@@ -63,7 +63,7 @@ const navGroups: NavGroup[] = [
   {
     label: "CMS",
     items: [
-      { title: "Landing Page", url: "/super-admin/landing", icon: Globe },
+
       
       { title: "Hero Section", url: "/super-admin/cms/hero", icon: Sparkles },
       { title: "Features", url: "/super-admin/cms/features", icon: LayoutGrid },
