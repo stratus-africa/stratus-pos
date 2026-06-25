@@ -70,12 +70,12 @@ export default function SignIn() {
 
   return (
     <div className="min-h-screen grid lg:grid-cols-[1fr_minmax(420px,520px)] bg-white">
-      <aside className="relative hidden lg:flex flex-col justify-between p-12 overflow-hidden text-white bg-[radial-gradient(ellipse_at_top_right,_#3b4ed1_0%,_#1a2270_45%,_#0b1140_100%)]">
+      <aside className="relative hidden lg:flex flex-col justify-between p-12 overflow-hidden text-white bg-[radial-gradient(ellipse_at_top_right,_#0f9268_0%,_#0a6d4e_45%,_#053524_100%)]">
         {/* top gradient hairline */}
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-emerald-300/70 to-transparent" aria-hidden />
         {/* glow accents */}
-        <div className="absolute -top-40 -right-32 w-[520px] h-[520px] rounded-full bg-indigo-400/20 blur-3xl" aria-hidden />
-        <div className="absolute -bottom-40 -left-32 w-[520px] h-[520px] rounded-full bg-blue-500/15 blur-3xl" aria-hidden />
+        <div className="absolute -top-40 -right-32 w-[520px] h-[520px] rounded-full bg-emerald-400/20 blur-3xl" aria-hidden />
+        <div className="absolute -bottom-40 -left-32 w-[520px] h-[520px] rounded-full bg-emerald-600/15 blur-3xl" aria-hidden />
         {/* sparkles */}
         <div className="absolute top-24 right-40 w-1.5 h-1.5 rounded-full bg-white/60" aria-hidden />
         <div className="absolute top-1/2 left-16 w-1 h-1 rounded-full bg-white/40" aria-hidden />
