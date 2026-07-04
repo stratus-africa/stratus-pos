@@ -202,7 +202,9 @@ export function usePurchases() {
       items: PurchaseItem[];
       paidThrough?: { bank_account_id: string; amount: number } | null;
     }) => {
+      assertCanPost();
       if (!business) throw new Error("No business");
+
       const purchaseId = crypto.randomUUID();
       const { error: pError } = await supabase
         .from("purchases")
