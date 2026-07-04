@@ -62,6 +62,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
           <MasqueradeBanner />
+          <SubscriptionExpiredBanner />
+
           <TopBar />
           <main className="flex-1 overflow-auto p-3 sm:p-4 lg:p-6">
             {children}
