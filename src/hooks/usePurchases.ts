@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { toast } from "sonner";
 import { logAudit } from "@/lib/audit";
+import { assertCanPost } from "@/lib/postingGuard";
+
 
 export interface Supplier {
   id: string;
