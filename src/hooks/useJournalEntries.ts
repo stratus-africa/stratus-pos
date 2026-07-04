@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { assertCanPost } from "@/lib/postingGuard";
+
 
 export interface JournalEntry {
   id: string;
