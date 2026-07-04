@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 import { applyTheme, DEFAULT_THEME } from "@/lib/themes";
+import { setPostingState } from "@/lib/postingGuard";
+
 
 interface Business {
   id: string;
