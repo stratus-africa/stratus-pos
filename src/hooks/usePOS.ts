@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { Product } from "@/hooks/useProducts";
 import { pickFefoBatches } from "@/hooks/useProductBatches";
 import { consumeNext } from "@/lib/numberSeries";
+import { ensureCanPost } from "@/lib/postingGuard";
+
 
 export interface CartItem {
   product: Product;
