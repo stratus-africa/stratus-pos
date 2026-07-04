@@ -147,7 +147,9 @@ export function useInventory(
 
   const editAdjustment = useMutation({
     mutationFn: async (input: { id: string; quantity_change: number; reason: string; notes: string | null }) => {
+      assertCanPost();
       const { data: existing, error: loadErr } = await supabase
+
         .from("stock_adjustments")
         .select("id, product_id, location_id, quantity_change")
         .eq("id", input.id)
