@@ -63,6 +63,9 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [userRole, setUserRole] = useState<AppRole | null>(null);
   const [isSuspended, setIsSuspended] = useState(false);
   const [isMasquerading, setIsMasquerading] = useState(false);
+  const [subscriptionEndsAt, setSubscriptionEndsAt] = useState<Date | null>(null);
+  const [subscriptionExpired, setSubscriptionExpired] = useState(false);
+
 
   const fetchBusiness = async () => {
     if (!user) {
