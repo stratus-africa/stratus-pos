@@ -286,6 +286,9 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         loading,
         needsOnboarding,
         isSuspended,
+        subscriptionExpired,
+        subscriptionEndsAt,
+
         createBusiness,
         refreshBusiness: fetchBusiness,
         userRole: isMasquerading ? "admin" : userRole,
