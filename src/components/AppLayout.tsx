@@ -3,8 +3,8 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { TopBar } from "@/components/TopBar";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { Button } from "@/components/ui/button";
-import { Eye, X } from "lucide-react";
-import { useLocation } from "react-router-dom";
+import { Eye, X, AlertTriangle } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 
 function MasqueradeBanner() {
@@ -25,6 +25,26 @@ function MasqueradeBanner() {
     </div>
   );
 }
+
+function SubscriptionExpiredBanner() {
+  const { subscriptionExpired, subscriptionEndsAt } = useBusiness();
+  const navigate = useNavigate();
+  if (!subscriptionExpired) return null;
+  return (
+    <div className="w-full bg-destructive/10 border-b border-destructive/30 px-4 py-2 flex items-center justify-between text-sm text-destructive">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="h-4 w-4" />
+        <span>
+          Your subscription {subscriptionEndsAt ? <>expired on <strong>{subscriptionEndsAt.toLocaleDateString()}</strong></> : <>is inactive</>}. Transactions are blocked until you renew.
+        </span>
+      </div>
+      <Button size="sm" variant="destructive" className="h-7 px-3" onClick={() => navigate("/settings?tab=subscription")}>
+        Renew Subscription
+      </Button>
+    </div>
+  );
+}
+
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
