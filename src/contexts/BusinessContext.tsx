@@ -77,8 +77,12 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setUserRole(null);
       setIsSuspended(false);
       setIsMasquerading(false);
+      setSubscriptionEndsAt(null);
+      setSubscriptionExpired(false);
+      setPostingState({ expired: false, endsAt: null });
       return;
     }
+
 
     try {
       // Check for masquerade mode (super admin viewing as another business)
