@@ -40,6 +40,8 @@ interface BusinessContextType {
   loading: boolean;
   needsOnboarding: boolean;
   isSuspended: boolean;
+  subscriptionExpired: boolean;
+  subscriptionEndsAt: Date | null;
   createBusiness: (name: string, locationName: string, businessType?: string) => Promise<{ error: Error | null }>;
   refreshBusiness: () => Promise<void>;
   userRole: AppRole | null;
@@ -47,6 +49,7 @@ interface BusinessContextType {
   isMasquerading: boolean;
   stopMasquerade: () => void;
 }
+
 
 const BusinessContext = createContext<BusinessContextType | undefined>(undefined);
 
