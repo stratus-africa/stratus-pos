@@ -278,7 +278,9 @@ export function usePurchases() {
       items: PurchaseItem[];
       additionalPayment?: { bank_account_id: string; amount: number } | null;
     }) => {
+      assertCanPost();
       if (!business) throw new Error("No business");
+
       // Snapshot prior state for audit-trail (status changes, restore previews)
       const { data: prior } = await supabase
         .from("purchases")
