@@ -87,7 +87,9 @@ export function useInventory(
       notes?: string;
       created_by: string;
     }) => {
+      assertCanPost();
       const preventOverselling = (business as { prevent_overselling?: boolean } | null)?.prevent_overselling === true;
+
 
       for (const item of batch.items) {
         // Look up current inventory first
