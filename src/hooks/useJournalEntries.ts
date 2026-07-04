@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { assertCanPost } from "@/lib/postingGuard";
+
 
 export interface JournalEntry {
   id: string;
@@ -67,7 +69,9 @@ export function useJournalEntries() {
 
   const create = useMutation({
     mutationFn: async (input: JournalEntryInput) => {
+      assertCanPost();
       if (!business || !user) throw new Error("Not authenticated");
+
       const totalDebit = input.lines.reduce((s, l) => s + Number(l.debit || 0), 0);
       const totalCredit = input.lines.reduce((s, l) => s + Number(l.credit || 0), 0);
       if (Math.abs(totalDebit - totalCredit) > 0.01) {

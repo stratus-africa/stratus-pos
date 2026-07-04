@@ -224,14 +224,14 @@ const BusinessSuspended = () => {
 
 const ProtectedRoutes = () => {
   const { user, loading: authLoading } = useAuth();
-  const { needsOnboarding, loading: bizLoading, userRole, isSuspended } = useBusiness();
+  const { needsOnboarding, loading: bizLoading, userRole } = useBusiness();
   const { hasPermission, isLoading: permsLoading } = usePermissions();
   const location = useLocation();
 
   if (authLoading || bizLoading) return <PageLoader />;
   if (!user) return <Navigate to="/sign-in" replace />;
-  if (isSuspended) return <BusinessSuspended />;
   if (needsOnboarding) return <Navigate to="/onboarding" replace />;
+
 
   // Permission-first guard: a granted permission grants access regardless of role.
   // `permission` is optional — when omitted, the route is open to any signed-in user.

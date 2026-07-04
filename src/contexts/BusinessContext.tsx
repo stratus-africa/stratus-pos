@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 import { applyTheme, DEFAULT_THEME } from "@/lib/themes";
+import { setPostingState } from "@/lib/postingGuard";
+
 
 interface Business {
   id: string;
@@ -38,6 +40,8 @@ interface BusinessContextType {
   loading: boolean;
   needsOnboarding: boolean;
   isSuspended: boolean;
+  subscriptionExpired: boolean;
+  subscriptionEndsAt: Date | null;
   createBusiness: (name: string, locationName: string, businessType?: string) => Promise<{ error: Error | null }>;
   refreshBusiness: () => Promise<void>;
   userRole: AppRole | null;
@@ -45,6 +49,7 @@ interface BusinessContextType {
   isMasquerading: boolean;
   stopMasquerade: () => void;
 }
+
 
 const BusinessContext = createContext<BusinessContextType | undefined>(undefined);
 
@@ -58,6 +63,9 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [userRole, setUserRole] = useState<AppRole | null>(null);
   const [isSuspended, setIsSuspended] = useState(false);
   const [isMasquerading, setIsMasquerading] = useState(false);
+  const [subscriptionEndsAt, setSubscriptionEndsAt] = useState<Date | null>(null);
+  const [subscriptionExpired, setSubscriptionExpired] = useState(false);
+
 
   const fetchBusiness = async () => {
     if (!user) {
@@ -69,8 +77,12 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setUserRole(null);
       setIsSuspended(false);
       setIsMasquerading(false);
+      setSubscriptionEndsAt(null);
+      setSubscriptionExpired(false);
+      setPostingState({ expired: false, endsAt: null });
       return;
     }
+
 
     try {
       // Check for masquerade mode (super admin viewing as another business)
@@ -134,6 +146,33 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setNeedsOnboarding(false);
         setIsSuspended(biz.is_active === false);
         applyTheme((biz as { theme_color?: string }).theme_color || DEFAULT_THEME);
+
+        // Determine subscription expiry from the business owner's subscription.
+        // Users can still log in when expired, but transaction posting is blocked.
+        const ownerId = (biz as { owner_id?: string | null }).owner_id;
+        let endsAt: Date | null = null;
+        let expired = false;
+        if (ownerId) {
+          const { data: subRow } = await supabase
+            .from("subscriptions")
+            .select("status, current_period_end")
+            .eq("user_id", ownerId)
+            .order("updated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (subRow) {
+            endsAt = subRow.current_period_end ? new Date(subRow.current_period_end) : null;
+            const statusOk = ["active", "trialing"].includes(subRow.status);
+            expired = !statusOk || (endsAt !== null && endsAt.getTime() <= Date.now());
+          } else {
+            // No subscription record → treat as expired (must subscribe to post).
+            expired = true;
+          }
+        }
+        setSubscriptionEndsAt(endsAt);
+        setSubscriptionExpired(expired);
+        setPostingState({ expired, endsAt });
+
 
         // Fetch role + assigned location in parallel
         const [{ data: roleData }, { data: profileExtra }] = await Promise.all([
@@ -247,6 +286,9 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         loading,
         needsOnboarding,
         isSuspended,
+        subscriptionExpired,
+        subscriptionEndsAt,
+
         createBusiness,
         refreshBusiness: fetchBusiness,
         userRole: isMasquerading ? "admin" : userRole,

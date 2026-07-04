@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { assertCanPost } from "@/lib/postingGuard";
+
 
 export interface SupplierPayment {
   id: string;
@@ -52,8 +54,10 @@ export function useSupplierPayments() {
       reference?: string;
       description?: string;
     }) => {
+      assertCanPost();
       if (!business || !user) throw new Error("Not authenticated");
       const { data: sup } = await supabase.from("suppliers").select("id, name, balance").eq("id", input.supplier_id).maybeSingle();
+
       if (!sup) throw new Error("Supplier not found");
 
       const ref = input.reference?.trim() || `SP-${Date.now()}`;

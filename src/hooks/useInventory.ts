@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { toast } from "sonner";
+import { assertCanPost } from "@/lib/postingGuard";
+
 
 export interface InventoryItem {
   id: string;
@@ -85,7 +87,9 @@ export function useInventory(
       notes?: string;
       created_by: string;
     }) => {
+      assertCanPost();
       const preventOverselling = (business as { prevent_overselling?: boolean } | null)?.prevent_overselling === true;
+
 
       for (const item of batch.items) {
         // Look up current inventory first
@@ -143,7 +147,9 @@ export function useInventory(
 
   const editAdjustment = useMutation({
     mutationFn: async (input: { id: string; quantity_change: number; reason: string; notes: string | null }) => {
+      assertCanPost();
       const { data: existing, error: loadErr } = await supabase
+
         .from("stock_adjustments")
         .select("id, product_id, location_id, quantity_change")
         .eq("id", input.id)

@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { toast } from "sonner";
 import { logAudit } from "@/lib/audit";
+import { assertCanPost } from "@/lib/postingGuard";
+
 
 export interface Supplier {
   id: string;
@@ -200,7 +202,9 @@ export function usePurchases() {
       items: PurchaseItem[];
       paidThrough?: { bank_account_id: string; amount: number } | null;
     }) => {
+      assertCanPost();
       if (!business) throw new Error("No business");
+
       const purchaseId = crypto.randomUUID();
       const { error: pError } = await supabase
         .from("purchases")
@@ -274,7 +278,9 @@ export function usePurchases() {
       items: PurchaseItem[];
       additionalPayment?: { bank_account_id: string; amount: number } | null;
     }) => {
+      assertCanPost();
       if (!business) throw new Error("No business");
+
       // Snapshot prior state for audit-trail (status changes, restore previews)
       const { data: prior } = await supabase
         .from("purchases")

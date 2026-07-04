@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { toast } from "sonner";
+import { assertCanPost } from "@/lib/postingGuard";
+
 
 export interface ExpenseCategory {
   id: string;
@@ -93,7 +95,9 @@ export function useExpenses() {
       created_by: string;
       bank_account_id?: string | null;
     }) => {
+      assertCanPost();
       if (!business) throw new Error("No business");
+
       const { bank_account_id, ...expenseData } = e;
       const { data: expense, error } = await supabase.from("expenses").insert({ ...expenseData, business_id: business.id }).select("id").single();
       if (error) throw error;
