@@ -181,6 +181,8 @@ export function usePOS() {
   // Complete sale
   const completeSale = async (payments: PaymentEntry[], bankAccountId?: string | null) => {
     if (!business || !currentLocation || !user || cart.length === 0) return null;
+    if (!ensureCanPost()) return null;
+
 
     if (preventOverselling) {
       const productIds = cart.map((i) => i.product.id);
