@@ -149,6 +149,8 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         // Determine subscription expiry from the business owner's subscription.
         // Users can still log in when expired, but transaction posting is blocked.
+        // Override: if the business itself is marked active, treat as not expired
+        // (business-level activation reactivates all features regardless of sub).
         const ownerId = (biz as { owner_id?: string | null }).owner_id;
         let endsAt: Date | null = null;
         let expired = false;
@@ -165,9 +167,13 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const statusOk = ["active", "trialing"].includes(subRow.status);
             expired = !statusOk || (endsAt !== null && endsAt.getTime() <= Date.now());
           } else {
-            // No subscription record → treat as expired (must subscribe to post).
+            // No subscription record → treat as expired unless business is active.
             expired = true;
           }
+        }
+        // Business-level active status reactivates all features.
+        if (biz.is_active === true) {
+          expired = false;
         }
         setSubscriptionEndsAt(endsAt);
         setSubscriptionExpired(expired);
