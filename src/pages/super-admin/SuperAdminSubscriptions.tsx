@@ -297,7 +297,64 @@ export default function SuperAdminSubscriptions() {
         ))}
       </div>
 
+      {/* Pending offline payments */}
+      {offlineReqs.length > 0 && (
+        <div className="bg-white border border-amber-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Banknote className="h-4 w-4 text-amber-600" />
+            <h2 className="text-sm font-semibold">Pending offline payments ({offlineReqs.length})</h2>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow className="border-border hover:bg-transparent">
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider">Tenant</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider">Plan</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider">Method</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider">Amount</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider">Reference</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider">Submitted</TableHead>
+                <TableHead className="text-right" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {offlineReqs.map((r) => (
+                <TableRow key={r.id} className="border-border">
+                  <TableCell className="text-sm font-medium">{r.tenantName}</TableCell>
+                  <TableCell className="text-sm">{r.planName} · {r.billing_interval}</TableCell>
+                  <TableCell className="text-sm">{r.method === "mpesa" ? "M-Pesa" : "Cash"}</TableCell>
+                  <TableCell className="text-sm">KES {Number(r.amount_kes).toLocaleString()}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{r.reference || "—"}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{format(new Date(r.created_at), "MMM d, HH:mm")}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1.5">
+                      <Button
+                        size="sm"
+                        className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700"
+                        onClick={() => handleApproveOffline(r.id)}
+                        disabled={reviewingId === r.id}
+                      >
+                        {reviewingId === r.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Check className="h-3 w-3 mr-1" /> Approve</>}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                        onClick={() => handleRejectOffline(r.id)}
+                        disabled={reviewingId === r.id}
+                      >
+                        <X className="h-3 w-3 mr-1" /> Reject
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
       {/* Filters */}
+
       <div className="bg-white border border-border rounded-xl p-4">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-3 flex-1 min-w-0">
