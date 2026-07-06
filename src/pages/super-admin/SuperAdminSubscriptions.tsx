@@ -144,7 +144,32 @@ export default function SuperAdminSubscriptions() {
     setRefreshing(false);
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  const fetchOffline = async () => {
+    const { data } = await supabase
+      .from("offline_payment_requests")
+      .select("id, business_id, package_id, billing_interval, amount_kes, method, reference, notes, status, created_at")
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+    const reqs = (data || []) as any[];
+    if (reqs.length) {
+      const bizIds = Array.from(new Set(reqs.map((r) => r.business_id)));
+      const pkgIds = Array.from(new Set(reqs.map((r) => r.package_id)));
+      const [{ data: bizs }, { data: pkgs }] = await Promise.all([
+        supabase.from("businesses").select("id, name").in("id", bizIds),
+        supabase.from("subscription_packages").select("id, name").in("id", pkgIds),
+      ]);
+      const bMap = new Map((bizs || []).map((b: any) => [b.id, b.name]));
+      const pMap = new Map((pkgs || []).map((p: any) => [p.id, p.name]));
+      reqs.forEach((r) => {
+        r.tenantName = bMap.get(r.business_id) || "—";
+        r.planName = pMap.get(r.package_id) || "—";
+      });
+    }
+    setOfflineReqs(reqs);
+  };
+
+  useEffect(() => { fetchAll(); fetchOffline(); }, []);
+
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { active: 0, trialing: 0, pending: 0, suspended: 0, canceled: 0 };
