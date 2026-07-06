@@ -9,7 +9,8 @@ import { usePaystackCheckout } from "@/hooks/usePaystackCheckout";
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Check, Crown, Loader2, ExternalLink, XCircle } from "lucide-react";
+import { Check, Crown, Loader2, ExternalLink, XCircle, Banknote, Clock } from "lucide-react";
+import { OfflinePaymentDialog } from "./OfflinePaymentDialog";
 
 interface PkgDisplay {
   id: string;
