@@ -1016,6 +1016,82 @@ export type Database = {
           },
         ]
       }
+      offline_payment_requests: {
+        Row: {
+          amount_kes: number
+          billing_interval: string
+          business_id: string
+          created_at: string
+          id: string
+          method: string
+          notes: string | null
+          package_id: string
+          reference: string | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          submitted_by: string
+          updated_at: string
+        }
+        Insert: {
+          amount_kes: number
+          billing_interval: string
+          business_id: string
+          created_at?: string
+          id?: string
+          method: string
+          notes?: string | null
+          package_id: string
+          reference?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_by: string
+          updated_at?: string
+        }
+        Update: {
+          amount_kes?: number
+          billing_interval?: string
+          business_id?: string
+          created_at?: string
+          id?: string
+          method?: string
+          notes?: string | null
+          package_id?: string
+          reference?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_by?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offline_payment_requests_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offline_payment_requests_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offline_payment_requests_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_packages_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       package_features: {
         Row: {
           created_at: string
@@ -2335,6 +2411,10 @@ export type Database = {
       }
     }
     Functions: {
+      approve_offline_payment_request: {
+        Args: { _id: string; _review_notes?: string }
+        Returns: undefined
+      }
       decrement_batch_quantity: {
         Args: { _batch_id: string; _qty: number }
         Returns: undefined
@@ -2438,6 +2518,10 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      reject_offline_payment_request: {
+        Args: { _id: string; _review_notes?: string }
+        Returns: undefined
       }
     }
     Enums: {

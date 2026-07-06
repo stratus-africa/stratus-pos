@@ -9,7 +9,8 @@ import { usePaystackCheckout } from "@/hooks/usePaystackCheckout";
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Check, Crown, Loader2, ExternalLink, XCircle } from "lucide-react";
+import { Check, Crown, Loader2, ExternalLink, XCircle, Banknote, Clock } from "lucide-react";
+import { OfflinePaymentDialog } from "./OfflinePaymentDialog";
 
 interface PkgDisplay {
   id: string;
@@ -39,6 +40,23 @@ export function SubscriptionTab() {
   const [packages, setPackages] = useState<PkgDisplay[]>([]);
   const [loadingPkgs, setLoadingPkgs] = useState(true);
   const [usage, setUsage] = useState({ products: 0, customers: 0, suppliers: 0, users: 0 });
+  const [offlineTarget, setOfflineTarget] = useState<PkgDisplay | null>(null);
+  const [pendingOffline, setPendingOffline] = useState<{ id: string; method: string; amount_kes: number; billing_interval: string; created_at: string } | null>(null);
+
+  const fetchPending = async () => {
+    if (!business?.id) return;
+    const { data } = await supabase
+      .from("offline_payment_requests")
+      .select("id, method, amount_kes, billing_interval, created_at")
+      .eq("business_id", business.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setPendingOffline(data ?? null);
+  };
+  useEffect(() => { fetchPending(); }, [business?.id]);
+
   
 
   useEffect(() => {
@@ -198,6 +216,21 @@ export function SubscriptionTab() {
         )}
       </Card>
 
+      {pendingOffline && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="py-4 flex items-start gap-3 text-sm">
+            <Clock className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-semibold text-amber-900">Offline payment pending approval</p>
+              <p className="text-amber-800">
+                {pendingOffline.method === "mpesa" ? "M-Pesa" : "Cash"} · KES {Number(pendingOffline.amount_kes).toLocaleString()} · {pendingOffline.billing_interval} · submitted {new Date(pendingOffline.created_at).toLocaleString()}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+
       <div className="flex justify-center gap-2">
         <Button
           variant={billingInterval === "monthly" ? "default" : "outline"}
@@ -264,21 +297,47 @@ export function SubscriptionTab() {
                       </li>
                     ))}
                   </ul>
-                  <Button
-                    className="w-full"
-                    variant={isPopular ? "default" : "outline"}
-                    disabled={checkoutLoading || noPrice}
-                    onClick={() => handleSubscribe(pkg.id)}
-                    title={noPrice ? "Price not yet configured" : undefined}
-                  >
-                    {checkoutLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {noPrice ? "Coming soon" : "Pay with Paystack"}
-                  </Button>
+                  <div className="space-y-2">
+                    <Button
+                      className="w-full"
+                      variant={isPopular ? "default" : "outline"}
+                      disabled={checkoutLoading || noPrice}
+                      onClick={() => handleSubscribe(pkg.id)}
+                      title={noPrice ? "Price not yet configured" : undefined}
+                    >
+                      {checkoutLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {noPrice ? "Coming soon" : "Pay with Paystack"}
+                    </Button>
+                    {!noPrice && (
+                      <Button
+                        className="w-full"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setOfflineTarget(pkg)}
+                        disabled={!!pendingOffline}
+                      >
+                        <Banknote className="mr-2 h-4 w-4" />
+                        Pay offline (M-Pesa / Cash)
+                      </Button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             );
           })}
         </div>
+      )}
+
+      {offlineTarget && (
+        <OfflinePaymentDialog
+          open={!!offlineTarget}
+          onOpenChange={(o) => !o && setOfflineTarget(null)}
+          packageId={offlineTarget.id}
+          packageName={offlineTarget.name}
+          billingInterval={billingInterval}
+          amount={billingInterval === "yearly" ? offlineTarget.yearly_price_kes : offlineTarget.monthly_price_kes}
+          onSubmitted={fetchPending}
+        />
       )}
     </div>
   );

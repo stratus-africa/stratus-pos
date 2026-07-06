@@ -13,7 +13,7 @@ import {
 import { format } from "date-fns";
 import {
   RefreshCw, CheckCircle2, Hourglass, Clock, PauseCircle, XCircle, Search,
-  Eye, Ban, Loader2,
+  Eye, Ban, Loader2, Banknote, Check, X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -60,6 +60,8 @@ export default function SuperAdminSubscriptions() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [cancelTarget, setCancelTarget] = useState<SubRow | null>(null);
   const [canceling, setCanceling] = useState(false);
+  const [offlineReqs, setOfflineReqs] = useState<any[]>([]);
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
 
   const fetchAll = async () => {
     const [subsRes, plansRes] = await Promise.all([
@@ -142,7 +144,32 @@ export default function SuperAdminSubscriptions() {
     setRefreshing(false);
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  const fetchOffline = async () => {
+    const { data } = await supabase
+      .from("offline_payment_requests")
+      .select("id, business_id, package_id, billing_interval, amount_kes, method, reference, notes, status, created_at")
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+    const reqs = (data || []) as any[];
+    if (reqs.length) {
+      const bizIds = Array.from(new Set(reqs.map((r) => r.business_id)));
+      const pkgIds = Array.from(new Set(reqs.map((r) => r.package_id)));
+      const [{ data: bizs }, { data: pkgs }] = await Promise.all([
+        supabase.from("businesses").select("id, name").in("id", bizIds),
+        supabase.from("subscription_packages").select("id, name").in("id", pkgIds),
+      ]);
+      const bMap = new Map((bizs || []).map((b: any) => [b.id, b.name]));
+      const pMap = new Map((pkgs || []).map((p: any) => [p.id, p.name]));
+      reqs.forEach((r) => {
+        r.tenantName = bMap.get(r.business_id) || "—";
+        r.planName = pMap.get(r.package_id) || "—";
+      });
+    }
+    setOfflineReqs(reqs);
+  };
+
+  useEffect(() => { fetchAll(); fetchOffline(); }, []);
+
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { active: 0, trialing: 0, pending: 0, suspended: 0, canceled: 0 };
@@ -164,7 +191,38 @@ export default function SuperAdminSubscriptions() {
   const refresh = () => {
     setRefreshing(true);
     fetchAll();
+    fetchOffline();
   };
+
+  const handleApproveOffline = async (id: string) => {
+    setReviewingId(id);
+    try {
+      const { error } = await (supabase as any).rpc("approve_offline_payment_request", { _id: id });
+      if (error) throw error;
+      toast.success("Payment approved and subscription activated");
+      await Promise.all([fetchAll(), fetchOffline()]);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to approve");
+    } finally {
+      setReviewingId(null);
+    }
+  };
+
+  const handleRejectOffline = async (id: string) => {
+    if (!confirm("Reject this offline payment?")) return;
+    setReviewingId(id);
+    try {
+      const { error } = await (supabase as any).rpc("reject_offline_payment_request", { _id: id });
+      if (error) throw error;
+      toast.success("Payment rejected");
+      await fetchOffline();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to reject");
+    } finally {
+      setReviewingId(null);
+    }
+  };
+
 
   const canCancel = (r: SubRow) =>
     r.status !== "canceled" && r.status !== "cancelled";
@@ -239,7 +297,64 @@ export default function SuperAdminSubscriptions() {
         ))}
       </div>
 
+      {/* Pending offline payments */}
+      {offlineReqs.length > 0 && (
+        <div className="bg-white border border-amber-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Banknote className="h-4 w-4 text-amber-600" />
+            <h2 className="text-sm font-semibold">Pending offline payments ({offlineReqs.length})</h2>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow className="border-border hover:bg-transparent">
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider">Tenant</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider">Plan</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider">Method</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider">Amount</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider">Reference</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider">Submitted</TableHead>
+                <TableHead className="text-right" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {offlineReqs.map((r) => (
+                <TableRow key={r.id} className="border-border">
+                  <TableCell className="text-sm font-medium">{r.tenantName}</TableCell>
+                  <TableCell className="text-sm">{r.planName} · {r.billing_interval}</TableCell>
+                  <TableCell className="text-sm">{r.method === "mpesa" ? "M-Pesa" : "Cash"}</TableCell>
+                  <TableCell className="text-sm">KES {Number(r.amount_kes).toLocaleString()}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{r.reference || "—"}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{format(new Date(r.created_at), "MMM d, HH:mm")}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1.5">
+                      <Button
+                        size="sm"
+                        className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700"
+                        onClick={() => handleApproveOffline(r.id)}
+                        disabled={reviewingId === r.id}
+                      >
+                        {reviewingId === r.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Check className="h-3 w-3 mr-1" /> Approve</>}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                        onClick={() => handleRejectOffline(r.id)}
+                        disabled={reviewingId === r.id}
+                      >
+                        <X className="h-3 w-3 mr-1" /> Reject
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
       {/* Filters */}
+
       <div className="bg-white border border-border rounded-xl p-4">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-3 flex-1 min-w-0">
