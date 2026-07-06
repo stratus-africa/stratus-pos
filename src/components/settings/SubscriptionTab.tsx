@@ -216,6 +216,21 @@ export function SubscriptionTab() {
         )}
       </Card>
 
+      {pendingOffline && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="py-4 flex items-start gap-3 text-sm">
+            <Clock className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-semibold text-amber-900">Offline payment pending approval</p>
+              <p className="text-amber-800">
+                {pendingOffline.method === "mpesa" ? "M-Pesa" : "Cash"} · KES {Number(pendingOffline.amount_kes).toLocaleString()} · {pendingOffline.billing_interval} · submitted {new Date(pendingOffline.created_at).toLocaleString()}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+
       <div className="flex justify-center gap-2">
         <Button
           variant={billingInterval === "monthly" ? "default" : "outline"}
