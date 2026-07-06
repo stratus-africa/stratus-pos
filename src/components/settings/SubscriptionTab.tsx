@@ -282,21 +282,47 @@ export function SubscriptionTab() {
                       </li>
                     ))}
                   </ul>
-                  <Button
-                    className="w-full"
-                    variant={isPopular ? "default" : "outline"}
-                    disabled={checkoutLoading || noPrice}
-                    onClick={() => handleSubscribe(pkg.id)}
-                    title={noPrice ? "Price not yet configured" : undefined}
-                  >
-                    {checkoutLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {noPrice ? "Coming soon" : "Pay with Paystack"}
-                  </Button>
+                  <div className="space-y-2">
+                    <Button
+                      className="w-full"
+                      variant={isPopular ? "default" : "outline"}
+                      disabled={checkoutLoading || noPrice}
+                      onClick={() => handleSubscribe(pkg.id)}
+                      title={noPrice ? "Price not yet configured" : undefined}
+                    >
+                      {checkoutLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {noPrice ? "Coming soon" : "Pay with Paystack"}
+                    </Button>
+                    {!noPrice && (
+                      <Button
+                        className="w-full"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setOfflineTarget(pkg)}
+                        disabled={!!pendingOffline}
+                      >
+                        <Banknote className="mr-2 h-4 w-4" />
+                        Pay offline (M-Pesa / Cash)
+                      </Button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             );
           })}
         </div>
+      )}
+
+      {offlineTarget && (
+        <OfflinePaymentDialog
+          open={!!offlineTarget}
+          onOpenChange={(o) => !o && setOfflineTarget(null)}
+          packageId={offlineTarget.id}
+          packageName={offlineTarget.name}
+          billingInterval={billingInterval}
+          amount={billingInterval === "yearly" ? offlineTarget.yearly_price_kes : offlineTarget.monthly_price_kes}
+          onSubmitted={fetchPending}
+        />
       )}
     </div>
   );
