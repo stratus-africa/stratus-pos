@@ -40,6 +40,23 @@ export function SubscriptionTab() {
   const [packages, setPackages] = useState<PkgDisplay[]>([]);
   const [loadingPkgs, setLoadingPkgs] = useState(true);
   const [usage, setUsage] = useState({ products: 0, customers: 0, suppliers: 0, users: 0 });
+  const [offlineTarget, setOfflineTarget] = useState<PkgDisplay | null>(null);
+  const [pendingOffline, setPendingOffline] = useState<{ id: string; method: string; amount_kes: number; billing_interval: string; created_at: string } | null>(null);
+
+  const fetchPending = async () => {
+    if (!business?.id) return;
+    const { data } = await supabase
+      .from("offline_payment_requests")
+      .select("id, method, amount_kes, billing_interval, created_at")
+      .eq("business_id", business.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setPendingOffline(data ?? null);
+  };
+  useEffect(() => { fetchPending(); }, [business?.id]);
+
   
 
   useEffect(() => {
