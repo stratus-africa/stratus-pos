@@ -191,7 +191,38 @@ export default function SuperAdminSubscriptions() {
   const refresh = () => {
     setRefreshing(true);
     fetchAll();
+    fetchOffline();
   };
+
+  const handleApproveOffline = async (id: string) => {
+    setReviewingId(id);
+    try {
+      const { error } = await (supabase as any).rpc("approve_offline_payment_request", { _id: id });
+      if (error) throw error;
+      toast.success("Payment approved and subscription activated");
+      await Promise.all([fetchAll(), fetchOffline()]);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to approve");
+    } finally {
+      setReviewingId(null);
+    }
+  };
+
+  const handleRejectOffline = async (id: string) => {
+    if (!confirm("Reject this offline payment?")) return;
+    setReviewingId(id);
+    try {
+      const { error } = await (supabase as any).rpc("reject_offline_payment_request", { _id: id });
+      if (error) throw error;
+      toast.success("Payment rejected");
+      await fetchOffline();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to reject");
+    } finally {
+      setReviewingId(null);
+    }
+  };
+
 
   const canCancel = (r: SubRow) =>
     r.status !== "canceled" && r.status !== "cancelled";
