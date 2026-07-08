@@ -265,5 +265,42 @@ export function useInventory(
     enabled: !!business,
   });
 
-  return { inventoryQuery, adjustStock, editAdjustment, adjustmentsQuery, movementsQuery };
+  const deleteAdjustment = useMutation({
+    mutationFn: async (id: string) => {
+      assertCanPost();
+      const { data: existing, error: loadErr } = await supabase
+        .from("stock_adjustments")
+        .select("id, product_id, location_id, quantity_change")
+        .eq("id", id)
+        .maybeSingle();
+      if (loadErr) throw loadErr;
+      if (!existing) throw new Error("Adjustment not found");
+
+      // Reverse the effect on inventory
+      const { data: inv } = await supabase
+        .from("inventory")
+        .select("id, quantity")
+        .eq("product_id", existing.product_id)
+        .eq("location_id", existing.location_id)
+        .maybeSingle();
+      if (inv) {
+        const { error } = await supabase
+          .from("inventory")
+          .update({ quantity: Number(inv.quantity) - Number(existing.quantity_change) })
+          .eq("id", inv.id);
+        if (error) throw error;
+      }
+
+      const { error: delErr } = await supabase.from("stock_adjustments").delete().eq("id", id);
+      if (delErr) throw delErr;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["stock_adjustments"] });
+      toast.success("Adjustment deleted and inventory reversed");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  return { inventoryQuery, adjustStock, editAdjustment, deleteAdjustment, adjustmentsQuery, movementsQuery };
 }

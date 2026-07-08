@@ -2432,6 +2432,7 @@ export type Database = {
         Args: { _business_id: string }
         Returns: number
       }
+      get_offline_payment_settings: { Args: never; Returns: Json }
       get_public_package_features: {
         Args: never
         Returns: {

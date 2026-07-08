@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ArrowLeftRight, Download, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
+import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ArrowLeftRight, Download, ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import { useInventory, classifyMovement, type MovementSource, type SortKey, type StockAdjustment } from "@/hooks/useInventory";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -127,7 +127,7 @@ const Inventory = () => {
   const updateMvSize = (n: number) => { setMvPageSize(n); writeStoredSize(LS_KEYS.mv, n); setMvPage(1); };
 
   const effectiveLocationId = locationFilter === "all" ? undefined : locationFilter;
-  const { inventoryQuery, adjustStock, editAdjustment, adjustmentsQuery, movementsQuery } = useInventory(effectiveLocationId, {
+  const { inventoryQuery, adjustStock, editAdjustment, deleteAdjustment, adjustmentsQuery, movementsQuery } = useInventory(effectiveLocationId, {
     adjustmentsPage: { page: adjPage, pageSize: adjPageSize, sort: adjSort },
     movements: { page: mvPage, pageSize: mvPageSize, from: mvFrom || undefined, to: mvTo || undefined, source: mvSource, sort: mvSort },
   });
@@ -395,7 +395,7 @@ const Inventory = () => {
                     <TableHead>Location</TableHead>
                     <TableHead className="text-right">Change</TableHead>
                     <TableHead>Reason</TableHead>
-                    {canEditAdjustments && <TableHead className="w-16 text-right">Edit</TableHead>}
+                    {canEditAdjustments && <TableHead className="w-24 text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -417,9 +417,24 @@ const Inventory = () => {
                         <TableCell>{a.reason}</TableCell>
                         {canEditAdjustments && (
                           <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingAdj(a)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
+                            <div className="flex items-center justify-end gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingAdj(a)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                disabled={deleteAdjustment.isPending}
+                                onClick={() => {
+                                  if (confirm(`Delete this adjustment? Inventory will be reversed by ${a.quantity_change > 0 ? "-" : "+"}${Math.abs(a.quantity_change)}.`)) {
+                                    deleteAdjustment.mutate(a.id);
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
                           </TableCell>
                         )}
                       </TableRow>

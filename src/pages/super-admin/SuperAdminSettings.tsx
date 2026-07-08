@@ -8,12 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
-  Settings2, Palette, Brush, Building2, CreditCard, Loader2, Check, ChevronRight,
+  Settings2, Palette, Brush, Building2, CreditCard, Loader2, Check, ChevronRight, Banknote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type TabKey = "general" | "branding" | "appearance" | "company" | "payments";
+type TabKey = "general" | "branding" | "appearance" | "company" | "payments" | "offline";
 
 interface AppSettings {
   app_name?: string;
@@ -40,6 +41,7 @@ const TABS: { key: TabKey; label: string; icon: any }[] = [
   { key: "appearance", label: "Appearance", icon: Brush },
   { key: "company",    label: "Company",    icon: Building2 },
   { key: "payments",   label: "Payments",   icon: CreditCard },
+  { key: "offline",    label: "Offline Payments", icon: Banknote },
 ];
 
 const PROVIDERS = [
@@ -55,28 +57,56 @@ const DEFAULTS: AppSettings = {
   default_language: "en",
 };
 
+type OfflineSettings = {
+  enabled: boolean;
+  mpesa_enabled: boolean;
+  cash_enabled: boolean;
+  instructions: string;
+};
+
+const OFFLINE_DEFAULTS: OfflineSettings = {
+  enabled: true,
+  mpesa_enabled: true,
+  cash_enabled: true,
+  instructions: "Send Money to Mpesa: 0700 196 729 or Airtel Money to 0750 290 707\nRecipient Name: Andrew Oloo",
+};
+
 export default function SuperAdminSettings() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<TabKey>("general");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [s, setS] = useState<AppSettings>(DEFAULTS);
+  const [offline, setOffline] = useState<OfflineSettings>(OFFLINE_DEFAULTS);
 
   useEffect(() => {
     (async () => {
-      const { data } = await (supabase as any)
-        .from("app_settings").select("value").eq("key", "global").maybeSingle();
-      setS({ ...DEFAULTS, ...((data?.value as AppSettings) || {}) });
+      const [{ data: g }, { data: o }] = await Promise.all([
+        (supabase as any).from("app_settings").select("value").eq("key", "global").maybeSingle(),
+        (supabase as any).from("app_settings").select("value").eq("key", "offline_payments").maybeSingle(),
+      ]);
+      setS({ ...DEFAULTS, ...((g?.value as AppSettings) || {}) });
+      setOffline({ ...OFFLINE_DEFAULTS, ...((o?.value as OfflineSettings) || {}) });
       setLoading(false);
     })();
   }, []);
 
   const set = <K extends keyof AppSettings>(k: K, v: AppSettings[K]) =>
     setS((prev) => ({ ...prev, [k]: v }));
+  const setOff = <K extends keyof OfflineSettings>(k: K, v: OfflineSettings[K]) =>
+    setOffline((prev) => ({ ...prev, [k]: v }));
 
   const save = async () => {
     setSaving(true);
     try {
+      if (tab === "offline") {
+        const { error } = await (supabase as any)
+          .from("app_settings")
+          .upsert({ key: "offline_payments", value: offline, updated_at: new Date().toISOString() }, { onConflict: "key" });
+        if (error) throw error;
+        toast.success("Offline payment settings saved");
+        return;
+      }
       // Preserve any keys we don't manage on this screen (e.g. payments.*)
       const { data: cur } = await (supabase as any)
         .from("app_settings").select("value").eq("key", "global").maybeSingle();
@@ -237,6 +267,34 @@ export default function SuperAdminSettings() {
                 </div>
               </div>
             )}
+
+            {tab === "offline" && (
+              <div className="space-y-5">
+                <Field label="Enable offline payments" help="Master switch. Turn off to hide the offline payment option from all tenants.">
+                  <div className="flex items-center gap-3">
+                    <Switch checked={offline.enabled} onCheckedChange={(v) => setOff("enabled", v)} />
+                    <span className="text-sm text-muted-foreground">{offline.enabled ? "Enabled" : "Disabled"}</span>
+                  </div>
+                </Field>
+                <div className="grid gap-5 md:grid-cols-2">
+                  <Field label="M-Pesa / Airtel Money" help="Allow tenants to submit mobile money payments.">
+                    <div className="flex items-center gap-3">
+                      <Switch checked={offline.mpesa_enabled} onCheckedChange={(v) => setOff("mpesa_enabled", v)} disabled={!offline.enabled} />
+                      <span className="text-sm text-muted-foreground">{offline.mpesa_enabled ? "Enabled" : "Disabled"}</span>
+                    </div>
+                  </Field>
+                  <Field label="Cash" help="Allow tenants to submit cash payments.">
+                    <div className="flex items-center gap-3">
+                      <Switch checked={offline.cash_enabled} onCheckedChange={(v) => setOff("cash_enabled", v)} disabled={!offline.enabled} />
+                      <span className="text-sm text-muted-foreground">{offline.cash_enabled ? "Enabled" : "Disabled"}</span>
+                    </div>
+                  </Field>
+                </div>
+                <Field label="Payment instructions" help="Shown to tenants inside the offline payment dialog.">
+                  <Textarea rows={4} value={offline.instructions} onChange={(e) => setOff("instructions", e.target.value)} />
+                </Field>
+              </div>
+            )}
           </div>
         </Card>
       </div>
@@ -251,6 +309,7 @@ function describe(tab: TabKey) {
     case "appearance": return "Customize the look and feel.";
     case "company":    return "Your company contact information for invoices and emails.";
     case "payments":   return "Choose and configure your payment providers.";
+    case "offline":    return "Configure offline payment methods and instructions shown to tenants.";
   }
 }
 
