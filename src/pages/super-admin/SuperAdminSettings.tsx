@@ -309,6 +309,7 @@ function describe(tab: TabKey) {
     case "appearance": return "Customize the look and feel.";
     case "company":    return "Your company contact information for invoices and emails.";
     case "payments":   return "Choose and configure your payment providers.";
+    case "offline":    return "Configure offline payment methods and instructions shown to tenants.";
   }
 }
 
