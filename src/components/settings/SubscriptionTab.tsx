@@ -42,6 +42,8 @@ export function SubscriptionTab() {
   const [usage, setUsage] = useState({ products: 0, customers: 0, suppliers: 0, users: 0 });
   const [offlineTarget, setOfflineTarget] = useState<PkgDisplay | null>(null);
   const [pendingOffline, setPendingOffline] = useState<{ id: string; method: string; amount_kes: number; billing_interval: string; created_at: string } | null>(null);
+  const [paystackEnabled, setPaystackEnabled] = useState<boolean>(false);
+  const [offlineEnabled, setOfflineEnabled] = useState<boolean>(false);
 
   const fetchPending = async () => {
     if (!business?.id) return;
@@ -56,6 +58,18 @@ export function SubscriptionTab() {
     setPendingOffline(data ?? null);
   };
   useEffect(() => { fetchPending(); }, [business?.id]);
+
+  useEffect(() => {
+    (async () => {
+      const [{ data: ps }, { data: off }] = await Promise.all([
+        (supabase as any).rpc("is_payment_provider_enabled", { _provider: "paystack" }),
+        (supabase as any).rpc("get_offline_payment_settings"),
+      ]);
+      setPaystackEnabled(!!ps);
+      const o = off as { enabled?: boolean; mpesa_enabled?: boolean; cash_enabled?: boolean } | null;
+      setOfflineEnabled(!!o?.enabled && (!!o?.mpesa_enabled || !!o?.cash_enabled));
+    })();
+  }, []);
 
   
 
