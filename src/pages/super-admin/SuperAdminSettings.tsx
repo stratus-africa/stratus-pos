@@ -41,6 +41,7 @@ const TABS: { key: TabKey; label: string; icon: any }[] = [
   { key: "appearance", label: "Appearance", icon: Brush },
   { key: "company",    label: "Company",    icon: Building2 },
   { key: "payments",   label: "Payments",   icon: CreditCard },
+  { key: "offline",    label: "Offline Payments", icon: Banknote },
 ];
 
 const PROVIDERS = [
