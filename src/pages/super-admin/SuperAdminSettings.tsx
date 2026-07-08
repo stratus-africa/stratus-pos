@@ -8,12 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
-  Settings2, Palette, Brush, Building2, CreditCard, Loader2, Check, ChevronRight,
+  Settings2, Palette, Brush, Building2, CreditCard, Loader2, Check, ChevronRight, Banknote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type TabKey = "general" | "branding" | "appearance" | "company" | "payments";
+type TabKey = "general" | "branding" | "appearance" | "company" | "payments" | "offline";
 
 interface AppSettings {
   app_name?: string;
