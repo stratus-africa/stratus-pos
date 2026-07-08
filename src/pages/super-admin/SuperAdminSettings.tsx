@@ -57,28 +57,56 @@ const DEFAULTS: AppSettings = {
   default_language: "en",
 };
 
+type OfflineSettings = {
+  enabled: boolean;
+  mpesa_enabled: boolean;
+  cash_enabled: boolean;
+  instructions: string;
+};
+
+const OFFLINE_DEFAULTS: OfflineSettings = {
+  enabled: true,
+  mpesa_enabled: true,
+  cash_enabled: true,
+  instructions: "Send Money to Mpesa: 0700 196 729 or Airtel Money to 0750 290 707\nRecipient Name: Andrew Oloo",
+};
+
 export default function SuperAdminSettings() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<TabKey>("general");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [s, setS] = useState<AppSettings>(DEFAULTS);
+  const [offline, setOffline] = useState<OfflineSettings>(OFFLINE_DEFAULTS);
 
   useEffect(() => {
     (async () => {
-      const { data } = await (supabase as any)
-        .from("app_settings").select("value").eq("key", "global").maybeSingle();
-      setS({ ...DEFAULTS, ...((data?.value as AppSettings) || {}) });
+      const [{ data: g }, { data: o }] = await Promise.all([
+        (supabase as any).from("app_settings").select("value").eq("key", "global").maybeSingle(),
+        (supabase as any).from("app_settings").select("value").eq("key", "offline_payments").maybeSingle(),
+      ]);
+      setS({ ...DEFAULTS, ...((g?.value as AppSettings) || {}) });
+      setOffline({ ...OFFLINE_DEFAULTS, ...((o?.value as OfflineSettings) || {}) });
       setLoading(false);
     })();
   }, []);
 
   const set = <K extends keyof AppSettings>(k: K, v: AppSettings[K]) =>
     setS((prev) => ({ ...prev, [k]: v }));
+  const setOff = <K extends keyof OfflineSettings>(k: K, v: OfflineSettings[K]) =>
+    setOffline((prev) => ({ ...prev, [k]: v }));
 
   const save = async () => {
     setSaving(true);
     try {
+      if (tab === "offline") {
+        const { error } = await (supabase as any)
+          .from("app_settings")
+          .upsert({ key: "offline_payments", value: offline, updated_at: new Date().toISOString() }, { onConflict: "key" });
+        if (error) throw error;
+        toast.success("Offline payment settings saved");
+        return;
+      }
       // Preserve any keys we don't manage on this screen (e.g. payments.*)
       const { data: cur } = await (supabase as any)
         .from("app_settings").select("value").eq("key", "global").maybeSingle();
