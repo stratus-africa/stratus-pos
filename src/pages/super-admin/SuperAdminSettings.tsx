@@ -267,6 +267,34 @@ export default function SuperAdminSettings() {
                 </div>
               </div>
             )}
+
+            {tab === "offline" && (
+              <div className="space-y-5">
+                <Field label="Enable offline payments" help="Master switch. Turn off to hide the offline payment option from all tenants.">
+                  <div className="flex items-center gap-3">
+                    <Switch checked={offline.enabled} onCheckedChange={(v) => setOff("enabled", v)} />
+                    <span className="text-sm text-muted-foreground">{offline.enabled ? "Enabled" : "Disabled"}</span>
+                  </div>
+                </Field>
+                <div className="grid gap-5 md:grid-cols-2">
+                  <Field label="M-Pesa / Airtel Money" help="Allow tenants to submit mobile money payments.">
+                    <div className="flex items-center gap-3">
+                      <Switch checked={offline.mpesa_enabled} onCheckedChange={(v) => setOff("mpesa_enabled", v)} disabled={!offline.enabled} />
+                      <span className="text-sm text-muted-foreground">{offline.mpesa_enabled ? "Enabled" : "Disabled"}</span>
+                    </div>
+                  </Field>
+                  <Field label="Cash" help="Allow tenants to submit cash payments.">
+                    <div className="flex items-center gap-3">
+                      <Switch checked={offline.cash_enabled} onCheckedChange={(v) => setOff("cash_enabled", v)} disabled={!offline.enabled} />
+                      <span className="text-sm text-muted-foreground">{offline.cash_enabled ? "Enabled" : "Disabled"}</span>
+                    </div>
+                  </Field>
+                </div>
+                <Field label="Payment instructions" help="Shown to tenants inside the offline payment dialog.">
+                  <Textarea rows={4} value={offline.instructions} onChange={(e) => setOff("instructions", e.target.value)} />
+                </Field>
+              </div>
+            )}
           </div>
         </Card>
       </div>
