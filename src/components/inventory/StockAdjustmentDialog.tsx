@@ -280,8 +280,12 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
                     <TableHead>Product</TableHead>
                     <TableHead>SKU</TableHead>
                     <TableHead className="text-right">Current Stock</TableHead>
-                    <TableHead className="w-32">Qty Change</TableHead>
-                    <TableHead className="text-right">New Stock</TableHead>
+                    {isPurchase ? (
+                      <TableHead className="w-32">Qty Received</TableHead>
+                    ) : (
+                      <TableHead className="w-36">New Stock on Hand</TableHead>
+                    )}
+                    <TableHead className="text-right">{isPurchase ? "New Stock" : "Adjustment"}</TableHead>
                     {isPurchase && <TableHead className="w-32">Unit Cost</TableHead>}
                     <TableHead className="w-12"></TableHead>
                   </TableRow>
@@ -291,7 +295,11 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
                     const product = products.find(p => p.id === l.product_id);
                     const allowDecimal = product?.allow_decimal_quantity ?? false;
                     const current = inventoryByProduct.get(l.product_id) ?? 0;
+                    const inputValue = isPurchase
+                      ? l.quantity_change
+                      : current + (Number(l.quantity_change) || 0); // new stock on hand
                     const next = current + (Number(l.quantity_change) || 0);
+                    const delta = Number(l.quantity_change) || 0;
                     const isZero = !Number(l.quantity_change);
                     return (
                       <TableRow key={l.product_id}>
@@ -302,12 +310,19 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
                           <Input
                             type="number"
                             step={allowDecimal ? 0.01 : 1}
-                            value={l.quantity_change}
-                            onChange={e => handleQuantityChange(l.product_id, parseFloat(e.target.value) || 0)}
+                            value={inputValue}
+                            onChange={e => {
+                              const v = parseFloat(e.target.value);
+                              const num = Number.isFinite(v) ? v : 0;
+                              const change = isPurchase ? num : num - current;
+                              handleQuantityChange(l.product_id, change);
+                            }}
                             className={`h-8 ${isZero ? "border-destructive" : ""}`}
                           />
                         </TableCell>
-                        <TableCell className={`text-right font-medium ${next < 0 ? "text-destructive" : ""}`}>{next}</TableCell>
+                        <TableCell className={`text-right font-medium ${next < 0 ? "text-destructive" : ""}`}>
+                          {isPurchase ? next : (delta > 0 ? `+${delta}` : delta)}
+                        </TableCell>
                         {isPurchase && (
                           <TableCell>
                             <Input
