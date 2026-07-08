@@ -258,7 +258,7 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
                     key={p.id}
                     type="button"
                     className="w-full text-left px-3 py-2 rounded hover:bg-accent text-sm flex justify-between items-center gap-3"
-                    onClick={() => addProduct(p)}
+                    onClick={() => addProduct(p, isPurchase ? 1 : 0)}
                   >
                     <span className="font-medium truncate">{p.name}</span>
                     <span className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
