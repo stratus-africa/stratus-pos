@@ -312,27 +312,32 @@ export function SubscriptionTab() {
                     ))}
                   </ul>
                   <div className="space-y-2">
-                    <Button
-                      className="w-full"
-                      variant={isPopular ? "default" : "outline"}
-                      disabled={checkoutLoading || noPrice}
-                      onClick={() => handleSubscribe(pkg.id)}
-                      title={noPrice ? "Price not yet configured" : undefined}
-                    >
-                      {checkoutLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      {noPrice ? "Coming soon" : "Pay with Paystack"}
-                    </Button>
-                    {!noPrice && (
+                    {paystackEnabled && (
                       <Button
                         className="w-full"
-                        variant="ghost"
-                        size="sm"
+                        variant={isPopular ? "default" : "outline"}
+                        disabled={checkoutLoading || noPrice}
+                        onClick={() => handleSubscribe(pkg.id)}
+                        title={noPrice ? "Price not yet configured" : undefined}
+                      >
+                        {checkoutLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {noPrice ? "Coming soon" : "Pay with Paystack"}
+                      </Button>
+                    )}
+                    {!noPrice && offlineEnabled && (
+                      <Button
+                        className="w-full"
+                        variant={paystackEnabled ? "ghost" : (isPopular ? "default" : "outline")}
+                        size={paystackEnabled ? "sm" : "default"}
                         onClick={() => setOfflineTarget(pkg)}
                         disabled={!!pendingOffline}
                       >
                         <Banknote className="mr-2 h-4 w-4" />
                         Pay offline (M-Pesa / Cash)
                       </Button>
+                    )}
+                    {!paystackEnabled && !offlineEnabled && (
+                      <p className="text-xs text-muted-foreground text-center">No payment methods available. Contact support.</p>
                     )}
                   </div>
                 </CardContent>
