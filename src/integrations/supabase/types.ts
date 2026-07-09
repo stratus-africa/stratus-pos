@@ -2432,6 +2432,10 @@ export type Database = {
         Args: { _business_id: string }
         Returns: number
       }
+      get_business_plan_limit: {
+        Args: { _business_id: string; _kind: string }
+        Returns: number
+      }
       get_offline_payment_settings: { Args: never; Returns: Json }
       get_package_features_safe: {
         Args: { _package_id: string }
