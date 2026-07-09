@@ -37,8 +37,8 @@ const StockReportTab = ({ from, to }: Props) => {
       if (error) throw error;
       const { data: inv } = await supabase
         .from("inventory")
-        .select("product_id, quantity, location_id, locations(name)")
-        .eq("business_id", business.id);
+        .select("product_id, quantity, location_id, locations!inner(name, business_id)")
+        .eq("locations.business_id", business.id);
       const map = new Map<string, { total: number; byLoc: { name: string; qty: number }[] }>();
       (inv || []).forEach((r: any) => {
         const cur = map.get(r.product_id) || { total: 0, byLoc: [] };
