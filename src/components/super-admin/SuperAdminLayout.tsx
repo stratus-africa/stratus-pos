@@ -1,5 +1,7 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Plus } from "lucide-react";
 import {
   LayoutDashboard,
   Building2,
@@ -86,6 +88,7 @@ const navGroups: NavGroup[] = [
 export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const { signOut, user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -185,9 +188,28 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-1.5">
-            <Button size="icon" variant="ghost" className="h-8 w-8 text-foreground/60">
-              <Zap className="h-4 w-4" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="icon" variant="ghost" className="h-8 w-8 text-foreground/60" title="Quick Actions">
+                  <Zap className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Quick Actions
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate("/super-admin/businesses")}>
+                  <Building2 className="h-4 w-4 mr-2 text-emerald-600" /> Tenants
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/super-admin/packages/new")}>
+                  <Plus className="h-4 w-4 mr-2 text-emerald-600" /> New plan
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/super-admin/subscriptions")}>
+                  <CreditCard className="h-4 w-4 mr-2 text-emerald-600" /> Subscriptions
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button size="icon" variant="ghost" className="h-8 w-8 text-foreground/60 border border-border">
               <Bell className="h-4 w-4" />
             </Button>
