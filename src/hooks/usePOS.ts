@@ -358,7 +358,9 @@ export function usePOS() {
         locationName: currentLocation.name,
         businessName: business.name,
         date: new Date(),
+        fiscal,
       };
+
 
       clearCart();
       toast.success("Sale completed!");
