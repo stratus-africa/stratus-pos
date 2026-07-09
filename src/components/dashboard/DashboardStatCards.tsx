@@ -2,13 +2,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   ShoppingCart,
   DollarSign,
-  FileText,
+  CreditCard,
   ArrowLeftRight,
   Download,
   AlertTriangle,
   RotateCcw,
   Receipt,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface StatCardProps {
   title: string;
