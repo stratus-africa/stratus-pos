@@ -373,6 +373,37 @@ export function SubscriptionTab() {
   );
 }
 
+function FeaturesList({ features }: { features: string[] }) {
+  const PAGE_SIZE = 5;
+  const [page, setPage] = useState(1);
+  if (features.length === 0) {
+    return <p className="text-sm text-muted-foreground">No features listed for this plan.</p>;
+  }
+  const totalPages = Math.max(1, Math.ceil(features.length / PAGE_SIZE));
+  const current = Math.min(page, totalPages);
+  const start = (current - 1) * PAGE_SIZE;
+  const pageItems = features.slice(start, start + PAGE_SIZE);
+  return (
+    <>
+      {pageItems.map(f => (
+        <div key={f} className="flex items-center gap-2 rounded-md border border-emerald-100 bg-emerald-50/50 px-3 py-2 text-sm">
+          <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+          <span className="text-foreground">{f}</span>
+        </div>
+      ))}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground">
+          <span>Page {current} of {totalPages} · {features.length} features</span>
+          <div className="flex gap-1">
+            <Button variant="outline" size="sm" className="h-7 px-2" disabled={current === 1} onClick={() => setPage(current - 1)}>Prev</Button>
+            <Button variant="outline" size="sm" className="h-7 px-2" disabled={current === totalPages} onClick={() => setPage(current + 1)}>Next</Button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function UsageRow({ label, current, max }: { label: string; current: number; max: number }) {
   const isUnlimited = max <= 0;
   const remaining = isUnlimited ? Infinity : Math.max(0, max - current);
