@@ -119,9 +119,49 @@ const Sales = () => {
     toast.info(`Resume "${s.label}" from the Held bar on POS`);
   };
 
+  // Live updates for sales + suspended sales so the list stays fresh without a manual refresh.
+  useEffect(() => {
+    if (!business) return;
+    const channel = supabase
+      .channel(`sales-live-${business.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "sales", filter: `business_id=eq.${business.id}` }, () => {
+        qc.invalidateQueries({ queryKey: ["sales"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "sale_items" }, () => {
+        qc.invalidateQueries({ queryKey: ["sales"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "suspended_sales", filter: `business_id=eq.${business.id}` }, () => {
+        qc.invalidateQueries({ queryKey: ["suspended_sales_all"] });
+        qc.invalidateQueries({ queryKey: ["suspended_sales"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "digitax_invoice_queue", filter: `business_id=eq.${business.id}` }, () => {
+        qc.invalidateQueries({ queryKey: ["sales"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [business, qc]);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["sales"] }),
+      qc.invalidateQueries({ queryKey: ["suspended_sales_all"] }),
+      qc.invalidateQueries({ queryKey: ["suspended_sales"] }),
+    ]);
+    setRefreshing(false);
+    toast.success("Refreshed");
+  };
+
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">{isCashier ? "My Transactions" : "Sales"}</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">{isCashier ? "My Transactions" : "Sales"}</h1>
+        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>
+          <RefreshCw className={`h-4 w-4 mr-1 ${refreshing ? "animate-spin" : ""}`} /> Refresh
+        </Button>
+      </div>
+
 
       <Tabs defaultValue="sales" className="space-y-4">
         <TabsList>
