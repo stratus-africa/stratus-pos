@@ -99,6 +99,7 @@ const Suppliers = lazy(() => import("./pages/Suppliers"));
 const Expenses = lazy(() => import("./pages/Expenses"));
 const Reports = lazy(() => import("./pages/Reports"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const NotificationsPage = lazy(() => import("./pages/Notifications"));
 const ChartOfAccounts = lazy(() => import("./pages/ChartOfAccounts"));
 const Profile = lazy(() => import("./pages/Profile"));
 const CashierDashboard = lazy(() => import("./pages/CashierDashboard"));
