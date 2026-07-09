@@ -103,7 +103,7 @@ export function NotificationBell() {
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-medium truncate">
                     Offline payment {it.status}
-                    {it.amount ? ` — ${it.currency || "KES"} ${Number(it.amount).toLocaleString()}` : ""}
+                    {it.amount_kes ? ` — KES ${Number(it.amount_kes).toLocaleString()}` : ""}
                   </div>
                   <div className="text-[11px] text-muted-foreground truncate">
                     {it.billing_interval} • Ref: {it.reference || "—"}
