@@ -166,6 +166,7 @@ const Sales = () => {
             <SelectItem value="paid">Paid</SelectItem>
             <SelectItem value="unpaid">Unpaid</SelectItem>
             <SelectItem value="partial">Partial</SelectItem>
+            <SelectItem value="credit">Credit (Outstanding)</SelectItem>
           </SelectContent>
         </Select>
       </div>
