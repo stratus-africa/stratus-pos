@@ -332,6 +332,17 @@ export function usePOS() {
       queryClient.invalidateQueries({ queryKey: ["bank_accounts"] });
       queryClient.invalidateQueries({ queryKey: ["bank_transactions"] });
 
+      // Fire-and-forget fiscal submission. The Receipt dialog refetches the
+      // sale once it opens to render the KRA reference if it arrives quickly.
+      let fiscal: Record<string, unknown> | null = null;
+      try {
+        const { submitSaleToDigitax } = await import("@/hooks/useDigitax");
+        const res = await submitSaleToDigitax(saleId, { wait: true });
+        fiscal = (res?.sale as Record<string, unknown>) ?? null;
+      } catch { /* ignore — queue processor will retry */ }
+
+
+
       const result = {
         saleId,
         invoiceNumber,
