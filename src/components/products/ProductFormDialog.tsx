@@ -37,6 +37,7 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
   const { query: digitaxQ } = useDigitaxSettings();
   const digitaxEnabled = !!digitaxQ.data?.enabled;
   const vatEnabled = business?.vat_enabled !== false;
+  const fiscalised = useIsProductFiscalised(product?.id);
 
   const businessType = (business as any)?.business_type;
   const isClothing = businessType === "clothing";
