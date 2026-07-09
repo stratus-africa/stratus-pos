@@ -24,6 +24,7 @@ export function DigitaxSettingsTab() {
   const { query, save, testConnection } = useDigitaxSettings();
   const fiscalisedQ = useDigitaxFiscalisedCount();
   const fiscalisedCount = fiscalisedQ.data ?? 0;
+  const vatEnabled = (business as { vat_enabled?: boolean } | null)?.vat_enabled ?? true;
   const lockedOn = query.data?.enabled === true && fiscalisedCount > 0;
   const [form, setForm] = useState({
     enabled: false,
