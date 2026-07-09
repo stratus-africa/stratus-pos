@@ -19,6 +19,7 @@ interface Business {
   business_type?: string;
   kra_pin?: string | null;
   track_batches?: boolean;
+  owner_id?: string | null;
 }
 
 interface Location {
