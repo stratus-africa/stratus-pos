@@ -250,7 +250,7 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
                   <TableCell colSpan={5} className="text-sm text-muted-foreground">No sales in this range.</TableCell>
                 </TableRow>
               ) : (
-                stats.active.map((s: any) => (
+                stats.active.slice((page - 1) * pageSize, page * pageSize).map((s: any) => (
                   <TableRow key={s.id}>
                     <TableCell>{new Date(s.created_at).toLocaleString()}</TableCell>
                     <TableCell>{s.invoice_number || "—"}</TableCell>
@@ -264,6 +264,30 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
               )}
             </TableBody>
           </Table>
+
+          {stats.active.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 mt-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Rows per page</span>
+                <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                  <SelectTrigger className="h-8 w-[80px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                    <SelectItem value="200">200</SelectItem>
+                  </SelectContent>
+                </Select>
+                <span>
+                  {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, stats.active.length)} of {stats.active.length}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Previous</Button>
+                <span className="text-sm">Page {page} of {Math.max(1, Math.ceil(stats.active.length / pageSize))}</span>
+                <Button variant="outline" size="sm" disabled={page >= Math.ceil(stats.active.length / pageSize)} onClick={() => setPage((p) => p + 1)}>Next</Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
