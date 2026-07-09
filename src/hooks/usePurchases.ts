@@ -72,7 +72,7 @@ export function useSuppliers() {
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["suppliers"] }); toast.success("Supplier created"); },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => { if (!handlePlanLimitError(e, "suppliers")) toast.error(e.message); },
   });
 
   const update = useMutation({
