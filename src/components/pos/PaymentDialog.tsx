@@ -5,11 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Banknote, Smartphone, CreditCard, Plus, Trash2, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Banknote, Smartphone, CreditCard, Plus, Trash2, Loader2, CheckCircle2, XCircle, Send } from "lucide-react";
 import { PaymentEntry } from "@/hooks/usePOS";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { usePaymentMethodAccounts } from "@/hooks/usePaymentMethodAccounts";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useDigitaxEnabled } from "@/hooks/useDigitax";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
