@@ -33,7 +33,10 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
   const { query: taxRatesQuery } = useTaxRates();
   const { business, locations, currentLocation } = useBusiness();
   const { hasFeatureKey } = useFeatureLimit();
+  const { query: digitaxQ } = useDigitaxSettings();
+  const digitaxEnabled = !!digitaxQ.data?.enabled;
   const vatEnabled = business?.vat_enabled !== false;
+
   const businessType = (business as any)?.business_type;
   const isClothing = businessType === "clothing";
   const batchesEnabled =
