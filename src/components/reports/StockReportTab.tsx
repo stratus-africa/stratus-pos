@@ -25,20 +25,39 @@ const StockReportTab = ({ from, to }: Props) => {
   const [selected, setSelected] = useState<any | null>(null);
 
   const productsQ = useQuery({
-    queryKey: ["stock-report-products", business?.id],
+    queryKey: ["stock-report-products", business?.id, from, to],
     queryFn: async () => {
       if (!business) return [];
+      // Find products sold within the selected period
+      const { data: soldRows, error: soldErr } = await supabase
+        .from("sale_items")
+        .select("product_id, quantity, total, sales!inner(business_id, status, created_at)")
+        .eq("sales.business_id", business.id)
+        .neq("sales.status", "cancelled")
+        .gte("sales.created_at", `${from}T00:00:00`)
+        .lte("sales.created_at", `${to}T23:59:59`);
+      if (soldErr) throw soldErr;
+      const soldMap = new Map<string, { qty: number; total: number }>();
+      (soldRows || []).forEach((r: any) => {
+        const cur = soldMap.get(r.product_id) || { qty: 0, total: 0 };
+        cur.qty += Number(r.quantity || 0);
+        cur.total += Number(r.total || 0);
+        soldMap.set(r.product_id, cur);
+      });
+      const ids = Array.from(soldMap.keys());
+      if (ids.length === 0) return [];
       const { data: products, error } = await supabase
         .from("products")
         .select("id, sku, name, unit, categories(name)")
         .eq("business_id", business.id)
-        .eq("is_active", true)
+        .in("id", ids)
         .order("name");
       if (error) throw error;
       const { data: inv } = await supabase
         .from("inventory")
         .select("product_id, quantity, location_id, locations!inner(name, business_id)")
-        .eq("locations.business_id", business.id);
+        .eq("locations.business_id", business.id)
+        .in("product_id", ids);
       const map = new Map<string, { total: number; byLoc: { name: string; qty: number }[] }>();
       (inv || []).forEach((r: any) => {
         const cur = map.get(r.product_id) || { total: 0, byLoc: [] };
@@ -46,7 +65,11 @@ const StockReportTab = ({ from, to }: Props) => {
         cur.byLoc.push({ name: r.locations?.name || "—", qty: Number(r.quantity) });
         map.set(r.product_id, cur);
       });
-      return (products || []).map((p: any) => ({ ...p, _stock: map.get(p.id) || { total: 0, byLoc: [] } }));
+      return (products || []).map((p: any) => ({
+        ...p,
+        _stock: map.get(p.id) || { total: 0, byLoc: [] },
+        _sold: soldMap.get(p.id) || { qty: 0, total: 0 },
+      }));
     },
     enabled: !!business,
   });
