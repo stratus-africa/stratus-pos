@@ -87,8 +87,22 @@ const Sales = () => {
   );
   useEffect(() => { setPage(1); }, [search, statusFilter, pageSize]);
 
-  const totalSales = sales.reduce((s, v) => s + Number(v.total), 0);
-  const paidSales = sales.filter((s) => s.payment_status === "paid").length;
+  const activeSales = sales.filter((s) => s.status !== "cancelled");
+  const totalSales = activeSales.reduce((s, v) => s + Number(v.total), 0);
+  const paidSales = activeSales.filter((s) => s.payment_status === "paid").length;
+  const suspended = suspendedQuery.data || [];
+  const suspendedTotalPages = Math.max(1, Math.ceil(suspended.length / suspendedPageSize));
+  const suspendedCurrentPage = Math.min(suspendedPage, suspendedTotalPages);
+  const paginatedSuspended = suspended.slice((suspendedCurrentPage - 1) * suspendedPageSize, suspendedCurrentPage * suspendedPageSize);
+  useEffect(() => { setSuspendedPage(1); }, [suspendedPageSize]);
+
+  // Keep URL param synced with the current filter so the Dashboard's Credit Sales card lands correctly.
+  useEffect(() => {
+    if (statusFilter === "all") searchParams.delete("payment_status");
+    else searchParams.set("payment_status", statusFilter);
+    setSearchParams(searchParams, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter]);
   const suspended = suspendedQuery.data || [];
   const suspendedTotalPages = Math.max(1, Math.ceil(suspended.length / suspendedPageSize));
   const suspendedCurrentPage = Math.min(suspendedPage, suspendedTotalPages);
