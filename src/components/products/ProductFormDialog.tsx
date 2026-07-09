@@ -532,6 +532,40 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
             </div>
           )}
 
+          {digitaxEnabled && (
+            <div className="rounded-md border p-3 space-y-3">
+              <div className="text-sm font-semibold">KRA / DigiTax</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="space-y-1"><Label className="text-xs">KRA Item Code</Label>
+                  <Input value={form.kra_item_code ?? ""} onChange={(e) => setForm({ ...form, kra_item_code: e.target.value || null })} /></div>
+                <div className="space-y-1"><Label className="text-xs">Item Classification</Label>
+                  <Input value={form.item_classification ?? ""} onChange={(e) => setForm({ ...form, item_classification: e.target.value || null })} /></div>
+                <div className="space-y-1"><Label className="text-xs">HS Code</Label>
+                  <Input value={form.hs_code ?? ""} onChange={(e) => setForm({ ...form, hs_code: e.target.value || null })} /></div>
+                <div className="space-y-1"><Label className="text-xs">Quantity Unit</Label>
+                  <Input placeholder="e.g. PCS" value={form.quantity_unit ?? ""} onChange={(e) => setForm({ ...form, quantity_unit: e.target.value || null })} /></div>
+                <div className="space-y-1"><Label className="text-xs">Packaging Unit</Label>
+                  <Input placeholder="e.g. BX" value={form.packaging_unit ?? ""} onChange={(e) => setForm({ ...form, packaging_unit: e.target.value || null })} /></div>
+                <div className="space-y-1"><Label className="text-xs">Country of Origin</Label>
+                  <Input placeholder="KE" value={form.country_of_origin ?? ""} onChange={(e) => setForm({ ...form, country_of_origin: e.target.value || null })} /></div>
+                <div className="space-y-1"><Label className="text-xs">Tax Category</Label>
+                  <Select value={form.tax_category ?? "none"} onValueChange={(v) => setForm({ ...form, tax_category: v === "none" ? null : v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">—</SelectItem>
+                      <SelectItem value="A">A — Exempt</SelectItem>
+                      <SelectItem value="B">B — 16% VAT</SelectItem>
+                      <SelectItem value="C">C — Zero-rated</SelectItem>
+                      <SelectItem value="D">D — Non-VAT</SelectItem>
+                      <SelectItem value="E">E — 8% VAT</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
+
+
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={isLoading}>
