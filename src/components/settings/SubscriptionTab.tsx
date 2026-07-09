@@ -43,6 +43,15 @@ export function SubscriptionTab() {
   const [paystackEnabled, setPaystackEnabled] = useState<boolean>(false);
   const [offlineEnabled, setOfflineEnabled] = useState<boolean>(false);
   const [showPlans, setShowPlans] = useState(false);
+  const [currentFeatures, setCurrentFeatures] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!currentPackage?.id) { setCurrentFeatures([]); return; }
+    (async () => {
+      const { data } = await (supabase as any).rpc("get_package_features_safe", { _package_id: currentPackage.id });
+      setCurrentFeatures(((data as any[]) || []).map((f) => f.feature_label));
+    })();
+  }, [currentPackage?.id]);
 
   const fetchPending = async () => {
     if (!business?.id) return;
@@ -351,10 +360,10 @@ export function SubscriptionTab() {
             <Card>
               <CardHeader><CardTitle className="text-lg">Features</CardTitle></CardHeader>
               <CardContent className="space-y-2">
-                {(packages.find(p => p.id === currentPackage.id)?.features ?? []).length === 0 ? (
+                {currentFeatures.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No features listed for this plan.</p>
                 ) : (
-                  (packages.find(p => p.id === currentPackage.id)?.features ?? []).map(f => (
+                  currentFeatures.map(f => (
                     <div key={f} className="flex items-center gap-2 rounded-md border border-emerald-100 bg-emerald-50/50 px-3 py-2 text-sm">
                       <Check className="h-4 w-4 text-emerald-600 shrink-0" />
                       <span className="text-foreground">{f}</span>
