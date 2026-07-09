@@ -70,7 +70,12 @@ const Sales = () => {
     const matchesSearch =
       (s.invoice_number || "").toLowerCase().includes(search.toLowerCase()) ||
       (s.customers?.name || "walk-in").toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === "all" || s.payment_status === statusFilter;
+    const matchesStatus =
+      statusFilter === "all"
+        ? true
+        : statusFilter === "credit"
+          ? ["unpaid", "partial", "credit"].includes(s.payment_status) && s.status !== "cancelled"
+          : s.payment_status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
