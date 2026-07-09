@@ -71,7 +71,7 @@ export default function CustomerFormDialog({ open, onOpenChange, onSubmit, initi
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label>Name *</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} required />
+            <Input disabled={fiscalised} value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Phone</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
@@ -84,12 +84,19 @@ export default function CustomerFormDialog({ open, onOpenChange, onSubmit, initi
 
           {digitaxEnabled && (
             <div className="rounded-md border p-3 space-y-3">
-              <div className="text-sm font-semibold">KRA / DigiTax</div>
+              <div className="text-sm font-semibold flex items-center gap-2">
+                KRA / DigiTax
+                {fiscalised && (
+                  <span className="inline-flex items-center gap-1 text-xs font-normal text-amber-700">
+                    <Lock className="h-3 w-3" /> Locked — customer has fiscalised sales
+                  </span>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label className="text-xs">KRA PIN</Label>
-                  <Input value={kraPin} onChange={(e) => setKraPin(e.target.value.toUpperCase())} placeholder="P051234567X" /></div>
+                  <Input disabled={fiscalised} value={kraPin} onChange={(e) => setKraPin(e.target.value.toUpperCase())} placeholder="P051234567X" /></div>
                 <div><Label className="text-xs">Customer Type</Label>
-                  <Select value={customerType} onValueChange={setCustomerType}>
+                  <Select disabled={fiscalised} value={customerType} onValueChange={setCustomerType}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="individual">Individual</SelectItem>
@@ -101,10 +108,10 @@ export default function CustomerFormDialog({ open, onOpenChange, onSubmit, initi
                 </div>
                 <div className="col-span-2 flex items-center justify-between">
                   <Label className="text-xs">VAT Registered</Label>
-                  <Switch checked={vatRegistered} onCheckedChange={setVatRegistered} />
+                  <Switch disabled={fiscalised} checked={vatRegistered} onCheckedChange={setVatRegistered} />
                 </div>
                 <div className="col-span-2"><Label className="text-xs">Tax Exemption Number</Label>
-                  <Input value={taxExemption} onChange={(e) => setTaxExemption(e.target.value)} /></div>
+                  <Input disabled={fiscalised} value={taxExemption} onChange={(e) => setTaxExemption(e.target.value)} /></div>
               </div>
             </div>
           )}
