@@ -18,6 +18,7 @@ import AuditLogReportTab from "@/components/reports/AuditLogReportTab";
 import EndOfDayReportTab from "@/components/reports/EndOfDayReportTab";
 import DailySalesReportTab from "@/components/reports/DailySalesReportTab";
 import ZReportTab from "@/components/reports/ZReportTab";
+import StockReportTab from "@/components/reports/StockReportTab";
 import { useFeatureLimit, RequireFeature } from "@/components/FeatureGate";
 
 const today = new Date().toISOString().split("T")[0];
