@@ -296,6 +296,11 @@ const Reports = () => {
               <InventoryReportTab inventory={inventory} loading={loading} showBatches={hasFeatureKey("batch_tracking")} />
             </TabsContent>
           )}
+          {canInventory && (
+            <TabsContent value="stock" className="mt-0">
+              <StockReportTab from={from} to={to} />
+            </TabsContent>
+          )}
           {canPnL && (
             <TabsContent value="pnl" className="mt-0">
               <RequireFeature featureKey="accounting">
