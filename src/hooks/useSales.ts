@@ -238,7 +238,7 @@ export function useSales() {
         .eq("id", id)
         .maybeSingle();
 
-      const nextStatus = cancel ? "cancelled" : "completed";
+      const nextStatus = cancel ? "cancelled" : "final";
       const { error } = await supabase
         .from("sales")
         .update({ status: nextStatus })
