@@ -332,17 +332,39 @@ export function usePOS() {
       queryClient.invalidateQueries({ queryKey: ["bank_accounts"] });
       queryClient.invalidateQueries({ queryKey: ["bank_transactions"] });
 
-      // Fire-and-forget fiscal submission (only when user opted in via "Push to eTIMS").
-      // The Receipt dialog refetches the sale once it opens to render the KRA reference
-      // if it arrives quickly.
+      // KRA eTIMS fiscal submission — synchronous when user opted in via "Push to eTIMS".
       let fiscal: Record<string, unknown> | null = null;
+      let fiscalError: string | null = null;
       if (pushToEtims) {
         try {
           const { submitSaleToDigitax } = await import("@/hooks/useDigitax");
           const res = await submitSaleToDigitax(saleId, { wait: true });
           fiscal = (res?.sale as Record<string, unknown>) ?? null;
-        } catch { /* ignore — queue processor will retry */ }
+          const ref = fiscal?.fiscal_reference as string | undefined;
+          const status = fiscal?.fiscal_status as string | undefined;
+          if (ref) {
+            toast.success(`Fiscalised with KRA — Ref ${ref}`);
+          } else if (status === "accepted" || status === "submitted") {
+            toast.success("Sale submitted to KRA eTIMS");
+          } else {
+            toast.info("Queued for KRA eTIMS submission");
+          }
+        } catch (e: unknown) {
+          // Try to extract server validation details from FunctionsHttpError
+          let msg = (e as Error)?.message || "Failed to push to eTIMS";
+          try {
+            const ctx = (e as { context?: Response }).context;
+            if (ctx && typeof (ctx as Response).json === "function") {
+              const body = await (ctx as Response).clone().json();
+              if (body?.error) msg = body.error;
+            }
+          } catch { /* ignore */ }
+          fiscalError = msg;
+          fiscal = { fiscal_status: "failed", fiscal_error: msg } as Record<string, unknown>;
+          toast.error(`eTIMS push failed: ${msg}`, { duration: 8000 });
+        }
       }
+
 
 
 
