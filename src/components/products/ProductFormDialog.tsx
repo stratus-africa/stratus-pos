@@ -58,7 +58,15 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
     is_active: true,
     allow_decimal_quantity: false,
     image_url: null,
+    kra_item_code: null,
+    item_classification: null,
+    quantity_unit: null,
+    packaging_unit: null,
+    hs_code: null,
+    country_of_origin: null,
+    tax_category: null,
   });
+
 
   const [selectedTaxRateId, setSelectedTaxRateId] = useState<string>("manual");
   const [batches, setBatches] = useState<ProductInitialBatch[]>([]);
