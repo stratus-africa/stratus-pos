@@ -165,7 +165,7 @@ const StockReportDetail = ({ product, from, to, onBack }: { product: any; from: 
     queryFn: async () => {
       const { data } = await supabase
         .from("purchase_items")
-        .select("quantity, unit_price, total, purchases!inner(id, invoice_number, created_at, business_id, status, suppliers(name), locations(name))")
+        .select("quantity, unit_cost, total, purchases!inner(id, invoice_number, created_at, business_id, status, suppliers(name), locations(name))")
         .eq("product_id", product.id)
         .eq("purchases.business_id", business!.id)
         .neq("purchases.status", "cancelled")
