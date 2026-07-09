@@ -119,6 +119,7 @@ export function AppSidebar() {
   const { isSuperAdmin } = useSuperAdmin();
   const { hasFeatureKey } = useFeatureLimit();
   const { hasPermission } = usePermissions();
+  const { enabled: digitaxEnabled } = useDigitaxEnabled();
   const currentPath = location.pathname;
 
   // Permission-first: an item with a permission key is shown when that permission
@@ -126,6 +127,8 @@ export function AppSidebar() {
   // (role-specific aliases like "My Dashboard") still fall back to the role list.
   const isVisible = (item: NavItem) => {
     if (item.featureKey && !hasFeatureKey(item.featureKey)) return false;
+    // Tax Compliance nav is only shown when DigiTax is turned on in settings.
+    if (item.url === "/tax-compliance" && !digitaxEnabled) return false;
     if (userRole && item.hideForRoles?.includes(userRole)) return false;
     if (item.permission) return hasPermission(item.permission);
     return !!userRole && item.roles.includes(userRole);
