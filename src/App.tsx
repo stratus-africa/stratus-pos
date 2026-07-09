@@ -104,7 +104,9 @@ const Profile = lazy(() => import("./pages/Profile"));
 const CashierDashboard = lazy(() => import("./pages/CashierDashboard"));
 const JournalEntries = lazy(() => import("./pages/JournalEntries"));
 const Banking = lazy(() => import("./pages/Banking"));
+const Digitax = lazy(() => import("./pages/Digitax"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+
 const Landing = lazy(() => import("./pages/Landing"));
 const SuperAdminLogin = lazy(() => import("./pages/SuperAdminLogin"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
