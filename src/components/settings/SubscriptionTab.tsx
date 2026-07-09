@@ -106,17 +106,19 @@ export function SubscriptionTab() {
   useEffect(() => {
     const fetchUsage = async () => {
       if (!business?.id) return;
-      const [{ count: products }, { count: customers }, { count: suppliers }, { count: users }] = await Promise.all([
+      const [{ count: products }, { count: customers }, { count: suppliers }, { count: users }, { count: locations }] = await Promise.all([
         supabase.from("products").select("id", { count: "exact", head: true }).eq("business_id", business.id),
         supabase.from("customers").select("id", { count: "exact", head: true }).eq("business_id", business.id),
         supabase.from("suppliers" as any).select("id", { count: "exact", head: true }).eq("business_id", business.id),
         supabase.from("profiles").select("id", { count: "exact", head: true }).eq("business_id", business.id),
+        supabase.from("locations").select("id", { count: "exact", head: true }).eq("business_id", business.id),
       ]);
       setUsage({
         products: products ?? 0,
         customers: customers ?? 0,
         suppliers: suppliers ?? 0,
         users: users ?? 0,
+        locations: locations ?? 0,
       });
     };
     fetchUsage();
