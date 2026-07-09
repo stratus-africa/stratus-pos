@@ -90,6 +90,31 @@ export function useDigitaxSettings() {
   return { query, save, testConnection };
 }
 
+/** True when DigiTax is both included in the plan AND turned on in settings. */
+export function useDigitaxEnabled(): { enabled: boolean; isLoading: boolean } {
+  const { query } = useDigitaxSettings();
+  return { enabled: !!query.data?.enabled, isLoading: query.isLoading };
+}
+
+/** Count of fiscalised (submitted/accepted) transactions for this business. */
+export function useDigitaxFiscalisedCount() {
+  const { business } = useBusiness();
+  return useQuery({
+    queryKey: ["digitax_fiscalised_count", business?.id],
+    queryFn: async () => {
+      if (!business) return 0;
+      const { count, error } = await supabase
+        .from("digitax_invoice_queue" as never)
+        .select("id", { count: "exact", head: true })
+        .eq("business_id", business.id)
+        .in("status", ["submitted", "processing"]);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!business,
+  });
+}
+
 export function useDigitaxQueue() {
   const { business } = useBusiness();
   return useQuery({

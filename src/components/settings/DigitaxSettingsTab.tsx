@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useDigitaxSettings } from "@/hooks/useDigitax";
-import { Loader2, Plug, Save, Zap } from "lucide-react";
+import { useDigitaxSettings, useDigitaxFiscalisedCount } from "@/hooks/useDigitax";
+import { Loader2, Lock, Plug, Save, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { toast } from "sonner";
@@ -22,6 +22,9 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
 export function DigitaxSettingsTab() {
   const { business } = useBusiness();
   const { query, save, testConnection } = useDigitaxSettings();
+  const fiscalisedQ = useDigitaxFiscalisedCount();
+  const fiscalisedCount = fiscalisedQ.data ?? 0;
+  const lockedOn = query.data?.enabled === true && fiscalisedCount > 0;
   const [form, setForm] = useState({
     enabled: false,
     environment: "sandbox" as "sandbox" | "production",
@@ -103,8 +106,23 @@ export function DigitaxSettingsTab() {
             <div>
               <Label className="text-base">Enable DigiTax submissions</Label>
               <p className="text-sm text-muted-foreground">Turn on once your KRA credentials are verified.</p>
+              {lockedOn && (
+                <p className="mt-2 flex items-center gap-1 text-xs text-amber-700">
+                  <Lock className="h-3 w-3" /> Cannot be disabled — {fiscalisedCount} fiscalised transaction{fiscalisedCount === 1 ? "" : "s"} on record. KRA requires ongoing fiscalisation once submissions have started.
+                </p>
+              )}
             </div>
-            <Switch checked={form.enabled} onCheckedChange={(v) => setForm({ ...form, enabled: v })} />
+            <Switch
+              checked={form.enabled}
+              disabled={lockedOn && form.enabled}
+              onCheckedChange={(v) => {
+                if (!v && lockedOn) {
+                  toast.error("DigiTax cannot be disabled after fiscalised transactions have been submitted to KRA.");
+                  return;
+                }
+                setForm({ ...form, enabled: v });
+              }}
+            />
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
