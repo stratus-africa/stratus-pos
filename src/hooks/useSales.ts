@@ -141,15 +141,25 @@ export function useSales() {
     queryKey: ["sales", business?.id, cashierOnly ? user?.id : "all"],
     queryFn: async () => {
       if (!business) return [];
-      let q = supabase
-        .from("sales")
-        .select("*, customers(name, phone), locations(name)")
-        .eq("business_id", business.id)
-        .order("created_at", { ascending: false });
-      if (cashierOnly && user?.id) q = q.eq("created_by", user.id);
-      const { data, error } = await q;
-      if (error) throw error;
-      return data as Sale[];
+      const pageSize = 1000;
+      const all: Sale[] = [];
+      let from = 0;
+      while (true) {
+        let q = supabase
+          .from("sales")
+          .select("*, customers(name, phone), locations(name)")
+          .eq("business_id", business.id)
+          .order("created_at", { ascending: false })
+          .range(from, from + pageSize - 1);
+        if (cashierOnly && user?.id) q = q.eq("created_by", user.id);
+        const { data, error } = await q;
+        if (error) throw error;
+        const batch = (data ?? []) as Sale[];
+        all.push(...batch);
+        if (batch.length < pageSize) break;
+        from += pageSize;
+      }
+      return all;
     },
     enabled: !!business,
   });
