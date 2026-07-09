@@ -93,8 +93,8 @@ const StockReportTab = ({ from, to }: Props) => {
   const exportCSV = () => {
     downloadCSV(
       "stock_report.csv",
-      ["Code", "Name", "Category", "Current Stock", "Unit"],
-      filtered.map((p: any) => [p.sku || "", p.name, p.categories?.name || "", p._stock.total, p.unit || ""])
+      ["Code", "Name", "Category", "Sold Qty", "Sold Total", "Current Stock", "Unit"],
+      filtered.map((p: any) => [p.sku || "", p.name, p.categories?.name || "", p._sold.qty, p._sold.total, p._stock.total, p.unit || ""])
     );
   };
 
