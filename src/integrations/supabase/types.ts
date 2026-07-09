@@ -2693,6 +2693,10 @@ export type Database = {
         Args: { _id: string; _review_notes?: string }
         Returns: undefined
       }
+      customer_has_fiscalised_sales: {
+        Args: { _customer_id: string }
+        Returns: boolean
+      }
       decrement_batch_quantity: {
         Args: { _batch_id: string; _qty: number }
         Returns: undefined
@@ -2780,6 +2784,47 @@ export type Database = {
           yearly_price_kes: number
         }[]
       }
+      get_purchases_summary: {
+        Args: {
+          _business_id: string
+          _from: string
+          _location_id: string
+          _to: string
+        }
+        Returns: {
+          purchase_count: number
+          purchase_due: number
+          total_purchases: number
+        }[]
+      }
+      get_sales_summary: {
+        Args: {
+          _business_id: string
+          _from: string
+          _location_id: string
+          _to: string
+        }
+        Returns: {
+          cogs: number
+          credit_sales_count: number
+          credit_sales_total: number
+          sale_count: number
+          total_sales: number
+        }[]
+      }
+      get_sales_trend: {
+        Args: {
+          _business_id: string
+          _from: string
+          _location_id: string
+          _to: string
+        }
+        Returns: {
+          bucket: string
+          cnt: number
+          total: number
+        }[]
+      }
       get_subscription_package_safe: {
         Args: { _id: string }
         Returns: {
@@ -2823,6 +2868,7 @@ export type Database = {
         Args: { _provider: string }
         Returns: boolean
       }
+      is_sale_fiscalised: { Args: { _sale_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       move_to_dlq: {
         Args: {
@@ -2832,6 +2878,10 @@ export type Database = {
           source_queue: string
         }
         Returns: number
+      }
+      product_has_fiscalised_sales: {
+        Args: { _product_id: string }
+        Returns: boolean
       }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
@@ -2866,6 +2916,8 @@ export type Database = {
         | "accepted"
         | "failed"
         | "retry_required"
+        | "validation_failed"
+        | "skipped"
       fiscal_status:
         | "not_applicable"
         | "pending_submission"
@@ -3021,6 +3073,8 @@ export const Constants = {
         "accepted",
         "failed",
         "retry_required",
+        "validation_failed",
+        "skipped",
       ],
       fiscal_status: [
         "not_applicable",
