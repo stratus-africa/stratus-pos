@@ -256,6 +256,17 @@ const Sales = () => {
                           <RotateCcw className="h-4 w-4" />
                         </Button>
                       )}
+                      {canRetry && (sale.fiscal_status === "failed" || sale.fiscal_status === "retry_required") && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Retry KRA submission"
+                          title={`Retry KRA submission${sale.fiscal_status === "failed" ? " (failed)" : ""}`}
+                          onClick={() => retryFiscalisation.mutate(sale.id)}
+                        >
+                          <RefreshCw className="h-4 w-4 text-amber-600" />
+                        </Button>
+                      )}
                       {canDelete && (
                         <Button
                           variant="ghost"
