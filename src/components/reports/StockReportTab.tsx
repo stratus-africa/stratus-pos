@@ -182,8 +182,8 @@ const StockReportDetail = ({ product, from, to, onBack }: { product: any; from: 
     queryFn: async () => {
       const { data } = await supabase
         .from("stock_adjustments")
-        .select("*, locations(name)")
-        .eq("business_id", business!.id)
+        .select("*, locations!inner(name, business_id)")
+        .eq("locations.business_id", business!.id)
         .eq("product_id", product.id)
         .gte("created_at", `${from}T00:00:00`)
         .lte("created_at", `${to}T23:59:59`)
