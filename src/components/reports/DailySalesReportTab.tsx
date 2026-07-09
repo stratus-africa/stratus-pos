@@ -1,7 +1,9 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TrendingUp, ShoppingCart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -61,6 +63,17 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
   });
 
   const sales = query.data || [];
+
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const s = Number(localStorage.getItem("daily-sales-report:pageSize"));
+    return [25, 100, 200].includes(s) ? s : 25;
+  });
+  const [page, setPage] = useState(1);
+  useEffect(() => {
+    localStorage.setItem("daily-sales-report:pageSize", String(pageSize));
+  }, [pageSize]);
+  useEffect(() => { setPage(1); }, [pageSize, from, to]);
+
 
   const stats = useMemo(() => {
     const active = sales.filter((s: any) => s.status !== "cancelled");
@@ -237,7 +250,7 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
                   <TableCell colSpan={5} className="text-sm text-muted-foreground">No sales in this range.</TableCell>
                 </TableRow>
               ) : (
-                stats.active.map((s: any) => (
+                stats.active.slice((page - 1) * pageSize, page * pageSize).map((s: any) => (
                   <TableRow key={s.id}>
                     <TableCell>{new Date(s.created_at).toLocaleString()}</TableCell>
                     <TableCell>{s.invoice_number || "—"}</TableCell>
@@ -251,6 +264,30 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
               )}
             </TableBody>
           </Table>
+
+          {stats.active.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 mt-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Rows per page</span>
+                <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                  <SelectTrigger className="h-8 w-[80px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                    <SelectItem value="200">200</SelectItem>
+                  </SelectContent>
+                </Select>
+                <span>
+                  {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, stats.active.length)} of {stats.active.length}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Previous</Button>
+                <span className="text-sm">Page {page} of {Math.max(1, Math.ceil(stats.active.length / pageSize))}</span>
+                <Button variant="outline" size="sm" disabled={page >= Math.ceil(stats.active.length / pageSize)} onClick={() => setPage((p) => p + 1)}>Next</Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
