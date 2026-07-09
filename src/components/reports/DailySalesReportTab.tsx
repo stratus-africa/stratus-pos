@@ -64,6 +64,17 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
 
   const sales = query.data || [];
 
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const s = Number(localStorage.getItem("daily-sales-report:pageSize"));
+    return [25, 100, 200].includes(s) ? s : 25;
+  });
+  const [page, setPage] = useState(1);
+  useEffect(() => {
+    localStorage.setItem("daily-sales-report:pageSize", String(pageSize));
+  }, [pageSize]);
+  useEffect(() => { setPage(1); }, [pageSize, from, to]);
+
+
   const stats = useMemo(() => {
     const active = sales.filter((s: any) => s.status !== "cancelled");
     const revenue = active.reduce((a: number, s: any) => a + Number(s.total), 0);
