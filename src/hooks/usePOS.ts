@@ -179,7 +179,7 @@ export function usePOS() {
   }, [queryClient]);
 
   // Complete sale
-  const completeSale = async (payments: PaymentEntry[], bankAccountId?: string | null) => {
+  const completeSale = async (payments: PaymentEntry[], bankAccountId?: string | null, pushToEtims: boolean = true) => {
     if (!business || !currentLocation || !user || cart.length === 0) return null;
     if (!ensureCanPost()) return null;
 
