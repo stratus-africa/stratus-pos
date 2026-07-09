@@ -43,6 +43,15 @@ export function SubscriptionTab() {
   const [paystackEnabled, setPaystackEnabled] = useState<boolean>(false);
   const [offlineEnabled, setOfflineEnabled] = useState<boolean>(false);
   const [showPlans, setShowPlans] = useState(false);
+  const [currentFeatures, setCurrentFeatures] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!currentPackage?.id) { setCurrentFeatures([]); return; }
+    (async () => {
+      const { data } = await (supabase as any).rpc("get_package_features_safe", { _package_id: currentPackage.id });
+      setCurrentFeatures(((data as any[]) || []).map((f) => f.feature_label));
+    })();
+  }, [currentPackage?.id]);
 
   const fetchPending = async () => {
     if (!business?.id) return;
