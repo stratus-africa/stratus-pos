@@ -3,13 +3,30 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Customer } from "@/hooks/useSales";
+import { useDigitaxSettings } from "@/hooks/useDigitax";
+
+interface CustomerLike extends Customer {
+  kra_pin?: string | null;
+  vat_registered?: boolean | null;
+  tax_exemption_number?: string | null;
+  customer_type?: string | null;
+}
+
+type SubmitPayload = Omit<Customer, "id" | "business_id" | "balance"> & {
+  kra_pin?: string | null;
+  vat_registered?: boolean | null;
+  tax_exemption_number?: string | null;
+  customer_type?: string | null;
+};
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: Omit<Customer, "id" | "business_id" | "balance">) => void;
-  initial?: Customer | null;
+  onSubmit: (data: SubmitPayload) => void;
+  initial?: CustomerLike | null;
   loading?: boolean;
 }
 
@@ -18,15 +35,33 @@ export default function CustomerFormDialog({ open, onOpenChange, onSubmit, initi
   const [phone, setPhone] = useState(initial?.phone ?? "");
   const [email, setEmail] = useState(initial?.email ?? "");
   const [address, setAddress] = useState(initial?.address ?? "");
+  const [kraPin, setKraPin] = useState(initial?.kra_pin ?? "");
+  const [vatRegistered, setVatRegistered] = useState<boolean>(!!initial?.vat_registered);
+  const [taxExemption, setTaxExemption] = useState(initial?.tax_exemption_number ?? "");
+  const [customerType, setCustomerType] = useState<string>(initial?.customer_type ?? "individual");
+
+  const { query: digitaxQ } = useDigitaxSettings();
+  const digitaxEnabled = !!digitaxQ.data?.enabled;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ name, phone: phone || null, email: email || null, address: address || null });
+    onSubmit({
+      name,
+      phone: phone || null,
+      email: email || null,
+      address: address || null,
+      ...(digitaxEnabled ? {
+        kra_pin: kraPin || null,
+        vat_registered: vatRegistered,
+        tax_exemption_number: taxExemption || null,
+        customer_type: customerType || null,
+      } : {}),
+    });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{initial ? "Edit Customer" : "Add Customer"}</DialogTitle>
         </DialogHeader>
@@ -35,18 +70,42 @@ export default function CustomerFormDialog({ open, onOpenChange, onSubmit, initi
             <Label>Name *</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
-          <div>
-            <Label>Phone</Label>
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
-          </div>
-          <div>
-            <Label>Email</Label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Phone</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
+            <div><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
           </div>
           <div>
             <Label>Address</Label>
             <Input value={address} onChange={(e) => setAddress(e.target.value)} />
           </div>
+
+          {digitaxEnabled && (
+            <div className="rounded-md border p-3 space-y-3">
+              <div className="text-sm font-semibold">KRA / DigiTax</div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label className="text-xs">KRA PIN</Label>
+                  <Input value={kraPin} onChange={(e) => setKraPin(e.target.value.toUpperCase())} placeholder="P051234567X" /></div>
+                <div><Label className="text-xs">Customer Type</Label>
+                  <Select value={customerType} onValueChange={setCustomerType}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="individual">Individual</SelectItem>
+                      <SelectItem value="company">Company</SelectItem>
+                      <SelectItem value="government">Government</SelectItem>
+                      <SelectItem value="ngo">NGO</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2 flex items-center justify-between">
+                  <Label className="text-xs">VAT Registered</Label>
+                  <Switch checked={vatRegistered} onCheckedChange={setVatRegistered} />
+                </div>
+                <div className="col-span-2"><Label className="text-xs">Tax Exemption Number</Label>
+                  <Input value={taxExemption} onChange={(e) => setTaxExemption(e.target.value)} /></div>
+              </div>
+            </div>
+          )}
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={!name.trim() || loading}>
