@@ -103,6 +103,7 @@ export function TopBar() {
               </Button>
             </>
           )}
+          <NotificationBell />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
