@@ -27,6 +27,7 @@ interface ReceiptData {
     fiscal_qr_code?: string | null;
     fiscal_verification_url?: string | null;
     fiscal_submitted_at?: string | null;
+    fiscal_error?: string | null;
   } | null;
 }
 
