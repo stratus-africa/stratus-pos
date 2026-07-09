@@ -44,6 +44,7 @@ export default function CustomerFormDialog({ open, onOpenChange, onSubmit, initi
 
   const { query: digitaxQ } = useDigitaxSettings();
   const digitaxEnabled = !!digitaxQ.data?.enabled;
+  const fiscalised = useIsCustomerFiscalised(initial?.id);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
