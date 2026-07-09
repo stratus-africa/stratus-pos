@@ -200,7 +200,7 @@ const SuperAdminRoutes = () => {
             <Route path="/settings" element={<SuperAdminSettings />} />
             <Route path="/settings/payments/paystack" element={<PaystackSettings />} />
             <Route path="/settings/payments/mpesa" element={<MpesaSettings />} />
-            
+            <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
