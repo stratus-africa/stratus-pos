@@ -18,17 +18,20 @@ import { toast } from "sonner";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 const Sales = () => {
-  const { salesQuery, deleteSale, cancelSale } = useSales();
+  const { salesQuery, deleteSale, cancelSale, retryFiscalisation } = useSales();
   const { business, userRole } = useBusiness();
   const { hasPermission } = usePermissions();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isCashier = userRole === "cashier";
   const canDelete = hasPermission("sales.delete") && !isCashier;
   const canCancel = !isCashier;
+  const canRetry = !isCashier;
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const initialStatus = searchParams.get("payment_status") || "all";
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [pageSize, setPageSize] = useState<number>(() => {
