@@ -20,8 +20,10 @@ interface Props {
 }
 
 export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
-  const { getSaleDetails } = useSales();
-  const { business } = useBusiness();
+  const { getSaleDetails, retryFiscalisation } = useSales();
+  const { business, userRole } = useBusiness();
+  const { hasPermission: _hp } = usePermissions();
+  const canRetryFiscal = userRole !== "cashier";
   const { user } = useAuth();
   const [items, setItems] = useState<SaleItem[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
