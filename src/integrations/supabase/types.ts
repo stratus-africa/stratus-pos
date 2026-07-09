@@ -511,39 +511,265 @@ export type Database = {
           balance: number
           business_id: string
           created_at: string
+          customer_type: string | null
           email: string | null
           id: string
+          kra_pin: string | null
           name: string
           phone: string | null
+          tax_exemption_number: string | null
           updated_at: string
+          vat_registered: boolean | null
         }
         Insert: {
           address?: string | null
           balance?: number
           business_id: string
           created_at?: string
+          customer_type?: string | null
           email?: string | null
           id?: string
+          kra_pin?: string | null
           name: string
           phone?: string | null
+          tax_exemption_number?: string | null
           updated_at?: string
+          vat_registered?: boolean | null
         }
         Update: {
           address?: string | null
           balance?: number
           business_id?: string
           created_at?: string
+          customer_type?: string | null
           email?: string | null
           id?: string
+          kra_pin?: string | null
           name?: string
           phone?: string | null
+          tax_exemption_number?: string | null
           updated_at?: string
+          vat_registered?: boolean | null
         }
         Relationships: [
           {
             foreignKeyName: "customers_business_id_fkey"
             columns: ["business_id"]
             isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      digitax_invoice_queue: {
+        Row: {
+          business_id: string
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          id: string
+          invoice_type: Database["public"]["Enums"]["digitax_invoice_type"]
+          next_retry_at: string
+          original_sale_id: string | null
+          payload_json: Json
+          response_json: Json | null
+          retry_count: number
+          sale_id: string | null
+          status: Database["public"]["Enums"]["digitax_queue_status"]
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          invoice_type?: Database["public"]["Enums"]["digitax_invoice_type"]
+          next_retry_at?: string
+          original_sale_id?: string | null
+          payload_json: Json
+          response_json?: Json | null
+          retry_count?: number
+          sale_id?: string | null
+          status?: Database["public"]["Enums"]["digitax_queue_status"]
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          invoice_type?: Database["public"]["Enums"]["digitax_invoice_type"]
+          next_retry_at?: string
+          original_sale_id?: string | null
+          payload_json?: Json
+          response_json?: Json | null
+          retry_count?: number
+          sale_id?: string | null
+          status?: Database["public"]["Enums"]["digitax_queue_status"]
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "digitax_invoice_queue_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "digitax_invoice_queue_original_sale_id_fkey"
+            columns: ["original_sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "digitax_invoice_queue_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      digitax_logs: {
+        Row: {
+          business_id: string
+          created_at: string
+          endpoint: string
+          execution_time_ms: number | null
+          http_status: number | null
+          id: string
+          queue_id: string | null
+          request_json: Json | null
+          response_json: Json | null
+          sale_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          endpoint: string
+          execution_time_ms?: number | null
+          http_status?: number | null
+          id?: string
+          queue_id?: string | null
+          request_json?: Json | null
+          response_json?: Json | null
+          sale_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          endpoint?: string
+          execution_time_ms?: number | null
+          http_status?: number | null
+          id?: string
+          queue_id?: string | null
+          request_json?: Json | null
+          response_json?: Json | null
+          sale_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "digitax_logs_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "digitax_logs_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "digitax_invoice_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "digitax_logs_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      digitax_settings: {
+        Row: {
+          api_key_last4: string | null
+          api_key_vault_id: string | null
+          branch_code: string | null
+          business_id: string
+          business_pin: string | null
+          connection_status: Database["public"]["Enums"]["digitax_connection_status"]
+          created_at: string
+          default_currency: string
+          default_invoice_type: Database["public"]["Enums"]["digitax_invoice_type"]
+          device_name: string | null
+          enabled: boolean
+          environment: Database["public"]["Enums"]["digitax_environment"]
+          id: string
+          last_error: string | null
+          last_sync_at: string | null
+          max_retry_attempts: number
+          mock_failure_rate: number
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          api_key_last4?: string | null
+          api_key_vault_id?: string | null
+          branch_code?: string | null
+          business_id: string
+          business_pin?: string | null
+          connection_status?: Database["public"]["Enums"]["digitax_connection_status"]
+          created_at?: string
+          default_currency?: string
+          default_invoice_type?: Database["public"]["Enums"]["digitax_invoice_type"]
+          device_name?: string | null
+          enabled?: boolean
+          environment?: Database["public"]["Enums"]["digitax_environment"]
+          id?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          max_retry_attempts?: number
+          mock_failure_rate?: number
+          provider?: string
+          updated_at?: string
+        }
+        Update: {
+          api_key_last4?: string | null
+          api_key_vault_id?: string | null
+          branch_code?: string | null
+          business_id?: string
+          business_pin?: string | null
+          connection_status?: Database["public"]["Enums"]["digitax_connection_status"]
+          created_at?: string
+          default_currency?: string
+          default_invoice_type?: Database["public"]["Enums"]["digitax_invoice_type"]
+          device_name?: string | null
+          enabled?: boolean
+          environment?: Database["public"]["Enums"]["digitax_environment"]
+          id?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          max_retry_attempts?: number
+          mock_failure_rate?: number
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "digitax_settings_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: true
             referencedRelation: "businesses"
             referencedColumns: ["id"]
           },
@@ -1417,14 +1643,21 @@ export type Database = {
           brand_id: string | null
           business_id: string
           category_id: string | null
+          country_of_origin: string | null
           created_at: string
+          hs_code: string | null
           id: string
           image_url: string | null
           is_active: boolean
+          item_classification: string | null
+          kra_item_code: string | null
           name: string
+          packaging_unit: string | null
           purchase_price: number
+          quantity_unit: string | null
           selling_price: number
           sku: string | null
+          tax_category: string | null
           tax_rate: number | null
           unit_id: string | null
           updated_at: string
@@ -1435,14 +1668,21 @@ export type Database = {
           brand_id?: string | null
           business_id: string
           category_id?: string | null
+          country_of_origin?: string | null
           created_at?: string
+          hs_code?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
+          item_classification?: string | null
+          kra_item_code?: string | null
           name: string
+          packaging_unit?: string | null
           purchase_price?: number
+          quantity_unit?: string | null
           selling_price?: number
           sku?: string | null
+          tax_category?: string | null
           tax_rate?: number | null
           unit_id?: string | null
           updated_at?: string
@@ -1453,14 +1693,21 @@ export type Database = {
           brand_id?: string | null
           business_id?: string
           category_id?: string | null
+          country_of_origin?: string | null
           created_at?: string
+          hs_code?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
+          item_classification?: string | null
+          kra_item_code?: string | null
           name?: string
+          packaging_unit?: string | null
           purchase_price?: number
+          quantity_unit?: string | null
           selling_price?: number
           sku?: string | null
+          tax_category?: string | null
           tax_rate?: number | null
           unit_id?: string | null
           updated_at?: string
@@ -1763,10 +2010,18 @@ export type Database = {
           created_by: string
           customer_id: string | null
           discount: number
+          fiscal_invoice_number: string | null
+          fiscal_qr_code: string | null
+          fiscal_reference: string | null
+          fiscal_signature: string | null
+          fiscal_status: Database["public"]["Enums"]["fiscal_status"] | null
+          fiscal_submitted_at: string | null
+          fiscal_verification_url: string | null
           id: string
           invoice_number: string | null
           location_id: string
           notes: string | null
+          original_sale_id: string | null
           payment_status: string
           status: string
           subtotal: number
@@ -1780,10 +2035,18 @@ export type Database = {
           created_by: string
           customer_id?: string | null
           discount?: number
+          fiscal_invoice_number?: string | null
+          fiscal_qr_code?: string | null
+          fiscal_reference?: string | null
+          fiscal_signature?: string | null
+          fiscal_status?: Database["public"]["Enums"]["fiscal_status"] | null
+          fiscal_submitted_at?: string | null
+          fiscal_verification_url?: string | null
           id?: string
           invoice_number?: string | null
           location_id: string
           notes?: string | null
+          original_sale_id?: string | null
           payment_status?: string
           status?: string
           subtotal?: number
@@ -1797,10 +2060,18 @@ export type Database = {
           created_by?: string
           customer_id?: string | null
           discount?: number
+          fiscal_invoice_number?: string | null
+          fiscal_qr_code?: string | null
+          fiscal_reference?: string | null
+          fiscal_signature?: string | null
+          fiscal_status?: Database["public"]["Enums"]["fiscal_status"] | null
+          fiscal_submitted_at?: string | null
+          fiscal_verification_url?: string | null
           id?: string
           invoice_number?: string | null
           location_id?: string
           notes?: string | null
+          original_sale_id?: string | null
           payment_status?: string
           status?: string
           subtotal?: number
@@ -1828,6 +2099,13 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_original_sale_id_fkey"
+            columns: ["original_sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
             referencedColumns: ["id"]
           },
         ]
@@ -2423,6 +2701,37 @@ export type Database = {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
       }
+      digitax_get_api_key: { Args: { _business_id: string }; Returns: string }
+      digitax_pick_queue_batch: {
+        Args: { _limit?: number }
+        Returns: {
+          business_id: string
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          id: string
+          invoice_type: Database["public"]["Enums"]["digitax_invoice_type"]
+          next_retry_at: string
+          original_sale_id: string | null
+          payload_json: Json
+          response_json: Json | null
+          retry_count: number
+          sale_id: string | null
+          status: Database["public"]["Enums"]["digitax_queue_status"]
+          submitted_at: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "digitax_invoice_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      digitax_store_api_key: {
+        Args: { _api_key: string; _business_id: string }
+        Returns: string
+      }
       email_queue_dispatch: { Args: never; Returns: undefined }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
@@ -2539,6 +2848,31 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "manager" | "cashier" | "stores_manager"
+      digitax_connection_status:
+        | "unconfigured"
+        | "connected"
+        | "disconnected"
+        | "error"
+      digitax_environment: "sandbox" | "production"
+      digitax_invoice_type:
+        | "invoice"
+        | "credit_note"
+        | "debit_note"
+        | "proforma"
+      digitax_queue_status:
+        | "pending"
+        | "processing"
+        | "submitted"
+        | "accepted"
+        | "failed"
+        | "retry_required"
+      fiscal_status:
+        | "not_applicable"
+        | "pending_submission"
+        | "submitted"
+        | "accepted"
+        | "failed"
+        | "retry_required"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2667,6 +3001,35 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "manager", "cashier", "stores_manager"],
+      digitax_connection_status: [
+        "unconfigured",
+        "connected",
+        "disconnected",
+        "error",
+      ],
+      digitax_environment: ["sandbox", "production"],
+      digitax_invoice_type: [
+        "invoice",
+        "credit_note",
+        "debit_note",
+        "proforma",
+      ],
+      digitax_queue_status: [
+        "pending",
+        "processing",
+        "submitted",
+        "accepted",
+        "failed",
+        "retry_required",
+      ],
+      fiscal_status: [
+        "not_applicable",
+        "pending_submission",
+        "submitted",
+        "accepted",
+        "failed",
+        "retry_required",
+      ],
     },
   },
 } as const

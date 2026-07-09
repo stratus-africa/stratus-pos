@@ -20,7 +20,16 @@ interface ReceiptData {
   locationName: string;
   businessName: string;
   date: Date;
+  fiscal?: {
+    fiscal_status?: string | null;
+    fiscal_invoice_number?: string | null;
+    fiscal_reference?: string | null;
+    fiscal_qr_code?: string | null;
+    fiscal_verification_url?: string | null;
+    fiscal_submitted_at?: string | null;
+  } | null;
 }
+
 
 interface Props {
   open: boolean;
@@ -109,7 +118,25 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
 
           <div className="line border-t border-dashed border-foreground/30 my-2" />
           <p className="text-center">Thank you for shopping with us!</p>
+
+          {data.fiscal?.fiscal_reference && (
+            <>
+              <div className="line border-t border-dashed border-foreground/30 my-2" />
+              <div className="text-center space-y-0.5">
+                <p className="font-bold">KRA Fiscal Receipt</p>
+                <p>Ref: {data.fiscal.fiscal_reference}</p>
+                {data.fiscal.fiscal_invoice_number && <p>Invoice: {data.fiscal.fiscal_invoice_number}</p>}
+                {data.fiscal.fiscal_verification_url && (
+                  <p className="break-all text-[10px]">Verify: {data.fiscal.fiscal_verification_url}</p>
+                )}
+              </div>
+            </>
+          )}
+          {data.fiscal?.fiscal_status && !data.fiscal.fiscal_reference && (
+            <p className="text-center text-[10px] italic">Fiscalisation: {data.fiscal.fiscal_status}</p>
+          )}
         </div>
+
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>

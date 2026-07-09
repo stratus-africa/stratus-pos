@@ -104,7 +104,9 @@ const Profile = lazy(() => import("./pages/Profile"));
 const CashierDashboard = lazy(() => import("./pages/CashierDashboard"));
 const JournalEntries = lazy(() => import("./pages/JournalEntries"));
 const Banking = lazy(() => import("./pages/Banking"));
+const Digitax = lazy(() => import("./pages/Digitax"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+
 const Landing = lazy(() => import("./pages/Landing"));
 const SuperAdminLogin = lazy(() => import("./pages/SuperAdminLogin"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
@@ -270,8 +272,10 @@ const ProtectedRoutes = () => {
             <Route path="/journal-entries" element={guard(<FeatureGate featureKey="chart_of_accounts"><JournalEntries /></FeatureGate>, "chart_of_accounts.view")} />
             <Route path="/banking" element={guard(<FeatureGate featureKey="banking"><Banking /></FeatureGate>, "banking.view")} />
             <Route path="/reports" element={guard(<FeatureGate featureKey="reports"><Reports /></FeatureGate>, "report.sales")} />
+            <Route path="/tax-compliance" element={guard(<FeatureGate featureKey="digitax"><Digitax /></FeatureGate>, "settings.view")} />
             <Route path="/settings" element={guard(<SettingsPage />, "settings.view")} />
             <Route path="/profile" element={guard(<Profile />)} />
+
             <Route path="/roles" element={<Navigate to="/settings?tab=roles" replace />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

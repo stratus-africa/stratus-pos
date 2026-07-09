@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, MapPin, Users, Receipt, CreditCard, ShieldCheck, Wallet, Smartphone, Palette, Hash, Plug } from "lucide-react";
+import { Building2, MapPin, Users, Receipt, CreditCard, ShieldCheck, Wallet, Smartphone, Palette, Hash, Plug, FileCheck2 } from "lucide-react";
 import { BusinessProfileTab } from "@/components/settings/BusinessProfileTab";
 import { BrandingTab } from "@/components/settings/BrandingTab";
 import { LocationsTab } from "@/components/settings/LocationsTab";
@@ -11,6 +11,9 @@ import { PaymentAccountsTab } from "@/components/settings/PaymentAccountsTab";
 import { PaymentGatewaysTab } from "@/components/settings/PaymentGatewaysTab";
 import { NumberSeriesTab } from "@/components/settings/NumberSeriesTab";
 import { IntegrationsTab } from "@/components/settings/IntegrationsTab";
+import { DigitaxSettingsTab } from "@/components/settings/DigitaxSettingsTab";
+import { useFeatureLimit } from "@/components/FeatureGate";
+
 import { useSearchParams } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useMemo } from "react";
@@ -20,6 +23,7 @@ interface TabDef {
   label: string;
   icon: React.ReactNode;
   permission: string;
+  featureKey?: string;
   render: () => JSX.Element;
 }
 
@@ -32,6 +36,7 @@ const NotAuthorized = () => (
 const SettingsPage = () => {
   const [searchParams] = useSearchParams();
   const { hasPermission } = usePermissions();
+  const { hasFeatureKey } = useFeatureLimit();
 
   const tabs: TabDef[] = useMemo(() => [
     { key: "business", label: "Business", icon: <Building2 className="h-4 w-4" />, permission: "settings.view", render: () => <BusinessProfileTab /> },
@@ -44,12 +49,14 @@ const SettingsPage = () => {
     { key: "receipt", label: "Receipt", icon: <Receipt className="h-4 w-4" />, permission: "settings.edit", render: () => <ReceiptSettingsTab /> },
     { key: "numbering", label: "Numbering", icon: <Hash className="h-4 w-4" />, permission: "settings.edit", render: () => <NumberSeriesTab /> },
     { key: "integrations", label: "Integrations", icon: <Plug className="h-4 w-4" />, permission: "settings.edit", render: () => <IntegrationsTab /> },
+    { key: "digitax", label: "Tax Compliance", icon: <FileCheck2 className="h-4 w-4" />, permission: "settings.edit", featureKey: "digitax", render: () => <DigitaxSettingsTab /> },
     { key: "subscription", label: "Plan", icon: <CreditCard className="h-4 w-4" />, permission: "settings.view", render: () => <SubscriptionTab /> },
   ], []);
 
-  const allowed = tabs.filter((t) => hasPermission(t.permission));
+  const allowed = tabs.filter((t) => hasPermission(t.permission) && (!t.featureKey || hasFeatureKey(t.featureKey)));
   const requested = searchParams.get("tab");
   const defaultTab = (requested && allowed.find((t) => t.key === requested)?.key) || allowed[0]?.key || "business";
+
 
   if (allowed.length === 0) return <NotAuthorized />;
 
