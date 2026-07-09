@@ -328,11 +328,28 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
               <div className="flex justify-between text-destructive font-semibold"><span>Remaining</span><span>KES {remaining.toLocaleString()}</span></div>
             )}
           </div>
+
+          {digitaxEnabled && (
+            <div className="flex items-center justify-between rounded-lg border-2 border-red-500/60 bg-red-50 dark:bg-red-950/30 p-3">
+              <div className="flex items-center gap-2">
+                <Send className="h-4 w-4 text-red-600" />
+                <div>
+                  <div className="text-sm font-semibold text-red-700 dark:text-red-400">Push to eTIMS</div>
+                  <div className="text-[11px] text-red-600/80 dark:text-red-400/80">Fiscalise this sale via DigiTax (KRA)</div>
+                </div>
+              </div>
+              <Switch
+                checked={pushToEtims}
+                onCheckedChange={setPushToEtims}
+                className="data-[state=checked]:bg-red-600"
+              />
+            </div>
+          )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={() => onConfirm(payments, bankAccountId === "none" ? null : bankAccountId)} disabled={totalPaid <= 0 || processing}>
+          <Button onClick={() => onConfirm(payments, bankAccountId === "none" ? null : bankAccountId, digitaxEnabled && pushToEtims)} disabled={totalPaid <= 0 || processing}>
             {processing ? "Processing..." : "Complete Sale"}
           </Button>
         </DialogFooter>
