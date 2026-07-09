@@ -30,9 +30,15 @@ export interface Sale {
   notes: string | null;
   created_by: string;
   created_at: string;
+  fiscal_status?: string | null;
+  fiscal_invoice_number?: string | null;
+  fiscal_reference?: string | null;
+  fiscal_verification_url?: string | null;
+  fiscal_qr_code?: string | null;
   customers?: { name: string; phone: string | null } | null;
   locations?: { name: string } | null;
 }
+
 
 export interface SaleItem {
   id: string;
