@@ -22,6 +22,9 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
 export function DigitaxSettingsTab() {
   const { business } = useBusiness();
   const { query, save, testConnection } = useDigitaxSettings();
+  const fiscalisedQ = useDigitaxFiscalisedCount();
+  const fiscalisedCount = fiscalisedQ.data ?? 0;
+  const lockedOn = query.data?.enabled === true && fiscalisedCount > 0;
   const [form, setForm] = useState({
     enabled: false,
     environment: "sandbox" as "sandbox" | "production",
