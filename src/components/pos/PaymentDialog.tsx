@@ -39,6 +39,8 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
   const { data: bankAccounts = [] } = useBankAccounts();
   const { data: methodAccounts = {} as Record<string, string | null> } = usePaymentMethodAccounts();
   const { business } = useBusiness();
+  const { enabled: digitaxEnabled } = useDigitaxEnabled();
+  const [pushToEtims, setPushToEtims] = useState(true);
 
   // M-Pesa STK Push state
   const [mpesaPhone, setMpesaPhone] = useState("");
