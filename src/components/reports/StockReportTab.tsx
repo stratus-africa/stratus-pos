@@ -118,6 +118,7 @@ const StockReportTab = ({ from, to }: Props) => {
                 <TableHead>Code</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Category</TableHead>
+                <TableHead className="text-right">Sold ({from} → {to})</TableHead>
                 <TableHead className="text-right">Current Stock</TableHead>
                 <TableHead className="text-right">Action</TableHead>
               </TableRow>
@@ -128,6 +129,7 @@ const StockReportTab = ({ from, to }: Props) => {
                   <TableCell className="font-mono text-xs">{p.sku || "—"}</TableCell>
                   <TableCell>{p.name}</TableCell>
                   <TableCell>{p.categories?.name || "—"}</TableCell>
+                  <TableCell className="text-right">{p._sold.qty.toLocaleString()} {p.unit || ""}</TableCell>
                   <TableCell className="text-right">{p._stock.total.toLocaleString()} {p.unit || ""}</TableCell>
                   <TableCell className="text-right">
                     <Button size="sm" onClick={() => setSelected(p)}>Reports</Button>
@@ -135,8 +137,8 @@ const StockReportTab = ({ from, to }: Props) => {
                 </TableRow>
               ))}
               {pageItems.length === 0 && (
-                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                  {productsQ.isLoading ? "Loading..." : "No products"}
+                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  {productsQ.isLoading ? "Loading..." : "No products sold in this period"}
                 </TableCell></TableRow>
               )}
             </TableBody>
