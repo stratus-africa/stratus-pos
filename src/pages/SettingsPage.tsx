@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, MapPin, Users, Receipt, CreditCard, ShieldCheck, Wallet, Smartphone, Palette, Hash, Plug } from "lucide-react";
+import { Building2, MapPin, Users, Receipt, CreditCard, ShieldCheck, Wallet, Smartphone, Palette, Hash, Plug, FileCheck2 } from "lucide-react";
 import { BusinessProfileTab } from "@/components/settings/BusinessProfileTab";
 import { BrandingTab } from "@/components/settings/BrandingTab";
 import { LocationsTab } from "@/components/settings/LocationsTab";
@@ -11,6 +11,9 @@ import { PaymentAccountsTab } from "@/components/settings/PaymentAccountsTab";
 import { PaymentGatewaysTab } from "@/components/settings/PaymentGatewaysTab";
 import { NumberSeriesTab } from "@/components/settings/NumberSeriesTab";
 import { IntegrationsTab } from "@/components/settings/IntegrationsTab";
+import { DigitaxSettingsTab } from "@/components/settings/DigitaxSettingsTab";
+import { useFeatureLimit } from "@/components/FeatureGate";
+
 import { useSearchParams } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useMemo } from "react";
