@@ -231,6 +231,21 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
                   </a>
                 </div>
               )}
+              {fiscalError && (
+                <div className="text-destructive text-xs pt-1"><span className="font-semibold">Error:</span> {fiscalError}</div>
+              )}
+              {canRetryFiscal && (sale.fiscal_status === "failed" || sale.fiscal_status === "retry_required") && (
+                <div className="pt-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => sale && retryFiscalisation.mutate(sale.id)}
+                    disabled={retryFiscalisation.isPending}
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" /> Retry KRA submission
+                  </Button>
+                </div>
+              )}
             </div>
           </>
         )}
