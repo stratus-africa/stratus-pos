@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Customer } from "@/hooks/useSales";
 import { useDigitaxSettings } from "@/hooks/useDigitax";
+import { useIsCustomerFiscalised } from "@/hooks/useIsFiscalised";
+import { Lock } from "lucide-react";
 
 interface CustomerLike extends Customer {
   kra_pin?: string | null;
