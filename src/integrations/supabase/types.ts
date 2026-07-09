@@ -2433,6 +2433,14 @@ export type Database = {
         Returns: number
       }
       get_offline_payment_settings: { Args: never; Returns: Json }
+      get_package_features_safe: {
+        Args: { _package_id: string }
+        Returns: {
+          feature_key: string
+          feature_label: string
+          package_id: string
+        }[]
+      }
       get_public_package_features: {
         Args: never
         Returns: {
