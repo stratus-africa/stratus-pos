@@ -350,11 +350,12 @@ export function SubscriptionTab() {
           <Card>
             <CardHeader><CardTitle className="text-lg">Usage Limits</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <UsageRow label="Products" current={usage.products} max={currentPackage?.max_products ?? 0} />
-              <UsageRow label="Users" current={usage.users} max={currentPackage?.max_users ?? 0} />
-              <UsageRow label="Warehouses" current={0} max={currentPackage?.max_locations ?? 0} />
-              <UsageRow label="Customers" current={usage.customers} max={(currentPackage as any)?.max_customers ?? -1} />
-              <UsageRow label="Suppliers" current={usage.suppliers} max={(currentPackage as any)?.max_suppliers ?? -1} />
+             <UsageRow label="Products" current={usage.products} max={currentPackage?.max_products ?? 0} />
+             <UsageRow label="Users" current={usage.users} max={currentPackage?.max_users ?? 0} />
+             <UsageRow label="Warehouses" current={usage.locations} max={currentPackage?.max_locations ?? 0} />
+             <UsageRow label="Customers" current={usage.customers} max={(currentPackage as any)?.max_customers ?? -1} />
+             <UsageRow label="Suppliers" current={usage.suppliers} max={(currentPackage as any)?.max_suppliers ?? -1} />
+
             </CardContent>
           </Card>
 
