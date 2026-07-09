@@ -149,7 +149,7 @@ export function useProducts() {
       queryClient.invalidateQueries({ queryKey: ["product_variants"] });
       toast.success("Product created");
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => { if (!handlePlanLimitError(e, "products")) toast.error(e.message); },
   });
 
   const updateProduct = useMutation({
