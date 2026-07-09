@@ -10,7 +10,8 @@ import { useTaxRates } from "@/hooks/useTaxRates";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useFeatureLimit } from "@/components/FeatureGate";
 import { useDigitaxSettings } from "@/hooks/useDigitax";
-import { Plus, Trash2, FlaskConical, Shirt, ImageIcon, Loader2 } from "lucide-react";
+import { useIsProductFiscalised } from "@/hooks/useIsFiscalised";
+import { Plus, Trash2, FlaskConical, Shirt, ImageIcon, Loader2, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
