@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -238,7 +239,7 @@ export function useSales() {
         .eq("id", id)
         .maybeSingle();
 
-      const nextStatus = cancel ? "cancelled" : "completed";
+      const nextStatus = cancel ? "cancelled" : "final";
       const { error } = await supabase
         .from("sales")
         .update({ status: nextStatus })
@@ -277,5 +278,33 @@ export function useSales() {
     onError: (e) => toast.error(e.message),
   });
 
-  return { salesQuery, getSaleDetails, deleteSale, cancelSale };
+  const retryFiscalisation = useMutation({
+    mutationFn: async (saleId: string) => {
+      const { submitSaleToDigitax } = await import("@/hooks/useDigitax");
+      const res = await submitSaleToDigitax(saleId, { invoice_type: "invoice" });
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
+      toast.success("Re-queued for KRA submission");
+    },
+    onError: (e: any) => toast.error(e?.message || "Failed to re-queue"),
+  });
+
+  // Realtime: when a KRA callback updates a sale's fiscal columns, refresh the list.
+  useEffect(() => {
+    if (!business?.id) return;
+    const channel = supabase
+      .channel(`sales-fiscal-${business.id}`)
+      .on("postgres_changes",
+          { event: "UPDATE", schema: "public", table: "sales", filter: `business_id=eq.${business.id}` },
+          () => queryClient.invalidateQueries({ queryKey: ["sales"] }))
+      .on("postgres_changes",
+          { event: "*", schema: "public", table: "digitax_invoice_queue", filter: `business_id=eq.${business.id}` },
+          () => queryClient.invalidateQueries({ queryKey: ["sales"] }))
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [business?.id, queryClient]);
+
+  return { salesQuery, getSaleDetails, deleteSale, cancelSale, retryFiscalisation };
 }

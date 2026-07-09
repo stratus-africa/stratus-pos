@@ -10,7 +10,8 @@ import { useTaxRates } from "@/hooks/useTaxRates";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useFeatureLimit } from "@/components/FeatureGate";
 import { useDigitaxSettings } from "@/hooks/useDigitax";
-import { Plus, Trash2, FlaskConical, Shirt, ImageIcon, Loader2 } from "lucide-react";
+import { useIsProductFiscalised } from "@/hooks/useIsFiscalised";
+import { Plus, Trash2, FlaskConical, Shirt, ImageIcon, Loader2, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -36,6 +37,7 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
   const { query: digitaxQ } = useDigitaxSettings();
   const digitaxEnabled = !!digitaxQ.data?.enabled;
   const vatEnabled = business?.vat_enabled !== false;
+  const fiscalised = useIsProductFiscalised(product?.id);
 
   const businessType = (business as any)?.business_type;
   const isClothing = businessType === "clothing";
@@ -534,22 +536,29 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
 
           {digitaxEnabled && (
             <div className="rounded-md border p-3 space-y-3">
-              <div className="text-sm font-semibold">KRA / DigiTax</div>
+              <div className="text-sm font-semibold flex items-center gap-2">
+                KRA / DigiTax
+                {fiscalised && (
+                  <span className="inline-flex items-center gap-1 text-xs font-normal text-amber-700">
+                    <Lock className="h-3 w-3" /> Locked — fiscalised to KRA
+                  </span>
+                )}
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="space-y-1"><Label className="text-xs">KRA Item Code</Label>
-                  <Input value={form.kra_item_code ?? ""} onChange={(e) => setForm({ ...form, kra_item_code: e.target.value || null })} /></div>
+                  <Input disabled={fiscalised} value={form.kra_item_code ?? ""} onChange={(e) => setForm({ ...form, kra_item_code: e.target.value || null })} /></div>
                 <div className="space-y-1"><Label className="text-xs">Item Classification</Label>
-                  <Input value={form.item_classification ?? ""} onChange={(e) => setForm({ ...form, item_classification: e.target.value || null })} /></div>
+                  <Input disabled={fiscalised} value={form.item_classification ?? ""} onChange={(e) => setForm({ ...form, item_classification: e.target.value || null })} /></div>
                 <div className="space-y-1"><Label className="text-xs">HS Code</Label>
-                  <Input value={form.hs_code ?? ""} onChange={(e) => setForm({ ...form, hs_code: e.target.value || null })} /></div>
+                  <Input disabled={fiscalised} value={form.hs_code ?? ""} onChange={(e) => setForm({ ...form, hs_code: e.target.value || null })} /></div>
                 <div className="space-y-1"><Label className="text-xs">Quantity Unit</Label>
-                  <Input placeholder="e.g. PCS" value={form.quantity_unit ?? ""} onChange={(e) => setForm({ ...form, quantity_unit: e.target.value || null })} /></div>
+                  <Input disabled={fiscalised} placeholder="e.g. PCS" value={form.quantity_unit ?? ""} onChange={(e) => setForm({ ...form, quantity_unit: e.target.value || null })} /></div>
                 <div className="space-y-1"><Label className="text-xs">Packaging Unit</Label>
-                  <Input placeholder="e.g. BX" value={form.packaging_unit ?? ""} onChange={(e) => setForm({ ...form, packaging_unit: e.target.value || null })} /></div>
+                  <Input disabled={fiscalised} placeholder="e.g. BX" value={form.packaging_unit ?? ""} onChange={(e) => setForm({ ...form, packaging_unit: e.target.value || null })} /></div>
                 <div className="space-y-1"><Label className="text-xs">Country of Origin</Label>
-                  <Input placeholder="KE" value={form.country_of_origin ?? ""} onChange={(e) => setForm({ ...form, country_of_origin: e.target.value || null })} /></div>
+                  <Input disabled={fiscalised} placeholder="KE" value={form.country_of_origin ?? ""} onChange={(e) => setForm({ ...form, country_of_origin: e.target.value || null })} /></div>
                 <div className="space-y-1"><Label className="text-xs">Tax Category</Label>
-                  <Select value={form.tax_category ?? "none"} onValueChange={(v) => setForm({ ...form, tax_category: v === "none" ? null : v })}>
+                  <Select disabled={fiscalised} value={form.tax_category ?? "none"} onValueChange={(v) => setForm({ ...form, tax_category: v === "none" ? null : v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">—</SelectItem>

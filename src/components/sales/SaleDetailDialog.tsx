@@ -7,8 +7,9 @@ import { Separator } from "@/components/ui/separator";
 import { Sale, SaleItem, Payment, useSales } from "@/hooks/useSales";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { format } from "date-fns";
-import { Printer } from "lucide-react";
+import { Printer, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { loadReceiptConfig } from "@/lib/receiptTemplate";
 
@@ -19,19 +20,34 @@ interface Props {
 }
 
 export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
-  const { getSaleDetails } = useSales();
-  const { business } = useBusiness();
+  const { getSaleDetails, retryFiscalisation } = useSales();
+  const { business, userRole } = useBusiness();
+  const { hasPermission: _hp } = usePermissions();
+  const canRetryFiscal = userRole !== "cashier";
   const { user } = useAuth();
   const [items, setItems] = useState<SaleItem[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
+  const [fiscalError, setFiscalError] = useState<string | null>(null);
 
   useEffect(() => {
     if (sale && open) {
       setLoading(true);
+      setFiscalError(null);
       getSaleDetails(sale.id)
         .then(({ items, payments }) => { setItems(items); setPayments(payments); })
         .finally(() => setLoading(false));
+      // Fetch latest DigiTax queue row for this sale (for error message)
+      import("@/integrations/supabase/client").then(({ supabase }) => {
+        supabase
+          .from("digitax_invoice_queue")
+          .select("error_message,status")
+          .eq("sale_id", sale.id)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+          .then(({ data }) => setFiscalError(data?.error_message ?? null));
+      });
     }
   }, [sale, open]);
 
@@ -213,6 +229,21 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
                   <a className="text-primary underline break-all" href={sale.fiscal_verification_url} target="_blank" rel="noreferrer">
                     {sale.fiscal_verification_url}
                   </a>
+                </div>
+              )}
+              {fiscalError && (
+                <div className="text-destructive text-xs pt-1"><span className="font-semibold">Error:</span> {fiscalError}</div>
+              )}
+              {canRetryFiscal && (sale.fiscal_status === "failed" || sale.fiscal_status === "retry_required") && (
+                <div className="pt-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => sale && retryFiscalisation.mutate(sale.id)}
+                    disabled={retryFiscalisation.isPending}
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" /> Retry KRA submission
+                  </Button>
                 </div>
               )}
             </div>

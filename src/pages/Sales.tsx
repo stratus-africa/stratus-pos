@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Eye, Trash2, Ban, RotateCcw, Pause, Play, X } from "lucide-react";
+import { Search, Eye, Trash2, Ban, RotateCcw, Pause, Play, X, RefreshCw } from "lucide-react";
 import { useSales, Sale } from "@/hooks/useSales";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -15,20 +15,23 @@ import SaleDetailDialog from "@/components/sales/SaleDetailDialog";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 const Sales = () => {
-  const { salesQuery, deleteSale, cancelSale } = useSales();
+  const { salesQuery, deleteSale, cancelSale, retryFiscalisation } = useSales();
   const { business, userRole } = useBusiness();
   const { hasPermission } = usePermissions();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isCashier = userRole === "cashier";
   const canDelete = hasPermission("sales.delete") && !isCashier;
   const canCancel = !isCashier;
+  const canRetry = !isCashier;
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const initialStatus = searchParams.get("payment_status") || "all";
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [pageSize, setPageSize] = useState<number>(() => {
@@ -67,7 +70,12 @@ const Sales = () => {
     const matchesSearch =
       (s.invoice_number || "").toLowerCase().includes(search.toLowerCase()) ||
       (s.customers?.name || "walk-in").toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === "all" || s.payment_status === statusFilter;
+    const matchesStatus =
+      statusFilter === "all"
+        ? true
+        : statusFilter === "credit"
+          ? ["unpaid", "partial", "credit"].includes(s.payment_status) && s.status !== "cancelled"
+          : s.payment_status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
@@ -79,13 +87,22 @@ const Sales = () => {
   );
   useEffect(() => { setPage(1); }, [search, statusFilter, pageSize]);
 
-  const totalSales = sales.reduce((s, v) => s + Number(v.total), 0);
-  const paidSales = sales.filter((s) => s.payment_status === "paid").length;
+  const activeSales = sales.filter((s) => s.status !== "cancelled");
+  const totalSales = activeSales.reduce((s, v) => s + Number(v.total), 0);
+  const paidSales = activeSales.filter((s) => s.payment_status === "paid").length;
   const suspended = suspendedQuery.data || [];
   const suspendedTotalPages = Math.max(1, Math.ceil(suspended.length / suspendedPageSize));
   const suspendedCurrentPage = Math.min(suspendedPage, suspendedTotalPages);
   const paginatedSuspended = suspended.slice((suspendedCurrentPage - 1) * suspendedPageSize, suspendedCurrentPage * suspendedPageSize);
   useEffect(() => { setSuspendedPage(1); }, [suspendedPageSize]);
+
+  // Keep URL param synced with the current filter so the Dashboard's Credit Sales card lands correctly.
+  useEffect(() => {
+    if (statusFilter === "all") searchParams.delete("payment_status");
+    else searchParams.set("payment_status", statusFilter);
+    setSearchParams(searchParams, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter]);
 
   const cancelSuspended = async (id: string) => {
     if (!confirm("Discard this suspended sale?")) return;
@@ -149,6 +166,7 @@ const Sales = () => {
             <SelectItem value="paid">Paid</SelectItem>
             <SelectItem value="unpaid">Unpaid</SelectItem>
             <SelectItem value="partial">Partial</SelectItem>
+            <SelectItem value="credit">Credit (Outstanding)</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -236,6 +254,17 @@ const Sales = () => {
                           onClick={() => cancelSale.mutate({ id: sale.id, cancel: false })}
                         >
                           <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {canRetry && (sale.fiscal_status === "failed" || sale.fiscal_status === "retry_required") && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Retry KRA submission"
+                          title={`Retry KRA submission${sale.fiscal_status === "failed" ? " (failed)" : ""}`}
+                          onClick={() => retryFiscalisation.mutate(sale.id)}
+                        >
+                          <RefreshCw className="h-4 w-4 text-amber-600" />
                         </Button>
                       )}
                       {canDelete && (
