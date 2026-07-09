@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { toast } from "sonner";
+import { handlePlanLimitError } from "@/lib/planLimits";
 
 export interface Product {
   id: string;
@@ -148,7 +149,7 @@ export function useProducts() {
       queryClient.invalidateQueries({ queryKey: ["product_variants"] });
       toast.success("Product created");
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => { if (!handlePlanLimitError(e, "products")) toast.error(e.message); },
   });
 
   const updateProduct = useMutation({

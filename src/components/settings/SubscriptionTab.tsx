@@ -37,7 +37,7 @@ export function SubscriptionTab() {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [packages, setPackages] = useState<PkgDisplay[]>([]);
   const [loadingPkgs, setLoadingPkgs] = useState(true);
-  const [usage, setUsage] = useState({ products: 0, customers: 0, suppliers: 0, users: 0 });
+  const [usage, setUsage] = useState({ products: 0, customers: 0, suppliers: 0, users: 0, locations: 0 });
   const [offlineTarget, setOfflineTarget] = useState<PkgDisplay | null>(null);
   const [pendingOffline, setPendingOffline] = useState<{ id: string; method: string; amount_kes: number; billing_interval: string; created_at: string } | null>(null);
   const [paystackEnabled, setPaystackEnabled] = useState<boolean>(false);
@@ -106,17 +106,19 @@ export function SubscriptionTab() {
   useEffect(() => {
     const fetchUsage = async () => {
       if (!business?.id) return;
-      const [{ count: products }, { count: customers }, { count: suppliers }, { count: users }] = await Promise.all([
+      const [{ count: products }, { count: customers }, { count: suppliers }, { count: users }, { count: locations }] = await Promise.all([
         supabase.from("products").select("id", { count: "exact", head: true }).eq("business_id", business.id),
         supabase.from("customers").select("id", { count: "exact", head: true }).eq("business_id", business.id),
         supabase.from("suppliers" as any).select("id", { count: "exact", head: true }).eq("business_id", business.id),
         supabase.from("profiles").select("id", { count: "exact", head: true }).eq("business_id", business.id),
+        supabase.from("locations").select("id", { count: "exact", head: true }).eq("business_id", business.id),
       ]);
       setUsage({
         products: products ?? 0,
         customers: customers ?? 0,
         suppliers: suppliers ?? 0,
         users: users ?? 0,
+        locations: locations ?? 0,
       });
     };
     fetchUsage();
@@ -348,11 +350,12 @@ export function SubscriptionTab() {
           <Card>
             <CardHeader><CardTitle className="text-lg">Usage Limits</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <UsageRow label="Products" current={usage.products} max={currentPackage?.max_products ?? 0} />
-              <UsageRow label="Users" current={usage.users} max={currentPackage?.max_users ?? 0} />
-              <UsageRow label="Warehouses" current={0} max={currentPackage?.max_locations ?? 0} />
-              <UsageRow label="Customers" current={usage.customers} max={(currentPackage as any)?.max_customers ?? -1} />
-              <UsageRow label="Suppliers" current={usage.suppliers} max={(currentPackage as any)?.max_suppliers ?? -1} />
+             <UsageRow label="Products" current={usage.products} max={currentPackage?.max_products ?? 0} />
+             <UsageRow label="Users" current={usage.users} max={currentPackage?.max_users ?? 0} />
+             <UsageRow label="Warehouses" current={usage.locations} max={currentPackage?.max_locations ?? 0} />
+             <UsageRow label="Customers" current={usage.customers} max={(currentPackage as any)?.max_customers ?? -1} />
+             <UsageRow label="Suppliers" current={usage.suppliers} max={(currentPackage as any)?.max_suppliers ?? -1} />
+
             </CardContent>
           </Card>
 
@@ -381,12 +384,27 @@ export function SubscriptionTab() {
 
 function UsageRow({ label, current, max }: { label: string; current: number; max: number }) {
   const isUnlimited = max <= 0;
+  const remaining = isUnlimited ? Infinity : Math.max(0, max - current);
+  const pct = isUnlimited ? 0 : Math.min(100, Math.round((current / max) * 100));
+  const atLimit = !isUnlimited && current >= max;
+  const near = !isUnlimited && !atLimit && pct >= 80;
+  const barColor = atLimit ? "bg-destructive" : near ? "bg-amber-500" : "bg-primary";
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium tabular-nums">
-        {current.toLocaleString()} / {isUnlimited ? "∞" : max.toLocaleString()}
-      </span>
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">{label}</span>
+        <span className={`font-medium tabular-nums ${atLimit ? "text-destructive" : ""}`}>
+          {current.toLocaleString()} / {isUnlimited ? "∞" : max.toLocaleString()}
+          {!isUnlimited && (
+            <span className="text-muted-foreground ml-2">· {remaining.toLocaleString()} left</span>
+          )}
+        </span>
+      </div>
+      {!isUnlimited && (
+        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+          <div className={`h-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
+        </div>
+      )}
     </div>
   );
 }

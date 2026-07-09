@@ -4,6 +4,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { toast } from "sonner";
 import { logAudit } from "@/lib/audit";
 import { assertCanPost } from "@/lib/postingGuard";
+import { handlePlanLimitError } from "@/lib/planLimits";
 
 
 export interface Supplier {
@@ -71,7 +72,7 @@ export function useSuppliers() {
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["suppliers"] }); toast.success("Supplier created"); },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => { if (!handlePlanLimitError(e, "suppliers")) toast.error(e.message); },
   });
 
   const update = useMutation({
