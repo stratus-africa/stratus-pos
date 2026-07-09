@@ -37,7 +37,7 @@ export function SubscriptionTab() {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [packages, setPackages] = useState<PkgDisplay[]>([]);
   const [loadingPkgs, setLoadingPkgs] = useState(true);
-  const [usage, setUsage] = useState({ products: 0, customers: 0, suppliers: 0, users: 0 });
+  const [usage, setUsage] = useState({ products: 0, customers: 0, suppliers: 0, users: 0, locations: 0 });
   const [offlineTarget, setOfflineTarget] = useState<PkgDisplay | null>(null);
   const [pendingOffline, setPendingOffline] = useState<{ id: string; method: string; amount_kes: number; billing_interval: string; created_at: string } | null>(null);
   const [paystackEnabled, setPaystackEnabled] = useState<boolean>(false);
