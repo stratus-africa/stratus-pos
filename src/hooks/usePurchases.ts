@@ -4,6 +4,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { toast } from "sonner";
 import { logAudit } from "@/lib/audit";
 import { assertCanPost } from "@/lib/postingGuard";
+import { handlePlanLimitError } from "@/lib/planLimits";
 
 
 export interface Supplier {
