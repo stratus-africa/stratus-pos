@@ -345,6 +345,7 @@ export function DigitaxSettingsTab() {
           </div>
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }
