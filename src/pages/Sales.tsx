@@ -164,14 +164,15 @@ const Sales = () => {
                 <TableHead>Location</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead>Payment</TableHead>
+                <TableHead>Fiscal</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {salesQuery.isLoading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
               ) : filteredSales.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No sales found. Create sales from the POS screen.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No sales found. Create sales from the POS screen.</TableCell></TableRow>
               ) : (
                 paginatedSales.map((sale) => (
                   <TableRow key={sale.id}>
@@ -189,6 +190,25 @@ const Sales = () => {
                         </Badge>
                       )}
                     </TableCell>
+                    <TableCell>
+                      {sale.fiscal_status ? (
+                        <Badge
+                          variant="outline"
+                          className={
+                            sale.fiscal_status === "accepted" || sale.fiscal_status === "submitted"
+                              ? "border-emerald-500 text-emerald-700"
+                              : sale.fiscal_status === "failed"
+                                ? "border-destructive text-destructive"
+                                : "border-amber-500 text-amber-700"
+                          }
+                        >
+                          {sale.fiscal_status.replace("_", " ")}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => { setSelectedSale(sale); setDetailOpen(true); }} aria-label="View sale">
                         <Eye className="h-4 w-4" />
