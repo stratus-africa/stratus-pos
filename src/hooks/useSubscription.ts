@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { getPaystackEnvironment } from "@/lib/paystack";
 
 export type SubscriptionTier = "free" | "basic" | "pro";
@@ -42,23 +43,31 @@ interface PackageFeature {
 
 export function useSubscription() {
   const { user } = useAuth();
+  const { business, refreshBusiness } = useBusiness();
   const queryClient = useQueryClient();
   const environment = getPaystackEnvironment();
 
+  // Plan is attached to the business owner's user_id. Resolving here ensures
+  // ALL tenant users (owner + staff) see plan changes made by a super admin
+  // immediately — not just the owner logged into their own account.
+  const planUserId = business?.owner_id || user?.id || null;
+
   const { data: subscription, isLoading: subLoading } = useQuery({
-    queryKey: ["subscription", user?.id, environment],
+    queryKey: ["subscription", planUserId, environment],
     queryFn: async () => {
-      if (!user) return null;
+      if (!planUserId) return null;
       const { data, error } = await supabase
         .from("subscriptions")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", planUserId)
         .eq("environment", environment)
         .maybeSingle();
       if (error) throw error;
       return data as unknown as Subscription | null;
     },
-    enabled: !!user,
+    enabled: !!planUserId,
+    refetchOnWindowFocus: true,
+    staleTime: 15_000,
   });
 
   const { data: packagesData, isLoading: pkgLoading } = useQuery({
@@ -85,12 +94,14 @@ export function useSubscription() {
         features: (allFeatures as any[]).map((f) => ({ ...f, enabled: true })) as PackageFeature[],
       };
     },
-    staleTime: 60_000,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
 
+  // Realtime: apply plan/feature changes the instant a super admin edits them.
   useEffect(() => {
-    if (!user) return;
-    const channelName = `subscription-changes-${user.id}-${crypto.randomUUID()}`;
+    if (!planUserId) return;
+    const channelName = `subscription-changes-${planUserId}-${crypto.randomUUID()}`;
     const channel = supabase
       .channel(channelName)
       .on(
@@ -99,10 +110,27 @@ export function useSubscription() {
           event: "*",
           schema: "public",
           table: "subscriptions",
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${planUserId}`,
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ["subscription", user.id, environment] });
+          queryClient.invalidateQueries({ queryKey: ["subscription", planUserId, environment] });
+          queryClient.invalidateQueries({ queryKey: ["subscription_packages_with_features"] });
+          // Refresh business context so posting guard / expiry banner also update.
+          refreshBusiness();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "package_features" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["subscription_packages_with_features"] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "subscription_packages" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["subscription_packages_with_features"] });
         }
       )
       .subscribe();
@@ -110,7 +138,7 @@ export function useSubscription() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, environment, queryClient]);
+  }, [planUserId, environment, queryClient, refreshBusiness]);
 
   const isActive = subscription
     ? ["active", "trialing"].includes(subscription.status) &&
