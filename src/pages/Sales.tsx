@@ -103,11 +103,6 @@ const Sales = () => {
     setSearchParams(searchParams, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
-  const suspended = suspendedQuery.data || [];
-  const suspendedTotalPages = Math.max(1, Math.ceil(suspended.length / suspendedPageSize));
-  const suspendedCurrentPage = Math.min(suspendedPage, suspendedTotalPages);
-  const paginatedSuspended = suspended.slice((suspendedCurrentPage - 1) * suspendedPageSize, suspendedCurrentPage * suspendedPageSize);
-  useEffect(() => { setSuspendedPage(1); }, [suspendedPageSize]);
 
   const cancelSuspended = async (id: string) => {
     if (!confirm("Discard this suspended sale?")) return;
