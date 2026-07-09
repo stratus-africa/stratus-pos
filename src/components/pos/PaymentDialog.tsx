@@ -19,7 +19,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   total: number;
-  onConfirm: (payments: PaymentEntry[], bankAccountId: string | null) => void;
+  onConfirm: (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean) => void;
   processing: boolean;
   initialMethod?: "cash" | "mpesa" | "card";
 }
