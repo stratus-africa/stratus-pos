@@ -101,7 +101,7 @@ export function useCustomers(opts: UseCustomersOpts = {}) {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
       toast.success("Customer created");
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => { if (!handlePlanLimitError(e, "customers")) toast.error(e.message); },
   });
 
   const update = useMutation({
