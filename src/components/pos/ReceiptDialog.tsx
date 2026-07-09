@@ -117,8 +117,24 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
           {data.change > 0 && <div className="flex justify-between font-bold"><span>Change</span><span>KES {data.change.toLocaleString()}</span></div>}
 
           <div className="line border-t border-dashed border-foreground/30 my-2" />
-          <p className="text-center">Thank you for shopping with us!</p>
+          {data.fiscal?.fiscal_reference && (
+            <>
+              <div className="line border-t border-dashed border-foreground/30 my-2" />
+              <div className="text-center space-y-0.5">
+                <p className="font-bold">KRA Fiscal Receipt</p>
+                <p>Ref: {data.fiscal.fiscal_reference}</p>
+                {data.fiscal.fiscal_invoice_number && <p>Invoice: {data.fiscal.fiscal_invoice_number}</p>}
+                {data.fiscal.fiscal_verification_url && (
+                  <p className="break-all text-[10px]">Verify: {data.fiscal.fiscal_verification_url}</p>
+                )}
+              </div>
+            </>
+          )}
+          {data.fiscal?.fiscal_status && !data.fiscal.fiscal_reference && (
+            <p className="text-center text-[10px] italic">Fiscalisation: {data.fiscal.fiscal_status}</p>
+          )}
         </div>
+
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
