@@ -536,7 +536,14 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
 
           {digitaxEnabled && (
             <div className="rounded-md border p-3 space-y-3">
-              <div className="text-sm font-semibold">KRA / DigiTax</div>
+              <div className="text-sm font-semibold flex items-center gap-2">
+                KRA / DigiTax
+                {fiscalised && (
+                  <span className="inline-flex items-center gap-1 text-xs font-normal text-amber-700">
+                    <Lock className="h-3 w-3" /> Locked — fiscalised to KRA
+                  </span>
+                )}
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="space-y-1"><Label className="text-xs">KRA Item Code</Label>
                   <Input value={form.kra_item_code ?? ""} onChange={(e) => setForm({ ...form, kra_item_code: e.target.value || null })} /></div>
