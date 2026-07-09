@@ -186,6 +186,40 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
           </div>
         </div>
 
+        {sale.fiscal_status && (
+          <>
+            <Separator />
+            <div className="rounded-md border p-3 text-sm space-y-1 bg-muted/30">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">KRA Fiscal Receipt</span>
+                <Badge
+                  variant="outline"
+                  className={
+                    sale.fiscal_status === "accepted" || sale.fiscal_status === "submitted"
+                      ? "border-emerald-500 text-emerald-700"
+                      : sale.fiscal_status === "failed"
+                        ? "border-destructive text-destructive"
+                        : "border-amber-500 text-amber-700"
+                  }
+                >
+                  {sale.fiscal_status.replace("_", " ")}
+                </Badge>
+              </div>
+              {sale.fiscal_invoice_number && <div><span className="text-muted-foreground">Fiscal invoice:</span> {sale.fiscal_invoice_number}</div>}
+              {sale.fiscal_reference && <div><span className="text-muted-foreground">Reference:</span> {sale.fiscal_reference}</div>}
+              {sale.fiscal_verification_url && (
+                <div>
+                  <span className="text-muted-foreground">Verify:</span>{" "}
+                  <a className="text-primary underline break-all" href={sale.fiscal_verification_url} target="_blank" rel="noreferrer">
+                    {sale.fiscal_verification_url}
+                  </a>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+
         {payments.length > 0 && (
           <>
             <Separator />
