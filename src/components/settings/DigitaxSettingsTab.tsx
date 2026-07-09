@@ -21,11 +21,28 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
 };
 
 export function DigitaxSettingsTab() {
-  const { business } = useBusiness();
+  const { business, refreshBusiness } = useBusiness();
   const { query, save, testConnection } = useDigitaxSettings();
   const fiscalisedQ = useDigitaxFiscalisedCount();
   const fiscalisedCount = fiscalisedQ.data ?? 0;
-  const vatEnabled = (business as { vat_enabled?: boolean } | null)?.vat_enabled ?? true;
+
+  // Tax & Regional (moved from Business Profile)
+  const [savingBiz, setSavingBiz] = useState(false);
+  const [currency, setCurrency] = useState(business?.currency || "KES");
+  const [timezone, setTimezone] = useState(business?.timezone || "Africa/Nairobi");
+  const [taxRate, setTaxRate] = useState(String(business?.tax_rate ?? 16));
+  const [kraPin, setKraPin] = useState((business as any)?.kra_pin || "");
+  const [vatEnabled, setVatEnabled] = useState((business as { vat_enabled?: boolean })?.vat_enabled ?? true);
+
+  useEffect(() => {
+    if (!business) return;
+    setCurrency(business.currency || "KES");
+    setTimezone(business.timezone || "Africa/Nairobi");
+    setTaxRate(String(business.tax_rate ?? 16));
+    setKraPin((business as any).kra_pin || "");
+    setVatEnabled((business as any).vat_enabled ?? true);
+  }, [business?.id]);
+
   const lockedOn = query.data?.enabled === true && fiscalisedCount > 0;
   const [form, setForm] = useState({
     enabled: false,
