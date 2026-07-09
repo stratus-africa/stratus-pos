@@ -70,16 +70,19 @@ export function useSubscription() {
       ]);
       const publicPkgs: any[] = pubRes.data || [];
       let allPkgs = publicPkgs;
-      // If the user is subscribed to a private/hidden package, fetch it separately.
+      let allFeatures: any[] = featRes.data || [];
+      // If the user is subscribed to a private/hidden package, fetch it + its features separately.
       if (subscription?.product_id && !publicPkgs.find((p) => p.id === subscription.product_id)) {
-        const { data: priv } = await (supabase as any).rpc("get_subscription_package_safe", {
-          _id: subscription.product_id,
-        });
+        const [{ data: priv }, { data: privFeats }] = await Promise.all([
+          (supabase as any).rpc("get_subscription_package_safe", { _id: subscription.product_id }),
+          (supabase as any).rpc("get_package_features_safe", { _package_id: subscription.product_id }),
+        ]);
         if (priv && priv.length > 0) allPkgs = [...publicPkgs, priv[0]];
+        if (privFeats && privFeats.length > 0) allFeatures = [...allFeatures, ...privFeats];
       }
       return {
         packages: allPkgs as unknown as SubscriptionPackage[],
-        features: ((featRes.data || []) as any[]).map((f) => ({ ...f, enabled: true })) as PackageFeature[],
+        features: (allFeatures as any[]).map((f) => ({ ...f, enabled: true })) as PackageFeature[],
       };
     },
     staleTime: 60_000,
