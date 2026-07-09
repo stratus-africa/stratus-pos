@@ -14,13 +14,15 @@ import { Link } from "react-router-dom";
 interface StatCardProps {
   title: string;
   value: string;
+  subtitle?: string;
+  href?: string;
   icon: React.ReactNode;
   iconBg: string;
 }
 
-function StatCard({ title, value, icon, iconBg }: StatCardProps) {
-  return (
-    <Card className="hover:shadow-md transition-shadow">
+function StatCard({ title, value, subtitle, href, icon, iconBg }: StatCardProps) {
+  const body = (
+    <Card className="hover:shadow-md transition-shadow h-full">
       <CardContent className="flex items-center gap-4 p-4">
         <div className={`flex items-center justify-center h-12 w-12 rounded-full shrink-0 ${iconBg}`}>
           {icon}
@@ -28,10 +30,12 @@ function StatCard({ title, value, icon, iconBg }: StatCardProps) {
         <div className="min-w-0">
           <p className="text-sm text-muted-foreground truncate">{title}</p>
           <p className="text-xl font-bold">KES {value}</p>
+          {subtitle && <p className="text-xs text-muted-foreground truncate">{subtitle}</p>}
         </div>
       </CardContent>
     </Card>
   );
+  return href ? <Link to={href} className="block">{body}</Link> : body;
 }
 
 interface DashboardStatCardsProps {
