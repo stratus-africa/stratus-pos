@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Eye, Trash2, Ban, RotateCcw, Pause, Play, X } from "lucide-react";
+import { Search, Eye, Trash2, Ban, RotateCcw, Pause, Play, X, RefreshCw } from "lucide-react";
 import { useSales, Sale } from "@/hooks/useSales";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -15,7 +15,7 @@ import SaleDetailDialog from "@/components/sales/SaleDetailDialog";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 const Sales = () => {
   const { salesQuery, deleteSale, cancelSale } = useSales();
