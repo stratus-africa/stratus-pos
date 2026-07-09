@@ -384,12 +384,27 @@ export function SubscriptionTab() {
 
 function UsageRow({ label, current, max }: { label: string; current: number; max: number }) {
   const isUnlimited = max <= 0;
+  const remaining = isUnlimited ? Infinity : Math.max(0, max - current);
+  const pct = isUnlimited ? 0 : Math.min(100, Math.round((current / max) * 100));
+  const atLimit = !isUnlimited && current >= max;
+  const near = !isUnlimited && !atLimit && pct >= 80;
+  const barColor = atLimit ? "bg-destructive" : near ? "bg-amber-500" : "bg-primary";
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium tabular-nums">
-        {current.toLocaleString()} / {isUnlimited ? "∞" : max.toLocaleString()}
-      </span>
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">{label}</span>
+        <span className={`font-medium tabular-nums ${atLimit ? "text-destructive" : ""}`}>
+          {current.toLocaleString()} / {isUnlimited ? "∞" : max.toLocaleString()}
+          {!isUnlimited && (
+            <span className="text-muted-foreground ml-2">· {remaining.toLocaleString()} left</span>
+          )}
+        </span>
+      </div>
+      {!isUnlimited && (
+        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+          <div className={`h-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
+        </div>
+      )}
     </div>
   );
 }
