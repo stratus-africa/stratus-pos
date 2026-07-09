@@ -38,7 +38,8 @@ interface DashboardStatCardsProps {
   data: {
     todaySales: number;
     todayProfit: number;
-    invoiceDue: number;
+    creditSales: number;
+    creditSalesCount: number;
     totalPurchases: number;
     purchaseDue: number;
     todayExpenses: number;
@@ -60,9 +61,11 @@ export function DashboardStatCards({ data }: DashboardStatCardsProps) {
       iconBg: "bg-green-100",
     },
     {
-      title: "Invoice Due",
-      value: data.invoiceDue.toLocaleString(),
-      icon: <FileText className="h-5 w-5 text-amber-600" />,
+      title: "Credit Sales",
+      value: data.creditSales.toLocaleString(),
+      subtitle: `${data.creditSalesCount} outstanding`,
+      href: "/sales?payment_status=credit",
+      icon: <CreditCard className="h-5 w-5 text-amber-600" />,
       iconBg: "bg-amber-100",
     },
     {
