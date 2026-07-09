@@ -90,6 +90,44 @@ Deno.serve(async (req) => {
       issued_at: sale.created_at,
     };
 
+    // Server-side KRA field validation — never call the provider without required fields
+    const missing: string[] = [];
+    if (!payload.invoice_number) missing.push("sale.invoice_number");
+    if (!payload.total || Number(payload.total) <= 0) missing.push("sale.total");
+    if (!payload.items.length) missing.push("sale.items (none)");
+    if (payload.customer) {
+      // A customer is attached — KRA PIN required for company/government/ngo invoices > 0
+      if (["company", "government", "ngo"].includes(payload.customer.customer_type ?? "") && !payload.customer.kra_pin) {
+        missing.push("customer.kra_pin");
+      }
+    }
+    (items ?? []).forEach((it: any, idx: number) => {
+      const label = it.products?.name || `item ${idx + 1}`;
+      if (!it.products?.kra_item_code) missing.push(`${label}: kra_item_code`);
+      if (!it.products?.tax_category) missing.push(`${label}: tax_category`);
+    });
+
+    if (missing.length) {
+      const errMsg = "Missing required KRA fields: " + missing.join("; ");
+      // Log a validation_failed queue row so the sale surfaces in the UI as failed
+      const { data: badRow } = await admin
+        .from("digitax_invoice_queue")
+        .insert({
+          business_id: sale.business_id,
+          sale_id: sale.id,
+          original_sale_id: body.original_sale_id ?? null,
+          invoice_type: body.invoice_type ?? "invoice",
+          payload_json: payload,
+          status: "validation_failed",
+          error_message: errMsg,
+          created_by: userId,
+        })
+        .select("id")
+        .single();
+      await admin.from("sales").update({ fiscal_status: "failed" }).eq("id", sale.id);
+      return json({ error: errMsg, missing, queued_id: badRow?.id }, 400);
+    }
+
     // Enqueue
     const { data: queued, error: qErr } = await admin
       .from("digitax_invoice_queue")
