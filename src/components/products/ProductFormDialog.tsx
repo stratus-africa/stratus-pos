@@ -88,7 +88,15 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
         is_active: product.is_active,
         allow_decimal_quantity: product.allow_decimal_quantity ?? false,
         image_url: product.image_url ?? null,
+        kra_item_code: product.kra_item_code ?? null,
+        item_classification: product.item_classification ?? null,
+        quantity_unit: product.quantity_unit ?? null,
+        packaging_unit: product.packaging_unit ?? null,
+        hs_code: product.hs_code ?? null,
+        country_of_origin: product.country_of_origin ?? null,
+        tax_category: product.tax_category ?? null,
       });
+
       const matched = taxRatesQuery.data?.find((tr) => tr.rate === (product.tax_rate ?? 16));
       setSelectedTaxRateId(matched?.id || "manual");
       setBatches([]);
