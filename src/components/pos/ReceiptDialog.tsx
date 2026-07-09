@@ -20,7 +20,16 @@ interface ReceiptData {
   locationName: string;
   businessName: string;
   date: Date;
+  fiscal?: {
+    fiscal_status?: string | null;
+    fiscal_invoice_number?: string | null;
+    fiscal_reference?: string | null;
+    fiscal_qr_code?: string | null;
+    fiscal_verification_url?: string | null;
+    fiscal_submitted_at?: string | null;
+  } | null;
 }
+
 
 interface Props {
   open: boolean;
