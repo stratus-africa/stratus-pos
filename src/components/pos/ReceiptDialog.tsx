@@ -133,8 +133,20 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
               </div>
             </>
           )}
-          {data.fiscal?.fiscal_status && !data.fiscal.fiscal_reference && (
+          {data.fiscal?.fiscal_status && !data.fiscal.fiscal_reference && data.fiscal.fiscal_status !== "failed" && (
             <p className="text-center text-[10px] italic">Fiscalisation: {data.fiscal.fiscal_status}</p>
+          )}
+          {data.fiscal?.fiscal_status === "failed" && (
+            <>
+              <div className="line border-t border-dashed border-foreground/30 my-2" />
+              <div className="text-center space-y-0.5">
+                <p className="font-bold text-red-600">⚠ eTIMS Push Failed</p>
+                {data.fiscal.fiscal_error && (
+                  <p className="text-[10px] text-red-600 break-words">{data.fiscal.fiscal_error}</p>
+                )}
+                <p className="text-[10px] italic">Fix the issue and retry from Sales list.</p>
+              </div>
+            </>
           )}
         </div>
 
