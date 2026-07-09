@@ -17,8 +17,7 @@ type OfflineReq = {
   business_id: string;
   package_id: string;
   billing_interval: string;
-  amount: number | null;
-  currency: string | null;
+  amount_kes: number | null;
   reference: string | null;
   status: string;
   created_at: string;
@@ -32,7 +31,7 @@ export function NotificationBell() {
   const load = async () => {
     const { data } = await supabase
       .from("offline_payment_requests")
-      .select("id,business_id,package_id,billing_interval,amount,currency,reference,status,created_at,reviewed_at")
+      .select("id,business_id,package_id,billing_interval,amount_kes,reference,status,created_at,reviewed_at")
       .order("created_at", { ascending: false })
       .limit(15);
     setItems((data as OfflineReq[]) || []);
