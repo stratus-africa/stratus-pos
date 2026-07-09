@@ -202,7 +202,7 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
                 <DropdownMenuItem onClick={() => navigate("/super-admin/businesses")}>
                   <Building2 className="h-4 w-4 mr-2 text-emerald-600" /> Tenants
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/super-admin/packages/new/edit")}>
+                <DropdownMenuItem onClick={() => navigate("/super-admin/packages/new")}>
                   <Plus className="h-4 w-4 mr-2 text-emerald-600" /> New plan
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/super-admin/subscriptions")}>
