@@ -187,70 +187,14 @@ export default function SuperAdminBusinesses() {
     }
     setDeleting(true);
     try {
-      // Delete in dependency order so FKs / RLS don't block
       const bizId = deleteBiz.id;
+      const { data, error } = await supabase.functions.invoke("super-admin-delete-tenant", {
+        body: { business_id: bizId, confirm_text: "DELETE" },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
 
-      // Sales chain
-      const { data: saleRows } = await supabase.from("sales").select("id").eq("business_id", bizId);
-      const saleIds = (saleRows || []).map((s) => s.id);
-      if (saleIds.length) {
-        await supabase.from("payments").delete().in("sale_id", saleIds);
-        await supabase.from("sale_items").delete().in("sale_id", saleIds);
-      }
-      await supabase.from("sales").delete().eq("business_id", bizId);
-
-      // Purchase chain
-      const { data: purchRows } = await supabase.from("purchases").select("id").eq("business_id", bizId);
-      const purchIds = (purchRows || []).map((p) => p.id);
-      if (purchIds.length) await supabase.from("purchase_items").delete().in("purchase_id", purchIds);
-      await supabase.from("purchases").delete().eq("business_id", bizId);
-
-      // Journal chain
-      const { data: jeRows } = await supabase.from("journal_entries").select("id").eq("business_id", bizId);
-      const jeIds = (jeRows || []).map((j) => j.id);
-      if (jeIds.length) await supabase.from("journal_entry_lines").delete().in("journal_entry_id", jeIds);
-      await supabase.from("journal_entries").delete().eq("business_id", bizId);
-
-      // Other business-scoped tables
-      await Promise.all([
-        supabase.from("bank_transactions").delete().eq("business_id", bizId),
-        supabase.from("expenses").delete().eq("business_id", bizId),
-        supabase.from("stock_adjustments" as any).delete().in("location_id",
-          (await supabase.from("locations").select("id").eq("business_id", bizId)).data?.map((l) => l.id) || ["00000000-0000-0000-0000-000000000000"]
-        ),
-        supabase.from("product_batches" as any).delete().eq("business_id", bizId),
-        supabase.from("payment_method_accounts").delete().eq("business_id", bizId),
-        supabase.from("bank_accounts").delete().eq("business_id", bizId),
-        supabase.from("mpesa_transactions").delete().eq("business_id", bizId),
-        supabase.from("pos_sessions").delete().eq("business_id", bizId),
-        supabase.from("tax_rates").delete().eq("business_id", bizId),
-        supabase.from("expense_categories").delete().eq("business_id", bizId),
-        supabase.from("chart_of_accounts").delete().eq("business_id", bizId),
-      ]);
-
-      // Inventory via locations
-      const { data: locs } = await supabase.from("locations").select("id").eq("business_id", bizId);
-      const locIds = (locs || []).map((l) => l.id);
-      if (locIds.length) await supabase.from("inventory").delete().in("location_id", locIds);
-
-      // Catalog
-      await supabase.from("products").delete().eq("business_id", bizId);
-      await supabase.from("brands").delete().eq("business_id", bizId);
-      await supabase.from("categories").delete().eq("business_id", bizId);
-      await supabase.from("units").delete().eq("business_id", bizId);
-      await supabase.from("customers").delete().eq("business_id", bizId);
-      await supabase.from("suppliers").delete().eq("business_id", bizId);
-
-      // Locations + roles + profile detach
-      await supabase.from("locations").delete().eq("business_id", bizId);
-      await supabase.from("user_roles").delete().eq("business_id", bizId);
-      await supabase.from("profiles").update({ business_id: null }).eq("business_id", bizId);
-
-      // Finally the business
-      const { error: bizErr } = await supabase.from("businesses").delete().eq("id", bizId);
-      if (bizErr) throw bizErr;
-
-      toast.success(`Deleted "${deleteBiz.name}"`);
+      toast.success(`Deleted "${deleteBiz.name}" completely`);
       setBusinesses((prev) => prev.filter((b) => b.id !== bizId));
       setDeleteBiz(null);
     } catch (err: any) {
