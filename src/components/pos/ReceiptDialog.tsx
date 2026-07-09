@@ -117,6 +117,8 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
           {data.change > 0 && <div className="flex justify-between font-bold"><span>Change</span><span>KES {data.change.toLocaleString()}</span></div>}
 
           <div className="line border-t border-dashed border-foreground/30 my-2" />
+          <p className="text-center">Thank you for shopping with us!</p>
+
           {data.fiscal?.fiscal_reference && (
             <>
               <div className="line border-t border-dashed border-foreground/30 my-2" />
