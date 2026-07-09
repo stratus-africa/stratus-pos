@@ -9,9 +9,11 @@ import { useCategories, useBrands, useUnits, type ProductFormData, type Product,
 import { useTaxRates } from "@/hooks/useTaxRates";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useFeatureLimit } from "@/components/FeatureGate";
+import { useDigitaxSettings } from "@/hooks/useDigitax";
 import { Plus, Trash2, FlaskConical, Shirt, ImageIcon, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
 
 interface Props {
   open: boolean;
@@ -31,7 +33,10 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
   const { query: taxRatesQuery } = useTaxRates();
   const { business, locations, currentLocation } = useBusiness();
   const { hasFeatureKey } = useFeatureLimit();
+  const { query: digitaxQ } = useDigitaxSettings();
+  const digitaxEnabled = !!digitaxQ.data?.enabled;
   const vatEnabled = business?.vat_enabled !== false;
+
   const businessType = (business as any)?.business_type;
   const isClothing = businessType === "clothing";
   const batchesEnabled =
@@ -53,7 +58,15 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
     is_active: true,
     allow_decimal_quantity: false,
     image_url: null,
+    kra_item_code: null,
+    item_classification: null,
+    quantity_unit: null,
+    packaging_unit: null,
+    hs_code: null,
+    country_of_origin: null,
+    tax_category: null,
   });
+
 
   const [selectedTaxRateId, setSelectedTaxRateId] = useState<string>("manual");
   const [batches, setBatches] = useState<ProductInitialBatch[]>([]);
@@ -75,7 +88,15 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
         is_active: product.is_active,
         allow_decimal_quantity: product.allow_decimal_quantity ?? false,
         image_url: product.image_url ?? null,
+        kra_item_code: product.kra_item_code ?? null,
+        item_classification: product.item_classification ?? null,
+        quantity_unit: product.quantity_unit ?? null,
+        packaging_unit: product.packaging_unit ?? null,
+        hs_code: product.hs_code ?? null,
+        country_of_origin: product.country_of_origin ?? null,
+        tax_category: product.tax_category ?? null,
       });
+
       const matched = taxRatesQuery.data?.find((tr) => tr.rate === (product.tax_rate ?? 16));
       setSelectedTaxRateId(matched?.id || "manual");
       setBatches([]);
@@ -510,6 +531,40 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
               )}
             </div>
           )}
+
+          {digitaxEnabled && (
+            <div className="rounded-md border p-3 space-y-3">
+              <div className="text-sm font-semibold">KRA / DigiTax</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="space-y-1"><Label className="text-xs">KRA Item Code</Label>
+                  <Input value={form.kra_item_code ?? ""} onChange={(e) => setForm({ ...form, kra_item_code: e.target.value || null })} /></div>
+                <div className="space-y-1"><Label className="text-xs">Item Classification</Label>
+                  <Input value={form.item_classification ?? ""} onChange={(e) => setForm({ ...form, item_classification: e.target.value || null })} /></div>
+                <div className="space-y-1"><Label className="text-xs">HS Code</Label>
+                  <Input value={form.hs_code ?? ""} onChange={(e) => setForm({ ...form, hs_code: e.target.value || null })} /></div>
+                <div className="space-y-1"><Label className="text-xs">Quantity Unit</Label>
+                  <Input placeholder="e.g. PCS" value={form.quantity_unit ?? ""} onChange={(e) => setForm({ ...form, quantity_unit: e.target.value || null })} /></div>
+                <div className="space-y-1"><Label className="text-xs">Packaging Unit</Label>
+                  <Input placeholder="e.g. BX" value={form.packaging_unit ?? ""} onChange={(e) => setForm({ ...form, packaging_unit: e.target.value || null })} /></div>
+                <div className="space-y-1"><Label className="text-xs">Country of Origin</Label>
+                  <Input placeholder="KE" value={form.country_of_origin ?? ""} onChange={(e) => setForm({ ...form, country_of_origin: e.target.value || null })} /></div>
+                <div className="space-y-1"><Label className="text-xs">Tax Category</Label>
+                  <Select value={form.tax_category ?? "none"} onValueChange={(v) => setForm({ ...form, tax_category: v === "none" ? null : v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">—</SelectItem>
+                      <SelectItem value="A">A — Exempt</SelectItem>
+                      <SelectItem value="B">B — 16% VAT</SelectItem>
+                      <SelectItem value="C">C — Zero-rated</SelectItem>
+                      <SelectItem value="D">D — Non-VAT</SelectItem>
+                      <SelectItem value="E">E — 8% VAT</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
+
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

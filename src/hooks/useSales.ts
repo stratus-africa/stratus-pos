@@ -30,9 +30,15 @@ export interface Sale {
   notes: string | null;
   created_by: string;
   created_at: string;
+  fiscal_status?: string | null;
+  fiscal_invoice_number?: string | null;
+  fiscal_reference?: string | null;
+  fiscal_verification_url?: string | null;
+  fiscal_qr_code?: string | null;
   customers?: { name: string; phone: string | null } | null;
   locations?: { name: string } | null;
 }
+
 
 export interface SaleItem {
   id: string;
@@ -242,6 +248,11 @@ export function useSales() {
       // Remove linked bank transactions when voiding (mirrors delete behaviour)
       if (cancel) {
         await supabase.from("bank_transactions").delete().eq("sale_id", id);
+        // Fire credit-note fiscalisation (fire-and-forget)
+        try {
+          const { submitSaleToDigitax } = await import("@/hooks/useDigitax");
+          await submitSaleToDigitax(id, { invoice_type: "credit_note", original_sale_id: id });
+        } catch { /* digitax not enabled or offline — ignored */ }
       }
 
       if (saleSnap?.business_id) {
@@ -255,6 +266,7 @@ export function useSales() {
           metadata: { invoice_number: saleSnap.invoice_number, total: saleSnap.total, previous_status: saleSnap.status, new_status: nextStatus },
         });
       }
+
     },
     onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ["sales"] });

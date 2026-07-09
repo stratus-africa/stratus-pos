@@ -20,6 +20,13 @@ export interface Product {
   is_active: boolean;
   allow_decimal_quantity?: boolean;
   created_at: string;
+  kra_item_code?: string | null;
+  item_classification?: string | null;
+  quantity_unit?: string | null;
+  packaging_unit?: string | null;
+  hs_code?: string | null;
+  country_of_origin?: string | null;
+  tax_category?: string | null;
   categories?: { name: string } | null;
   brands?: { name: string } | null;
   units?: { name: string; abbreviation: string | null } | null;
@@ -59,9 +66,17 @@ export interface ProductFormData {
   is_active?: boolean;
   allow_decimal_quantity?: boolean;
   image_url?: string | null;
+  kra_item_code?: string | null;
+  item_classification?: string | null;
+  quantity_unit?: string | null;
+  packaging_unit?: string | null;
+  hs_code?: string | null;
+  country_of_origin?: string | null;
+  tax_category?: string | null;
   initial_batches?: ProductInitialBatch[];
   variants?: ProductVariantInput[];
 }
+
 
 export function useProducts() {
   const { business } = useBusiness();
