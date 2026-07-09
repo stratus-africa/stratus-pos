@@ -14,6 +14,7 @@ import ZReportDialog from "@/components/pos/ZReportDialog";
 import EndDayDialog from "@/components/pos/EndDayDialog";
 import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
 import { useExpenses } from "@/hooks/useExpenses";
+import { NotificationBell } from "@/components/NotificationBell";
 
 export function TopBar() {
   const { business, locations, currentLocation, setCurrentLocation } = useBusiness();
@@ -102,6 +103,7 @@ export function TopBar() {
               </Button>
             </>
           )}
+          <NotificationBell />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button

@@ -99,6 +99,7 @@ const Suppliers = lazy(() => import("./pages/Suppliers"));
 const Expenses = lazy(() => import("./pages/Expenses"));
 const Reports = lazy(() => import("./pages/Reports"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const NotificationsPage = lazy(() => import("./pages/Notifications"));
 const ChartOfAccounts = lazy(() => import("./pages/ChartOfAccounts"));
 const Profile = lazy(() => import("./pages/Profile"));
 const CashierDashboard = lazy(() => import("./pages/CashierDashboard"));
@@ -199,7 +200,7 @@ const SuperAdminRoutes = () => {
             <Route path="/settings" element={<SuperAdminSettings />} />
             <Route path="/settings/payments/paystack" element={<PaystackSettings />} />
             <Route path="/settings/payments/mpesa" element={<MpesaSettings />} />
-            
+            <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
@@ -275,6 +276,7 @@ const ProtectedRoutes = () => {
             <Route path="/tax-compliance" element={guard(<FeatureGate featureKey="digitax"><Digitax /></FeatureGate>, "settings.view")} />
             <Route path="/settings" element={guard(<SettingsPage />, "settings.view")} />
             <Route path="/profile" element={guard(<Profile />)} />
+            <Route path="/notifications" element={<NotificationsPage />} />
 
             <Route path="/roles" element={<Navigate to="/settings?tab=roles" replace />} />
             <Route path="*" element={<NotFound />} />
