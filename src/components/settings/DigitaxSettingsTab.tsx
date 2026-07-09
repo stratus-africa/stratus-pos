@@ -112,13 +112,22 @@ export function DigitaxSettingsTab() {
                   <Lock className="h-3 w-3" /> Cannot be disabled — {fiscalisedCount} fiscalised transaction{fiscalisedCount === 1 ? "" : "s"} on record. KRA requires ongoing fiscalisation once submissions have started.
                 </p>
               )}
+              {!vatEnabled && !lockedOn && (
+                <p className="mt-2 flex items-center gap-1 text-xs text-amber-700">
+                  <Lock className="h-3 w-3" /> VAT is disabled for this business. Enable VAT in Business Profile before turning on DigiTax.
+                </p>
+              )}
             </div>
             <Switch
               checked={form.enabled}
-              disabled={lockedOn && form.enabled}
+              disabled={(lockedOn && form.enabled) || (!vatEnabled && !form.enabled)}
               onCheckedChange={(v) => {
                 if (!v && lockedOn) {
                   toast.error("DigiTax cannot be disabled after fiscalised transactions have been submitted to KRA.");
+                  return;
+                }
+                if (v && !vatEnabled) {
+                  toast.error("Enable VAT in Business Profile before turning on DigiTax.");
                   return;
                 }
                 setForm({ ...form, enabled: v });
