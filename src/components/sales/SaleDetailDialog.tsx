@@ -7,8 +7,9 @@ import { Separator } from "@/components/ui/separator";
 import { Sale, SaleItem, Payment, useSales } from "@/hooks/useSales";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { format } from "date-fns";
-import { Printer } from "lucide-react";
+import { Printer, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { loadReceiptConfig } from "@/lib/receiptTemplate";
 
