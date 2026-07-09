@@ -363,16 +363,7 @@ export function SubscriptionTab() {
             <Card>
               <CardHeader><CardTitle className="text-lg">Features</CardTitle></CardHeader>
               <CardContent className="space-y-2">
-                {currentFeatures.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No features listed for this plan.</p>
-                ) : (
-                  currentFeatures.map(f => (
-                    <div key={f} className="flex items-center gap-2 rounded-md border border-emerald-100 bg-emerald-50/50 px-3 py-2 text-sm">
-                      <Check className="h-4 w-4 text-emerald-600 shrink-0" />
-                      <span className="text-foreground">{f}</span>
-                    </div>
-                  ))
-                )}
+                <FeaturesList features={currentFeatures} />
               </CardContent>
             </Card>
           )}
