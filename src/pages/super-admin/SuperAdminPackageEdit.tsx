@@ -16,6 +16,7 @@ import {
   Package, Users, Warehouse, Contact, Truck, Info, ShoppingCart, Briefcase,
   Calculator, Store, ArrowLeftRight, Wrench, Sparkles, ListChecks,
   LayoutDashboard, Boxes, Receipt, ShoppingBag, BarChart3, Wallet, BookOpen,
+  FileCheck,
 } from "lucide-react";
 
 const ALL_FEATURES: { key: string; label: string; description: string; Icon: React.ElementType }[] = [
@@ -39,6 +40,7 @@ const ALL_FEATURES: { key: string; label: string; description: string; Icon: Rea
   { key: "transfers",           label: "Transfers",             description: "Stock transfers between warehouses",     Icon: ArrowLeftRight },
   { key: "service_maintenance", label: "Service & Maintenance", description: "Service & maintenance management",       Icon: Wrench },
   { key: "ai_reports",          label: "AI Reports",            description: "AI-powered analytics & reports",         Icon: Sparkles },
+  { key: "digitax",             label: "DigiTax (KRA eTIMS)",   description: "Kenya KRA eTIMS fiscalization",          Icon: FileCheck },
 ];
 
 interface Form {
