@@ -294,8 +294,8 @@ export function useSales() {
   // Realtime: when a KRA callback updates a sale's fiscal columns, refresh the list.
   useEffect(() => {
     if (!business?.id) return;
-    const channel = supabase
-      .channel(`sales-fiscal-${business.id}`)
+    const channel = supabase.channel(`sales-fiscal-${business.id}-${Math.random().toString(36).slice(2)}`);
+    channel
       .on("postgres_changes",
           { event: "UPDATE", schema: "public", table: "sales", filter: `business_id=eq.${business.id}` },
           () => queryClient.invalidateQueries({ queryKey: ["sales"] }))
