@@ -16,6 +16,7 @@ import {
   Package, Users, Warehouse, Contact, Truck, Info, ShoppingCart, Briefcase,
   Calculator, Store, ArrowLeftRight, Wrench, Sparkles, ListChecks,
   LayoutDashboard, Boxes, Receipt, ShoppingBag, BarChart3, Wallet, BookOpen,
+  FileCheck,
 } from "lucide-react";
 
 const ALL_FEATURES: { key: string; label: string; description: string; Icon: React.ElementType }[] = [
