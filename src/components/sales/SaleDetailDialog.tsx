@@ -28,13 +28,26 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
   const [items, setItems] = useState<SaleItem[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
+  const [fiscalError, setFiscalError] = useState<string | null>(null);
 
   useEffect(() => {
     if (sale && open) {
       setLoading(true);
+      setFiscalError(null);
       getSaleDetails(sale.id)
         .then(({ items, payments }) => { setItems(items); setPayments(payments); })
         .finally(() => setLoading(false));
+      // Fetch latest DigiTax queue row for this sale (for error message)
+      import("@/integrations/supabase/client").then(({ supabase }) => {
+        supabase
+          .from("digitax_invoice_queue")
+          .select("error_message,status")
+          .eq("sale_id", sale.id)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+          .then(({ data }) => setFiscalError(data?.error_message ?? null));
+      });
     }
   }, [sale, open]);
 
