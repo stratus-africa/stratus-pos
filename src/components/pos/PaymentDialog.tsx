@@ -5,11 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Banknote, Smartphone, CreditCard, Plus, Trash2, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Banknote, Smartphone, CreditCard, Plus, Trash2, Loader2, CheckCircle2, XCircle, Send } from "lucide-react";
 import { PaymentEntry } from "@/hooks/usePOS";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { usePaymentMethodAccounts } from "@/hooks/usePaymentMethodAccounts";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useDigitaxEnabled } from "@/hooks/useDigitax";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -17,7 +19,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   total: number;
-  onConfirm: (payments: PaymentEntry[], bankAccountId: string | null) => void;
+  onConfirm: (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean) => void;
   processing: boolean;
   initialMethod?: "cash" | "mpesa" | "card";
 }
@@ -37,6 +39,8 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
   const { data: bankAccounts = [] } = useBankAccounts();
   const { data: methodAccounts = {} as Record<string, string | null> } = usePaymentMethodAccounts();
   const { business } = useBusiness();
+  const { enabled: digitaxEnabled } = useDigitaxEnabled();
+  const [pushToEtims, setPushToEtims] = useState(true);
 
   // M-Pesa STK Push state
   const [mpesaPhone, setMpesaPhone] = useState("");
@@ -324,11 +328,28 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
               <div className="flex justify-between text-destructive font-semibold"><span>Remaining</span><span>KES {remaining.toLocaleString()}</span></div>
             )}
           </div>
+
+          {digitaxEnabled && (
+            <div className="flex items-center justify-between rounded-lg border-2 border-red-500/60 bg-red-50 dark:bg-red-950/30 p-3">
+              <div className="flex items-center gap-2">
+                <Send className="h-4 w-4 text-red-600" />
+                <div>
+                  <div className="text-sm font-semibold text-red-700 dark:text-red-400">Push to eTIMS</div>
+                  <div className="text-[11px] text-red-600/80 dark:text-red-400/80">Fiscalise this sale via DigiTax (KRA)</div>
+                </div>
+              </div>
+              <Switch
+                checked={pushToEtims}
+                onCheckedChange={setPushToEtims}
+                className="data-[state=checked]:bg-red-600"
+              />
+            </div>
+          )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={() => onConfirm(payments, bankAccountId === "none" ? null : bankAccountId)} disabled={totalPaid <= 0 || processing}>
+          <Button onClick={() => onConfirm(payments, bankAccountId === "none" ? null : bankAccountId, digitaxEnabled && pushToEtims)} disabled={totalPaid <= 0 || processing}>
             {processing ? "Processing..." : "Complete Sale"}
           </Button>
         </DialogFooter>
