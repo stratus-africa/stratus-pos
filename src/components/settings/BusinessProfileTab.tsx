@@ -10,21 +10,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Save, Loader2, Building2, Phone, Mail, MapPin, FileText, PackageOpen, Briefcase, ShoppingCart } from "lucide-react";
+import { Save, Loader2, Building2, Phone, Mail, MapPin, PackageOpen, Briefcase, ShoppingCart } from "lucide-react";
 import { THEMES, DEFAULT_THEME, applyTheme, type ThemeKey, BUSINESS_TYPE_OPTIONS, type BusinessType } from "@/lib/themes";
 
 export function BusinessProfileTab() {
   const { business, refreshBusiness } = useBusiness();
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState(business?.name || "");
-  const [currency, setCurrency] = useState(business?.currency || "KES");
-  const [taxRate, setTaxRate] = useState(String(business?.tax_rate ?? 16));
-  const [timezone, setTimezone] = useState(business?.timezone || "Africa/Nairobi");
   const [phone, setPhone] = useState((business as any)?.phone || "");
   const [email, setEmail] = useState((business as any)?.email || "");
   const [address, setAddress] = useState((business as any)?.address || "");
-  const [kraPin, setKraPin] = useState((business as any)?.kra_pin || "");
-  const [vatEnabled, setVatEnabled] = useState((business as { vat_enabled?: boolean })?.vat_enabled ?? true);
   const [themeColor, setThemeColor] = useState<ThemeKey>(((business as { theme_color?: ThemeKey })?.theme_color || DEFAULT_THEME) as ThemeKey);
   const [preventOverselling, setPreventOverselling] = useState((business as { prevent_overselling?: boolean })?.prevent_overselling ?? false);
   const [requireManagerToRemove, setRequireManagerToRemove] = useState((business as { pos_require_manager_to_remove_item?: boolean })?.pos_require_manager_to_remove_item ?? false);
@@ -56,14 +51,9 @@ export function BusinessProfileTab() {
       .from("businesses")
       .update({
         name: name.trim(),
-        currency,
-        tax_rate: parseFloat(taxRate) || 0,
-        timezone,
         phone: phone.trim() || null,
         email: email.trim() || null,
         address: address.trim() || null,
-        kra_pin: kraPin.trim() || null,
-        vat_enabled: vatEnabled,
         theme_color: themeColor,
         prevent_overselling: preventOverselling,
         pos_require_manager_to_remove_item: requireManagerToRemove,
@@ -147,71 +137,6 @@ export function BusinessProfileTab() {
               </div>
             )}
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Tax & Regional */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Tax & Regional Settings
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="biz-currency">Currency</Label>
-              <Select value={currency} onValueChange={setCurrency}>
-                <SelectTrigger id="biz-currency"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="KES">KES — Kenyan Shilling</SelectItem>
-                  <SelectItem value="USD">USD — US Dollar</SelectItem>
-                  <SelectItem value="EUR">EUR — Euro</SelectItem>
-                  <SelectItem value="GBP">GBP — British Pound</SelectItem>
-                  <SelectItem value="UGX">UGX — Ugandan Shilling</SelectItem>
-                  <SelectItem value="TZS">TZS — Tanzanian Shilling</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="biz-tz">Timezone</Label>
-              <Select value={timezone} onValueChange={setTimezone}>
-                <SelectTrigger id="biz-tz"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Africa/Nairobi">Africa/Nairobi (EAT)</SelectItem>
-                  <SelectItem value="Africa/Lagos">Africa/Lagos (WAT)</SelectItem>
-                  <SelectItem value="Africa/Cairo">Africa/Cairo (EET)</SelectItem>
-                  <SelectItem value="UTC">UTC</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <Separator />
-
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-base">VAT Enabled</Label>
-              <p className="text-sm text-muted-foreground">Enable or disable VAT charging for this organization</p>
-            </div>
-            <Switch checked={vatEnabled} onCheckedChange={setVatEnabled} />
-          </div>
-
-          {vatEnabled && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="biz-tax">Default Tax Rate (%)</Label>
-                <Input id="biz-tax" type="number" min={0} max={100} step={0.5}
-                  value={taxRate} onChange={(e) => setTaxRate(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="biz-pin">KRA PIN</Label>
-                <Input id="biz-pin" value={kraPin} onChange={(e) => setKraPin(e.target.value)} placeholder="e.g. P051234567X" />
-                <p className="text-xs text-muted-foreground">Used on tax invoices and reports.</p>
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
 
