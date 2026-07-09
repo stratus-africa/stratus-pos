@@ -33,17 +33,29 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
     queryKey: ["daily-sales-report", business?.id, currentLocation?.id, from, to],
     queryFn: async () => {
       if (!business) return [];
-      const q = supabase
-        .from("sales")
-        .select("id, invoice_number, status, subtotal, tax, discount, total, created_at, customers(name), payments(method, amount), sale_items(quantity, unit_price, total, products(name, units(name)))")
-        .eq("business_id", business.id)
-        .gte("created_at", `${from}T00:00:00`)
-        .lte("created_at", `${to}T23:59:59`)
-        .order("created_at", { ascending: true });
-      if (currentLocation) q.eq("location_id", currentLocation.id);
-      const { data, error } = await q;
-      if (error) throw error;
-      return data || [];
+      const pageSize = 1000;
+      let offset = 0;
+      const all: any[] = [];
+      // Paginate to bypass the default 1000-row cap and return the true total.
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const q = supabase
+          .from("sales")
+          .select("id, invoice_number, status, subtotal, tax, discount, total, created_at, customers(name), payments(method, amount), sale_items(quantity, unit_price, total, products(name, units(name)))")
+          .eq("business_id", business.id)
+          .gte("created_at", `${from}T00:00:00`)
+          .lte("created_at", `${to}T23:59:59`)
+          .order("created_at", { ascending: true })
+          .range(offset, offset + pageSize - 1);
+        if (currentLocation) q.eq("location_id", currentLocation.id);
+        const { data, error } = await q;
+        if (error) throw error;
+        const batch = data || [];
+        all.push(...batch);
+        if (batch.length < pageSize) break;
+        offset += pageSize;
+      }
+      return all;
     },
     enabled: !!business,
   });
