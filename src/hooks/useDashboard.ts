@@ -3,26 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { startOfDay, subDays, format } from "date-fns";
 
-interface DailySales {
-  date: string;
-  total: number;
-  count: number;
-}
-
-interface TopProduct {
-  product_id: string;
-  product_name: string;
-  total_qty: number;
-  total_revenue: number;
-}
-
-interface LowStockItem {
-  product_id: string;
-  product_name: string;
-  quantity: number;
-  threshold: number;
-  location_name: string;
-}
+interface DailySales { date: string; total: number; count: number }
+interface TopProduct { product_id: string; product_name: string; total_qty: number; total_revenue: number }
+interface LowStockItem { product_id: string; product_name: string; quantity: number; threshold: number; location_name: string }
 
 interface DashboardData {
   todaySales: number;
@@ -31,6 +14,10 @@ interface DashboardData {
   todayExpenses: number;
   totalPurchases: number;
   purchaseDue: number;
+  /** Outstanding credit sales in the selected range */
+  creditSales: number;
+  creditSalesCount: number;
+  /** kept for backward-compat: same as creditSales */
   invoiceDue: number;
   salesTrend: DailySales[];
   topProducts: TopProduct[];
@@ -50,6 +37,8 @@ export function useDashboard(): DashboardData {
     todayExpenses: 0,
     totalPurchases: 0,
     purchaseDue: 0,
+    creditSales: 0,
+    creditSalesCount: 0,
     invoiceDue: 0,
     salesTrend: [],
     topProducts: [],
@@ -61,111 +50,75 @@ export function useDashboard(): DashboardData {
     if (!business?.id || !currentLocation?.id) return;
 
     const fetchAll = async () => {
-      const today = startOfDay(new Date()).toISOString();
-      const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
+      const now = new Date();
+      const today = startOfDay(now);
+      let fromDate = today;
+      if (dateFilter === "7days") fromDate = subDays(today, 6);
+      else if (dateFilter === "30days") fromDate = subDays(today, 29);
+      else if (dateFilter === "all") fromDate = new Date("2000-01-01T00:00:00Z");
 
-      // Determine date range based on filter
-      let filterStart = today;
-      if (dateFilter === "7days") filterStart = subDays(new Date(), 7).toISOString();
-      else if (dateFilter === "30days") filterStart = thirtyDaysAgo;
-      else if (dateFilter === "all") filterStart = "2000-01-01T00:00:00.000Z";
+      const fromISO = fromDate.toISOString();
+      const toISO = now.toISOString();
+      const fromDay = format(fromDate, "yyyy-MM-dd");
+      const toDay = format(now, "yyyy-MM-dd");
+      // Trend always shows the last 30 days regardless of filter — anchored to today
+      const trendFrom = format(subDays(today, 29), "yyyy-MM-dd");
 
-      // Fetch sales first, then use IDs for sale_items
-      const salesRes = await supabase
-        .from("sales")
-        .select("id, total, subtotal, tax, discount, created_at")
-        .eq("business_id", business.id)
-        .eq("location_id", currentLocation.id)
-        .gte("created_at", filterStart)
-        .eq("status", "final");
-
-      const saleIds = salesRes.data?.map((s) => s.id) || [];
-
-      const [saleItemsRes, expensesRes, inventoryRes, purchasesRes, unpaidSalesRes] = await Promise.all([
-        saleIds.length > 0
-          ? supabase
-              .from("sale_items")
-              .select("product_id, quantity, unit_price, total, sale_id, products(name, purchase_price)")
-              .in("sale_id", saleIds)
-          : Promise.resolve({ data: [], error: null }),
+      const [salesSum, purchasesSum, trendRes, expensesRes, saleItemsRes, inventoryRes] = await Promise.all([
+        supabase.rpc("get_sales_summary", {
+          _business_id: business.id, _location_id: currentLocation.id, _from: fromISO, _to: toISO,
+        }),
+        supabase.rpc("get_purchases_summary", {
+          _business_id: business.id, _location_id: currentLocation.id, _from: fromISO, _to: toISO,
+        }),
+        supabase.rpc("get_sales_trend", {
+          _business_id: business.id, _location_id: currentLocation.id, _from: trendFrom, _to: toDay,
+        }),
         supabase
           .from("expenses")
-          .select("amount, date")
+          .select("amount")
           .eq("business_id", business.id)
-          .gte("date", format(startOfDay(new Date()), "yyyy-MM-dd"))
-          .lte("date", format(new Date(), "yyyy-MM-dd")),
+          .gte("date", fromDay)
+          .lte("date", toDay),
+        // Fetch top-product details (bounded by top-selling window; safe under 1000)
+        supabase
+          .from("sale_items")
+          .select("product_id, quantity, total, products(name), sales!inner(business_id, location_id, status, created_at)")
+          .eq("sales.business_id", business.id)
+          .eq("sales.location_id", currentLocation.id)
+          .neq("sales.status", "cancelled")
+          .gte("sales.created_at", fromISO)
+          .lte("sales.created_at", toISO)
+          .limit(1000),
         supabase
           .from("inventory")
           .select("product_id, quantity, low_stock_threshold, location_id, products(name), locations(name)")
           .eq("location_id", currentLocation.id),
-        supabase
-          .from("purchases")
-          .select("id, total, payment_status, created_at")
-          .eq("business_id", business.id)
-          .eq("location_id", currentLocation.id)
-          .gte("created_at", filterStart),
-        supabase
-          .from("sales")
-          .select("id, total, payment_status")
-          .eq("business_id", business.id)
-          .eq("location_id", currentLocation.id)
-          .eq("status", "final")
-          .eq("payment_status", "unpaid"),
       ]);
 
-      const sales = salesRes.data || [];
-      const saleItems = saleItemsRes.data || [];
-      const expenses = expensesRes.data || [];
-      const inventory = inventoryRes.data || [];
-      const purchases = purchasesRes.data || [];
-      const unpaidSales = unpaidSalesRes.data || [];
+      const s = (salesSum.data?.[0] ?? {}) as any;
+      const p = (purchasesSum.data?.[0] ?? {}) as any;
+      const totalSales = Number(s.total_sales ?? 0);
+      const totalCount = Number(s.sale_count ?? 0);
+      const cogs = Number(s.cogs ?? 0);
+      const creditSales = Number(s.credit_sales_total ?? 0);
+      const creditSalesCount = Number(s.credit_sales_count ?? 0);
+      const totalPurchases = Number(p.total_purchases ?? 0);
+      const purchaseDue = Number(p.purchase_due ?? 0);
+      const expensesTotal = (expensesRes.data ?? []).reduce((sum, e: any) => sum + Number(e.amount ?? 0), 0);
+      const netProfit = totalSales - cogs - expensesTotal;
 
-      // Sales totals
-      const todaySalesTotal = sales.reduce((sum, s) => sum + Number(s.total), 0);
-      const todayCount = sales.length;
-
-      // Profit: revenue - COGS
-      const todayCOGS = saleItems.reduce((sum, i) => {
-        const pp = (i.products as any)?.purchase_price || 0;
-        return sum + pp * Number(i.quantity);
-      }, 0);
-      const todayExpensesTotal = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
-      const todayProfit = todaySalesTotal - todayCOGS - todayExpensesTotal;
-
-      // Purchase totals
-      const totalPurchases = purchases.reduce((sum, p) => sum + Number(p.total), 0);
-      const purchaseDue = purchases
-        .filter((p) => p.payment_status === "unpaid")
-        .reduce((sum, p) => sum + Number(p.total), 0);
-
-      // Invoice due (unpaid sales)
-      const invoiceDue = unpaidSales.reduce((sum, s) => sum + Number(s.total), 0);
-
-      // Sales trend (last 30 days)
-      const trendMap = new Map<string, { total: number; count: number }>();
-      for (let i = 29; i >= 0; i--) {
-        const d = format(subDays(new Date(), i), "yyyy-MM-dd");
-        trendMap.set(d, { total: 0, count: 0 });
-      }
-      sales.forEach((s) => {
-        const d = format(new Date(s.created_at), "yyyy-MM-dd");
-        const entry = trendMap.get(d);
-        if (entry) {
-          entry.total += Number(s.total);
-          entry.count += 1;
-        }
-      });
-      const salesTrend: DailySales[] = Array.from(trendMap.entries()).map(([date, v]) => ({
-        date,
-        total: v.total,
-        count: v.count,
+      const salesTrend: DailySales[] = (trendRes.data ?? []).map((r: any) => ({
+        date: r.bucket,
+        total: Number(r.total ?? 0),
+        count: Number(r.cnt ?? 0),
       }));
 
-      // Top products
+      const saleItems = saleItemsRes.data || [];
       const prodMap = new Map<string, { name: string; qty: number; revenue: number }>();
-      saleItems.forEach((item) => {
+      saleItems.forEach((item: any) => {
         const pid = item.product_id;
-        const name = (item.products as any)?.name || "Unknown";
+        const name = item.products?.name || "Unknown";
         const existing = prodMap.get(pid) || { name, qty: 0, revenue: 0 };
         existing.qty += Number(item.quantity);
         existing.revenue += Number(item.total);
@@ -176,26 +129,28 @@ export function useDashboard(): DashboardData {
         .sort((a, b) => b.total_qty - a.total_qty)
         .slice(0, 5);
 
-      // Low stock
+      const inventory = inventoryRes.data || [];
       const lowStockItems: LowStockItem[] = inventory
-        .filter((i) => Number(i.quantity) <= Number(i.low_stock_threshold))
-        .map((i) => ({
+        .filter((i: any) => Number(i.quantity) <= Number(i.low_stock_threshold))
+        .map((i: any) => ({
           product_id: i.product_id,
-          product_name: (i.products as any)?.name || "Unknown",
+          product_name: i.products?.name || "Unknown",
           quantity: Number(i.quantity),
           threshold: Number(i.low_stock_threshold),
-          location_name: (i.locations as any)?.name || "",
+          location_name: i.locations?.name || "",
         }))
         .sort((a, b) => a.quantity - b.quantity);
 
       setData({
-        todaySales: todaySalesTotal,
-        todayCount,
-        todayProfit,
-        todayExpenses: todayExpensesTotal,
+        todaySales: totalSales,
+        todayCount: totalCount,
+        todayProfit: netProfit,
+        todayExpenses: expensesTotal,
         totalPurchases,
         purchaseDue,
-        invoiceDue,
+        creditSales,
+        creditSalesCount,
+        invoiceDue: creditSales,
         salesTrend,
         topProducts,
         lowStockItems,
