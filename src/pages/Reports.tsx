@@ -53,16 +53,27 @@ const Reports = () => {
     queryKey: ["report-sales", business?.id, from, to],
     queryFn: async () => {
       if (!business) return [];
-      const { data, error } = await supabase
-        .from("sales")
-        .select("*, customers(name), locations(name), sale_items(quantity, unit_price, discount, total, batch_id, products(name, purchase_price), product_batches:batch_id(batch_number, expiry_date))")
-        .eq("business_id", business.id)
-        .neq("status", "cancelled")
-        .gte("created_at", `${from}T00:00:00`)
-        .lte("created_at", `${to}T23:59:59`)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
+      const pageSize = 1000;
+      let offset = 0;
+      const all: any[] = [];
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { data, error } = await supabase
+          .from("sales")
+          .select("*, customers(name), locations(name), sale_items(quantity, unit_price, discount, total, batch_id, products(name, purchase_price), product_batches:batch_id(batch_number, expiry_date))")
+          .eq("business_id", business.id)
+          .neq("status", "cancelled")
+          .gte("created_at", `${from}T00:00:00`)
+          .lte("created_at", `${to}T23:59:59`)
+          .order("created_at", { ascending: false })
+          .range(offset, offset + pageSize - 1);
+        if (error) throw error;
+        const batch = data || [];
+        all.push(...batch);
+        if (batch.length < pageSize) break;
+        offset += pageSize;
+      }
+      return all;
     },
     enabled: !!business && canSales,
   });
