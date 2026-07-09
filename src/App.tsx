@@ -70,11 +70,27 @@ class ChunkErrorBoundary extends Component<{ children: ReactNode }, { error: unk
         <button
           type="button"
           className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          onClick={() => {
+          onClick={async () => {
             try {
               sessionStorage.removeItem(CHUNK_RELOAD_KEY);
             } catch {}
-            window.location.reload();
+            // Best-effort: clear caches + unregister service workers so the
+            // browser fetches fresh chunk hashes from the network.
+            try {
+              if ("caches" in window) {
+                const keys = await caches.keys();
+                await Promise.all(keys.map((k) => caches.delete(k)));
+              }
+            } catch {}
+            try {
+              if ("serviceWorker" in navigator) {
+                const regs = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(regs.map((r) => r.unregister()));
+              }
+            } catch {}
+            const url = new URL(window.location.href);
+            url.searchParams.set("__app_reload", String(Date.now()));
+            window.location.replace(url.toString());
           }}
         >
           Refresh
