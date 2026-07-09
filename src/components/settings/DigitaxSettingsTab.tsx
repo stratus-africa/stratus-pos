@@ -105,8 +105,115 @@ export function DigitaxSettingsTab() {
     }
   };
 
+  const handleSaveTaxRegional = async () => {
+    if (!business) return;
+    if (vatEnabled && !kraPin.trim()) {
+      toast.error("KRA PIN is required when VAT is enabled");
+      return;
+    }
+    setSavingBiz(true);
+    const { error } = await supabase
+      .from("businesses")
+      .update({
+        currency,
+        timezone,
+        tax_rate: parseFloat(taxRate) || 0,
+        kra_pin: kraPin.trim() || null,
+        vat_enabled: vatEnabled,
+      } as never)
+      .eq("id", business.id);
+    if (error) toast.error("Failed to update: " + error.message);
+    else {
+      toast.success("Tax & Regional settings updated");
+      await refreshBusiness();
+    }
+    setSavingBiz(false);
+  };
+
   return (
     <div className="space-y-6">
+      {/* Tax & Regional */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Tax & Regional Settings
+          </CardTitle>
+          <CardDescription>Currency, timezone and VAT configuration.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Currency</Label>
+              <Select value={currency} onValueChange={setCurrency}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="KES">KES — Kenyan Shilling</SelectItem>
+                  <SelectItem value="USD">USD — US Dollar</SelectItem>
+                  <SelectItem value="EUR">EUR — Euro</SelectItem>
+                  <SelectItem value="GBP">GBP — British Pound</SelectItem>
+                  <SelectItem value="UGX">UGX — Ugandan Shilling</SelectItem>
+                  <SelectItem value="TZS">TZS — Tanzanian Shilling</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Timezone</Label>
+              <Select value={timezone} onValueChange={setTimezone}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Africa/Nairobi">Africa/Nairobi (EAT)</SelectItem>
+                  <SelectItem value="Africa/Lagos">Africa/Lagos (WAT)</SelectItem>
+                  <SelectItem value="Africa/Cairo">Africa/Cairo (EET)</SelectItem>
+                  <SelectItem value="UTC">UTC</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base">VAT Enabled</Label>
+              <p className="text-sm text-muted-foreground">Enable or disable VAT charging for this organization</p>
+            </div>
+            <Switch checked={vatEnabled} onCheckedChange={setVatEnabled} />
+          </div>
+
+          {vatEnabled && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Default Tax Rate (%)</Label>
+                <Input type="number" min={0} max={100} step={0.5}
+                  value={taxRate} onChange={(e) => setTaxRate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>
+                  KRA PIN <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  value={kraPin}
+                  onChange={(e) => setKraPin(e.target.value.toUpperCase())}
+                  placeholder="e.g. P051234567X"
+                  required
+                  aria-invalid={vatEnabled && !kraPin.trim()}
+                />
+                <p className="text-xs text-muted-foreground">Required when VAT is enabled. Used on tax invoices and reports.</p>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end">
+            <Button onClick={handleSaveTaxRegional} disabled={savingBiz || (vatEnabled && !kraPin.trim())}>
+              {savingBiz ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Save
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {vatEnabled && (
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
