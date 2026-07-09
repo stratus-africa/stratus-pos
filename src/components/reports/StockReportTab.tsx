@@ -317,17 +317,17 @@ const StockReportDetail = ({ product, from, to, onBack }: { product: any; from: 
             <div className="rounded border overflow-auto">
               <Table>
                 <TableHeader><TableRow>
-                  <TableHead>Date</TableHead><TableHead>Warehouse</TableHead><TableHead>Type</TableHead>
-                  <TableHead>Reason</TableHead><TableHead className="text-right">Quantity</TableHead>
+                  <TableHead>Date</TableHead><TableHead>Warehouse</TableHead>
+                  <TableHead>Reason</TableHead><TableHead>Notes</TableHead><TableHead className="text-right">Change</TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
                   {adjustments.map((a: any) => (
                     <TableRow key={a.id}>
                       <TableCell>{new Date(a.created_at).toLocaleDateString()}</TableCell>
                       <TableCell>{a.locations?.name || "—"}</TableCell>
-                      <TableCell className="capitalize">{a.adjustment_type}</TableCell>
-                      <TableCell>{a.reason || "—"}</TableCell>
-                      <TableCell className="text-right">{a.quantity} {product.unit || ""}</TableCell>
+                      <TableCell className="capitalize">{a.reason}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{a.notes || "—"}</TableCell>
+                      <TableCell className={`text-right ${Number(a.quantity_change) < 0 ? "text-destructive" : ""}`}>{Number(a.quantity_change) > 0 ? "+" : ""}{a.quantity_change} {product.unit || ""}</TableCell>
                     </TableRow>
                   ))}
                   {adjustments.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No adjustments</TableCell></TableRow>}
