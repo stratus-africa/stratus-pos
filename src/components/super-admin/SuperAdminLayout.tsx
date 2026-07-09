@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { format } from "date-fns";
+import { NotificationBell } from "./NotificationBell";
 
 type NavItem = { title: string; url: string; icon: React.ElementType };
 type NavGroup = { label: string; items: NavItem[] };
@@ -210,9 +211,8 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button size="icon" variant="ghost" className="h-8 w-8 text-foreground/60 border border-border">
-              <Bell className="h-4 w-4" />
-            </Button>
+            <NotificationBell />
+
             <div className="flex items-center gap-2 pl-2 ml-1">
               <div className="h-7 w-7 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 text-xs font-semibold">
                 {userName.charAt(0).toUpperCase()}
