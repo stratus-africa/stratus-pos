@@ -281,7 +281,7 @@ export function useSales() {
   const retryFiscalisation = useMutation({
     mutationFn: async (saleId: string) => {
       const { submitSaleToDigitax } = await import("@/hooks/useDigitax");
-      const res = await submitSaleToDigitax(saleId, { invoice_type: "invoice", retry: true });
+      const res = await submitSaleToDigitax(saleId, { invoice_type: "invoice" });
       return res;
     },
     onSuccess: () => {
