@@ -48,14 +48,25 @@ const lazy = <T extends { default: ComponentType<any> }>(loader: () => Promise<T
   );
 
 class ChunkErrorBoundary extends Component<{ children: ReactNode }, { error: unknown }> {
-  state = { error: null };
+  state = { error: null as unknown };
 
   static getDerivedStateFromError(error: unknown) {
-    return { error };
+    // Only capture chunk-load errors here. Other runtime errors should bubble
+    // up so we don't mask real bugs with a misleading "Update required" screen.
+    if (isChunkLoadError(error) || isChunkLoadError((error as { message?: string })?.message)) {
+      return { error };
+    }
+    return { error: null };
   }
 
   componentDidCatch(error: unknown, info: ErrorInfo) {
-    if (!scheduleChunkReload(error)) console.error(error, info);
+    if (isChunkLoadError(error)) {
+      scheduleChunkReload(error);
+      return;
+    }
+    // Re-throw so React's default error handling / dev overlay surfaces it.
+    console.error(error, info);
+    throw error;
   }
 
   render() {
@@ -74,8 +85,6 @@ class ChunkErrorBoundary extends Component<{ children: ReactNode }, { error: unk
             try {
               sessionStorage.removeItem(CHUNK_RELOAD_KEY);
             } catch {}
-            // Best-effort: clear caches + unregister service workers so the
-            // browser fetches fresh chunk hashes from the network.
             try {
               if ("caches" in window) {
                 const keys = await caches.keys();
@@ -99,6 +108,7 @@ class ChunkErrorBoundary extends Component<{ children: ReactNode }, { error: unk
     );
   }
 }
+
 
 // Lazy-loaded pages
 const Onboarding = lazy(() => import("./pages/Onboarding"));
