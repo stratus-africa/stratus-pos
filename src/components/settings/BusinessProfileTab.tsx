@@ -163,8 +163,23 @@ export function BusinessProfileTab() {
             <div>
               <Label className="text-base">Prevent overselling</Label>
               <p className="text-sm text-muted-foreground">Block sales and adjustments that would push stock below zero.</p>
+              {negativeStockCount > 0 && !preventOverselling && (
+                <p className="text-xs text-destructive mt-1">
+                  Cannot enable — {negativeStockCount} product{negativeStockCount > 1 ? "s have" : " has"} negative stock. Reconcile inventory to 0 or above first.
+                </p>
+              )}
             </div>
-            <Switch checked={preventOverselling} onCheckedChange={setPreventOverselling} />
+            <Switch
+              checked={preventOverselling}
+              disabled={!preventOverselling && negativeStockCount > 0}
+              onCheckedChange={(v) => {
+                if (v && negativeStockCount > 0) {
+                  toast.error(`Cannot enable: ${negativeStockCount} product(s) have negative stock. All stocks must be 0 or above.`);
+                  return;
+                }
+                setPreventOverselling(v);
+              }}
+            />
           </div>
 
           <Separator />
