@@ -200,6 +200,8 @@ export default function PurchaseEditor() {
     e.preventDefault();
     if (!user || items.length === 0) return;
     if (!supplierId) { toast.error("Supplier is required"); return; }
+    const missingCost = items.find((it) => !it.unit_cost || Number(it.unit_cost) <= 0);
+    if (missingCost) { toast.error("Unit Cost is required for every line item and must be greater than zero."); return; }
     if (vatEnabled && supplierMissingPin) {
       toast.error(`Supplier "${selectedSupplier?.name}" has no KRA PIN.`);
       return;
