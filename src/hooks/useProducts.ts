@@ -364,7 +364,7 @@ export function useUnits() {
   });
 
   const create = useMutation({
-    mutationFn: async ({ name, abbreviation }: { name: string; abbreviation?: string }) => {
+    mutationFn: async ({ name, abbreviation }: { name: string; abbreviation?: string | null }) => {
       if (!business) throw new Error("No business");
       const { error } = await supabase
         .from("units")
@@ -374,6 +374,18 @@ export function useUnits() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["units"] });
       toast.success("Unit created");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const update = useMutation({
+    mutationFn: async ({ id, name, abbreviation }: { id: string; name: string; abbreviation?: string | null }) => {
+      const { error } = await supabase.from("units").update({ name, abbreviation: abbreviation || null }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["units"] });
+      toast.success("Unit updated");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -390,5 +402,5 @@ export function useUnits() {
     onError: (e) => toast.error(e.message),
   });
 
-  return { query, create, remove };
+  return { query, create, update, remove };
 }
