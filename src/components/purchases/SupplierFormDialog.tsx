@@ -45,8 +45,8 @@ export function SupplierFormDialog({ open, onOpenChange, onSubmit, supplier, isL
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Phone</Label>
-              <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="e.g. 0712345678" />
+              <Label>Phone *</Label>
+              <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="e.g. 0712345678" required />
             </div>
             <div className="space-y-2">
               <Label>Email</Label>
