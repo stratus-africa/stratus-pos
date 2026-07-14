@@ -28,9 +28,9 @@ const Products = () => {
   const { hasPermission } = usePermissions();
   const canEdit = hasPermission("products.edit");
   const canDelete = hasPermission("products.delete");
-  const { query: categoriesQuery, create: createCategory, remove: removeCategory } = useCategories();
-  const { query: brandsQuery, create: createBrand, remove: removeBrand } = useBrands();
-  const { query: unitsQuery, create: createUnit, remove: removeUnit } = useUnits();
+  const { query: categoriesQuery, create: createCategory, update: updateCategory, remove: removeCategory } = useCategories();
+  const { query: brandsQuery, create: createBrand, update: updateBrand, remove: removeBrand } = useBrands();
+  const { query: unitsQuery, create: createUnit, update: updateUnit, remove: removeUnit } = useUnits();
 
   const { business } = useBusiness();
   const { maxProducts } = useFeatureLimit();
