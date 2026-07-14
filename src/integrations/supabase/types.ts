@@ -406,6 +406,7 @@ export type Database = {
       categories: {
         Row: {
           business_id: string
+          color_code: string | null
           created_at: string
           id: string
           name: string
@@ -414,6 +415,7 @@ export type Database = {
         }
         Insert: {
           business_id: string
+          color_code?: string | null
           created_at?: string
           id?: string
           name: string
@@ -422,6 +424,7 @@ export type Database = {
         }
         Update: {
           business_id?: string
+          color_code?: string | null
           created_at?: string
           id?: string
           name?: string
@@ -865,18 +868,21 @@ export type Database = {
       expense_categories: {
         Row: {
           business_id: string
+          color_code: string | null
           created_at: string
           id: string
           name: string
         }
         Insert: {
           business_id: string
+          color_code?: string | null
           created_at?: string
           id?: string
           name: string
         }
         Update: {
           business_id?: string
+          color_code?: string | null
           created_at?: string
           id?: string
           name?: string
