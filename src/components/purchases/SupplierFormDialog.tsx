@@ -27,7 +27,8 @@ export function SupplierFormDialog({ open, onOpenChange, onSubmit, supplier, isL
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ name: form.name, phone: form.phone || null, email: form.email || null, address: form.address || null, kra_pin: form.kra_pin || null });
+    if (!form.phone.trim()) return;
+    onSubmit({ name: form.name, phone: form.phone.trim(), email: form.email || null, address: form.address || null, kra_pin: form.kra_pin || null });
     onOpenChange(false);
   };
 
@@ -44,8 +45,8 @@ export function SupplierFormDialog({ open, onOpenChange, onSubmit, supplier, isL
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Phone</Label>
-              <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="e.g. 0712345678" />
+              <Label>Phone *</Label>
+              <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="e.g. 0712345678" required />
             </div>
             <div className="space-y-2">
               <Label>Email</Label>

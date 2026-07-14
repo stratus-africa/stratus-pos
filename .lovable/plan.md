@@ -1,71 +1,49 @@
-## Scope
 
-Seven related changes across DigiTax fiscalisation, sales/dashboard accuracy, and the dashboard KPI row.
+## 1. Fix "My Transactions" (Sales) route
+The current Sales page can trip the ChunkErrorBoundary "Update required" screen when a runtime error occurs on mount. Root cause: a realtime channel subscription throwing after StrictMode remount can cascade into an uncaught error, and Sales.tsx currently has no local error boundary — so any transient render/realtime error escapes to the app-level boundary.
 
----
+- Wrap the Sales route in a local error boundary that resets on route change (renders the Transactions view with a friendly inline error + retry, never the global "Update required").
+- Harden the Sales page realtime setup: guard against double-subscription and errors thrown from the channel callback.
 
-### 1. Server-side KRA field validation (block submissions)
+## 2. Rename "Stock Report" → "Sales By Item Report" + rebuild
+- Rename tab label, route, and file (`StockReportTab.tsx` → `SalesByItemReportTab.tsx`).
+- New query: aggregate `sale_items` joined with `sales` and `products` over the selected date range, grouped by product. Show: Item, SKU, Qty Sold, Gross Sales, COGS, Profit, Margin %. Support location filter and CSV export.
 
-In `supabase/functions/digitax-submit/index.ts` (and the queue processor `digitax-process-queue`), validate before calling the provider:
+## 3. Prevent Overselling toggle — block enabling when negative stock exists
+- In `BusinessProfileTab.tsx` (or wherever the toggle lives), on toggling ON: query `inventory` for `quantity < 0`. If any exist, block with a toast listing count and a link to Inventory filtered by negative stock.
 
-- **Sale**: `invoice_number`, `total`, `location_id`, at least one item, non-cancelled status.
-- **Customer** (if attached): `kra_pin` when required by invoice type.
-- **Each product line**: `kra_item_class_code`, `kra_tax_category` (A/B/E/etc.), `unit_of_measure`.
+## 4. Hide zero-qty stocks from POS
+- In `POS.tsx` product list, filter out products whose location inventory is `<= 0` (still allow decimal/backorder-flagged items if the "allow negative" business setting is off = the default).
 
-On failure, do NOT call the provider — mark the queue row `status = 'validation_failed'`, store the missing-fields list in `last_error`, and return `400` with a structured `{ missing: [...] }` payload so the client can render actionable messages.
+## 5. CRUD for Categories, Brands, Units, Expense Categories
+Currently `useCategories`, `useBrands`, `useUnits` only support create + delete. Add:
+- `update` mutation (rename + color for categories/expense categories).
+- A dedicated management dialog on Products page ("Manage Categories/Brands/Units") and Expenses page ("Manage Expense Categories") with edit / delete / add / color picker.
 
-### 2. Sales list + SaleDetailDialog: fiscal status & retry
+## 6. Color codes on Categories & Expense Categories
+- DB migration: add `color TEXT` column to `categories` and `expense_categories`.
+- Wire color into the CRUD dialogs (hex color input + swatch).
+- Display color swatches next to category names in Products list and Expenses list.
 
-- Extend `useSales.ts` to join `digitax_invoice_queue` (latest row per sale) and expose `digitax_status`, `digitax_error`, `kra_receipt_no`.
-- `src/pages/Sales.tsx`: add a "Fiscal" column with a coloured badge (Submitted / Pending / Failed / Not required).
-- `src/components/sales/SaleDetailDialog.tsx`: add a "KRA / DigiTax" section showing status, receipt no, QR, and the error message; a **Retry submission** button (visible for admins/managers when status is `failed` or `validation_failed`) that calls the existing `digitax-submit` edge function.
+## 7. Banking — pagination + compact table
+- Add persistent pagination (25/50/100/200) to `Banking.tsx` transactions table using existing `localStorage` pattern.
+- Tighten padding: `py-1.5` on rows, smaller font, thinner borders.
 
-### 3. DigiTax callback webhook
+## 8. Mandatory unit cost on Purchases
+- `PurchaseEditor.tsx`: mark unit cost field required, validate `> 0` before submit, block save with inline error + toast.
 
-New public edge function `supabase/functions/digitax-webhook/index.ts` (`verify_jwt = false`), authenticated by an HMAC signature header using a new secret `DIGITAX_WEBHOOK_SECRET`.
+## 9. Mandatory Supplier phone
+- `SupplierFormDialog.tsx`: mark `phone` required, add zod validation, red asterisk in label.
 
-- Accepts `{ queue_id, sale_id, status, kra_receipt_no, qr_url, signed_at, error }`.
-- Updates `digitax_invoice_queue` and mirrors receipt fields onto `sales` (`kra_receipt_no`, `kra_qr_url`, `fiscalised_at`).
-- Uses Realtime (already enabled on `sales`) so the UI updates without a manual refresh.
+## 10. Inventory Dashboard cards
+- Add a row of cards at the top of `Inventory.tsx`:
+  - Total Stock Value @ Purchase Price = Σ(inventory.quantity × products.purchase_price)
+  - Total Stock Value @ Selling Price = Σ(inventory.quantity × products.selling_price)
+  - Expected Profit = Selling Value − Purchase Value
+- Scoped to selected location; formatted as KES.
 
-### 4. Lock fiscalised records
-
-Database triggers in a new migration:
-
-- `sales`: BEFORE UPDATE — block changes to `total`, `subtotal`, `tax_amount`, `discount_amount`, `location_id`, `customer_id`, `invoice_number`, and DELETE, when a matching `digitax_invoice_queue` row exists with `status = 'submitted'`. Allow `status = 'cancelled'` transitions (which already trigger an auto credit note).
-- `customers`: BEFORE UPDATE — block changes to `kra_pin`, `name`, `tax_id` if the customer has any submitted fiscalised sale.
-- `products`: BEFORE UPDATE — block changes to `kra_item_class_code`, `kra_tax_category`, `unit_of_measure`, `name`, `sku` if the product appears on any submitted fiscalised sale.
-
-UI-side: in `ProductFormDialog`, `CustomerFormDialog`, and the sale editor, disable the affected fields (read-only inputs with a lock icon + tooltip "Locked — fiscalised to KRA") when `useIsFiscalised(id)` returns true. Print / receipt actions remain enabled.
-
-### 5. Correct sales & purchases totals
-
-Audit `useSales.ts`, `usePurchases.ts`, and the dashboard aggregations for two known bugs:
-
-- Cancelled rows currently counted in totals — filter `status <> 'cancelled'`.
-- The 1000-row PostgREST cap on aggregation queries — use the recursive range pagination already introduced for reports, or switch to a SQL RPC that returns pre-summed values (`get_sales_summary(business_id, from, to)` and `get_purchases_summary(...)`).
-
-### 6. Sales Trend chart shows correct data
-
-In `src/components/dashboard/DashboardCharts.tsx`, replace the client-side bucketing with a new RPC `get_sales_trend(business_id, from, to, granularity)` that returns one row per day/week filled with zeros for empty buckets (using `generate_series`). This fixes gaps and wrong totals when sales span >1000 rows or when a day has no sales.
-
-### 7. Dashboard: replace "Invoice Due" with "Credit Sales"
-
-In `src/components/dashboard/DashboardStatCards.tsx`, remove the Invoice Due card and add a **Credit Sales** card showing:
-
-- Sum of `sales.total` where `payment_status IN ('credit','partial')` and not cancelled, in the selected date range.
-- Sub-label: count of outstanding credit sales.
-- Clicking navigates to `/sales?payment_status=credit`.
-
----
-
-### Technical details
-
-- New edge functions: `digitax-webhook`. New secret: `DIGITAX_WEBHOOK_SECRET` (shared — user must copy it into the DigiTax provider dashboard).
-- New RPCs: `get_sales_summary`, `get_purchases_summary`, `get_sales_trend`, `is_sale_fiscalised(sale_id)`.
-- New triggers: `lock_fiscalised_sale`, `lock_fiscalised_customer`, `lock_fiscalised_product`.
-- New hook: `useIsFiscalised(entityType, id)`.
-- Modified: `useSales.ts`, `usePurchases.ts`, `Sales.tsx`, `SaleDetailDialog.tsx`, `DashboardStatCards.tsx`, `DashboardCharts.tsx`, `ProductFormDialog.tsx`, `CustomerFormDialog.tsx`, `digitax-submit/index.ts`, `digitax-process-queue/index.ts`.
-- Existing DigiTax gating (VAT off / plan feature off / setting off) continues to short-circuit before any of this runs.
-
-Implementation order: migration (triggers + RPCs) → edge functions → hooks → UI. Approve and I'll ship it end-to-end.
+## Technical notes
+- One migration: `ALTER TABLE categories ADD COLUMN color TEXT; ALTER TABLE expense_categories ADD COLUMN color TEXT;`
+- Sales boundary: new `src/components/ErrorBoundary.tsx` reusable component keyed by pathname.
+- Sales-by-item: RPC not required — a client-side aggregate over `sale_items` with pagination via `range()` loop (same pattern as `useProducts`).
+- No changes to auth, RLS, or edge functions.

@@ -126,6 +126,9 @@ const POS = () => {
     () =>
       products.filter((p) => {
         if (!p.is_active) return false;
+        // Hide zero (or negative) stock products from the POS product list.
+        const qty = stockMap.get(p.id) ?? 0;
+        if (qty <= 0) return false;
         const matchSearch =
           p.name.toLowerCase().includes(search.toLowerCase()) ||
           (p.sku || "").toLowerCase().includes(search.toLowerCase()) ||
@@ -133,7 +136,7 @@ const POS = () => {
         const matchCat = categoryFilter === "all" || p.category_id === categoryFilter;
         return matchSearch && matchCat;
       }),
-    [products, search, categoryFilter]
+    [products, search, categoryFilter, stockMap]
   );
 
   const handlePaymentConfirm = async (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean) => {

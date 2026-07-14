@@ -6,22 +6,23 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CreditCard, Plus, Search, Layers, Trash2 } from "lucide-react";
+import { CreditCard, Plus, Search, Layers, Trash2, Pencil } from "lucide-react";
 import { useExpenses, useExpenseCategories } from "@/hooks/useExpenses";
 import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
-import { QuickAddDialog } from "@/components/products/QuickAddDialog";
+import { TaxonomyDialog } from "@/components/products/TaxonomyDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 
 const Expenses = () => {
   const { hasPermission } = usePermissions();
   const canDelete = hasPermission("expenses.delete");
   const { query: expensesQuery, create: createExpense, remove: removeExpense } = useExpenses();
-  const { query: categoriesQuery, create: createCategory, remove: removeCategory } = useExpenseCategories();
+  const { query: categoriesQuery, create: createCategory, update: updateCategory, remove: removeCategory } = useExpenseCategories();
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
   const [catDialogOpen, setCatDialogOpen] = useState(false);
+  const [editingCat, setEditingCat] = useState<any | null>(null);
 
   const expenses = expensesQuery.data || [];
   const filtered = expenses.filter((e) => {
@@ -140,22 +141,27 @@ const Expenses = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Expense Categories</CardTitle>
-              <Button size="sm" onClick={() => setCatDialogOpen(true)}><Plus className="mr-1 h-4 w-4" /> Add</Button>
+              <Button size="sm" onClick={() => { setEditingCat(null); setCatDialogOpen(true); }}><Plus className="mr-1 h-4 w-4" /> Add</Button>
             </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {categoriesQuery.data?.map((c) => (
-                  <Badge key={c.id} variant="outline" className="gap-1 py-1.5 px-3 text-sm">
-                    {c.name}
-                    <button onClick={() => removeCategory.mutate(c.id)} className="ml-1 text-muted-foreground hover:text-destructive">
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-                {(!categoriesQuery.data || categoriesQuery.data.length === 0) && (
-                  <p className="text-muted-foreground text-sm">No expense categories yet. Add some like "Rent", "Utilities", "Transport".</p>
-                )}
-              </div>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader><TableRow><TableHead className="w-16">Color</TableHead><TableHead>Name</TableHead><TableHead className="w-28 text-right">Actions</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {(categoriesQuery.data || []).map((c: any) => (
+                    <TableRow key={c.id}>
+                      <TableCell><span className="inline-block h-5 w-5 rounded-full border" style={{ background: c.color_code || "transparent" }} /></TableCell>
+                      <TableCell>{c.name}</TableCell>
+                      <TableCell className="text-right">
+                        <Button size="icon" variant="ghost" onClick={() => { setEditingCat(c); setCatDialogOpen(true); }}><Pencil className="h-4 w-4" /></Button>
+                        {canDelete && <Button size="icon" variant="ghost" onClick={() => removeCategory.mutate(c.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {(!categoriesQuery.data || categoriesQuery.data.length === 0) && (
+                    <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-6">No expense categories yet. Add some like "Rent", "Utilities", "Transport".</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>
@@ -168,13 +174,19 @@ const Expenses = () => {
         isLoading={createExpense.isPending}
       />
 
-      <QuickAddDialog
+      <TaxonomyDialog
         open={catDialogOpen}
-        onOpenChange={setCatDialogOpen}
-        title="Add Expense Category"
+        onOpenChange={(o) => { setCatDialogOpen(o); if (!o) setEditingCat(null); }}
+        title={editingCat ? "Edit Expense Category" : "Add Expense Category"}
         label="Category Name"
-        onSubmit={(name) => createCategory.mutate(name)}
-        isLoading={createCategory.isPending}
+        withColor
+        initial={editingCat}
+        onSubmit={(v) => {
+          if (editingCat) updateCategory.mutate({ id: editingCat.id, name: v.name, color_code: v.color_code });
+          else createCategory.mutate({ name: v.name, color_code: v.color_code });
+          setCatDialogOpen(false); setEditingCat(null);
+        }}
+        isLoading={createCategory.isPending || updateCategory.isPending}
       />
     </div>
   );
