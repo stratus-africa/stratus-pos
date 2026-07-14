@@ -479,22 +479,27 @@ const Products = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Categories</CardTitle>
-              <Button size="sm" onClick={() => setCatDialogOpen(true)}><Plus className="mr-1 h-4 w-4" /> Add</Button>
+              <Button size="sm" onClick={() => { setEditingCategory(null); setCatDialogOpen(true); }}><Plus className="mr-1 h-4 w-4" /> Add</Button>
             </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {categoriesQuery.data?.map((c) => (
-                  <Badge key={c.id} variant="outline" className="gap-1 py-1.5 px-3 text-sm">
-                    {c.name}
-                    <button onClick={() => removeCategory.mutate(c.id)} className="ml-1 text-muted-foreground hover:text-destructive">
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-                {(!categoriesQuery.data || categoriesQuery.data.length === 0) && (
-                  <p className="text-muted-foreground text-sm">No categories yet.</p>
-                )}
-              </div>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader><TableRow><TableHead className="w-16">Color</TableHead><TableHead>Name</TableHead><TableHead className="w-28 text-right">Actions</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {(categoriesQuery.data || []).map((c: any) => (
+                    <TableRow key={c.id}>
+                      <TableCell><span className="inline-block h-5 w-5 rounded-full border" style={{ background: c.color_code || "transparent" }} /></TableCell>
+                      <TableCell>{c.name}</TableCell>
+                      <TableCell className="text-right">
+                        <Button size="icon" variant="ghost" onClick={() => { setEditingCategory(c); setCatDialogOpen(true); }}><Pencil className="h-4 w-4" /></Button>
+                        {canDelete && <Button size="icon" variant="ghost" onClick={() => removeCategory.mutate(c.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {(!categoriesQuery.data || categoriesQuery.data.length === 0) && (
+                    <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-6">No categories yet.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>
@@ -503,22 +508,26 @@ const Products = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Brands</CardTitle>
-              <Button size="sm" onClick={() => setBrandDialogOpen(true)}><Plus className="mr-1 h-4 w-4" /> Add</Button>
+              <Button size="sm" onClick={() => { setEditingBrand(null); setBrandDialogOpen(true); }}><Plus className="mr-1 h-4 w-4" /> Add</Button>
             </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {brandsQuery.data?.map((b) => (
-                  <Badge key={b.id} variant="outline" className="gap-1 py-1.5 px-3 text-sm">
-                    {b.name}
-                    <button onClick={() => removeBrand.mutate(b.id)} className="ml-1 text-muted-foreground hover:text-destructive">
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-                {(!brandsQuery.data || brandsQuery.data.length === 0) && (
-                  <p className="text-muted-foreground text-sm">No brands yet.</p>
-                )}
-              </div>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader><TableRow><TableHead>Name</TableHead><TableHead className="w-28 text-right">Actions</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {(brandsQuery.data || []).map((b: any) => (
+                    <TableRow key={b.id}>
+                      <TableCell>{b.name}</TableCell>
+                      <TableCell className="text-right">
+                        <Button size="icon" variant="ghost" onClick={() => { setEditingBrand(b); setBrandDialogOpen(true); }}><Pencil className="h-4 w-4" /></Button>
+                        {canDelete && <Button size="icon" variant="ghost" onClick={() => removeBrand.mutate(b.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {(!brandsQuery.data || brandsQuery.data.length === 0) && (
+                    <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground py-6">No brands yet.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>
@@ -527,22 +536,27 @@ const Products = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Units of Measure</CardTitle>
-              <Button size="sm" onClick={() => setUnitDialogOpen(true)}><Plus className="mr-1 h-4 w-4" /> Add</Button>
+              <Button size="sm" onClick={() => { setEditingUnit(null); setUnitDialogOpen(true); }}><Plus className="mr-1 h-4 w-4" /> Add</Button>
             </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {unitsQuery.data?.map((u) => (
-                  <Badge key={u.id} variant="outline" className="gap-1 py-1.5 px-3 text-sm">
-                    {u.name}{u.abbreviation ? ` (${u.abbreviation})` : ""}
-                    <button onClick={() => removeUnit.mutate(u.id)} className="ml-1 text-muted-foreground hover:text-destructive">
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-                {(!unitsQuery.data || unitsQuery.data.length === 0) && (
-                  <p className="text-muted-foreground text-sm">No units yet.</p>
-                )}
-              </div>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Abbreviation</TableHead><TableHead className="w-28 text-right">Actions</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {(unitsQuery.data || []).map((u: any) => (
+                    <TableRow key={u.id}>
+                      <TableCell>{u.name}</TableCell>
+                      <TableCell className="text-muted-foreground">{u.abbreviation || "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <Button size="icon" variant="ghost" onClick={() => { setEditingUnit(u); setUnitDialogOpen(true); }}><Pencil className="h-4 w-4" /></Button>
+                        {canDelete && <Button size="icon" variant="ghost" onClick={() => removeUnit.mutate(u.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {(!unitsQuery.data || unitsQuery.data.length === 0) && (
+                    <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-6">No units yet.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>
@@ -556,9 +570,47 @@ const Products = () => {
         isLoading={createProduct.isPending || updateProduct.isPending}
       />
 
-      <QuickAddDialog open={catDialogOpen} onOpenChange={setCatDialogOpen} title="Add Category" label="Category Name" onSubmit={(name) => createCategory.mutate(name)} isLoading={createCategory.isPending} />
-      <QuickAddDialog open={brandDialogOpen} onOpenChange={setBrandDialogOpen} title="Add Brand" label="Brand Name" onSubmit={(name) => createBrand.mutate(name)} isLoading={createBrand.isPending} />
-      <QuickAddDialog open={unitDialogOpen} onOpenChange={setUnitDialogOpen} title="Add Unit" label="Unit Name (e.g. Pieces)" onSubmit={(name) => createUnit.mutate({ name })} isLoading={createUnit.isPending} />
+      <TaxonomyDialog
+        open={catDialogOpen}
+        onOpenChange={(o) => { setCatDialogOpen(o); if (!o) setEditingCategory(null); }}
+        title={editingCategory ? "Edit Category" : "Add Category"}
+        label="Category Name"
+        withColor
+        initial={editingCategory}
+        onSubmit={(v) => {
+          if (editingCategory) updateCategory.mutate({ id: editingCategory.id, name: v.name, color_code: v.color_code });
+          else createCategory.mutate({ name: v.name, color_code: v.color_code });
+          setCatDialogOpen(false); setEditingCategory(null);
+        }}
+        isLoading={createCategory.isPending || updateCategory.isPending}
+      />
+      <TaxonomyDialog
+        open={brandDialogOpen}
+        onOpenChange={(o) => { setBrandDialogOpen(o); if (!o) setEditingBrand(null); }}
+        title={editingBrand ? "Edit Brand" : "Add Brand"}
+        label="Brand Name"
+        initial={editingBrand}
+        onSubmit={(v) => {
+          if (editingBrand) updateBrand.mutate({ id: editingBrand.id, name: v.name });
+          else createBrand.mutate({ name: v.name });
+          setBrandDialogOpen(false); setEditingBrand(null);
+        }}
+        isLoading={createBrand.isPending || updateBrand.isPending}
+      />
+      <TaxonomyDialog
+        open={unitDialogOpen}
+        onOpenChange={(o) => { setUnitDialogOpen(o); if (!o) setEditingUnit(null); }}
+        title={editingUnit ? "Edit Unit" : "Add Unit"}
+        label="Unit Name (e.g. Pieces)"
+        withAbbreviation
+        initial={editingUnit}
+        onSubmit={(v) => {
+          if (editingUnit) updateUnit.mutate({ id: editingUnit.id, name: v.name, abbreviation: v.abbreviation ?? null });
+          else createUnit.mutate({ name: v.name, abbreviation: v.abbreviation ?? null });
+          setUnitDialogOpen(false); setEditingUnit(null);
+        }}
+        isLoading={createUnit.isPending || updateUnit.isPending}
+      />
 
       <BarcodeScanner open={scannerOpen} onOpenChange={setScannerOpen} onDetected={handleScanned} />
       <ProductDetailDialog
