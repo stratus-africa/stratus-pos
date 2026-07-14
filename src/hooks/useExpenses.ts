@@ -44,12 +44,21 @@ export function useExpenseCategories() {
   });
 
   const create = useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async (input: { name: string; color_code?: string | null }) => {
       if (!business) throw new Error("No business");
-      const { error } = await supabase.from("expense_categories").insert({ name, business_id: business.id });
+      const { error } = await supabase.from("expense_categories").insert({ name: input.name, color_code: input.color_code ?? null, business_id: business.id } as never);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["expense_categories"] }); toast.success("Category created"); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const update = useMutation({
+    mutationFn: async (input: { id: string; name: string; color_code?: string | null }) => {
+      const { error } = await supabase.from("expense_categories").update({ name: input.name, color_code: input.color_code ?? null } as never).eq("id", input.id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["expense_categories"] }); toast.success("Category updated"); },
     onError: (e) => toast.error(e.message),
   });
 
@@ -62,7 +71,7 @@ export function useExpenseCategories() {
     onError: (e) => toast.error(e.message),
   });
 
-  return { query, create, remove };
+  return { query, create, update, remove };
 }
 
 export function useExpenses() {
