@@ -22,6 +22,7 @@ const Expenses = () => {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
   const [catDialogOpen, setCatDialogOpen] = useState(false);
+  const [editingCat, setEditingCat] = useState<any | null>(null);
 
   const expenses = expensesQuery.data || [];
   const filtered = expenses.filter((e) => {
