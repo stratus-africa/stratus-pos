@@ -27,7 +27,8 @@ export function SupplierFormDialog({ open, onOpenChange, onSubmit, supplier, isL
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ name: form.name, phone: form.phone || null, email: form.email || null, address: form.address || null, kra_pin: form.kra_pin || null });
+    if (!form.phone.trim()) return;
+    onSubmit({ name: form.name, phone: form.phone.trim(), email: form.email || null, address: form.address || null, kra_pin: form.kra_pin || null });
     onOpenChange(false);
   };
 
