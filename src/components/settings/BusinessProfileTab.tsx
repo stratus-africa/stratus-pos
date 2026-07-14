@@ -28,6 +28,7 @@ export function BusinessProfileTab() {
   const [trackBatches, setTrackBatches] = useState<boolean>((business as { track_batches?: boolean })?.track_batches ?? false);
   const [posShowStockQty, setPosShowStockQty] = useState<boolean>((business as { pos_show_stock_qty?: boolean })?.pos_show_stock_qty ?? true);
   const [managers, setManagers] = useState<{ user_id: string; full_name: string | null; email: string | null }[]>([]);
+  const [negativeStockCount, setNegativeStockCount] = useState<number>(0);
 
   useEffect(() => {
     if (!business) return;
@@ -38,9 +39,17 @@ export function BusinessProfileTab() {
         .eq("business_id", business.id)
         .in("role", ["admin", "manager"] as any);
       const ids = (roles || []).map((r) => r.user_id);
-      if (ids.length === 0) { setManagers([]); return; }
-      const { data: profs } = await supabase.from("profiles").select("id, full_name, email").in("id", ids);
-      setManagers((profs || []).map((p) => ({ user_id: p.id, full_name: p.full_name, email: p.email })));
+      if (ids.length === 0) { setManagers([]); }
+      else {
+        const { data: profs } = await supabase.from("profiles").select("id, full_name, email").in("id", ids);
+        setManagers((profs || []).map((p) => ({ user_id: p.id, full_name: p.full_name, email: p.email })));
+      }
+      const { count } = await supabase
+        .from("inventory")
+        .select("id, locations!inner(business_id)", { count: "exact", head: true })
+        .eq("locations.business_id", business.id)
+        .lt("quantity", 0);
+      setNegativeStockCount(count ?? 0);
     })();
   }, [business?.id]);
 
