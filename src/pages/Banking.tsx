@@ -616,7 +616,8 @@ export default function Banking() {
           ) : filteredTxns.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4">No transactions yet. Record your first transaction to get started.</p>
           ) : (
-            <Table>
+            <>
+            <Table className="text-sm [&_td]:py-1.5 [&_th]:py-2">
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
@@ -629,7 +630,7 @@ export default function Banking() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTxns.map((txn) => {
+                {pagedTxns.map((txn) => {
                   const inflows = ["payment_received", "transfer_in", "owner_deposit", "loan_disbursement_received"];
                   const transfers = ["transfer_in", "transfer_out"];
                   const isIn = inflows.includes(txn.type);
@@ -649,7 +650,7 @@ export default function Banking() {
                   const variant = isTransfer ? "secondary" : (isIn ? "default" : "destructive");
                   return (
                     <TableRow key={txn.id}>
-                      <TableCell>{format(new Date(txn.date), "dd MMM yyyy")}</TableCell>
+                      <TableCell className="whitespace-nowrap">{format(new Date(txn.date), "dd MMM yyyy")}</TableCell>
                       <TableCell>
                         <Badge variant={variant} className="gap-1">
                           {isTransfer ? <ArrowLeftRight className="h-3 w-3" /> : (isIn ? <ArrowDownLeft className="h-3 w-3" /> : <ArrowUpRight className="h-3 w-3" />)}
@@ -658,8 +659,8 @@ export default function Banking() {
                       </TableCell>
                       <TableCell>{getAccountName(txn.bank_account_id)}</TableCell>
                       <TableCell>{txn.contact_name || "—"}</TableCell>
-                      <TableCell className="text-muted-foreground">{txn.description || "—"}</TableCell>
-                      <TableCell className="font-mono text-sm">{txn.reference || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground truncate max-w-[220px]">{txn.description || "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">{txn.reference || "—"}</TableCell>
                       <TableCell className={`text-right font-medium ${isIn ? "text-green-600" : "text-red-500"}`}>
                         {isIn ? "+" : "-"} {Number(txn.amount).toLocaleString()}
                       </TableCell>
@@ -668,6 +669,22 @@ export default function Banking() {
                 })}
               </TableBody>
             </Table>
+            <div className="flex items-center justify-between gap-3 pt-3 flex-wrap">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">Rows per page</span>
+                <Select value={String(txnPageSize)} onValueChange={(v) => { const n = Number(v); setTxnPageSize(n); try { localStorage.setItem("banking.txn.size", String(n)); } catch {} }}>
+                  <SelectTrigger className="w-24 h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>{[25,50,100,200].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}</SelectContent>
+                </Select>
+                <span className="text-muted-foreground">{filteredTxns.length} total</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" disabled={txnPage <= 1} onClick={() => setTxnPage((p) => Math.max(1, p - 1))}>Prev</Button>
+                <span className="text-sm">Page {txnPage} / {totalTxnPages}</span>
+                <Button size="sm" variant="outline" disabled={txnPage >= totalTxnPages} onClick={() => setTxnPage((p) => Math.min(totalTxnPages, p + 1))}>Next</Button>
+              </div>
+            </div>
+            </>
           )}
         </CardContent>
       </Card>
