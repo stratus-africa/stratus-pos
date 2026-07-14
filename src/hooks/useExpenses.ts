@@ -9,6 +9,7 @@ export interface ExpenseCategory {
   id: string;
   business_id: string;
   name: string;
+  color_code?: string | null;
 }
 
 export interface Expense {
