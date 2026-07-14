@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Package, Plus, Search, Pencil, Trash2, Tag, Layers, Ruler, Download, Upload, FileDown, Lock, ScanLine } from "lucide-react";
 import { useProducts, useCategories, useBrands, useUnits, type ProductFormData, type Product } from "@/hooks/useProducts";
 import { ProductFormDialog } from "@/components/products/ProductFormDialog";
-import { QuickAddDialog } from "@/components/products/QuickAddDialog";
+import { TaxonomyDialog } from "@/components/products/TaxonomyDialog";
 import ImportMappingDialog from "@/components/products/ImportMappingDialog";
 import ProductDetailDialog from "@/components/products/ProductDetailDialog";
 import BarcodeScanner from "@/components/BarcodeScanner";
