@@ -258,6 +258,10 @@ export default function Banking() {
     ? transactions
     : transactions.filter((t) => t.bank_account_id === selectedAccount);
 
+  const totalTxnPages = Math.max(1, Math.ceil(filteredTxns.length / txnPageSize));
+  const pagedTxns = filteredTxns.slice((txnPage - 1) * txnPageSize, txnPage * txnPageSize);
+  useEffect(() => { setTxnPage(1); }, [selectedAccount, txnPageSize]);
+
   const getAccountName = (id: string) => accounts.find((a) => a.id === id)?.name || "Unknown";
 
   const totalBalance = accounts.reduce((sum, a) => sum + Number(a.balance), 0);
