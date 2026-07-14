@@ -239,16 +239,31 @@ export function useCategories() {
   });
 
   const create = useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async (input: { name: string; color_code?: string | null }) => {
       if (!business) throw new Error("No business");
       const { error } = await supabase
         .from("categories")
-        .insert({ name, business_id: business.id });
+        .insert({ name: input.name, color_code: input.color_code ?? null, business_id: business.id } as never);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categories"] });
       toast.success("Category created");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const update = useMutation({
+    mutationFn: async (input: { id: string; name: string; color_code?: string | null }) => {
+      const { error } = await supabase
+        .from("categories")
+        .update({ name: input.name, color_code: input.color_code ?? null } as never)
+        .eq("id", input.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      toast.success("Category updated");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -265,7 +280,7 @@ export function useCategories() {
     onError: (e) => toast.error(e.message),
   });
 
-  return { query, create, remove };
+  return { query, create, update, remove };
 }
 
 export function useBrands() {
