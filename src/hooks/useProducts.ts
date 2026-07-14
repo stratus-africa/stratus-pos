@@ -303,16 +303,28 @@ export function useBrands() {
   });
 
   const create = useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async (input: { name: string }) => {
       if (!business) throw new Error("No business");
       const { error } = await supabase
         .from("brands")
-        .insert({ name, business_id: business.id });
+        .insert({ name: input.name, business_id: business.id });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["brands"] });
       toast.success("Brand created");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const update = useMutation({
+    mutationFn: async (input: { id: string; name: string }) => {
+      const { error } = await supabase.from("brands").update({ name: input.name }).eq("id", input.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["brands"] });
+      toast.success("Brand updated");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -329,7 +341,7 @@ export function useBrands() {
     onError: (e) => toast.error(e.message),
   });
 
-  return { query, create, remove };
+  return { query, create, update, remove };
 }
 
 export function useUnits() {
