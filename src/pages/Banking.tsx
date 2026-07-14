@@ -75,11 +75,20 @@ export default function Banking() {
   });
   const [loanLoading, setLoanLoading] = useState(false);
 
+  // Transactions pagination
+  const readStoredSize = (): number => {
+    if (typeof window === "undefined") return 25;
+    const v = Number(window.localStorage.getItem("banking.txn.size"));
+    return [25, 50, 100, 200].includes(v) ? v : 25;
+  };
+  const [txnPage, setTxnPage] = useState(1);
+  const [txnPageSize, setTxnPageSize] = useState<number>(readStoredSize());
+
   const fetchData = async () => {
     if (!business) return;
     const [accRes, txnRes] = await Promise.all([
       supabase.from("bank_accounts").select("*").eq("business_id", business.id).order("name"),
-      supabase.from("bank_transactions").select("*").eq("business_id", business.id).order("date", { ascending: false }).limit(100),
+      supabase.from("bank_transactions").select("*").eq("business_id", business.id).order("date", { ascending: false }).limit(2000),
     ]);
     setAccounts((accRes.data as BankAccount[]) || []);
     setTransactions((txnRes.data as BankTransaction[]) || []);
@@ -87,6 +96,7 @@ export default function Banking() {
   };
 
   useEffect(() => { fetchData(); }, [business?.id]);
+
 
   const handleCreateAccount = async () => {
     if (!business || !accForm.name) { toast.error("Account name is required"); return; }
