@@ -6,17 +6,17 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CreditCard, Plus, Search, Layers, Trash2 } from "lucide-react";
+import { CreditCard, Plus, Search, Layers, Trash2, Pencil } from "lucide-react";
 import { useExpenses, useExpenseCategories } from "@/hooks/useExpenses";
 import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
-import { QuickAddDialog } from "@/components/products/QuickAddDialog";
+import { TaxonomyDialog } from "@/components/products/TaxonomyDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 
 const Expenses = () => {
   const { hasPermission } = usePermissions();
   const canDelete = hasPermission("expenses.delete");
   const { query: expensesQuery, create: createExpense, remove: removeExpense } = useExpenses();
-  const { query: categoriesQuery, create: createCategory, remove: removeCategory } = useExpenseCategories();
+  const { query: categoriesQuery, create: createCategory, update: updateCategory, remove: removeCategory } = useExpenseCategories();
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
