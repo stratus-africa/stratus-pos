@@ -44,6 +44,9 @@ const Products = () => {
   const [catDialogOpen, setCatDialogOpen] = useState(false);
   const [brandDialogOpen, setBrandDialogOpen] = useState(false);
   const [unitDialogOpen, setUnitDialogOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<any | null>(null);
+  const [editingBrand, setEditingBrand] = useState<any | null>(null);
+  const [editingUnit, setEditingUnit] = useState<any | null>(null);
   const [importing, setImporting] = useState(false);
   const [mappingOpen, setMappingOpen] = useState(false);
   const [importRows, setImportRows] = useState<Record<string, any>[]>([]);
