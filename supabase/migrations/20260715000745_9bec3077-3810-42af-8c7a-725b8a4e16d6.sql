@@ -1,0 +1,1 @@
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS pos_hide_zero_stock boolean NOT NULL DEFAULT true;
