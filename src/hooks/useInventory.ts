@@ -11,7 +11,7 @@ export interface InventoryItem {
   location_id: string;
   quantity: number;
   low_stock_threshold: number;
-  products?: { name: string; sku: string | null; selling_price: number } | null;
+  products?: { name: string; sku: string | null; selling_price: number; purchase_price: number } | null;
   locations?: { name: string } | null;
 }
 
@@ -70,7 +70,7 @@ export function useInventory(
       if (!business) return [];
       let q = supabase
         .from("inventory")
-        .select("*, products(name, sku, selling_price), locations(name)");
+        .select("*, products(name, sku, selling_price, purchase_price), locations(name)");
       if (locationId) q = q.eq("location_id", locationId);
       const { data, error } = await q;
       if (error) throw error;

@@ -11,6 +11,7 @@ import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import { SuperAdminLayout } from "@/components/super-admin/SuperAdminLayout";
 import { FeatureGate } from "@/components/FeatureGate";
 import { usePermissions } from "@/hooks/usePermissions";
+import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 const CHUNK_RELOAD_KEY = "__chunk_reload_at__";
 const CHUNK_RELOAD_COOLDOWN_MS = 10_000;
@@ -288,7 +289,7 @@ const ProtectedRoutes = () => {
             <Route path="/pos" element={guard(<FeatureGate featureKey="pos"><POS /></FeatureGate>, "pos.view")} />
             <Route path="/products" element={guard(<FeatureGate featureKey="products"><Products /></FeatureGate>, "products.view")} />
             <Route path="/inventory" element={guard(<FeatureGate featureKey="inventory"><Inventory /></FeatureGate>, "inventory.view")} />
-            <Route path="/sales" element={guard(<FeatureGate featureKey="sales"><Sales /></FeatureGate>, "sales.view")} />
+            <Route path="/sales" element={guard(<FeatureGate featureKey="sales"><RouteErrorBoundary title="Transactions" resetKey={location.pathname}><Sales /></RouteErrorBoundary></FeatureGate>, "sales.view")} />
             <Route path="/customers" element={guard(<FeatureGate featureKey="customers"><Customers /></FeatureGate>, "customers.view")} />
             <Route path="/purchases" element={guard(<FeatureGate featureKey="purchases"><Purchases /></FeatureGate>, "purchases.view")} />
             <Route path="/purchases/new" element={guard(<FeatureGate featureKey="purchases"><PurchaseEditor /></FeatureGate>, "purchases.create")} />
