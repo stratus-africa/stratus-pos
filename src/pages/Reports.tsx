@@ -298,7 +298,7 @@ const Reports = () => {
           )}
           {canInventory && (
             <TabsContent value="stock" className="mt-0">
-              <StockReportTab from={from} to={to} />
+              <StockReportTab from={from} to={to} locationId={currentLocation?.id} />
             </TabsContent>
           )}
           {canPnL && (

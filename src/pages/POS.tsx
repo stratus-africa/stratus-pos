@@ -61,6 +61,7 @@ const POS = () => {
   // Admins/managers/stores managers don't need extra approval — they ARE the approvers.
   const cashierNeedsApproval = requireManagerToRemove && userRole === "cashier";
   const showStockQty = (business as { pos_show_stock_qty?: boolean })?.pos_show_stock_qty ?? true;
+  const hideZeroStock = (business as { pos_hide_zero_stock?: boolean })?.pos_hide_zero_stock ?? true;
 
   const handleBeforeRemove = useCallback((item: CartItem): Promise<boolean> => {
     if (!cashierNeedsApproval) return Promise.resolve(true);
@@ -126,9 +127,11 @@ const POS = () => {
     () =>
       products.filter((p) => {
         if (!p.is_active) return false;
-        // Hide zero (or negative) stock products from the POS product list.
-        const qty = stockMap.get(p.id) ?? 0;
-        if (qty <= 0) return false;
+        // Optionally hide zero / negative stock products (business setting).
+        if (hideZeroStock) {
+          const qty = stockMap.get(p.id) ?? 0;
+          if (qty <= 0) return false;
+        }
         const matchSearch =
           p.name.toLowerCase().includes(search.toLowerCase()) ||
           (p.sku || "").toLowerCase().includes(search.toLowerCase()) ||
@@ -136,7 +139,7 @@ const POS = () => {
         const matchCat = categoryFilter === "all" || p.category_id === categoryFilter;
         return matchSearch && matchCat;
       }),
-    [products, search, categoryFilter, stockMap]
+    [products, search, categoryFilter, stockMap, hideZeroStock]
   );
 
   const handlePaymentConfirm = async (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean) => {

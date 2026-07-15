@@ -15,9 +15,10 @@ const PAGE_SIZES = [10, 25, 50, 100, 200];
 interface Props {
   from: string;
   to: string;
+  locationId?: string;
 }
 
-const StockReportTab = ({ from, to }: Props) => {
+const StockReportTab = ({ from, to, locationId }: Props) => {
   const { business } = useBusiness();
   const [search, setSearch] = useState("");
   const [pageSize, setPageSize] = useState(10);
@@ -25,17 +26,19 @@ const StockReportTab = ({ from, to }: Props) => {
   const [selected, setSelected] = useState<any | null>(null);
 
   const productsQ = useQuery({
-    queryKey: ["stock-report-products", business?.id, from, to],
+    queryKey: ["sales-by-item", business?.id, from, to, locationId || "all"],
     queryFn: async () => {
       if (!business) return [];
-      // Find products sold within the selected period
-      const { data: soldRows, error: soldErr } = await supabase
+      // Aggregate sale_items across the selected period + location
+      let soldQ = supabase
         .from("sale_items")
-        .select("product_id, quantity, total, sales!inner(business_id, status, created_at)")
+        .select("product_id, quantity, unit_price, total, sales!inner(business_id, status, created_at, location_id)")
         .eq("sales.business_id", business.id)
         .neq("sales.status", "cancelled")
         .gte("sales.created_at", `${from}T00:00:00`)
         .lte("sales.created_at", `${to}T23:59:59`);
+      if (locationId) soldQ = soldQ.eq("sales.location_id", locationId);
+      const { data: soldRows, error: soldErr } = await soldQ;
       if (soldErr) throw soldErr;
       const soldMap = new Map<string, { qty: number; total: number }>();
       (soldRows || []).forEach((r: any) => {
@@ -48,16 +51,18 @@ const StockReportTab = ({ from, to }: Props) => {
       if (ids.length === 0) return [];
       const { data: products, error } = await supabase
         .from("products")
-        .select("id, sku, name, unit, categories(name)")
+        .select("id, sku, name, unit, purchase_price, selling_price, categories(name)")
         .eq("business_id", business.id)
         .in("id", ids)
         .order("name");
       if (error) throw error;
-      const { data: inv } = await supabase
+      let invQ = supabase
         .from("inventory")
         .select("product_id, quantity, location_id, locations!inner(name, business_id)")
         .eq("locations.business_id", business.id)
         .in("product_id", ids);
+      if (locationId) invQ = invQ.eq("location_id", locationId);
+      const { data: inv } = await invQ;
       const map = new Map<string, { total: number; byLoc: { name: string; qty: number }[] }>();
       (inv || []).forEach((r: any) => {
         const cur = map.get(r.product_id) || { total: 0, byLoc: [] };
@@ -65,11 +70,17 @@ const StockReportTab = ({ from, to }: Props) => {
         cur.byLoc.push({ name: r.locations?.name || "—", qty: Number(r.quantity) });
         map.set(r.product_id, cur);
       });
-      return (products || []).map((p: any) => ({
-        ...p,
-        _stock: map.get(p.id) || { total: 0, byLoc: [] },
-        _sold: soldMap.get(p.id) || { qty: 0, total: 0 },
-      }));
+      return (products || []).map((p: any) => {
+        const sold = soldMap.get(p.id) || { qty: 0, total: 0 };
+        const cost = sold.qty * Number(p.purchase_price || 0);
+        return {
+          ...p,
+          _stock: map.get(p.id) || { total: 0, byLoc: [] },
+          _sold: sold,
+          _cost: cost,
+          _profit: sold.total - cost,
+        };
+      });
     },
     enabled: !!business,
   });
@@ -92,11 +103,21 @@ const StockReportTab = ({ from, to }: Props) => {
 
   const exportCSV = () => {
     downloadCSV(
-      "stock_report.csv",
-      ["Code", "Name", "Category", "Sold Qty", "Sold Total", "Current Stock", "Unit"],
-      filtered.map((p: any) => [p.sku || "", p.name, p.categories?.name || "", p._sold.qty, p._sold.total, p._stock.total, p.unit || ""])
+      "sales_by_item.csv",
+      ["Code", "Name", "Category", "Sold Qty", "Revenue", "COGS", "Profit", "Current Stock", "Unit"],
+      filtered.map((p: any) => [p.sku || "", p.name, p.categories?.name || "", p._sold.qty, p._sold.total, p._cost, p._profit, p._stock.total, p.unit || ""])
     );
   };
+
+  const totals = filtered.reduce(
+    (acc: { qty: number; rev: number; cost: number; profit: number }, p: any) => ({
+      qty: acc.qty + p._sold.qty,
+      rev: acc.rev + p._sold.total,
+      cost: acc.cost + p._cost,
+      profit: acc.profit + p._profit,
+    }),
+    { qty: 0, rev: 0, cost: 0, profit: 0 },
+  );
 
   return (
     <Card>
@@ -118,7 +139,10 @@ const StockReportTab = ({ from, to }: Props) => {
                 <TableHead>Code</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Category</TableHead>
-                <TableHead className="text-right">Sold ({from} → {to})</TableHead>
+                <TableHead className="text-right">Qty Sold</TableHead>
+                <TableHead className="text-right">Revenue</TableHead>
+                <TableHead className="text-right">COGS</TableHead>
+                <TableHead className="text-right">Profit</TableHead>
                 <TableHead className="text-right">Current Stock</TableHead>
                 <TableHead className="text-right">Action</TableHead>
               </TableRow>
@@ -130,16 +154,29 @@ const StockReportTab = ({ from, to }: Props) => {
                   <TableCell>{p.name}</TableCell>
                   <TableCell>{p.categories?.name || "—"}</TableCell>
                   <TableCell className="text-right">{p._sold.qty.toLocaleString()} {p.unit || ""}</TableCell>
+                  <TableCell className="text-right">{formatKES(p._sold.total)}</TableCell>
+                  <TableCell className="text-right text-muted-foreground">{formatKES(p._cost)}</TableCell>
+                  <TableCell className={`text-right font-medium ${p._profit < 0 ? "text-destructive" : ""}`}>{formatKES(p._profit)}</TableCell>
                   <TableCell className="text-right">{p._stock.total.toLocaleString()} {p.unit || ""}</TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" onClick={() => setSelected(p)}>Reports</Button>
+                    <Button size="sm" onClick={() => setSelected(p)}>Details</Button>
                   </TableCell>
                 </TableRow>
               ))}
               {pageItems.length === 0 && (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                   {productsQ.isLoading ? "Loading..." : "No products sold in this period"}
                 </TableCell></TableRow>
+              )}
+              {filtered.length > 0 && (
+                <TableRow className="bg-muted/40 font-semibold">
+                  <TableCell colSpan={3} className="text-right">Totals</TableCell>
+                  <TableCell className="text-right">{totals.qty.toLocaleString()}</TableCell>
+                  <TableCell className="text-right">{formatKES(totals.rev)}</TableCell>
+                  <TableCell className="text-right">{formatKES(totals.cost)}</TableCell>
+                  <TableCell className={`text-right ${totals.profit < 0 ? "text-destructive" : ""}`}>{formatKES(totals.profit)}</TableCell>
+                  <TableCell colSpan={2} />
+                </TableRow>
               )}
             </TableBody>
           </Table>
