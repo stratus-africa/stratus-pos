@@ -27,6 +27,7 @@ export function BusinessProfileTab() {
   const [businessType, setBusinessType] = useState<BusinessType>(((business as { business_type?: BusinessType })?.business_type || "general") as BusinessType);
   const [trackBatches, setTrackBatches] = useState<boolean>((business as { track_batches?: boolean })?.track_batches ?? false);
   const [posShowStockQty, setPosShowStockQty] = useState<boolean>((business as { pos_show_stock_qty?: boolean })?.pos_show_stock_qty ?? true);
+  const [posHideZeroStock, setPosHideZeroStock] = useState<boolean>((business as { pos_hide_zero_stock?: boolean })?.pos_hide_zero_stock ?? true);
   const [managers, setManagers] = useState<{ user_id: string; full_name: string | null; email: string | null }[]>([]);
   const [negativeStockCount, setNegativeStockCount] = useState<number>(0);
 
@@ -70,6 +71,7 @@ export function BusinessProfileTab() {
         business_type: businessType,
         track_batches: businessType === "pharmacy" ? trackBatches : false,
         pos_show_stock_qty: posShowStockQty,
+        pos_hide_zero_stock: posHideZeroStock,
       } as never)
       .eq("id", business.id);
 
@@ -223,6 +225,18 @@ export function BusinessProfileTab() {
               </p>
             </div>
             <Switch checked={posShowStockQty} onCheckedChange={setPosShowStockQty} />
+          </div>
+
+          <Separator />
+
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base">Hide zero / negative stock from POS</Label>
+              <p className="text-sm text-muted-foreground">
+                Products with quantity of zero or below at the current location won't appear in the POS product list. Turn off to show every active product regardless of stock.
+              </p>
+            </div>
+            <Switch checked={posHideZeroStock} onCheckedChange={setPosHideZeroStock} />
           </div>
         </CardContent>
       </Card>
