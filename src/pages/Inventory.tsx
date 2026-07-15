@@ -176,6 +176,20 @@ const Inventory = () => {
 
   const lowStockCount = inventory.filter((i) => i.quantity <= i.low_stock_threshold).length;
 
+  const dashboard = inventory.reduce(
+    (acc, i) => {
+      const qty = Number(i.quantity) || 0;
+      const pp = Number(i.products?.purchase_price ?? 0);
+      const sp = Number(i.products?.selling_price ?? 0);
+      acc.purchase += qty * pp;
+      acc.selling += qty * sp;
+      return acc;
+    },
+    { purchase: 0, selling: 0 },
+  );
+  const expectedProfit = dashboard.selling - dashboard.purchase;
+  const fmt = (n: number) => `KES ${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+
   const handleAdjust = (data: AdjustStockSubmit) => {
     if (!user || !business) return;
     // For Purchase received, create a Purchase order — it handles inventory + stock_adjustments rows
@@ -244,6 +258,27 @@ const Inventory = () => {
           </CardContent>
         </Card>
       )}
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Stock Value @ Purchase Price</p>
+            <p className="text-xl font-bold mt-1">{fmt(dashboard.purchase)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Stock Value @ Selling Price</p>
+            <p className="text-xl font-bold mt-1">{fmt(dashboard.selling)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Expected Profit</p>
+            <p className={`text-xl font-bold mt-1 ${expectedProfit < 0 ? "text-destructive" : "text-green-600"}`}>{fmt(expectedProfit)}</p>
+          </CardContent>
+        </Card>
+      </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
