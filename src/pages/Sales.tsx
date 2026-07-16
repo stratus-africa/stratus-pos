@@ -215,6 +215,16 @@ const Sales = () => {
           </SelectContent>
         </Select>
       </div>
+      {(dateFrom || dateTo) && (
+        <div className="flex items-center gap-2 text-sm">
+          <Badge variant="secondary">
+            Date: {dateFrom || "…"} → {dateTo || "…"}
+          </Badge>
+          <Button variant="ghost" size="sm" onClick={() => { searchParams.delete("from"); searchParams.delete("to"); setSearchParams(searchParams, { replace: true }); }}>
+            Clear date filter
+          </Button>
+        </div>
+      )}
 
       <Card>
         <CardContent className="p-0">
