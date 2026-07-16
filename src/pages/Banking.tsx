@@ -649,7 +649,7 @@ export default function Banking() {
                   const label = labelMap[txn.type] || txn.type;
                   const variant = isTransfer ? "secondary" : (isIn ? "default" : "destructive");
                   return (
-                    <TableRow key={txn.id}>
+                    <TableRow key={txn.id} className="odd:bg-muted/30 hover:bg-muted/50">
                       <TableCell className="whitespace-nowrap">{format(new Date(txn.date), "dd MMM yyyy")}</TableCell>
                       <TableCell>
                         <Badge variant={variant} className="gap-1">

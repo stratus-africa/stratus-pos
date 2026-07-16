@@ -5,12 +5,14 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, ChevronLeft, ChevronRight, Download, FileText, Package, Search } from "lucide-react";
 import { formatKES, downloadCSV } from "./reportUtils";
 
 const PAGE_SIZES = [10, 25, 50, 100, 200];
+const PAYMENT_METHODS = ["cash", "mpesa", "card", "bank", "credit"];
 
 interface Props {
   from: string;
@@ -24,20 +26,47 @@ const StockReportTab = ({ from, to, locationId }: Props) => {
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<any | null>(null);
+  const [customerId, setCustomerId] = useState<string>("all");
+  const [paymentMethod, setPaymentMethod] = useState<string>("all");
 
-  const productsQ = useQuery({
-    queryKey: ["sales-by-item", business?.id, from, to, locationId || "all"],
+  const customersQ = useQuery({
+    queryKey: ["report-customers", business?.id],
     queryFn: async () => {
       if (!business) return [];
-      // Aggregate sale_items across the selected period + location
+      const { data } = await supabase.from("customers").select("id, name").eq("business_id", business.id).order("name");
+      return data || [];
+    },
+    enabled: !!business,
+  });
+
+  const productsQ = useQuery({
+    queryKey: ["sales-by-item", business?.id, from, to, locationId || "all", customerId, paymentMethod],
+    queryFn: async () => {
+      if (!business) return [];
+      let paymentSaleIds: string[] | null = null;
+      if (paymentMethod !== "all") {
+        const { data: pays } = await supabase
+          .from("payments")
+          .select("sale_id, sales!inner(business_id, created_at, status)")
+          .eq("method", paymentMethod)
+          .eq("sales.business_id", business.id)
+          .neq("sales.status", "cancelled")
+          .gte("sales.created_at", `${from}T00:00:00`)
+          .lte("sales.created_at", `${to}T23:59:59`);
+        paymentSaleIds = Array.from(new Set((pays || []).map((p: any) => p.sale_id)));
+        if (paymentSaleIds.length === 0) return [];
+      }
+
       let soldQ = supabase
         .from("sale_items")
-        .select("product_id, quantity, unit_price, total, sales!inner(business_id, status, created_at, location_id)")
+        .select("product_id, quantity, unit_price, total, sales!inner(business_id, status, created_at, location_id, customer_id)")
         .eq("sales.business_id", business.id)
         .neq("sales.status", "cancelled")
         .gte("sales.created_at", `${from}T00:00:00`)
         .lte("sales.created_at", `${to}T23:59:59`);
       if (locationId) soldQ = soldQ.eq("sales.location_id", locationId);
+      if (customerId !== "all") soldQ = soldQ.eq("sales.customer_id", customerId);
+      if (paymentSaleIds) soldQ = soldQ.in("sale_id", paymentSaleIds);
       const { data: soldRows, error: soldErr } = await soldQ;
       if (soldErr) throw soldErr;
       const soldMap = new Map<string, { qty: number; total: number }>();
@@ -51,7 +80,7 @@ const StockReportTab = ({ from, to, locationId }: Props) => {
       if (ids.length === 0) return [];
       const { data: products, error } = await supabase
         .from("products")
-        .select("id, sku, name, unit, purchase_price, selling_price, categories(name)")
+        .select("id, sku, name, units(name), purchase_price, selling_price, categories(name)")
         .eq("business_id", business.id)
         .in("id", ids)
         .order("name");
@@ -75,6 +104,7 @@ const StockReportTab = ({ from, to, locationId }: Props) => {
         const cost = sold.qty * Number(p.purchase_price || 0);
         return {
           ...p,
+          unit: p.units?.name || "",
           _stock: map.get(p.id) || { total: 0, byLoc: [] },
           _sold: sold,
           _cost: cost,
@@ -121,17 +151,43 @@ const StockReportTab = ({ from, to, locationId }: Props) => {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="flex items-center gap-2"><Package className="h-5 w-5" /> Sales By Item Report</CardTitle>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="h-4 w-4 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Search..." className="pl-8 h-9 w-56" />
+      <CardHeader className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2"><Package className="h-5 w-5" /> Sales By Item Report</CardTitle>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="h-4 w-4 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Search..." className="pl-8 h-9 w-56" />
+            </div>
+            <Button size="sm" variant="outline" onClick={exportCSV}><Download className="h-4 w-4 mr-1" />CSV</Button>
           </div>
-          <Button size="sm" variant="outline" onClick={exportCSV}><Download className="h-4 w-4 mr-1" />CSV</Button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={customerId} onValueChange={(v) => { setCustomerId(v); setPage(1); }}>
+            <SelectTrigger className="h-9 w-56"><SelectValue placeholder="Customer" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All customers</SelectItem>
+              {(customersQ.data || []).map((c: any) => (
+                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={paymentMethod} onValueChange={(v) => { setPaymentMethod(v); setPage(1); }}>
+            <SelectTrigger className="h-9 w-44"><SelectValue placeholder="Payment method" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All payment methods</SelectItem>
+              {PAYMENT_METHODS.map((m) => (
+                <SelectItem key={m} value={m} className="capitalize">{m}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {(customerId !== "all" || paymentMethod !== "all") && (
+            <Button size="sm" variant="ghost" onClick={() => { setCustomerId("all"); setPaymentMethod("all"); setPage(1); }}>Clear filters</Button>
+          )}
         </div>
       </CardHeader>
       <CardContent>
+
         <div className="rounded border overflow-auto">
           <Table>
             <TableHeader>

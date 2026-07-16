@@ -3,6 +3,8 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { XAxis, YAxis, CartesianGrid, BarChart, Bar } from "recharts";
 import { format, parseISO } from "date-fns";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useNavigate } from "react-router-dom";
+
 
 const chartConfig = {
   total: { label: "Sales (KES)", color: "hsl(var(--primary))" },
@@ -16,6 +18,17 @@ interface DashboardChartsProps {
 
 export function DashboardCharts({ salesTrend, topProducts }: DashboardChartsProps) {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
+
+  const onTrendBarClick = (data: any) => {
+    const date = data?.activePayload?.[0]?.payload?.date;
+    if (date) navigate(`/sales?from=${date}&to=${date}`);
+  };
+  const onProductBarClick = (data: any) => {
+    const productId = data?.activePayload?.[0]?.payload?.product_id;
+    if (productId) navigate(`/reports?tab=stock&product=${productId}`);
+  };
+
   const tickFontSize = isMobile ? 10 : 11;
   const chartHeight = isMobile ? "h-[220px]" : "h-[250px]";
   const trendMargin = isMobile
@@ -43,7 +56,7 @@ export function DashboardCharts({ salesTrend, topProducts }: DashboardChartsProp
         <CardContent className="px-2 sm:px-6">
           {salesTrend.length > 0 ? (
             <ChartContainer config={chartConfig} className={`${chartHeight} w-full`}>
-              <BarChart data={salesTrend} margin={trendMargin}>
+              <BarChart data={salesTrend} margin={trendMargin} onClick={onTrendBarClick} style={{ cursor: "pointer" }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
                 <XAxis
                   dataKey="date"
@@ -82,7 +95,7 @@ export function DashboardCharts({ salesTrend, topProducts }: DashboardChartsProp
         <CardContent className="px-2 sm:px-6">
           {topProducts.length > 0 ? (
             <ChartContainer config={chartConfig} className={`${chartHeight} w-full`}>
-              <BarChart data={productData} margin={productsMargin}>
+              <BarChart data={productData} margin={productsMargin} onClick={onProductBarClick} style={{ cursor: "pointer" }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
                 <XAxis
                   dataKey="display_name"
