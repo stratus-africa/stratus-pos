@@ -78,7 +78,10 @@ const Sales = () => {
         : statusFilter === "credit"
           ? ["unpaid", "partial", "credit"].includes(s.payment_status) && s.status !== "cancelled"
           : s.payment_status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const created = s.created_at?.slice(0, 10) || "";
+    const matchesFrom = !dateFrom || created >= dateFrom;
+    const matchesTo = !dateTo || created <= dateTo;
+    return matchesSearch && matchesStatus && matchesFrom && matchesTo;
   });
 
   const totalPages = Math.max(1, Math.ceil(filteredSales.length / pageSize));
