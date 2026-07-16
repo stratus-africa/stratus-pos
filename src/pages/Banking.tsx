@@ -269,15 +269,47 @@ export default function Banking() {
     }
   };
 
-  const filteredTxns = selectedAccount === "all"
-    ? transactions
-    : transactions.filter((t) => t.bank_account_id === selectedAccount);
+  const getAccountName = (id: string) => accounts.find((a) => a.id === id)?.name || "Unknown";
+
+  const filteredTxns = (() => {
+    let arr = selectedAccount === "all" ? transactions : transactions.filter((t) => t.bank_account_id === selectedAccount);
+    if (paymentStatusFilter !== "all") {
+      arr = arr.filter((t) => t.sale_id && salePaymentStatus[t.sale_id] === paymentStatusFilter);
+    }
+    const q = txnSearch.trim().toLowerCase();
+    if (q) {
+      arr = arr.filter((t) =>
+        (t.reference || "").toLowerCase().includes(q) ||
+        (t.description || "").toLowerCase().includes(q) ||
+        (t.contact_name || "").toLowerCase().includes(q) ||
+        (t.category || "").toLowerCase().includes(q) ||
+        getAccountName(t.bank_account_id).toLowerCase().includes(q) ||
+        String(t.amount).includes(q)
+      );
+    }
+    const dir = sortDir === "asc" ? 1 : -1;
+    arr = [...arr].sort((a, b) => {
+      let av: any, bv: any;
+      if (sortKey === "date") { av = a.date; bv = b.date; }
+      else if (sortKey === "type") { av = a.type; bv = b.type; }
+      else if (sortKey === "account") { av = getAccountName(a.bank_account_id); bv = getAccountName(b.bank_account_id); }
+      else { av = Number(a.amount); bv = Number(b.amount); }
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return 0;
+    });
+    return arr;
+  })();
 
   const totalTxnPages = Math.max(1, Math.ceil(filteredTxns.length / txnPageSize));
   const pagedTxns = filteredTxns.slice((txnPage - 1) * txnPageSize, txnPage * txnPageSize);
-  useEffect(() => { setTxnPage(1); }, [selectedAccount, txnPageSize]);
+  useEffect(() => { setTxnPage(1); }, [selectedAccount, txnPageSize, txnSearch, paymentStatusFilter, sortKey, sortDir]);
 
-  const getAccountName = (id: string) => accounts.find((a) => a.id === id)?.name || "Unknown";
+  const toggleSort = (k: typeof sortKey) => {
+    if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(k); setSortDir(k === "date" || k === "amount" ? "desc" : "asc"); }
+  };
+  const sortIndicator = (k: typeof sortKey) => sortKey === k ? (sortDir === "asc" ? " ↑" : " ↓") : "";
 
   const totalBalance = accounts.reduce((sum, a) => sum + Number(a.balance), 0);
 
