@@ -32,6 +32,8 @@ const Sales = () => {
   const [search, setSearch] = useState("");
   const initialStatus = searchParams.get("payment_status") || "all";
   const [statusFilter, setStatusFilter] = useState(initialStatus);
+  const dateFrom = searchParams.get("from") || "";
+  const dateTo = searchParams.get("to") || "";
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [pageSize, setPageSize] = useState<number>(() => {
