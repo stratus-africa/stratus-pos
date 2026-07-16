@@ -151,17 +151,43 @@ const StockReportTab = ({ from, to, locationId }: Props) => {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="flex items-center gap-2"><Package className="h-5 w-5" /> Sales By Item Report</CardTitle>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="h-4 w-4 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Search..." className="pl-8 h-9 w-56" />
+      <CardHeader className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2"><Package className="h-5 w-5" /> Sales By Item Report</CardTitle>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="h-4 w-4 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Search..." className="pl-8 h-9 w-56" />
+            </div>
+            <Button size="sm" variant="outline" onClick={exportCSV}><Download className="h-4 w-4 mr-1" />CSV</Button>
           </div>
-          <Button size="sm" variant="outline" onClick={exportCSV}><Download className="h-4 w-4 mr-1" />CSV</Button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={customerId} onValueChange={(v) => { setCustomerId(v); setPage(1); }}>
+            <SelectTrigger className="h-9 w-56"><SelectValue placeholder="Customer" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All customers</SelectItem>
+              {(customersQ.data || []).map((c: any) => (
+                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={paymentMethod} onValueChange={(v) => { setPaymentMethod(v); setPage(1); }}>
+            <SelectTrigger className="h-9 w-44"><SelectValue placeholder="Payment method" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All payment methods</SelectItem>
+              {PAYMENT_METHODS.map((m) => (
+                <SelectItem key={m} value={m} className="capitalize">{m}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {(customerId !== "all" || paymentMethod !== "all") && (
+            <Button size="sm" variant="ghost" onClick={() => { setCustomerId("all"); setPaymentMethod("all"); setPage(1); }}>Clear filters</Button>
+          )}
         </div>
       </CardHeader>
       <CardContent>
+
         <div className="rounded border overflow-auto">
           <Table>
             <TableHeader>
