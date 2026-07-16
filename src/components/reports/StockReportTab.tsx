@@ -394,9 +394,9 @@ const StockReportDetail = ({ product, from, to, onBack }: { product: any; from: 
           <div>
             <div className="flex items-center gap-2">
               <Button size="sm" variant="ghost" onClick={onBack}><ArrowLeft className="h-4 w-4 mr-1" />Back</Button>
-              <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Sales By Item Report</CardTitle>
+              <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Product Sales Report</CardTitle>
             </div>
-            <p className="text-xs text-muted-foreground ml-1 mt-1">Reports / Sales By Item Report</p>
+            <p className="text-xs text-muted-foreground ml-1 mt-1">Reports / Product Sales Report</p>
           </div>
           <div className="text-right">
             <h2 className="text-xl font-semibold">{product.name}</h2>
