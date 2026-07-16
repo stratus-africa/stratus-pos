@@ -42,7 +42,11 @@ const Reports = () => {
   const canZ = canSales;
 
   const firstTab = canSales ? "sales" : canPurchases ? "purchases" : canExpenses ? "expenses" : canInventory ? "inventory" : canPnL ? "pnl" : canEOD ? "eod" : canZ ? "zreport" : canAudit ? "audit" : "sales";
-  const [activeTab, setActiveTab] = useState<string>(firstTab);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlTab = searchParams.get("tab");
+  const urlProduct = searchParams.get("product") || undefined;
+  const [activeTab, setActiveTab] = useState<string>(urlTab || firstTab);
+  useEffect(() => { if (urlTab) setActiveTab(urlTab); }, [urlTab]);
   const [from, setFrom] = useState(thirtyDaysAgo);
   const [to, setTo] = useState(today);
   const [exporter, setExporter] = useState<(() => void) | null>(null);
