@@ -18,6 +18,17 @@ interface DashboardChartsProps {
 
 export function DashboardCharts({ salesTrend, topProducts }: DashboardChartsProps) {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
+
+  const onTrendBarClick = (data: any) => {
+    const date = data?.activePayload?.[0]?.payload?.date;
+    if (date) navigate(`/sales?from=${date}&to=${date}`);
+  };
+  const onProductBarClick = (data: any) => {
+    const productId = data?.activePayload?.[0]?.payload?.product_id;
+    if (productId) navigate(`/reports?tab=stock&product=${productId}`);
+  };
+
   const tickFontSize = isMobile ? 10 : 11;
   const chartHeight = isMobile ? "h-[220px]" : "h-[250px]";
   const trendMargin = isMobile
