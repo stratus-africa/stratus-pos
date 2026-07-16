@@ -32,6 +32,8 @@ const Sales = () => {
   const [search, setSearch] = useState("");
   const initialStatus = searchParams.get("payment_status") || "all";
   const [statusFilter, setStatusFilter] = useState(initialStatus);
+  const dateFrom = searchParams.get("from") || "";
+  const dateTo = searchParams.get("to") || "";
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [pageSize, setPageSize] = useState<number>(() => {
@@ -76,7 +78,10 @@ const Sales = () => {
         : statusFilter === "credit"
           ? ["unpaid", "partial", "credit"].includes(s.payment_status) && s.status !== "cancelled"
           : s.payment_status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const created = s.created_at?.slice(0, 10) || "";
+    const matchesFrom = !dateFrom || created >= dateFrom;
+    const matchesTo = !dateTo || created <= dateTo;
+    return matchesSearch && matchesStatus && matchesFrom && matchesTo;
   });
 
   const totalPages = Math.max(1, Math.ceil(filteredSales.length / pageSize));
@@ -210,6 +215,16 @@ const Sales = () => {
           </SelectContent>
         </Select>
       </div>
+      {(dateFrom || dateTo) && (
+        <div className="flex items-center gap-2 text-sm">
+          <Badge variant="secondary">
+            Date: {dateFrom || "…"} → {dateTo || "…"}
+          </Badge>
+          <Button variant="ghost" size="sm" onClick={() => { searchParams.delete("from"); searchParams.delete("to"); setSearchParams(searchParams, { replace: true }); }}>
+            Clear date filter
+          </Button>
+        </div>
+      )}
 
       <Card>
         <CardContent className="p-0">

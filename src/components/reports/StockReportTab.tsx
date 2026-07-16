@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -18,9 +18,10 @@ interface Props {
   from: string;
   to: string;
   locationId?: string;
+  initialProductId?: string;
 }
 
-const StockReportTab = ({ from, to, locationId }: Props) => {
+const StockReportTab = ({ from, to, locationId, initialProductId }: Props) => {
   const { business } = useBusiness();
   const [search, setSearch] = useState("");
   const [pageSize, setPageSize] = useState(10);
@@ -28,6 +29,37 @@ const StockReportTab = ({ from, to, locationId }: Props) => {
   const [selected, setSelected] = useState<any | null>(null);
   const [customerId, setCustomerId] = useState<string>("all");
   const [paymentMethod, setPaymentMethod] = useState<string>("all");
+  const [categoryId, setCategoryId] = useState<string>("all");
+  const [brandId, setBrandId] = useState<string>("all");
+  const [cashierId, setCashierId] = useState<string>("all");
+
+  const categoriesQ = useQuery({
+    queryKey: ["report-categories", business?.id],
+    queryFn: async () => {
+      if (!business) return [];
+      const { data } = await supabase.from("categories").select("id, name").eq("business_id", business.id).order("name");
+      return data || [];
+    },
+    enabled: !!business,
+  });
+  const brandsQ = useQuery({
+    queryKey: ["report-brands", business?.id],
+    queryFn: async () => {
+      if (!business) return [];
+      const { data } = await supabase.from("brands").select("id, name").eq("business_id", business.id).order("name");
+      return data || [];
+    },
+    enabled: !!business,
+  });
+  const cashiersQ = useQuery({
+    queryKey: ["report-cashiers", business?.id],
+    queryFn: async () => {
+      if (!business) return [];
+      const { data } = await supabase.from("profiles").select("id, full_name, email").eq("business_id", business.id).order("full_name");
+      return data || [];
+    },
+    enabled: !!business,
+  });
 
   const customersQ = useQuery({
     queryKey: ["report-customers", business?.id],
@@ -40,7 +72,7 @@ const StockReportTab = ({ from, to, locationId }: Props) => {
   });
 
   const productsQ = useQuery({
-    queryKey: ["sales-by-item", business?.id, from, to, locationId || "all", customerId, paymentMethod],
+    queryKey: ["sales-by-item", business?.id, from, to, locationId || "all", customerId, paymentMethod, categoryId, brandId, cashierId],
     queryFn: async () => {
       if (!business) return [];
       let paymentSaleIds: string[] | null = null;
@@ -59,13 +91,14 @@ const StockReportTab = ({ from, to, locationId }: Props) => {
 
       let soldQ = supabase
         .from("sale_items")
-        .select("product_id, quantity, unit_price, total, sales!inner(business_id, status, created_at, location_id, customer_id)")
+        .select("product_id, quantity, unit_price, total, sales!inner(business_id, status, created_at, location_id, customer_id, created_by)")
         .eq("sales.business_id", business.id)
         .neq("sales.status", "cancelled")
         .gte("sales.created_at", `${from}T00:00:00`)
         .lte("sales.created_at", `${to}T23:59:59`);
       if (locationId) soldQ = soldQ.eq("sales.location_id", locationId);
       if (customerId !== "all") soldQ = soldQ.eq("sales.customer_id", customerId);
+      if (cashierId !== "all") soldQ = soldQ.eq("sales.created_by", cashierId);
       if (paymentSaleIds) soldQ = soldQ.in("sale_id", paymentSaleIds);
       const { data: soldRows, error: soldErr } = await soldQ;
       if (soldErr) throw soldErr;
@@ -78,12 +111,15 @@ const StockReportTab = ({ from, to, locationId }: Props) => {
       });
       const ids = Array.from(soldMap.keys());
       if (ids.length === 0) return [];
-      const { data: products, error } = await supabase
+      let prodQ = supabase
         .from("products")
-        .select("id, sku, name, units(name), purchase_price, selling_price, categories(name)")
+        .select("id, sku, name, units(name), purchase_price, selling_price, category_id, brand_id, categories(name), brands(name)")
         .eq("business_id", business.id)
         .in("id", ids)
         .order("name");
+      if (categoryId !== "all") prodQ = prodQ.eq("category_id", categoryId);
+      if (brandId !== "all") prodQ = prodQ.eq("brand_id", brandId);
+      const { data: products, error } = await prodQ;
       if (error) throw error;
       let invQ = supabase
         .from("inventory")
@@ -116,6 +152,13 @@ const StockReportTab = ({ from, to, locationId }: Props) => {
   });
 
   const products = productsQ.data || [];
+
+  // Auto-drill into product when navigated with ?product=<id>
+  useEffect(() => {
+    if (!initialProductId || selected) return;
+    const p = products.find((x: any) => x.id === initialProductId);
+    if (p) setSelected(p);
+  }, [initialProductId, products, selected]);
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return products.filter((p: any) =>
@@ -153,7 +196,7 @@ const StockReportTab = ({ from, to, locationId }: Props) => {
     <Card>
       <CardHeader className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle className="flex items-center gap-2"><Package className="h-5 w-5" /> Sales By Item Report</CardTitle>
+          <CardTitle className="flex items-center gap-2"><Package className="h-5 w-5" /> Product Sales Report</CardTitle>
           <div className="flex items-center gap-2">
             <div className="relative">
               <Search className="h-4 w-4 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -163,6 +206,33 @@ const StockReportTab = ({ from, to, locationId }: Props) => {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); setPage(1); }}>
+            <SelectTrigger className="h-9 w-48"><SelectValue placeholder="Category" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {(categoriesQ.data || []).map((c: any) => (
+                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={brandId} onValueChange={(v) => { setBrandId(v); setPage(1); }}>
+            <SelectTrigger className="h-9 w-44"><SelectValue placeholder="Brand" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All brands</SelectItem>
+              {(brandsQ.data || []).map((b: any) => (
+                <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={cashierId} onValueChange={(v) => { setCashierId(v); setPage(1); }}>
+            <SelectTrigger className="h-9 w-48"><SelectValue placeholder="Cashier / User" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All cashiers</SelectItem>
+              {(cashiersQ.data || []).map((u: any) => (
+                <SelectItem key={u.id} value={u.id}>{u.full_name || u.email || u.id.slice(0, 8)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={customerId} onValueChange={(v) => { setCustomerId(v); setPage(1); }}>
             <SelectTrigger className="h-9 w-56"><SelectValue placeholder="Customer" /></SelectTrigger>
             <SelectContent>
@@ -181,8 +251,8 @@ const StockReportTab = ({ from, to, locationId }: Props) => {
               ))}
             </SelectContent>
           </Select>
-          {(customerId !== "all" || paymentMethod !== "all") && (
-            <Button size="sm" variant="ghost" onClick={() => { setCustomerId("all"); setPaymentMethod("all"); setPage(1); }}>Clear filters</Button>
+          {(customerId !== "all" || paymentMethod !== "all" || categoryId !== "all" || brandId !== "all" || cashierId !== "all") && (
+            <Button size="sm" variant="ghost" onClick={() => { setCustomerId("all"); setPaymentMethod("all"); setCategoryId("all"); setBrandId("all"); setCashierId("all"); setPage(1); }}>Clear filters</Button>
           )}
         </div>
       </CardHeader>
@@ -324,9 +394,9 @@ const StockReportDetail = ({ product, from, to, onBack }: { product: any; from: 
           <div>
             <div className="flex items-center gap-2">
               <Button size="sm" variant="ghost" onClick={onBack}><ArrowLeft className="h-4 w-4 mr-1" />Back</Button>
-              <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Sales By Item Report</CardTitle>
+              <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Product Sales Report</CardTitle>
             </div>
-            <p className="text-xs text-muted-foreground ml-1 mt-1">Reports / Sales By Item Report</p>
+            <p className="text-xs text-muted-foreground ml-1 mt-1">Reports / Product Sales Report</p>
           </div>
           <div className="text-right">
             <h2 className="text-xl font-semibold">{product.name}</h2>
