@@ -18,9 +18,10 @@ interface Props {
   from: string;
   to: string;
   locationId?: string;
+  initialProductId?: string;
 }
 
-const StockReportTab = ({ from, to, locationId }: Props) => {
+const StockReportTab = ({ from, to, locationId, initialProductId }: Props) => {
   const { business } = useBusiness();
   const [search, setSearch] = useState("");
   const [pageSize, setPageSize] = useState(10);
@@ -28,6 +29,37 @@ const StockReportTab = ({ from, to, locationId }: Props) => {
   const [selected, setSelected] = useState<any | null>(null);
   const [customerId, setCustomerId] = useState<string>("all");
   const [paymentMethod, setPaymentMethod] = useState<string>("all");
+  const [categoryId, setCategoryId] = useState<string>("all");
+  const [brandId, setBrandId] = useState<string>("all");
+  const [cashierId, setCashierId] = useState<string>("all");
+
+  const categoriesQ = useQuery({
+    queryKey: ["report-categories", business?.id],
+    queryFn: async () => {
+      if (!business) return [];
+      const { data } = await supabase.from("categories").select("id, name").eq("business_id", business.id).order("name");
+      return data || [];
+    },
+    enabled: !!business,
+  });
+  const brandsQ = useQuery({
+    queryKey: ["report-brands", business?.id],
+    queryFn: async () => {
+      if (!business) return [];
+      const { data } = await supabase.from("brands").select("id, name").eq("business_id", business.id).order("name");
+      return data || [];
+    },
+    enabled: !!business,
+  });
+  const cashiersQ = useQuery({
+    queryKey: ["report-cashiers", business?.id],
+    queryFn: async () => {
+      if (!business) return [];
+      const { data } = await supabase.from("profiles").select("id, full_name, email").eq("business_id", business.id).order("full_name");
+      return data || [];
+    },
+    enabled: !!business,
+  });
 
   const customersQ = useQuery({
     queryKey: ["report-customers", business?.id],
