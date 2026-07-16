@@ -643,37 +643,50 @@ export default function Banking() {
 
       {/* Transactions */}
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
+        <CardHeader className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle className="text-lg">Transactions</CardTitle>
-            <Select value={selectedAccount} onValueChange={setSelectedAccount}>
-              <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Accounts</SelectItem>
-                {accounts.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input placeholder="Search transactions..." value={txnSearch} onChange={(e) => setTxnSearch(e.target.value)} className="h-9 w-56" />
+              <Select value={paymentStatusFilter} onValueChange={setPaymentStatusFilter}>
+                <SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Payment status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Payment Status</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="partial">Partial</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="unpaid">Unpaid</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={selectedAccount} onValueChange={setSelectedAccount}>
+                <SelectTrigger className="w-[200px] h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Accounts</SelectItem>
+                  {accounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
           {loading ? (
             <p className="text-sm text-muted-foreground py-4">Loading...</p>
           ) : filteredTxns.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4">No transactions yet. Record your first transaction to get started.</p>
+            <p className="text-sm text-muted-foreground py-4">No transactions match your filters.</p>
           ) : (
             <>
             <Table className="text-sm [&_td]:py-1.5 [&_th]:py-2">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Account</TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("date")}>Date{sortIndicator("date")}</TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("type")}>Type{sortIndicator("type")}</TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("account")}>Account{sortIndicator("account")}</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Reference</TableHead>
-                  <TableHead className="text-right">Amount (KES)</TableHead>
+                  <TableHead className="text-right cursor-pointer select-none" onClick={() => toggleSort("amount")}>Amount (KES){sortIndicator("amount")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
