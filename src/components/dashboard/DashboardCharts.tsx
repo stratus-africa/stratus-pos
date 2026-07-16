@@ -56,7 +56,7 @@ export function DashboardCharts({ salesTrend, topProducts }: DashboardChartsProp
         <CardContent className="px-2 sm:px-6">
           {salesTrend.length > 0 ? (
             <ChartContainer config={chartConfig} className={`${chartHeight} w-full`}>
-              <BarChart data={salesTrend} margin={trendMargin}>
+              <BarChart data={salesTrend} margin={trendMargin} onClick={onTrendBarClick} style={{ cursor: "pointer" }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
                 <XAxis
                   dataKey="date"
