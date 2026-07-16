@@ -45,8 +45,13 @@ export default function Banking() {
   const { user } = useAuth();
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [transactions, setTransactions] = useState<BankTransaction[]>([]);
+  const [salePaymentStatus, setSalePaymentStatus] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [selectedAccount, setSelectedAccount] = useState<string>("all");
+  const [txnSearch, setTxnSearch] = useState("");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>("all");
+  const [sortKey, setSortKey] = useState<"date" | "type" | "account" | "amount">("date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   // Account dialog
   const [accDialogOpen, setAccDialogOpen] = useState(false);
@@ -90,8 +95,18 @@ export default function Banking() {
       supabase.from("bank_accounts").select("*").eq("business_id", business.id).order("name"),
       supabase.from("bank_transactions").select("*").eq("business_id", business.id).order("date", { ascending: false }).limit(2000),
     ]);
+    const txns = (txnRes.data as BankTransaction[]) || [];
     setAccounts((accRes.data as BankAccount[]) || []);
-    setTransactions((txnRes.data as BankTransaction[]) || []);
+    setTransactions(txns);
+    const saleIds = Array.from(new Set(txns.map((t) => t.sale_id).filter(Boolean))) as string[];
+    if (saleIds.length) {
+      const { data: sRows } = await supabase.from("sales").select("id, payment_status").in("id", saleIds);
+      const map: Record<string, string> = {};
+      (sRows || []).forEach((r: any) => { map[r.id] = r.payment_status; });
+      setSalePaymentStatus(map);
+    } else {
+      setSalePaymentStatus({});
+    }
     setLoading(false);
   };
 
