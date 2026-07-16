@@ -196,7 +196,7 @@ const StockReportTab = ({ from, to, locationId, initialProductId }: Props) => {
     <Card>
       <CardHeader className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle className="flex items-center gap-2"><Package className="h-5 w-5" /> Sales By Item Report</CardTitle>
+          <CardTitle className="flex items-center gap-2"><Package className="h-5 w-5" /> Product Sales Report</CardTitle>
           <div className="flex items-center gap-2">
             <div className="relative">
               <Search className="h-4 w-4 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -206,6 +206,33 @@ const StockReportTab = ({ from, to, locationId, initialProductId }: Props) => {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); setPage(1); }}>
+            <SelectTrigger className="h-9 w-48"><SelectValue placeholder="Category" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {(categoriesQ.data || []).map((c: any) => (
+                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={brandId} onValueChange={(v) => { setBrandId(v); setPage(1); }}>
+            <SelectTrigger className="h-9 w-44"><SelectValue placeholder="Brand" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All brands</SelectItem>
+              {(brandsQ.data || []).map((b: any) => (
+                <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={cashierId} onValueChange={(v) => { setCashierId(v); setPage(1); }}>
+            <SelectTrigger className="h-9 w-48"><SelectValue placeholder="Cashier / User" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All cashiers</SelectItem>
+              {(cashiersQ.data || []).map((u: any) => (
+                <SelectItem key={u.id} value={u.id}>{u.full_name || u.email || u.id.slice(0, 8)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={customerId} onValueChange={(v) => { setCustomerId(v); setPage(1); }}>
             <SelectTrigger className="h-9 w-56"><SelectValue placeholder="Customer" /></SelectTrigger>
             <SelectContent>
@@ -224,8 +251,8 @@ const StockReportTab = ({ from, to, locationId, initialProductId }: Props) => {
               ))}
             </SelectContent>
           </Select>
-          {(customerId !== "all" || paymentMethod !== "all") && (
-            <Button size="sm" variant="ghost" onClick={() => { setCustomerId("all"); setPaymentMethod("all"); setPage(1); }}>Clear filters</Button>
+          {(customerId !== "all" || paymentMethod !== "all" || categoryId !== "all" || brandId !== "all" || cashierId !== "all") && (
+            <Button size="sm" variant="ghost" onClick={() => { setCustomerId("all"); setPaymentMethod("all"); setCategoryId("all"); setBrandId("all"); setCashierId("all"); setPage(1); }}>Clear filters</Button>
           )}
         </div>
       </CardHeader>
