@@ -3,6 +3,8 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { XAxis, YAxis, CartesianGrid, BarChart, Bar } from "recharts";
 import { format, parseISO } from "date-fns";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useNavigate } from "react-router-dom";
+
 
 const chartConfig = {
   total: { label: "Sales (KES)", color: "hsl(var(--primary))" },
