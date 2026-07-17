@@ -256,3 +256,48 @@ export default function SignIn() {
     </div>
   );
 }
+
+function StatusBanner({ banner }: { banner: NonNullable<ApprovalBanner> }) {
+  const styles: Record<string, { icon: any; color: string; title: string; body: string }> = {
+    pending: {
+      icon: Clock,
+      color: "bg-amber-50 border-amber-200 text-amber-900",
+      title: "Registration pending approval",
+      body: "Your registration is under review. You'll receive an email as soon as your account is approved.",
+    },
+    rejected: {
+      icon: XCircle,
+      color: "bg-red-50 border-red-200 text-red-900",
+      title: "Registration not approved",
+      body: banner.kind === "rejected" && banner.reason
+        ? `Reason: ${banner.reason}. Please contact support if you need assistance.`
+        : "Your registration was not approved. Please contact support for details.",
+    },
+    info_requested: {
+      icon: Info,
+      color: "bg-blue-50 border-blue-200 text-blue-900",
+      title: "More information needed",
+      body: banner.kind === "info_requested" && banner.message
+        ? banner.message
+        : "Our team needs additional information from you. Please contact support.",
+    },
+    expired: {
+      icon: Clock,
+      color: "bg-slate-50 border-slate-200 text-slate-800",
+      title: "Application expired",
+      body: "Your registration was not reviewed in time. Please register again or contact support.",
+    },
+  };
+  const s = styles[banner.kind];
+  const Icon = s.icon;
+  return (
+    <div className={`rounded-lg border p-4 flex gap-3 ${s.color}`}>
+      <Icon className="h-5 w-5 shrink-0 mt-0.5" />
+      <div className="space-y-1">
+        <div className="text-sm font-semibold">{s.title}</div>
+        <div className="text-xs leading-relaxed">{s.body}</div>
+      </div>
+    </div>
+  );
+}
+
