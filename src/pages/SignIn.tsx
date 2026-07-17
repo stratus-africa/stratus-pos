@@ -144,7 +144,10 @@ export default function SignIn() {
             <p className="text-muted-foreground text-sm">Enter your email and password below.</p>
           </div>
 
+          {banner && <StatusBanner banner={banner} />}
+
           <form onSubmit={handleSubmit} className="space-y-4">
+
             <div className="space-y-1.5">
               <Label htmlFor="email">Email address</Label>
               <div className="relative">
