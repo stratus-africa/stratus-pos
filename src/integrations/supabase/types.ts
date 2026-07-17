@@ -301,11 +301,24 @@ export type Database = {
           accountant_name: string | null
           accountant_phone: string | null
           address: string | null
+          applied_at: string
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
+          business_reg_no: string | null
           business_type: string
+          contact_person: string | null
+          contact_phone: string | null
           created_at: string
           currency: string
           email: string | null
+          email_verified_at: string | null
+          expires_at: string | null
           id: string
+          info_request_message: string | null
+          info_requested_at: string | null
+          info_requested_by: string | null
+          internal_notes: string | null
           is_active: boolean
           kra_pin: string | null
           logo_url: string | null
@@ -323,6 +336,10 @@ export type Database = {
           pos_require_manager_to_remove_item: boolean
           pos_show_stock_qty: boolean
           prevent_overselling: boolean
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
+          selected_package_id: string | null
           status: string
           tax_rate: number | null
           theme_color: string
@@ -337,11 +354,24 @@ export type Database = {
           accountant_name?: string | null
           accountant_phone?: string | null
           address?: string | null
+          applied_at?: string
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          business_reg_no?: string | null
           business_type?: string
+          contact_person?: string | null
+          contact_phone?: string | null
           created_at?: string
           currency?: string
           email?: string | null
+          email_verified_at?: string | null
+          expires_at?: string | null
           id?: string
+          info_request_message?: string | null
+          info_requested_at?: string | null
+          info_requested_by?: string | null
+          internal_notes?: string | null
           is_active?: boolean
           kra_pin?: string | null
           logo_url?: string | null
@@ -359,6 +389,10 @@ export type Database = {
           pos_require_manager_to_remove_item?: boolean
           pos_show_stock_qty?: boolean
           prevent_overselling?: boolean
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          selected_package_id?: string | null
           status?: string
           tax_rate?: number | null
           theme_color?: string
@@ -373,11 +407,24 @@ export type Database = {
           accountant_name?: string | null
           accountant_phone?: string | null
           address?: string | null
+          applied_at?: string
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          business_reg_no?: string | null
           business_type?: string
+          contact_person?: string | null
+          contact_phone?: string | null
           created_at?: string
           currency?: string
           email?: string | null
+          email_verified_at?: string | null
+          expires_at?: string | null
           id?: string
+          info_request_message?: string | null
+          info_requested_at?: string | null
+          info_requested_by?: string | null
+          internal_notes?: string | null
           is_active?: boolean
           kra_pin?: string | null
           logo_url?: string | null
@@ -395,6 +442,10 @@ export type Database = {
           pos_require_manager_to_remove_item?: boolean
           pos_show_stock_qty?: boolean
           prevent_overselling?: boolean
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          selected_package_id?: string | null
           status?: string
           tax_rate?: number | null
           theme_color?: string
@@ -2543,6 +2594,47 @@ export type Database = {
           },
         ]
       }
+      tenant_approval_events: {
+        Row: {
+          actor_id: string | null
+          business_id: string
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json | null
+          notes: string | null
+          visibility: string
+        }
+        Insert: {
+          actor_id?: string | null
+          business_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          visibility?: string
+        }
+        Update: {
+          actor_id?: string | null
+          business_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_approval_events_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_domains: {
         Row: {
           business_id: string
@@ -2737,8 +2829,16 @@ export type Database = {
       }
     }
     Functions: {
+      add_tenant_internal_note: {
+        Args: { _business_id: string; _note: string }
+        Returns: undefined
+      }
       approve_offline_payment_request: {
         Args: { _id: string; _review_notes?: string }
+        Returns: undefined
+      }
+      approve_tenant: {
+        Args: { _business_id: string; _notes?: string }
         Returns: undefined
       }
       customer_has_fiscalised_sales: {
@@ -2789,6 +2889,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      expire_pending_tenants: { Args: never; Returns: number }
       get_business_max_products: {
         Args: { _business_id: string }
         Returns: number
@@ -2918,6 +3019,32 @@ export type Database = {
       }
       is_sale_fiscalised: { Args: { _sale_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      list_tenant_approvals: {
+        Args: { _search?: string; _status?: string }
+        Returns: {
+          applied_at: string
+          approval_status: string
+          approved_at: string
+          business_reg_no: string
+          contact_email: string
+          contact_person: string
+          contact_phone: string
+          email_verified_at: string
+          expires_at: string
+          id: string
+          info_request_message: string
+          info_requested_at: string
+          internal_notes: string
+          kra_pin: string
+          name: string
+          owner_email: string
+          owner_id: string
+          package_name: string
+          rejected_at: string
+          rejection_reason: string
+          selected_package_id: string
+        }[]
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string
@@ -2926,6 +3053,16 @@ export type Database = {
           source_queue: string
         }
         Returns: number
+      }
+      my_business_approval_status: {
+        Args: never
+        Returns: {
+          approval_status: string
+          business_id: string
+          info_request_message: string
+          name: string
+          rejection_reason: string
+        }[]
       }
       product_has_fiscalised_sales: {
         Args: { _product_id: string }
@@ -2941,6 +3078,14 @@ export type Database = {
       }
       reject_offline_payment_request: {
         Args: { _id: string; _review_notes?: string }
+        Returns: undefined
+      }
+      reject_tenant: {
+        Args: { _business_id: string; _reason: string }
+        Returns: undefined
+      }
+      request_tenant_info: {
+        Args: { _business_id: string; _message: string }
         Returns: undefined
       }
     }

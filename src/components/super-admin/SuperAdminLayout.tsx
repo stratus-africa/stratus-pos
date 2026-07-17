@@ -1,7 +1,9 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { Plus } from "lucide-react";
+import { Plus, UserCheck } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect as useEffectR } from "react";
 import {
   LayoutDashboard,
   Building2,
@@ -47,6 +49,7 @@ const navGroups: NavGroup[] = [
     label: "Management",
     items: [
       { title: "Tenants", url: "/super-admin/businesses", icon: Building2 },
+      { title: "Tenant Approvals", url: "/super-admin/tenant-approvals", icon: UserCheck },
       { title: "Plans", url: "/super-admin/packages", icon: Tag },
       { title: "Subscriptions", url: "/super-admin/subscriptions", icon: CreditCard },
       { title: "Super Admins", url: "/super-admin/users", icon: Shield },
@@ -93,6 +96,19 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const isMobile = useIsMobile();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffectR(() => {
+    const load = async () => {
+      const { data } = await (supabase as any).rpc("list_tenant_approvals", { _status: "pending", _search: null });
+      setPendingCount(Array.isArray(data) ? data.length : 0);
+    };
+    void load();
+    const ch = supabase.channel("sa-pending-approvals")
+      .on("postgres_changes", { event: "*", schema: "public", table: "businesses" }, () => void load())
+      .subscribe();
+    return () => { void supabase.removeChannel(ch); };
+  }, []);
 
   const sidebarVisible = !isMobile || mobileOpen;
   const userName = (user?.user_metadata as any)?.full_name || "Super Admin";
@@ -150,7 +166,12 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
                         )}
                       >
                         <item.icon className={cn("h-4 w-4 shrink-0", active && "text-emerald-600")} />
-                        <span className="truncate">{item.title}</span>
+                        <span className="truncate flex-1">{item.title}</span>
+                        {item.url === "/super-admin/tenant-approvals" && pendingCount > 0 && (
+                          <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                            {pendingCount}
+                          </span>
+                        )}
                       </Link>
                     );
                   })}

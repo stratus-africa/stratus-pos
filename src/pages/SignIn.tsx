@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
@@ -11,7 +11,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Mail, Lock, Eye, EyeOff, ArrowLeft, ArrowRight, CheckCircle2, Package } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowLeft, ArrowRight, CheckCircle2, Package, Clock, XCircle, Info } from "lucide-react";
 
 const HIGHLIGHTS = [
   "Dedicated subdomain & database",
@@ -20,9 +20,17 @@ const HIGHLIGHTS = [
   "Ready in under 60 seconds",
 ];
 
+type ApprovalBanner =
+  | { kind: "pending" }
+  | { kind: "rejected"; reason?: string }
+  | { kind: "info_requested"; message?: string }
+  | { kind: "expired" }
+  | null;
+
 export default function SignIn() {
   const navigate = useNavigate();
-  const { user, loading, signIn } = useAuth();
+  const [params] = useSearchParams();
+  const { user, loading, signIn, signOut } = useAuth();
   const { needsOnboarding, loading: bizLoading } = useBusiness();
   const { isSuperAdmin, loading: saLoading } = useSuperAdmin();
 
@@ -30,12 +38,15 @@ export default function SignIn() {
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [banner, setBanner] = useState<ApprovalBanner>(
+    params.get("pending") ? { kind: "pending" } : null
+  );
 
   const [forgotOpen, setForgotOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [sendingReset, setSendingReset] = useState(false);
 
-  if (!loading && user && !bizLoading && !saLoading) {
+  if (!loading && user && !bizLoading && !saLoading && !banner) {
     if (isSuperAdmin) return <Navigate to="/super-admin" replace />;
     if (needsOnboarding) return <Navigate to="/onboarding" replace />;
     return <Navigate to="/" replace />;
@@ -45,15 +56,29 @@ export default function SignIn() {
     e.preventDefault();
     if (submitting) return;
     setSubmitting(true);
+    setBanner(null);
     const { error } = await signIn(email, password);
     if (error) {
       setSubmitting(false);
       toast.error(error.message);
       return;
     }
+
+    // Check approval status before allowing access
+    const { data: status } = await (supabase as any).rpc("my_business_approval_status");
+    const row = Array.isArray(status) ? status[0] : status;
+    if (row && row.approval_status && row.approval_status !== "approved") {
+      const s = row.approval_status as string;
+      await signOut();
+      setSubmitting(false);
+      if (s === "pending") setBanner({ kind: "pending" });
+      else if (s === "rejected") setBanner({ kind: "rejected", reason: row.rejection_reason });
+      else if (s === "info_requested") setBanner({ kind: "info_requested", message: row.info_request_message });
+      else if (s === "expired") setBanner({ kind: "expired" });
+      return;
+    }
+
     toast.success("Welcome back!");
-    // Don't manually navigate — the route guard above will redirect
-    // once the auth + business contexts finish loading.
   };
 
   const handleForgotSubmit = async (e: React.FormEvent) => {
@@ -119,7 +144,10 @@ export default function SignIn() {
             <p className="text-muted-foreground text-sm">Enter your email and password below.</p>
           </div>
 
+          {banner && <StatusBanner banner={banner} />}
+
           <form onSubmit={handleSubmit} className="space-y-4">
+
             <div className="space-y-1.5">
               <Label htmlFor="email">Email address</Label>
               <div className="relative">
@@ -228,3 +256,48 @@ export default function SignIn() {
     </div>
   );
 }
+
+function StatusBanner({ banner }: { banner: NonNullable<ApprovalBanner> }) {
+  const styles: Record<string, { icon: any; color: string; title: string; body: string }> = {
+    pending: {
+      icon: Clock,
+      color: "bg-amber-50 border-amber-200 text-amber-900",
+      title: "Registration pending approval",
+      body: "Your registration is under review. You'll receive an email as soon as your account is approved.",
+    },
+    rejected: {
+      icon: XCircle,
+      color: "bg-red-50 border-red-200 text-red-900",
+      title: "Registration not approved",
+      body: banner.kind === "rejected" && banner.reason
+        ? `Reason: ${banner.reason}. Please contact support if you need assistance.`
+        : "Your registration was not approved. Please contact support for details.",
+    },
+    info_requested: {
+      icon: Info,
+      color: "bg-blue-50 border-blue-200 text-blue-900",
+      title: "More information needed",
+      body: banner.kind === "info_requested" && banner.message
+        ? banner.message
+        : "Our team needs additional information from you. Please contact support.",
+    },
+    expired: {
+      icon: Clock,
+      color: "bg-slate-50 border-slate-200 text-slate-800",
+      title: "Application expired",
+      body: "Your registration was not reviewed in time. Please register again or contact support.",
+    },
+  };
+  const s = styles[banner.kind];
+  const Icon = s.icon;
+  return (
+    <div className={`rounded-lg border p-4 flex gap-3 ${s.color}`}>
+      <Icon className="h-5 w-5 shrink-0 mt-0.5" />
+      <div className="space-y-1">
+        <div className="text-sm font-semibold">{s.title}</div>
+        <div className="text-xs leading-relaxed">{s.body}</div>
+      </div>
+    </div>
+  );
+}
+
