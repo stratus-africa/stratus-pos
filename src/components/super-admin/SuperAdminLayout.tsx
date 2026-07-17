@@ -49,6 +49,7 @@ const navGroups: NavGroup[] = [
     label: "Management",
     items: [
       { title: "Tenants", url: "/super-admin/businesses", icon: Building2 },
+      { title: "Tenant Approvals", url: "/super-admin/tenant-approvals", icon: UserCheck },
       { title: "Plans", url: "/super-admin/packages", icon: Tag },
       { title: "Subscriptions", url: "/super-admin/subscriptions", icon: CreditCard },
       { title: "Super Admins", url: "/super-admin/users", icon: Shield },
