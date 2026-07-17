@@ -96,6 +96,19 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const isMobile = useIsMobile();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffectR(() => {
+    const load = async () => {
+      const { data } = await (supabase as any).rpc("list_tenant_approvals", { _status: "pending", _search: null });
+      setPendingCount(Array.isArray(data) ? data.length : 0);
+    };
+    void load();
+    const ch = supabase.channel("sa-pending-approvals")
+      .on("postgres_changes", { event: "*", schema: "public", table: "businesses" }, () => void load())
+      .subscribe();
+    return () => { void supabase.removeChannel(ch); };
+  }, []);
 
   const sidebarVisible = !isMobile || mobileOpen;
   const userName = (user?.user_metadata as any)?.full_name || "Super Admin";
