@@ -1,7 +1,9 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { Plus } from "lucide-react";
+import { Plus, UserCheck } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect as useEffectR } from "react";
 import {
   LayoutDashboard,
   Building2,
