@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
@@ -11,7 +11,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Mail, Lock, Eye, EyeOff, ArrowLeft, ArrowRight, CheckCircle2, Package } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowLeft, ArrowRight, CheckCircle2, Package, Clock, XCircle, Info } from "lucide-react";
 
 const HIGHLIGHTS = [
   "Dedicated subdomain & database",
@@ -20,9 +20,17 @@ const HIGHLIGHTS = [
   "Ready in under 60 seconds",
 ];
 
+type ApprovalBanner =
+  | { kind: "pending" }
+  | { kind: "rejected"; reason?: string }
+  | { kind: "info_requested"; message?: string }
+  | { kind: "expired" }
+  | null;
+
 export default function SignIn() {
   const navigate = useNavigate();
-  const { user, loading, signIn } = useAuth();
+  const [params] = useSearchParams();
+  const { user, loading, signIn, signOut } = useAuth();
   const { needsOnboarding, loading: bizLoading } = useBusiness();
   const { isSuperAdmin, loading: saLoading } = useSuperAdmin();
 
@@ -30,12 +38,15 @@ export default function SignIn() {
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [banner, setBanner] = useState<ApprovalBanner>(
+    params.get("pending") ? { kind: "pending" } : null
+  );
 
   const [forgotOpen, setForgotOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [sendingReset, setSendingReset] = useState(false);
 
-  if (!loading && user && !bizLoading && !saLoading) {
+  if (!loading && user && !bizLoading && !saLoading && !banner) {
     if (isSuperAdmin) return <Navigate to="/super-admin" replace />;
     if (needsOnboarding) return <Navigate to="/onboarding" replace />;
     return <Navigate to="/" replace />;
@@ -45,15 +56,29 @@ export default function SignIn() {
     e.preventDefault();
     if (submitting) return;
     setSubmitting(true);
+    setBanner(null);
     const { error } = await signIn(email, password);
     if (error) {
       setSubmitting(false);
       toast.error(error.message);
       return;
     }
+
+    // Check approval status before allowing access
+    const { data: status } = await (supabase as any).rpc("my_business_approval_status");
+    const row = Array.isArray(status) ? status[0] : status;
+    if (row && row.approval_status && row.approval_status !== "approved") {
+      const s = row.approval_status as string;
+      await signOut();
+      setSubmitting(false);
+      if (s === "pending") setBanner({ kind: "pending" });
+      else if (s === "rejected") setBanner({ kind: "rejected", reason: row.rejection_reason });
+      else if (s === "info_requested") setBanner({ kind: "info_requested", message: row.info_request_message });
+      else if (s === "expired") setBanner({ kind: "expired" });
+      return;
+    }
+
     toast.success("Welcome back!");
-    // Don't manually navigate — the route guard above will redirect
-    // once the auth + business contexts finish loading.
   };
 
   const handleForgotSubmit = async (e: React.FormEvent) => {
