@@ -74,6 +74,8 @@ export function BusinessProfileTab() {
         track_batches: businessType === "pharmacy" ? trackBatches : false,
         pos_show_stock_qty: posShowStockQty,
         pos_hide_zero_stock: posHideZeroStock,
+        reminders_unpaid_purchases: remindUnpaidPurchases,
+        reminders_unposted_expenses: remindUnpostedExpenses,
       } as never)
       .eq("id", business.id);
 
