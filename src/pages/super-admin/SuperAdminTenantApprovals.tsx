@@ -253,7 +253,7 @@ function TenantDetailDialog({ row, onClose, onChanged }: { row: ApprovalRow; onC
         </DialogFooter>
 
         {!row.email_verified_at && ["pending", "info_requested"].includes(row.approval_status) && (
-          <p className="text-xs text-amber-700">Approve is disabled until the applicant verifies their email.</p>
+          <p className="text-xs text-amber-700">Applicant hasn't verified their email yet — you can still approve if you've confirmed them another way.</p>
         )}
       </DialogContent>
     </Dialog>
