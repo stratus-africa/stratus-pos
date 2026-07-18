@@ -242,13 +242,58 @@ const Inventory = () => {
 
   const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" });
 
-  const exportAdjustments = () => {
+  const exportAdjustments = (rows: StockAdjustment[] = adjustmentsFiltered) => {
     downloadCsv(
       `stock-adjustments-${new Date().toISOString().slice(0, 10)}.csv`,
       ["Date", "Product", "Location", "Change", "Reason", "Notes"],
-      adjustmentsFiltered.map((a: StockAdjustment) => [fmtDate(a.created_at), a.products?.name || "", a.locations?.name || "", a.quantity_change, a.reason, a.notes || ""]),
+      rows.map((a: StockAdjustment) => [fmtDate(a.created_at), a.products?.name || "", a.locations?.name || "", a.quantity_change, a.reason, a.notes || ""]),
     );
   };
+
+  const selectedAdjustments = adjustmentsFiltered.filter((a) => selectedAdjIds.has(a.id));
+  const toggleSelectAdj = (id: string) => {
+    setSelectedAdjIds((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
+  const toggleSelectAllAdj = () => {
+    setSelectedAdjIds((prev) => prev.size === adjustmentsFiltered.length && adjustmentsFiltered.length > 0
+      ? new Set()
+      : new Set(adjustmentsFiltered.map((a) => a.id)));
+  };
+  const bulkDeleteAdjustments = async () => {
+    if (selectedAdjustments.length === 0) return;
+    if (!confirm(`Delete ${selectedAdjustments.length} adjustment(s)? Inventory will be reversed for each.`)) return;
+    for (const a of selectedAdjustments) {
+      await deleteAdjustment.mutateAsync(a.id);
+    }
+    setSelectedAdjIds(new Set());
+  };
+  const bulkPrintAdjustments = () => {
+    if (selectedAdjustments.length === 0) return;
+    const html = `<!doctype html><html><head><title>Stock Adjustments</title>
+      <style>body{font-family:Arial,sans-serif;padding:24px;color:#111}
+      h1{font-size:18px;margin:0 0 12px}
+      table{width:100%;border-collapse:collapse;font-size:12px}
+      th,td{border:1px solid #ddd;padding:6px 8px;text-align:left}
+      th{background:#f4f4f5}
+      .pos{color:#16a34a}.neg{color:#dc2626}
+      </style></head><body>
+      <h1>Stock Adjustments (${selectedAdjustments.length})</h1>
+      <table><thead><tr><th>Date</th><th>Product</th><th>Location</th><th>Change</th><th>Reason</th><th>Notes</th></tr></thead><tbody>
+      ${selectedAdjustments.map((a) => `<tr>
+        <td>${fmtDate(a.created_at)}</td>
+        <td>${a.products?.name || "—"}</td>
+        <td>${a.locations?.name || "—"}</td>
+        <td class="${a.quantity_change > 0 ? "pos" : "neg"}">${a.quantity_change > 0 ? "+" : ""}${a.quantity_change}</td>
+        <td>${a.reason}</td>
+        <td>${a.notes || ""}</td>
+      </tr>`).join("")}
+      </tbody></table>
+      <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),400)}</script>
+      </body></html>`;
+    const w = window.open("", "_blank", "width=900,height=700");
+    if (w) { w.document.write(html); w.document.close(); }
+  };
+
 
   const exportMovements = () => {
     downloadCsv(
