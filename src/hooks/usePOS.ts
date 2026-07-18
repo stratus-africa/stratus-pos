@@ -69,9 +69,20 @@ export function usePOS() {
 
   const preventOverselling = (business as { prevent_overselling?: boolean } | null)?.prevent_overselling === true;
 
-  const inventoryRows = (queryClient.getQueryData<{ product_id: string; quantity: number }[]>(
-    ["inventory", currentLocation?.id]
-  ) || []);
+  const inventoryQuery = useQuery({
+    queryKey: ["inventory", "pos", business?.id, currentLocation?.id],
+    queryFn: async () => {
+      if (!business || !currentLocation) return [] as { product_id: string; quantity: number }[];
+      const { data, error } = await supabase
+        .from("inventory")
+        .select("product_id, quantity")
+        .eq("location_id", currentLocation.id);
+      if (error) throw error;
+      return (data || []) as { product_id: string; quantity: number }[];
+    },
+    enabled: !!business && !!currentLocation && preventOverselling,
+  });
+  const inventoryRows = inventoryQuery.data || [];
   const stockOf = (productId: string) => {
     const row = inventoryRows.find((r) => r.product_id === productId);
     return row ? Number(row.quantity) : 0;

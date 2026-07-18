@@ -231,7 +231,7 @@ function TenantDetailDialog({ row, onClose, onChanged }: { row: ApprovalRow; onC
                   <Button variant="destructive" onClick={() => { setMode("reject"); setText(""); }}>
                     <XCircle className="h-4 w-4 mr-1" /> Reject
                   </Button>
-                  <Button disabled={busy || !row.email_verified_at}
+                  <Button disabled={busy}
                     onClick={() => run("approve_tenant", { _business_id: row.id, _notes: null })}
                     className="bg-emerald-600 hover:bg-emerald-700">
                     <CheckCircle2 className="h-4 w-4 mr-1" /> Approve
@@ -253,7 +253,7 @@ function TenantDetailDialog({ row, onClose, onChanged }: { row: ApprovalRow; onC
         </DialogFooter>
 
         {!row.email_verified_at && ["pending", "info_requested"].includes(row.approval_status) && (
-          <p className="text-xs text-amber-700">Approve is disabled until the applicant verifies their email.</p>
+          <p className="text-xs text-amber-700">Applicant hasn't verified their email yet — you can still approve if you've confirmed them another way.</p>
         )}
       </DialogContent>
     </Dialog>
