@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ArrowLeftRight, Download, ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ArrowLeftRight, Download, ChevronLeft, ChevronRight, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { useInventory, classifyMovement, type MovementSource, type SortKey, type StockAdjustment } from "@/hooks/useInventory";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -169,6 +169,20 @@ const Inventory = () => {
     }
   });
 
+  const toggleStockSort = (key: "name" | "sku" | "qty") => {
+    setStockSort((prev) => {
+      if (prev === `${key}_asc`) return `${key}_desc` as StockSort;
+      return `${key}_asc` as StockSort;
+    });
+    setStockPage(1);
+  };
+
+  const sortIcon = (key: "name" | "sku" | "qty") => {
+    if (stockSort === `${key}_asc`) return <ArrowUp className="ml-1 h-3.5 w-3.5" />;
+    if (stockSort === `${key}_desc`) return <ArrowDown className="ml-1 h-3.5 w-3.5" />;
+    return <ArrowUpDown className="ml-1 h-3.5 w-3.5 text-muted-foreground/60" />;
+  };
+
   const stockCount = sortedStock.length;
   const stockPages = Math.max(1, Math.ceil(stockCount / stockPageSize));
   const stockPageSafe = Math.min(stockPage, stockPages);
@@ -326,10 +340,31 @@ const Inventory = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead>SKU</TableHead>
+                    <TableHead
+                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => toggleStockSort("name")}
+                      role="button"
+                      aria-label="Sort by product name"
+                    >
+                      <span className="flex items-center">Product {sortIcon("name")}</span>
+                    </TableHead>
+                    <TableHead
+                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => toggleStockSort("sku")}
+                      role="button"
+                      aria-label="Sort by SKU"
+                    >
+                      <span className="flex items-center">SKU {sortIcon("sku")}</span>
+                    </TableHead>
                     <TableHead>Location</TableHead>
-                    <TableHead className="text-right">Quantity</TableHead>
+                    <TableHead
+                      className="text-right cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => toggleStockSort("qty")}
+                      role="button"
+                      aria-label="Sort by quantity"
+                    >
+                      <span className="flex items-center justify-end">Quantity {sortIcon("qty")}</span>
+                    </TableHead>
                     <TableHead className="text-right">Threshold</TableHead>
                     <TableHead className="text-right">Value</TableHead>
                     <TableHead>Status</TableHead>
