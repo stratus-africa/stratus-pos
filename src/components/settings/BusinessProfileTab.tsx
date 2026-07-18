@@ -28,6 +28,8 @@ export function BusinessProfileTab() {
   const [trackBatches, setTrackBatches] = useState<boolean>((business as { track_batches?: boolean })?.track_batches ?? false);
   const [posShowStockQty, setPosShowStockQty] = useState<boolean>((business as { pos_show_stock_qty?: boolean })?.pos_show_stock_qty ?? true);
   const [posHideZeroStock, setPosHideZeroStock] = useState<boolean>((business as { pos_hide_zero_stock?: boolean })?.pos_hide_zero_stock ?? true);
+  const [remindUnpaidPurchases, setRemindUnpaidPurchases] = useState<boolean>((business as { reminders_unpaid_purchases?: boolean })?.reminders_unpaid_purchases ?? false);
+  const [remindUnpostedExpenses, setRemindUnpostedExpenses] = useState<boolean>((business as { reminders_unposted_expenses?: boolean })?.reminders_unposted_expenses ?? false);
   const [managers, setManagers] = useState<{ user_id: string; full_name: string | null; email: string | null }[]>([]);
   const [negativeStockCount, setNegativeStockCount] = useState<number>(0);
 
