@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ArrowLeftRight, Download, ChevronLeft, ChevronRight, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ArrowLeftRight, Download, ChevronLeft, ChevronRight, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Printer } from "lucide-react";
 import { useInventory, classifyMovement, type MovementSource, type SortKey, type StockAdjustment } from "@/hooks/useInventory";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -74,6 +75,7 @@ const Inventory = () => {
   const [search, setSearch] = useState<string>(initialStr("q", ""));
   const [adjDialogOpen, setAdjDialogOpen] = useState(false);
   const [editingAdj, setEditingAdj] = useState<StockAdjustment | null>(null);
+  const [selectedAdjIds, setSelectedAdjIds] = useState<Set<string>>(new Set());
 
   const [stockPage, setStockPage] = useState(initialNum("sPage", 1));
   const [stockPageSize, setStockPageSize] = useState<number>(initialSize("sSize", LS_KEYS.stock));
@@ -240,13 +242,58 @@ const Inventory = () => {
 
   const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" });
 
-  const exportAdjustments = () => {
+  const exportAdjustments = (rows: StockAdjustment[] = adjustmentsFiltered) => {
     downloadCsv(
       `stock-adjustments-${new Date().toISOString().slice(0, 10)}.csv`,
       ["Date", "Product", "Location", "Change", "Reason", "Notes"],
-      adjustmentsFiltered.map((a: StockAdjustment) => [fmtDate(a.created_at), a.products?.name || "", a.locations?.name || "", a.quantity_change, a.reason, a.notes || ""]),
+      rows.map((a: StockAdjustment) => [fmtDate(a.created_at), a.products?.name || "", a.locations?.name || "", a.quantity_change, a.reason, a.notes || ""]),
     );
   };
+
+  const selectedAdjustments = adjustmentsFiltered.filter((a) => selectedAdjIds.has(a.id));
+  const toggleSelectAdj = (id: string) => {
+    setSelectedAdjIds((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
+  const toggleSelectAllAdj = () => {
+    setSelectedAdjIds((prev) => prev.size === adjustmentsFiltered.length && adjustmentsFiltered.length > 0
+      ? new Set()
+      : new Set(adjustmentsFiltered.map((a) => a.id)));
+  };
+  const bulkDeleteAdjustments = async () => {
+    if (selectedAdjustments.length === 0) return;
+    if (!confirm(`Delete ${selectedAdjustments.length} adjustment(s)? Inventory will be reversed for each.`)) return;
+    for (const a of selectedAdjustments) {
+      await deleteAdjustment.mutateAsync(a.id);
+    }
+    setSelectedAdjIds(new Set());
+  };
+  const bulkPrintAdjustments = () => {
+    if (selectedAdjustments.length === 0) return;
+    const html = `<!doctype html><html><head><title>Stock Adjustments</title>
+      <style>body{font-family:Arial,sans-serif;padding:24px;color:#111}
+      h1{font-size:18px;margin:0 0 12px}
+      table{width:100%;border-collapse:collapse;font-size:12px}
+      th,td{border:1px solid #ddd;padding:6px 8px;text-align:left}
+      th{background:#f4f4f5}
+      .pos{color:#16a34a}.neg{color:#dc2626}
+      </style></head><body>
+      <h1>Stock Adjustments (${selectedAdjustments.length})</h1>
+      <table><thead><tr><th>Date</th><th>Product</th><th>Location</th><th>Change</th><th>Reason</th><th>Notes</th></tr></thead><tbody>
+      ${selectedAdjustments.map((a) => `<tr>
+        <td>${fmtDate(a.created_at)}</td>
+        <td>${a.products?.name || "—"}</td>
+        <td>${a.locations?.name || "—"}</td>
+        <td class="${a.quantity_change > 0 ? "pos" : "neg"}">${a.quantity_change > 0 ? "+" : ""}${a.quantity_change}</td>
+        <td>${a.reason}</td>
+        <td>${a.notes || ""}</td>
+      </tr>`).join("")}
+      </tbody></table>
+      <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),400)}</script>
+      </body></html>`;
+    const w = window.open("", "_blank", "width=900,height=700");
+    if (w) { w.document.write(html); w.document.close(); }
+  };
+
 
   const exportMovements = () => {
     downloadCsv(
@@ -451,15 +498,41 @@ const Inventory = () => {
                     <SelectItem value="product_desc">Product (Z–A)</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="sm" onClick={exportAdjustments} disabled={adjustmentsFiltered.length === 0}>
+                <Button variant="outline" size="sm" onClick={() => exportAdjustments()} disabled={adjustmentsFiltered.length === 0}>
                   <Download className="mr-2 h-4 w-4" /> Export CSV
                 </Button>
               </div>
             </CardHeader>
+            {selectedAdjustments.length > 0 && (
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b bg-muted/40 px-4 py-2">
+                <div className="text-sm font-medium">{selectedAdjustments.length} selected</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => exportAdjustments(selectedAdjustments)}>
+                    <Download className="mr-2 h-4 w-4" /> Export
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={bulkPrintAdjustments}>
+                    <Printer className="mr-2 h-4 w-4" /> Print
+                  </Button>
+                  {canEditAdjustments && (
+                    <Button variant="destructive" size="sm" onClick={bulkDeleteAdjustments} disabled={deleteAdjustment.isPending}>
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedAdjIds(new Set())}>Clear</Button>
+                </div>
+              </div>
+            )}
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={adjustmentsFiltered.length > 0 && selectedAdjIds.size === adjustmentsFiltered.length}
+                        onCheckedChange={toggleSelectAllAdj}
+                        aria-label="Select all"
+                      />
+                    </TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Product</TableHead>
                     <TableHead>Location</TableHead>
@@ -471,13 +544,20 @@ const Inventory = () => {
                 <TableBody>
                   {adjustmentsFiltered.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={canEditAdjustments ? 6 : 5} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={canEditAdjustments ? 7 : 6} className="text-center text-muted-foreground py-8">
                         {adjSearch ? "No adjustments match your search." : "No adjustments yet."}
                       </TableCell>
                     </TableRow>
                   ) : (
                     adjustmentsFiltered.map((a) => (
-                      <TableRow key={a.id}>
+                      <TableRow key={a.id} data-state={selectedAdjIds.has(a.id) ? "selected" : undefined}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedAdjIds.has(a.id)}
+                            onCheckedChange={() => toggleSelectAdj(a.id)}
+                            aria-label={`Select adjustment ${a.id}`}
+                          />
+                        </TableCell>
                         <TableCell className="text-muted-foreground">{fmtDate(a.created_at)}</TableCell>
                         <TableCell className="font-medium">{a.products?.name || "—"}</TableCell>
                         <TableCell>{a.locations?.name || "—"}</TableCell>

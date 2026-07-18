@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Save, Loader2, Building2, Phone, Mail, MapPin, PackageOpen, Briefcase, ShoppingCart } from "lucide-react";
+import { Save, Loader2, Building2, Phone, Mail, MapPin, PackageOpen, Briefcase, ShoppingCart, Bell } from "lucide-react";
 import { THEMES, DEFAULT_THEME, applyTheme, type ThemeKey, BUSINESS_TYPE_OPTIONS, type BusinessType } from "@/lib/themes";
 
 export function BusinessProfileTab() {
@@ -28,6 +28,8 @@ export function BusinessProfileTab() {
   const [trackBatches, setTrackBatches] = useState<boolean>((business as { track_batches?: boolean })?.track_batches ?? false);
   const [posShowStockQty, setPosShowStockQty] = useState<boolean>((business as { pos_show_stock_qty?: boolean })?.pos_show_stock_qty ?? true);
   const [posHideZeroStock, setPosHideZeroStock] = useState<boolean>((business as { pos_hide_zero_stock?: boolean })?.pos_hide_zero_stock ?? true);
+  const [remindUnpaidPurchases, setRemindUnpaidPurchases] = useState<boolean>((business as { reminders_unpaid_purchases?: boolean })?.reminders_unpaid_purchases ?? false);
+  const [remindUnpostedExpenses, setRemindUnpostedExpenses] = useState<boolean>((business as { reminders_unposted_expenses?: boolean })?.reminders_unposted_expenses ?? false);
   const [managers, setManagers] = useState<{ user_id: string; full_name: string | null; email: string | null }[]>([]);
   const [negativeStockCount, setNegativeStockCount] = useState<number>(0);
 
@@ -72,6 +74,8 @@ export function BusinessProfileTab() {
         track_batches: businessType === "pharmacy" ? trackBatches : false,
         pos_show_stock_qty: posShowStockQty,
         pos_hide_zero_stock: posHideZeroStock,
+        reminders_unpaid_purchases: remindUnpaidPurchases,
+        reminders_unposted_expenses: remindUnpostedExpenses,
       } as never)
       .eq("id", business.id);
 
@@ -240,7 +244,40 @@ export function BusinessProfileTab() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Notifications */}
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="h-5 w-5" />
+            Notifications
+          </CardTitle>
+          <CardDescription>Choose the daily reminders you'd like to see on the dashboard.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base">Reminder: Settle unpaid purchases</Label>
+              <p className="text-sm text-muted-foreground">
+                Show a banner when there are supplier invoices still unpaid or partially paid.
+              </p>
+            </div>
+            <Switch checked={remindUnpaidPurchases} onCheckedChange={setRemindUnpaidPurchases} />
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base">Reminder: Post expenses</Label>
+              <p className="text-sm text-muted-foreground">
+                Show a banner when there are recent expenses without a category assigned.
+              </p>
+            </div>
+            <Switch checked={remindUnpostedExpenses} onCheckedChange={setRemindUnpostedExpenses} />
+          </div>
+        </CardContent>
+      </Card>
       </div>
+
 
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={saving || !name.trim()}>
