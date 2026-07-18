@@ -339,6 +339,8 @@ export type Database = {
           rejected_at: string | null
           rejected_by: string | null
           rejection_reason: string | null
+          reminders_unpaid_purchases: boolean
+          reminders_unposted_expenses: boolean
           selected_package_id: string | null
           status: string
           tax_rate: number | null
@@ -392,6 +394,8 @@ export type Database = {
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
+          reminders_unpaid_purchases?: boolean
+          reminders_unposted_expenses?: boolean
           selected_package_id?: string | null
           status?: string
           tax_rate?: number | null
@@ -445,6 +449,8 @@ export type Database = {
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
+          reminders_unpaid_purchases?: boolean
+          reminders_unposted_expenses?: boolean
           selected_package_id?: string | null
           status?: string
           tax_rate?: number | null
