@@ -70,7 +70,7 @@ export function usePOS() {
   const preventOverselling = (business as { prevent_overselling?: boolean } | null)?.prevent_overselling === true;
 
   const inventoryQuery = useQuery({
-    queryKey: ["pos-inventory", business?.id, currentLocation?.id],
+    queryKey: ["inventory", "pos", business?.id, currentLocation?.id],
     queryFn: async () => {
       if (!business || !currentLocation) return [] as { product_id: string; quantity: number }[];
       const { data, error } = await supabase
