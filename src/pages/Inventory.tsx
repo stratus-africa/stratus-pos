@@ -498,15 +498,41 @@ const Inventory = () => {
                     <SelectItem value="product_desc">Product (Z–A)</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="sm" onClick={exportAdjustments} disabled={adjustmentsFiltered.length === 0}>
+                <Button variant="outline" size="sm" onClick={() => exportAdjustments()} disabled={adjustmentsFiltered.length === 0}>
                   <Download className="mr-2 h-4 w-4" /> Export CSV
                 </Button>
               </div>
             </CardHeader>
+            {selectedAdjustments.length > 0 && (
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b bg-muted/40 px-4 py-2">
+                <div className="text-sm font-medium">{selectedAdjustments.length} selected</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => exportAdjustments(selectedAdjustments)}>
+                    <Download className="mr-2 h-4 w-4" /> Export
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={bulkPrintAdjustments}>
+                    <Printer className="mr-2 h-4 w-4" /> Print
+                  </Button>
+                  {canEditAdjustments && (
+                    <Button variant="destructive" size="sm" onClick={bulkDeleteAdjustments} disabled={deleteAdjustment.isPending}>
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedAdjIds(new Set())}>Clear</Button>
+                </div>
+              </div>
+            )}
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={adjustmentsFiltered.length > 0 && selectedAdjIds.size === adjustmentsFiltered.length}
+                        onCheckedChange={toggleSelectAllAdj}
+                        aria-label="Select all"
+                      />
+                    </TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Product</TableHead>
                     <TableHead>Location</TableHead>
