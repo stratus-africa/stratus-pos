@@ -340,10 +340,31 @@ const Inventory = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead>SKU</TableHead>
+                    <TableHead
+                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => toggleStockSort("name")}
+                      role="button"
+                      aria-label="Sort by product name"
+                    >
+                      <span className="flex items-center">Product {sortIcon("name")}</span>
+                    </TableHead>
+                    <TableHead
+                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => toggleStockSort("sku")}
+                      role="button"
+                      aria-label="Sort by SKU"
+                    >
+                      <span className="flex items-center">SKU {sortIcon("sku")}</span>
+                    </TableHead>
                     <TableHead>Location</TableHead>
-                    <TableHead className="text-right">Quantity</TableHead>
+                    <TableHead
+                      className="text-right cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => toggleStockSort("qty")}
+                      role="button"
+                      aria-label="Sort by quantity"
+                    >
+                      <span className="flex items-center justify-end">Quantity {sortIcon("qty")}</span>
+                    </TableHead>
                     <TableHead className="text-right">Threshold</TableHead>
                     <TableHead className="text-right">Value</TableHead>
                     <TableHead>Status</TableHead>
