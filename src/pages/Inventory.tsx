@@ -544,13 +544,20 @@ const Inventory = () => {
                 <TableBody>
                   {adjustmentsFiltered.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={canEditAdjustments ? 6 : 5} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={canEditAdjustments ? 7 : 6} className="text-center text-muted-foreground py-8">
                         {adjSearch ? "No adjustments match your search." : "No adjustments yet."}
                       </TableCell>
                     </TableRow>
                   ) : (
                     adjustmentsFiltered.map((a) => (
-                      <TableRow key={a.id}>
+                      <TableRow key={a.id} data-state={selectedAdjIds.has(a.id) ? "selected" : undefined}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedAdjIds.has(a.id)}
+                            onCheckedChange={() => toggleSelectAdj(a.id)}
+                            aria-label={`Select adjustment ${a.id}`}
+                          />
+                        </TableCell>
                         <TableCell className="text-muted-foreground">{fmtDate(a.created_at)}</TableCell>
                         <TableCell className="font-medium">{a.products?.name || "—"}</TableCell>
                         <TableCell>{a.locations?.name || "—"}</TableCell>
