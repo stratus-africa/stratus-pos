@@ -90,6 +90,8 @@ const Dashboard = () => {
         </div>
       </div>
 
+      <ReminderBanner />
+
       {/* Stat Cards */}
       <DashboardStatCards data={dashboardData} />
 
