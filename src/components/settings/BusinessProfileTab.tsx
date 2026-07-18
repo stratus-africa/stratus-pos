@@ -244,7 +244,40 @@ export function BusinessProfileTab() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Notifications */}
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="h-5 w-5" />
+            Notifications
+          </CardTitle>
+          <CardDescription>Choose the daily reminders you'd like to see on the dashboard.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base">Reminder: Settle unpaid purchases</Label>
+              <p className="text-sm text-muted-foreground">
+                Show a banner when there are supplier invoices still unpaid or partially paid.
+              </p>
+            </div>
+            <Switch checked={remindUnpaidPurchases} onCheckedChange={setRemindUnpaidPurchases} />
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base">Reminder: Post expenses</Label>
+              <p className="text-sm text-muted-foreground">
+                Show a banner when there are recent expenses without a category assigned.
+              </p>
+            </div>
+            <Switch checked={remindUnpostedExpenses} onCheckedChange={setRemindUnpostedExpenses} />
+          </div>
+        </CardContent>
+      </Card>
       </div>
+
 
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={saving || !name.trim()}>
