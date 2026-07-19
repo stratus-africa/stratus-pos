@@ -17,6 +17,9 @@ import { useDigitaxSettings } from "@/hooks/useDigitax";
 
 export function BusinessProfileTab() {
   const { business, refreshBusiness } = useBusiness();
+  const { hasFeatureKey } = useSubscription();
+  const digitaxIncluded = hasFeatureKey("digitax");
+  const { query: digitaxQuery, save: saveDigitax } = useDigitaxSettings();
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState(business?.name || "");
   const [phone, setPhone] = useState((business as any)?.phone || "");
