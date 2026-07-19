@@ -12,6 +12,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Save, Loader2, Building2, Phone, Mail, MapPin, PackageOpen, Briefcase, ShoppingCart, Bell, Percent } from "lucide-react";
 import { THEMES, DEFAULT_THEME, applyTheme, type ThemeKey, BUSINESS_TYPE_OPTIONS, type BusinessType } from "@/lib/themes";
+import { useSubscription } from "@/hooks/useSubscription";
+import { useDigitaxSettings } from "@/hooks/useDigitax";
 
 export function BusinessProfileTab() {
   const { business, refreshBusiness } = useBusiness();
