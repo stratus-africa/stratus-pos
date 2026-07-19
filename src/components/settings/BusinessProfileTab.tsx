@@ -253,8 +253,41 @@ export function BusinessProfileTab() {
         </CardContent>
       </Card>
 
+      {/* Tax Configuration */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Percent className="h-5 w-5" />
+            Tax Configuration
+          </CardTitle>
+          <CardDescription>Control VAT charging and your KRA PIN used on invoices.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base">VAT Enabled</Label>
+              <p className="text-sm text-muted-foreground">Enable or disable VAT charging for this organization.</p>
+            </div>
+            <Switch checked={vatEnabled} onCheckedChange={setVatEnabled} />
+          </div>
+          {vatEnabled && (
+            <div className="space-y-2 pt-2 border-t">
+              <Label htmlFor="kra-pin">KRA PIN</Label>
+              <Input
+                id="kra-pin"
+                value={kraPin}
+                onChange={(e) => setKraPin(e.target.value.toUpperCase())}
+                placeholder="P000000000A"
+                aria-invalid={vatEnabled && !kraPin.trim()}
+              />
+              <p className="text-xs text-muted-foreground">Required when VAT is enabled. Used on tax invoices and reports.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Notifications */}
-      <Card className="lg:col-span-2">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5" />
