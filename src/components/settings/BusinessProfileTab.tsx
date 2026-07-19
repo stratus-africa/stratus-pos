@@ -283,11 +283,19 @@ export function BusinessProfileTab() {
           <div className="flex items-center justify-between">
             <div>
               <Label className="text-base">VAT Enabled</Label>
-              <p className="text-sm text-muted-foreground">Enable or disable VAT charging for this organization.</p>
+              <p className="text-sm text-muted-foreground">
+                {digitaxIncluded
+                  ? "Enable or disable VAT charging for this organization."
+                  : "Requires a plan that includes DigiTax (KRA eTIMS). Upgrade to enable VAT."}
+              </p>
             </div>
-            <Switch checked={vatEnabled} onCheckedChange={setVatEnabled} />
+            <Switch
+              checked={vatEnabled && digitaxIncluded}
+              disabled={!digitaxIncluded}
+              onCheckedChange={(v) => setVatEnabled(v)}
+            />
           </div>
-          {vatEnabled && (
+          {vatEnabled && digitaxIncluded && (
             <div className="space-y-2 pt-2 border-t">
               <Label htmlFor="kra-pin">KRA PIN</Label>
               <Input
@@ -297,7 +305,9 @@ export function BusinessProfileTab() {
                 placeholder="P000000000A"
                 aria-invalid={vatEnabled && !kraPin.trim()}
               />
-              <p className="text-xs text-muted-foreground">Required when VAT is enabled. Used on tax invoices and reports.</p>
+              <p className="text-xs text-muted-foreground">
+                Required when VAT is enabled. Turning this on will also activate DigiTax so sales can be fiscalised.
+              </p>
             </div>
           )}
         </CardContent>
