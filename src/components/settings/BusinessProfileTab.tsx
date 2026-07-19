@@ -12,9 +12,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Save, Loader2, Building2, Phone, Mail, MapPin, PackageOpen, Briefcase, ShoppingCart, Bell, Percent } from "lucide-react";
 import { THEMES, DEFAULT_THEME, applyTheme, type ThemeKey, BUSINESS_TYPE_OPTIONS, type BusinessType } from "@/lib/themes";
+import { useSubscription } from "@/hooks/useSubscription";
+import { useDigitaxSettings } from "@/hooks/useDigitax";
 
 export function BusinessProfileTab() {
   const { business, refreshBusiness } = useBusiness();
+  const { hasFeatureKey } = useSubscription();
+  const digitaxIncluded = hasFeatureKey("digitax");
+  const { query: digitaxQuery, save: saveDigitax } = useDigitaxSettings();
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState(business?.name || "");
   const [phone, setPhone] = useState((business as any)?.phone || "");
@@ -60,6 +65,10 @@ export function BusinessProfileTab() {
 
   const handleSave = async () => {
     if (!business) return;
+    if (vatEnabled && !digitaxIncluded) {
+      toast.error("VAT requires a plan that includes DigiTax. Please upgrade your plan.");
+      return;
+    }
     if (vatEnabled && !kraPin.trim()) {
       toast.error("KRA PIN is required when VAT is enabled");
       return;
@@ -91,6 +100,14 @@ export function BusinessProfileTab() {
       toast.error("Failed to update business: " + error.message);
     } else {
       applyTheme(themeColor);
+      // When VAT is turned on, ensure DigiTax settings row exists and is enabled.
+      if (vatEnabled && digitaxIncluded && !digitaxQuery.data?.enabled) {
+        try {
+          await saveDigitax.mutateAsync({ enabled: true, business_pin: kraPin.trim() || null } as never);
+        } catch {
+          // non-blocking; user can configure manually in DigiTax settings
+        }
+      }
       toast.success("Business profile updated");
       await refreshBusiness();
     }
@@ -266,11 +283,19 @@ export function BusinessProfileTab() {
           <div className="flex items-center justify-between">
             <div>
               <Label className="text-base">VAT Enabled</Label>
-              <p className="text-sm text-muted-foreground">Enable or disable VAT charging for this organization.</p>
+              <p className="text-sm text-muted-foreground">
+                {digitaxIncluded
+                  ? "Enable or disable VAT charging for this organization."
+                  : "Requires a plan that includes DigiTax (KRA eTIMS). Upgrade to enable VAT."}
+              </p>
             </div>
-            <Switch checked={vatEnabled} onCheckedChange={setVatEnabled} />
+            <Switch
+              checked={vatEnabled && digitaxIncluded}
+              disabled={!digitaxIncluded}
+              onCheckedChange={(v) => setVatEnabled(v)}
+            />
           </div>
-          {vatEnabled && (
+          {vatEnabled && digitaxIncluded && (
             <div className="space-y-2 pt-2 border-t">
               <Label htmlFor="kra-pin">KRA PIN</Label>
               <Input
@@ -280,7 +305,9 @@ export function BusinessProfileTab() {
                 placeholder="P000000000A"
                 aria-invalid={vatEnabled && !kraPin.trim()}
               />
-              <p className="text-xs text-muted-foreground">Required when VAT is enabled. Used on tax invoices and reports.</p>
+              <p className="text-xs text-muted-foreground">
+                Required when VAT is enabled. Turning this on will also activate DigiTax so sales can be fiscalised.
+              </p>
             </div>
           )}
         </CardContent>
