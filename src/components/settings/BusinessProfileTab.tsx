@@ -30,6 +30,8 @@ export function BusinessProfileTab() {
   const [posHideZeroStock, setPosHideZeroStock] = useState<boolean>((business as { pos_hide_zero_stock?: boolean })?.pos_hide_zero_stock ?? true);
   const [remindUnpaidPurchases, setRemindUnpaidPurchases] = useState<boolean>((business as { reminders_unpaid_purchases?: boolean })?.reminders_unpaid_purchases ?? false);
   const [remindUnpostedExpenses, setRemindUnpostedExpenses] = useState<boolean>((business as { reminders_unposted_expenses?: boolean })?.reminders_unposted_expenses ?? false);
+  const [vatEnabled, setVatEnabled] = useState<boolean>((business as { vat_enabled?: boolean })?.vat_enabled ?? true);
+  const [kraPin, setKraPin] = useState<string>((business as { kra_pin?: string })?.kra_pin || "");
   const [managers, setManagers] = useState<{ user_id: string; full_name: string | null; email: string | null }[]>([]);
   const [negativeStockCount, setNegativeStockCount] = useState<number>(0);
 
