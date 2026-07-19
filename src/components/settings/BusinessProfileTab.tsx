@@ -60,6 +60,10 @@ export function BusinessProfileTab() {
 
   const handleSave = async () => {
     if (!business) return;
+    if (vatEnabled && !kraPin.trim()) {
+      toast.error("KRA PIN is required when VAT is enabled");
+      return;
+    }
     setSaving(true);
     const { error } = await supabase
       .from("businesses")
