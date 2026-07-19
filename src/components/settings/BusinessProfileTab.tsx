@@ -82,6 +82,8 @@ export function BusinessProfileTab() {
         pos_hide_zero_stock: posHideZeroStock,
         reminders_unpaid_purchases: remindUnpaidPurchases,
         reminders_unposted_expenses: remindUnpostedExpenses,
+        vat_enabled: vatEnabled,
+        kra_pin: kraPin.trim() || null,
       } as never)
       .eq("id", business.id);
 
