@@ -292,7 +292,7 @@ const ProtectedRoutes = () => {
             <Route path="/products" element={guard(<FeatureGate featureKey="products"><Products /></FeatureGate>, "products.view")} />
             <Route path="/inventory" element={guard(<FeatureGate featureKey="inventory"><Inventory /></FeatureGate>, "inventory.view")} />
             <Route path="/sales" element={guard(<FeatureGate featureKey="sales"><RouteErrorBoundary title="Transactions" resetKey={location.pathname}><Sales /></RouteErrorBoundary></FeatureGate>, "sales.view")} />
-            <Route path="/customers" element={guard(<FeatureGate featureKey="customers"><Customers /></FeatureGate>, "customers.view")} />
+            <Route path="/customers" element={guard(<Customers />, "customers.view")} />
             <Route path="/purchases" element={guard(<FeatureGate featureKey="purchases"><Purchases /></FeatureGate>, "purchases.view")} />
             <Route path="/purchases/new" element={guard(<FeatureGate featureKey="purchases"><PurchaseEditor /></FeatureGate>, "purchases.create")} />
             <Route path="/purchases/:id/edit" element={guard(<FeatureGate featureKey="purchases"><PurchaseEditor /></FeatureGate>, "purchases.edit")} />
