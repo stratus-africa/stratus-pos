@@ -100,6 +100,14 @@ export function BusinessProfileTab() {
       toast.error("Failed to update business: " + error.message);
     } else {
       applyTheme(themeColor);
+      // When VAT is turned on, ensure DigiTax settings row exists and is enabled.
+      if (vatEnabled && digitaxIncluded && !digitaxQuery.data?.enabled) {
+        try {
+          await saveDigitax.mutateAsync({ enabled: true, business_pin: kraPin.trim() || null } as never);
+        } catch {
+          // non-blocking; user can configure manually in DigiTax settings
+        }
+      }
       toast.success("Business profile updated");
       await refreshBusiness();
     }
