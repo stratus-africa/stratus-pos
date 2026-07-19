@@ -65,6 +65,10 @@ export function BusinessProfileTab() {
 
   const handleSave = async () => {
     if (!business) return;
+    if (vatEnabled && !digitaxIncluded) {
+      toast.error("VAT requires a plan that includes DigiTax. Please upgrade your plan.");
+      return;
+    }
     if (vatEnabled && !kraPin.trim()) {
       toast.error("KRA PIN is required when VAT is enabled");
       return;
