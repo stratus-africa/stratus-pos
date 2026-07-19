@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Save, Loader2, Building2, Phone, Mail, MapPin, PackageOpen, Briefcase, ShoppingCart, Bell } from "lucide-react";
+import { Save, Loader2, Building2, Phone, Mail, MapPin, PackageOpen, Briefcase, ShoppingCart, Bell, Percent } from "lucide-react";
 import { THEMES, DEFAULT_THEME, applyTheme, type ThemeKey, BUSINESS_TYPE_OPTIONS, type BusinessType } from "@/lib/themes";
 
 export function BusinessProfileTab() {
@@ -30,6 +30,8 @@ export function BusinessProfileTab() {
   const [posHideZeroStock, setPosHideZeroStock] = useState<boolean>((business as { pos_hide_zero_stock?: boolean })?.pos_hide_zero_stock ?? true);
   const [remindUnpaidPurchases, setRemindUnpaidPurchases] = useState<boolean>((business as { reminders_unpaid_purchases?: boolean })?.reminders_unpaid_purchases ?? false);
   const [remindUnpostedExpenses, setRemindUnpostedExpenses] = useState<boolean>((business as { reminders_unposted_expenses?: boolean })?.reminders_unposted_expenses ?? false);
+  const [vatEnabled, setVatEnabled] = useState<boolean>((business as { vat_enabled?: boolean })?.vat_enabled ?? true);
+  const [kraPin, setKraPin] = useState<string>((business as { kra_pin?: string })?.kra_pin || "");
   const [managers, setManagers] = useState<{ user_id: string; full_name: string | null; email: string | null }[]>([]);
   const [negativeStockCount, setNegativeStockCount] = useState<number>(0);
 
@@ -58,6 +60,10 @@ export function BusinessProfileTab() {
 
   const handleSave = async () => {
     if (!business) return;
+    if (vatEnabled && !kraPin.trim()) {
+      toast.error("KRA PIN is required when VAT is enabled");
+      return;
+    }
     setSaving(true);
     const { error } = await supabase
       .from("businesses")
@@ -76,6 +82,8 @@ export function BusinessProfileTab() {
         pos_hide_zero_stock: posHideZeroStock,
         reminders_unpaid_purchases: remindUnpaidPurchases,
         reminders_unposted_expenses: remindUnpostedExpenses,
+        vat_enabled: vatEnabled,
+        kra_pin: kraPin.trim() || null,
       } as never)
       .eq("id", business.id);
 
@@ -245,8 +253,41 @@ export function BusinessProfileTab() {
         </CardContent>
       </Card>
 
+      {/* Tax Configuration */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Percent className="h-5 w-5" />
+            Tax Configuration
+          </CardTitle>
+          <CardDescription>Control VAT charging and your KRA PIN used on invoices.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base">VAT Enabled</Label>
+              <p className="text-sm text-muted-foreground">Enable or disable VAT charging for this organization.</p>
+            </div>
+            <Switch checked={vatEnabled} onCheckedChange={setVatEnabled} />
+          </div>
+          {vatEnabled && (
+            <div className="space-y-2 pt-2 border-t">
+              <Label htmlFor="kra-pin">KRA PIN</Label>
+              <Input
+                id="kra-pin"
+                value={kraPin}
+                onChange={(e) => setKraPin(e.target.value.toUpperCase())}
+                placeholder="P000000000A"
+                aria-invalid={vatEnabled && !kraPin.trim()}
+              />
+              <p className="text-xs text-muted-foreground">Required when VAT is enabled. Used on tax invoices and reports.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Notifications */}
-      <Card className="lg:col-span-2">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5" />
