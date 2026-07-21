@@ -208,7 +208,8 @@ const POS = () => {
           <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search..."
+              ref={searchInputRef}
+              placeholder="Search... (F2)"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -457,7 +458,13 @@ const POS = () => {
                 variant="outline"
                 className="flex flex-col items-center gap-0.5 h-auto py-2 bg-yellow-500 text-white border-yellow-500 hover:bg-yellow-600"
                 disabled={pos.cart.length === 0}
-                onClick={pos.holdSale}
+                onClick={() => {
+                  const suggested = pos.customerName || `Sale ${new Date().toLocaleTimeString()}`;
+                  const label = window.prompt("Name this parked sale:", suggested);
+                  if (label === null) return; // cancelled
+                  void pos.holdSale(label);
+                }}
+                title="Park sale (F9)"
               >
                 <Pause className="h-4 w-4" />
                 <span className="text-[10px] font-medium">Suspend Sale</span>
