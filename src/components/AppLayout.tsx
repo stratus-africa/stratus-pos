@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Eye, X, AlertTriangle } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { CommandPalette } from "@/components/CommandPalette";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 
 function MasqueradeBanner() {
   const { isMasquerading, business, stopMasquerade } = useBusiness();
@@ -65,10 +67,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <SubscriptionExpiredBanner />
 
           <TopBar />
-          <main className="flex-1 overflow-auto p-3 sm:p-4 lg:p-6">
+          <main className="flex-1 overflow-auto p-3 sm:p-4 lg:p-6 pb-20 lg:pb-6">
             {children}
           </main>
+          <MobileBottomNav />
         </div>
+        <CommandPalette />
       </div>
     </SidebarProvider>
   );
