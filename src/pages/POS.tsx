@@ -161,6 +161,61 @@ const POS = () => {
     setStartDayOpen(false);
   };
 
+  // Keyboard shortcuts: F2 focus search, F4 pay cash, F9 park sale, ESC clear cart,
+  // F1 open barcode scanner. Ignored while typing in inputs (except F-keys, which
+  // fire globally by design so cashiers can trigger them from anywhere).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // Don't interfere with browser shortcuts
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      const target = e.target as HTMLElement | null;
+      const typing = !!target && (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      );
+
+      switch (e.key) {
+        case "F1":
+          e.preventDefault();
+          setScannerOpen(true);
+          break;
+        case "F2":
+          e.preventDefault();
+          searchInputRef.current?.focus();
+          searchInputRef.current?.select();
+          break;
+        case "F4":
+          if (pos.cart.length === 0) return;
+          e.preventDefault();
+          setInitialPaymentMethod("cash");
+          setPaymentOpen(true);
+          break;
+        case "F9":
+          if (pos.cart.length === 0) return;
+          e.preventDefault();
+          {
+            const suggested = pos.customerName || `Sale ${new Date().toLocaleTimeString()}`;
+            const label = window.prompt("Name this parked sale:", suggested);
+            if (label !== null) void pos.holdSale(label);
+          }
+          break;
+        case "Escape":
+          if (typing) return;
+          if (paymentOpen || scannerOpen || approvalOpen || receiptOpen || startDayOpen) return;
+          if (pos.cart.length === 0) return;
+          e.preventDefault();
+          if (window.confirm("Clear the current cart?")) pos.clearCart();
+          break;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pos, paymentOpen, scannerOpen, approvalOpen, receiptOpen, startDayOpen]);
+
+
+
 
   // Show loading while checking session
   if (session.loading) {
