@@ -150,9 +150,12 @@ export function usePOS() {
   const cartTotal = cartSubtotal;
 
   // Hold current sale — persist to suspended_sales table so it survives reload & syncs across devices
-  const holdSale = useCallback(async () => {
+  const holdSale = useCallback(async (customLabel?: string) => {
     if (!business || !currentLocation || !user || cart.length === 0) return;
-    const label = customerName || `Sale ${new Date().toLocaleTimeString()}`;
+    const label =
+      (customLabel && customLabel.trim()) ||
+      customerName ||
+      `Sale ${new Date().toLocaleTimeString()}`;
     const { error } = await supabase.from("suspended_sales").insert({
       business_id: business.id,
       location_id: currentLocation.id,
@@ -168,7 +171,7 @@ export function usePOS() {
     }
     queryClient.invalidateQueries({ queryKey: ["suspended_sales"] });
     clearCart();
-    toast.info("Sale suspended");
+    toast.info(`Sale parked: ${label}`);
   }, [cart, customerId, customerName, business, currentLocation, user, queryClient, clearCart]);
 
   // Resume a held sale

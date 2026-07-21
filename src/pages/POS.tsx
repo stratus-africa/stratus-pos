@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,7 @@ const POS = () => {
   const isMobile = useIsMobile();
 
   const [search, setSearch] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [paymentOpen, setPaymentOpen] = useState(false);
@@ -160,6 +161,61 @@ const POS = () => {
     setStartDayOpen(false);
   };
 
+  // Keyboard shortcuts: F2 focus search, F4 pay cash, F9 park sale, ESC clear cart,
+  // F1 open barcode scanner. Ignored while typing in inputs (except F-keys, which
+  // fire globally by design so cashiers can trigger them from anywhere).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // Don't interfere with browser shortcuts
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      const target = e.target as HTMLElement | null;
+      const typing = !!target && (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      );
+
+      switch (e.key) {
+        case "F1":
+          e.preventDefault();
+          setScannerOpen(true);
+          break;
+        case "F2":
+          e.preventDefault();
+          searchInputRef.current?.focus();
+          searchInputRef.current?.select();
+          break;
+        case "F4":
+          if (pos.cart.length === 0) return;
+          e.preventDefault();
+          setInitialPaymentMethod("cash");
+          setPaymentOpen(true);
+          break;
+        case "F9":
+          if (pos.cart.length === 0) return;
+          e.preventDefault();
+          {
+            const suggested = pos.customerName || `Sale ${new Date().toLocaleTimeString()}`;
+            const label = window.prompt("Name this parked sale:", suggested);
+            if (label !== null) void pos.holdSale(label);
+          }
+          break;
+        case "Escape":
+          if (typing) return;
+          if (paymentOpen || scannerOpen || approvalOpen || receiptOpen || startDayOpen) return;
+          if (pos.cart.length === 0) return;
+          e.preventDefault();
+          if (window.confirm("Clear the current cart?")) pos.clearCart();
+          break;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pos, paymentOpen, scannerOpen, approvalOpen, receiptOpen, startDayOpen]);
+
+
+
 
   // Show loading while checking session
   if (session.loading) {
@@ -207,7 +263,8 @@ const POS = () => {
           <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search..."
+              ref={searchInputRef}
+              placeholder="Search... (F2)"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -456,7 +513,13 @@ const POS = () => {
                 variant="outline"
                 className="flex flex-col items-center gap-0.5 h-auto py-2 bg-yellow-500 text-white border-yellow-500 hover:bg-yellow-600"
                 disabled={pos.cart.length === 0}
-                onClick={pos.holdSale}
+                onClick={() => {
+                  const suggested = pos.customerName || `Sale ${new Date().toLocaleTimeString()}`;
+                  const label = window.prompt("Name this parked sale:", suggested);
+                  if (label === null) return; // cancelled
+                  void pos.holdSale(label);
+                }}
+                title="Park sale (F9)"
               >
                 <Pause className="h-4 w-4" />
                 <span className="text-[10px] font-medium">Suspend Sale</span>
