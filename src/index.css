@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
+    --background: 210 33% 97%;
     --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
@@ -15,24 +15,24 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* Emerald primary — matches Super Admin aesthetic */
-    --primary: 160 84% 39%;
+    /* Nexus blue primary — matches enterprise ERP aesthetic */
+    --primary: 226 84% 54%;
     --primary-foreground: 0 0% 100%;
 
-    --teal: 162 64% 38%;
+    --teal: 199 89% 48%;
     --teal-foreground: 0 0% 100%;
-    --teal-soft: 158 64% 95%;
-    --teal-deep: 165 70% 28%;
+    --teal-soft: 210 100% 96%;
+    --teal-deep: 217 91% 35%;
     --rust: 14 80% 48%;
     --rust-foreground: 0 0% 100%;
 
-    --secondary: 215 20% 95%;
+    --secondary: 215 25% 95%;
     --secondary-foreground: 220 20% 20%;
 
-    --muted: 215 20% 95%;
+    --muted: 215 25% 95%;
     --muted-foreground: 215 15% 47%;
 
-    --accent: 215 20% 93%;
+    --accent: 215 25% 93%;
     --accent-foreground: 220 20% 10%;
 
     --destructive: 0 84% 60%;
@@ -44,25 +44,25 @@
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 214 20% 90%;
-    --input: 214 20% 90%;
-    --ring: 160 84% 39%;
+    --border: 214 25% 91%;
+    --input: 214 25% 91%;
+    --ring: 226 84% 54%;
 
-    --radius: 0.5rem;
+    --radius: 0.625rem;
 
-    /* Sidebar — white surface with emerald active state, matches Super Admin */
+    /* Sidebar — white surface with blue active state, matches Nexus ERP */
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 222 25% 30%;
-    --sidebar-primary: 160 84% 39%;
+    --sidebar-primary: 226 84% 54%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 152 76% 96%;
-    --sidebar-accent-foreground: 161 94% 24%;
-    --sidebar-border: 214 20% 92%;
-    --sidebar-ring: 160 84% 39%;
+    --sidebar-accent: 217 100% 97%;
+    --sidebar-accent-foreground: 226 84% 40%;
+    --sidebar-border: 214 25% 92%;
+    --sidebar-ring: 226 84% 54%;
 
     /* Themed alternating row tint */
-    --table-alt-row: 152 60% 97%;
-    --primary-glow: 160 84% 50%;
+    --table-alt-row: 217 100% 98%;
+    --primary-glow: 226 84% 65%;
   }
 
   .dark {
