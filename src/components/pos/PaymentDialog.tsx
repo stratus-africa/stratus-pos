@@ -347,9 +347,22 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
           )}
         </div>
 
+        {hasMpesaPayment && mpesaStatus !== "completed" && !payments.find(p => p.method === "mpesa")?.reference && (
+          <p className="text-xs text-amber-600 text-center">
+            Confirm the M-Pesa payment via STK Push or enter the M-Pesa code manually before completing the sale.
+          </p>
+        )}
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={() => onConfirm(payments, bankAccountId === "none" ? null : bankAccountId, digitaxEnabled && pushToEtims)} disabled={totalPaid <= 0 || processing}>
+          <Button
+            onClick={() => onConfirm(payments, bankAccountId === "none" ? null : bankAccountId, digitaxEnabled && pushToEtims)}
+            disabled={
+              totalPaid <= 0 ||
+              processing ||
+              (hasMpesaPayment && mpesaStatus !== "completed" && !payments.find(p => p.method === "mpesa")?.reference)
+            }
+          >
             {processing ? "Processing..." : "Complete Sale"}
           </Button>
         </DialogFooter>
