@@ -359,7 +359,7 @@ const Inventory = () => {
         </Card>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Stock Value @ Purchase Price</p>
@@ -378,6 +378,24 @@ const Inventory = () => {
             <p className={`text-xl font-bold mt-1 ${expectedProfit < 0 ? "text-destructive" : "text-green-600"}`}>{fmt(expectedProfit)}</p>
           </CardContent>
         </Card>
+        <Link to="/reports?tab=aging">
+          <Card className="hover:border-amber-500/60 transition-colors cursor-pointer h-full">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Slow movers (30–90d)</p>
+              <p className="text-xl font-bold mt-1 text-amber-600">{aging.slow}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">View aging report →</p>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link to="/reports?tab=aging">
+          <Card className="hover:border-destructive/60 transition-colors cursor-pointer h-full">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Dead stock (&gt;90d / never)</p>
+              <p className="text-xl font-bold mt-1 text-destructive">{aging.dead}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">View aging report →</p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
