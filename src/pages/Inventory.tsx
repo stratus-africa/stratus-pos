@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -206,6 +208,43 @@ const Inventory = () => {
   const expectedProfit = dashboard.selling - dashboard.purchase;
   const fmt = (n: number) => `KES ${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
+  // Stock aging: last sold date per product to flag slow-movers & dead stock
+  const lastSalesQuery = useQuery({
+    queryKey: ["inventory-last-sales", business?.id],
+    queryFn: async () => {
+      if (!business) return new Map<string, string>();
+      const { data, error } = await supabase
+        .from("sale_items")
+        .select("product_id, sales!inner(business_id, created_at, status)")
+        .eq("sales.business_id", business.id)
+        .neq("sales.status", "cancelled")
+        .order("sales(created_at)", { ascending: false })
+        .limit(20000);
+      if (error) throw error;
+      const map = new Map<string, string>();
+      (data || []).forEach((r: any) => {
+        const pid = r.product_id; const ts = r.sales?.created_at;
+        if (pid && ts && !map.has(pid)) map.set(pid, ts);
+      });
+      return map;
+    },
+    enabled: !!business,
+  });
+
+  const aging = useMemo(() => {
+    const map = lastSalesQuery.data || new Map<string, string>();
+    const now = Date.now();
+    let slow = 0, dead = 0;
+    inventory.forEach((i) => {
+      if (Number(i.quantity) <= 0) return;
+      const ts = map.get(i.product_id);
+      const days = ts ? Math.floor((now - new Date(ts).getTime()) / 86400000) : null;
+      if (days === null || days > 90) dead++;
+      else if (days >= 30) slow++;
+    });
+    return { slow, dead };
+  }, [inventory, lastSalesQuery.data]);
+
   const handleAdjust = (data: AdjustStockSubmit) => {
     if (!user || !business) return;
     // For Purchase received, create a Purchase order — it handles inventory + stock_adjustments rows
@@ -320,7 +359,7 @@ const Inventory = () => {
         </Card>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Stock Value @ Purchase Price</p>
@@ -339,6 +378,24 @@ const Inventory = () => {
             <p className={`text-xl font-bold mt-1 ${expectedProfit < 0 ? "text-destructive" : "text-green-600"}`}>{fmt(expectedProfit)}</p>
           </CardContent>
         </Card>
+        <Link to="/reports?tab=aging">
+          <Card className="hover:border-amber-500/60 transition-colors cursor-pointer h-full">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Slow movers (30–90d)</p>
+              <p className="text-xl font-bold mt-1 text-amber-600">{aging.slow}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">View aging report →</p>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link to="/reports?tab=aging">
+          <Card className="hover:border-destructive/60 transition-colors cursor-pointer h-full">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Dead stock (&gt;90d / never)</p>
+              <p className="text-xl font-bold mt-1 text-destructive">{aging.dead}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">View aging report →</p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
