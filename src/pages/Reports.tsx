@@ -20,6 +20,7 @@ import EndOfDayReportTab from "@/components/reports/EndOfDayReportTab";
 import DailySalesReportTab from "@/components/reports/DailySalesReportTab";
 import ZReportTab from "@/components/reports/ZReportTab";
 import StockReportTab from "@/components/reports/StockReportTab";
+import StockAgingReportTab from "@/components/reports/StockAgingReportTab";
 import { useFeatureLimit, RequireFeature } from "@/components/FeatureGate";
 
 const today = new Date().toISOString().split("T")[0];
@@ -258,6 +259,11 @@ const Reports = () => {
               <Package className="h-4 w-4" /> Product Sales Report
             </TabsTrigger>
           )}
+          {canInventory && (
+            <TabsTrigger value="aging" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
+              <Clock className="h-4 w-4" /> Stock Aging
+            </TabsTrigger>
+          )}
           {canPnL && (
             <TabsTrigger value="pnl" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
               <TrendingUp className="h-4 w-4" /> P&amp;L
@@ -304,6 +310,11 @@ const Reports = () => {
           {canInventory && (
             <TabsContent value="stock" className="mt-0">
               <StockReportTab from={from} to={to} locationId={currentLocation?.id} initialProductId={urlProduct} />
+            </TabsContent>
+          )}
+          {canInventory && (
+            <TabsContent value="aging" className="mt-0">
+              <StockAgingReportTab />
             </TabsContent>
           )}
           {canPnL && (
