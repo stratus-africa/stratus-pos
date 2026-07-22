@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, Package, TrendingUp, ShoppingCart, Receipt, ClipboardList, Sun, Download, FileText } from "lucide-react";
+import { BarChart3, Package, TrendingUp, ShoppingCart, Receipt, ClipboardList, Sun, Download, FileText, Clock } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
