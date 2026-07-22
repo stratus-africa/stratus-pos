@@ -208,6 +208,43 @@ const Inventory = () => {
   const expectedProfit = dashboard.selling - dashboard.purchase;
   const fmt = (n: number) => `KES ${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
+  // Stock aging: last sold date per product to flag slow-movers & dead stock
+  const lastSalesQuery = useQuery({
+    queryKey: ["inventory-last-sales", business?.id],
+    queryFn: async () => {
+      if (!business) return new Map<string, string>();
+      const { data, error } = await supabase
+        .from("sale_items")
+        .select("product_id, sales!inner(business_id, created_at, status)")
+        .eq("sales.business_id", business.id)
+        .neq("sales.status", "cancelled")
+        .order("sales(created_at)", { ascending: false })
+        .limit(20000);
+      if (error) throw error;
+      const map = new Map<string, string>();
+      (data || []).forEach((r: any) => {
+        const pid = r.product_id; const ts = r.sales?.created_at;
+        if (pid && ts && !map.has(pid)) map.set(pid, ts);
+      });
+      return map;
+    },
+    enabled: !!business,
+  });
+
+  const aging = useMemo(() => {
+    const map = lastSalesQuery.data || new Map<string, string>();
+    const now = Date.now();
+    let slow = 0, dead = 0;
+    inventory.forEach((i) => {
+      if (Number(i.quantity) <= 0) return;
+      const ts = map.get(i.product_id);
+      const days = ts ? Math.floor((now - new Date(ts).getTime()) / 86400000) : null;
+      if (days === null || days > 90) dead++;
+      else if (days >= 30) slow++;
+    });
+    return { slow, dead };
+  }, [inventory, lastSalesQuery.data]);
+
   const handleAdjust = (data: AdjustStockSubmit) => {
     if (!user || !business) return;
     // For Purchase received, create a Purchase order — it handles inventory + stock_adjustments rows
