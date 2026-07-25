@@ -422,7 +422,7 @@ export function usePOS() {
           business_id: business.id,
           bank_account_id: bankAccountId,
           type: "payment_received",
-          amount: Math.min(totalPaid, cartTotal),
+          amount: Math.min(totalPaid, effectiveTotal),
           date: new Date().toISOString().split("T")[0],
           reference: invoiceNumber,
           description: `Sale ${invoiceNumber}`,
@@ -435,7 +435,7 @@ export function usePOS() {
 
         const { data: acc } = await supabase.from("bank_accounts").select("balance").eq("id", bankAccountId).single();
         if (acc) {
-          await supabase.from("bank_accounts").update({ balance: acc.balance + Math.min(totalPaid, cartTotal) }).eq("id", bankAccountId);
+          await supabase.from("bank_accounts").update({ balance: acc.balance + Math.min(totalPaid, effectiveTotal) }).eq("id", bankAccountId);
         }
       }
 
