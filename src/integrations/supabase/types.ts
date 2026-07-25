@@ -3098,6 +3098,7 @@ export type Database = {
           read_ct: number
         }[]
       }
+      read_vault_secret: { Args: { _name: string }; Returns: string }
       reject_offline_payment_request: {
         Args: { _id: string; _review_notes?: string }
         Returns: undefined
