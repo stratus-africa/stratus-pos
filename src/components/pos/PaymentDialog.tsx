@@ -51,7 +51,18 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
   const { enabled: digitaxEnabled } = useDigitaxEnabled();
   const [pushToEtims, setPushToEtims] = useState(true);
   const loyaltyEnabled = (business as { loyalty_enabled?: boolean } | null)?.loyalty_enabled === true;
+  const loyaltyMinRedeem = Number((business as { loyalty_min_redeem_points?: number } | null)?.loyalty_min_redeem_points ?? 0);
+  const loyaltyMinPurchase = Number((business as { loyalty_min_purchase_amount?: number } | null)?.loyalty_min_purchase_amount ?? 0);
+  const loyaltyKesPerPoint = Number((business as { loyalty_kes_per_point?: number } | null)?.loyalty_kes_per_point ?? 1);
+  const loyaltyPointsPerKes = Number((business as { loyalty_points_per_kes?: number } | null)?.loyalty_points_per_kes ?? 1);
   const [loyaltyPhone, setLoyaltyPhone] = useState("");
+  const [loyaltyName, setLoyaltyName] = useState("");
+  const [loyaltyLookup, setLoyaltyLookup] = useState<{ id: string | null; name: string; points: number } | null>(null);
+  const [loyaltyLoading, setLoyaltyLoading] = useState(false);
+  const [redeemPoints, setRedeemPoints] = useState<number>(0);
+
+  const redemptionValue = Math.min(redeemPoints * loyaltyKesPerPoint, total);
+  const adjustedTotal = Math.max(0, total - redemptionValue);
 
   // M-Pesa STK Push state
   const [mpesaPhone, setMpesaPhone] = useState("");
@@ -60,8 +71,8 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const totalPaid = payments.reduce((s, p) => s + (p.amount || 0), 0);
-  const change = Math.max(0, totalPaid - total);
-  const remaining = Math.max(0, total - totalPaid);
+  const change = Math.max(0, totalPaid - adjustedTotal);
+  const remaining = Math.max(0, adjustedTotal - totalPaid);
 
   const hasMpesaPayment = payments.some(p => p.method === "mpesa");
 
