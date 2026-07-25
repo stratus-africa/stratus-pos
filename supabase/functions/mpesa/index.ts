@@ -29,14 +29,17 @@ async function loadBusinessCreds(businessId: string | undefined): Promise<MpesaC
     const wanted = [names.consumer_key, names.consumer_secret, names.passkey].filter(Boolean) as string[];
     if (wanted.length === 0) return {};
 
-    const { data: secrets } = await supabase
-      .schema("vault" as never)
-      .from("decrypted_secrets" as never)
-      .select("name, decrypted_secret")
-      .in("name", wanted);
-
     const byName: Record<string, string> = {};
-    for (const s of (secrets as any[]) || []) byName[s.name] = s.decrypted_secret;
+    await Promise.all(
+      wanted.map(async (n) => {
+        const { data, error } = await supabase.rpc("read_vault_secret", { _name: n });
+        if (error) {
+          console.warn("read_vault_secret failed for", n, error.message);
+          return;
+        }
+        if (typeof data === "string") byName[n] = data;
+      })
+    );
 
     return {
       consumerKey: names.consumer_key ? byName[names.consumer_key] : undefined,
