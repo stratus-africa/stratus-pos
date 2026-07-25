@@ -1,5 +1,7 @@
 // Shared receipt template config used by Settings editor and printable receipts.
 
+export type QRCodeType = "invoice_url" | "fiscal_url" | "custom";
+
 export interface ReceiptConfig {
   header: string;
   footer: string;
@@ -13,6 +15,11 @@ export interface ReceiptConfig {
   headerFontSize: number;
   showServedBy: boolean;
   showPrintedAt: boolean;
+  showQRCode: boolean;
+  qrCodeType: QRCodeType;
+  qrCodeCustomValue: string;
+  qrCodeSize: number;
+  qrCodeLabel: string;
 }
 
 export const defaultReceiptConfig: ReceiptConfig = {
@@ -28,6 +35,11 @@ export const defaultReceiptConfig: ReceiptConfig = {
   headerFontSize: 14,
   showServedBy: true,
   showPrintedAt: true,
+  showQRCode: false,
+  qrCodeType: "invoice_url",
+  qrCodeCustomValue: "",
+  qrCodeSize: 96,
+  qrCodeLabel: "Scan to view",
 };
 
 const key = (businessId: string) => `receipt_config_${businessId}`;

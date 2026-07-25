@@ -4,6 +4,7 @@ import { Separator } from "@/components/ui/separator";
 import { Printer } from "lucide-react";
 import { useRef } from "react";
 import { format } from "date-fns";
+import { QRCodeSVG } from "qrcode.react";
 import { CartItem, PaymentEntry } from "@/hooks/usePOS";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { loadReceiptConfig } from "@/lib/receiptTemplate";
@@ -47,6 +48,20 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
   const showLogo = cfg.showLogo && !!business?.logo_url;
 
   if (!data) return null;
+
+  const qrValue = (() => {
+    if (!cfg.showQRCode) return "";
+    if (cfg.qrCodeType === "fiscal_url") return data.fiscal?.fiscal_verification_url || "";
+    if (cfg.qrCodeType === "custom") {
+      return (cfg.qrCodeCustomValue || "")
+        .replace(/\{invoice\}/g, data.invoiceNumber)
+        .replace(/\{total\}/g, String(data.total))
+        .replace(/\{business\}/g, data.businessName);
+    }
+    // invoice_url default
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    return `${origin}/invoice/${encodeURIComponent(data.invoiceNumber)}`;
+  })();
 
   const handlePrint = () => {
     const content = receiptRef.current;
@@ -159,6 +174,18 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
                   <p className="text-[10px] text-red-600 break-words">{data.fiscal.fiscal_error}</p>
                 )}
                 <p className="text-[10px] italic">Fix the issue and retry from Sales list.</p>
+              </div>
+            </>
+          )}
+
+          {cfg.showQRCode && qrValue && (
+            <>
+              <div className="line border-t border-dashed border-foreground/30 my-2" />
+              <div className="text-center space-y-1">
+                <div className="flex justify-center">
+                  <QRCodeSVG value={qrValue} size={cfg.qrCodeSize} level="M" includeMargin={false} />
+                </div>
+                {cfg.qrCodeLabel && <p className="text-[10px]">{cfg.qrCodeLabel}</p>}
               </div>
             </>
           )}
