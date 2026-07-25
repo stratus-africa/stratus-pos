@@ -18,6 +18,7 @@ import {
   Lock,
   ShieldCheck,
   UserCircle,
+  UserCog,
 } from "lucide-react";
 import { useFeatureLimit } from "@/components/FeatureGate";
 import { useDigitaxEnabled } from "@/hooks/useDigitax";
