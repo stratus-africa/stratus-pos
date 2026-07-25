@@ -134,6 +134,7 @@ const StoresManagerDashboard = lazy(() => import("./pages/StoresManagerDashboard
 const JournalEntries = lazy(() => import("./pages/JournalEntries"));
 const Banking = lazy(() => import("./pages/Banking"));
 const Digitax = lazy(() => import("./pages/Digitax"));
+const HR = lazy(() => import("./pages/HR"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const Landing = lazy(() => import("./pages/Landing"));
