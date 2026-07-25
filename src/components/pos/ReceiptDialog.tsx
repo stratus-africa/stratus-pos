@@ -61,12 +61,13 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
         .right { text-align: right; }
         .bold { font-weight: bold; }
         .line { border-top: 1px dashed #000; margin: 6px 0; }
+        img { max-height: 60px; display: block; margin: 0 auto 4px; }
         table { width: 100%; border-collapse: collapse; }
         td { padding: 2px 0; }
         @media print { body { margin: 0; } }
       </style></head><body>
       ${content.innerHTML}
-      <script>window.print();window.close();</script>
+      <script>setTimeout(function(){window.print();window.close();}, 250);</script>
       </body></html>
     `);
     win.document.close();
