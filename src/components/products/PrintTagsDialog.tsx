@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { Printer } from "lucide-react";
+import { loadPriceTagConfig, PRICE_TAG_LAYOUTS, type PriceTagConfig } from "@/lib/priceTagTemplate";
 
 export interface PrintTagItem {
   id: string;
@@ -14,7 +15,6 @@ export interface PrintTagItem {
   sku?: string | null;
   barcode?: string | null;
   selling_price: number;
-  /** Optional batch details for batch price tags. */
   batch_number?: string | null;
   expiry_date?: string | null;
 }
@@ -25,33 +25,28 @@ interface Props {
   items: PrintTagItem[];
 }
 
-const LAYOUTS: Record<string, { cols: number; rows: number; label: string }> = {
-  "30": { cols: 3, rows: 10, label: "30 per page (3×10)" },
-  "24": { cols: 3, rows: 8, label: "24 per page (3×8)" },
-  "12": { cols: 2, rows: 6, label: "12 per page (2×6)" },
-};
-
-/** Renders a barcode SVG for the given value. Falls back to the SKU/name when no barcode is set. */
 function BarcodeSvg({ value }: { value: string }) {
   const ref = useRef<SVGSVGElement>(null);
   useEffect(() => {
     if (!ref.current || !value) return;
     try {
       JsBarcode(ref.current, value, { format: "CODE128", displayValue: false, margin: 0, height: 32, width: 1.4 });
-    } catch {
-      /* ignore invalid values */
-    }
+    } catch {}
   }, [value]);
   return <svg ref={ref} className="w-full h-8" />;
 }
 
 export function PrintTagsDialog({ open, onOpenChange, items }: Props) {
   const { business } = useBusiness();
-  const [layoutKey, setLayoutKey] = useState<keyof typeof LAYOUTS>("30");
+  const [cfg, setCfg] = useState<PriceTagConfig>(() => loadPriceTagConfig(business?.id));
+  useEffect(() => { setCfg(loadPriceTagConfig(business?.id)); }, [business?.id, open]);
+
+  const [layoutKey, setLayoutKey] = useState<PriceTagConfig["layout"]>(cfg.layout);
+  useEffect(() => { setLayoutKey(cfg.layout); }, [cfg.layout]);
   const [copiesPerItem, setCopiesPerItem] = useState(1);
   const currency = business?.currency || "KES";
 
-  const layout = LAYOUTS[layoutKey];
+  const layout = PRICE_TAG_LAYOUTS[layoutKey];
 
   const expanded = useMemo(() => {
     const arr: PrintTagItem[] = [];
@@ -60,7 +55,14 @@ export function PrintTagsDialog({ open, onOpenChange, items }: Props) {
     return arr;
   }, [items, copiesPerItem]);
 
-  const formatPrice = (v: number) => new Intl.NumberFormat("en-KE", { style: "currency", currency, maximumFractionDigits: 2 }).format(v || 0);
+  const formatPrice = (v: number) =>
+    new Intl.NumberFormat("en-KE", {
+      style: cfg.showCurrency ? "currency" : "decimal",
+      currency,
+      maximumFractionDigits: 2,
+    }).format(v || 0);
+
+  const borderCss = cfg.borderStyle === "none" ? "none" : `1px ${cfg.borderStyle} ${cfg.borderColor}`;
 
   const handlePrint = () => {
     const node = document.getElementById("print-tags-sheet");
@@ -70,13 +72,9 @@ export function PrintTagsDialog({ open, onOpenChange, items }: Props) {
     win.document.write(`<!doctype html><html><head><title>Price tags</title>
       <style>
         @page { size: A4; margin: 8mm; }
-        body { font-family: system-ui, -apple-system, sans-serif; margin: 0; }
+        body { font-family: ${cfg.fontFamily}; margin: 0; background: #fff; }
         .sheet { display: grid; grid-template-columns: repeat(${layout.cols}, 1fr); gap: 4mm; }
-        .tag { border: 1px dashed #cbd5e1; border-radius: 4px; padding: 6px 8px; display: flex; flex-direction: column; justify-content: space-between; min-height: 70px; page-break-inside: avoid; }
-        .tag .name { font-weight: 600; font-size: 12px; line-height: 1.2; }
-        .tag .sku { font-size: 10px; color: #64748b; }
-        .tag .price { font-weight: 700; font-size: 14px; }
-        .tag .batch { font-size: 10px; color: #334155; }
+        .tag { border: ${borderCss}; border-radius: 4px; padding: 6px 8px; display: flex; flex-direction: column; justify-content: space-between; min-height: 70px; page-break-inside: avoid; background: ${cfg.backgroundColor}; }
         .tag svg { width: 100%; height: 30px; }
       </style></head><body>${node.innerHTML}</body></html>`);
     win.document.close();
@@ -92,10 +90,10 @@ export function PrintTagsDialog({ open, onOpenChange, items }: Props) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label>Layout</Label>
-            <Select value={layoutKey} onValueChange={(v) => setLayoutKey(v as keyof typeof LAYOUTS)}>
+            <Select value={layoutKey} onValueChange={(v) => setLayoutKey(v as PriceTagConfig["layout"])}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {Object.entries(LAYOUTS).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
+                {Object.entries(PRICE_TAG_LAYOUTS).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -104,23 +102,54 @@ export function PrintTagsDialog({ open, onOpenChange, items }: Props) {
             <Input type="number" min={1} max={50} value={copiesPerItem} onChange={(e) => setCopiesPerItem(Number(e.target.value) || 1)} />
           </div>
         </div>
+        <p className="text-xs text-muted-foreground -mt-2">
+          Design and defaults can be customized in Settings → Customization.
+        </p>
 
         <div className="border rounded-md p-3 max-h-[50vh] overflow-auto bg-muted/30">
           <div id="print-tags-sheet">
             <div className="sheet" style={{ display: "grid", gridTemplateColumns: `repeat(${layout.cols}, minmax(0, 1fr))`, gap: "4mm" }}>
               {expanded.map((it, i) => (
-                <div key={i} className="tag" style={{ border: "1px dashed #cbd5e1", borderRadius: 4, padding: "6px 8px", background: "white" }}>
+                <div
+                  key={i}
+                  className="tag"
+                  style={{
+                    border: borderCss,
+                    borderRadius: 4,
+                    padding: "6px 8px",
+                    background: cfg.backgroundColor,
+                    fontFamily: cfg.fontFamily,
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    minHeight: 70,
+                  }}
+                >
                   <div>
-                    <div className="name" style={{ fontWeight: 600, fontSize: 12 }}>{it.name}</div>
-                    {it.sku && <div className="sku" style={{ fontSize: 10, color: "#64748b" }}>SKU: {it.sku}</div>}
-                    {it.batch_number && (
-                      <div className="batch" style={{ fontSize: 10, color: "#334155" }}>
+                    {cfg.showBusinessName && business?.name && (
+                      <div style={{ fontSize: 10, color: "#64748b" }}>{business.name}</div>
+                    )}
+                    {cfg.showProductName && (
+                      <div style={{ fontWeight: 600, fontSize: cfg.nameFontSize, lineHeight: 1.2 }}>{it.name}</div>
+                    )}
+                    {cfg.showSku && it.sku && (
+                      <div style={{ fontSize: 10, color: "#64748b" }}>SKU: {it.sku}</div>
+                    )}
+                    {cfg.showBatch && it.batch_number && (
+                      <div style={{ fontSize: 10, color: "#334155" }}>
                         Batch: {it.batch_number}{it.expiry_date ? ` · Exp ${new Date(it.expiry_date).toLocaleDateString()}` : ""}
                       </div>
                     )}
                   </div>
-                  <BarcodeSvg value={it.barcode || it.sku || it.id} />
-                  <div className="price" style={{ fontWeight: 700, fontSize: 14 }}>{formatPrice(Number(it.selling_price))}</div>
+                  {cfg.showBarcode && <BarcodeSvg value={it.barcode || it.sku || it.id} />}
+                  {cfg.showPrice && (
+                    <div style={{ fontWeight: 700, fontSize: cfg.priceFontSize, color: cfg.priceColor }}>
+                      {formatPrice(Number(it.selling_price))}
+                    </div>
+                  )}
+                  {cfg.footerText && (
+                    <div style={{ fontSize: 9, color: "#64748b", textAlign: "center" }}>{cfg.footerText}</div>
+                  )}
                 </div>
               ))}
             </div>

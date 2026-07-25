@@ -5,6 +5,7 @@ import { BrandingTab } from "@/components/settings/BrandingTab";
 import { LocationsTab } from "@/components/settings/LocationsTab";
 import { UserManagementTab } from "@/components/settings/UserManagementTab";
 import { ReceiptSettingsTab } from "@/components/settings/ReceiptSettingsTab";
+import { PriceTagSettingsTab } from "@/components/settings/PriceTagSettingsTab";
 import { SubscriptionTab } from "@/components/settings/SubscriptionTab";
 import { RolesPermissionsTab } from "@/components/settings/RolesPermissionsTab";
 import { PaymentAccountsTab } from "@/components/settings/PaymentAccountsTab";
@@ -46,7 +47,12 @@ const SettingsPage = () => {
     { key: "roles", label: "Roles", icon: <ShieldCheck className="h-4 w-4" />, permission: "roles.view", render: () => <RolesPermissionsTab /> },
     { key: "payments", label: "Payment Accounts", icon: <Wallet className="h-4 w-4" />, permission: "banking.view", render: () => <PaymentAccountsTab /> },
     { key: "gateways", label: "Payment Gateways", icon: <Smartphone className="h-4 w-4" />, permission: "settings.edit", render: () => <PaymentGatewaysTab /> },
-    { key: "receipt", label: "Receipt", icon: <Receipt className="h-4 w-4" />, permission: "settings.edit", render: () => <ReceiptSettingsTab /> },
+    { key: "receipt", label: "Customization", icon: <Receipt className="h-4 w-4" />, permission: "settings.edit", render: () => (
+      <div className="space-y-6">
+        <ReceiptSettingsTab />
+        <PriceTagSettingsTab />
+      </div>
+    ) },
     { key: "numbering", label: "Numbering", icon: <Hash className="h-4 w-4" />, permission: "settings.edit", render: () => <NumberSeriesTab /> },
     { key: "integrations", label: "Integrations", icon: <Plug className="h-4 w-4" />, permission: "settings.edit", render: () => <IntegrationsTab /> },
     { key: "digitax", label: "Tax Compliance", icon: <FileCheck2 className="h-4 w-4" />, permission: "settings.edit", featureKey: "digitax", render: () => <DigitaxSettingsTab /> },
