@@ -3,12 +3,51 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-import { initiateSTKPush, querySTKPushStatus, initiateB2C, formatPhoneNumber } from "../_shared/mpesa.ts";
+import { initiateSTKPush, querySTKPushStatus, initiateB2C, formatPhoneNumber, type MpesaCreds } from "../_shared/mpesa.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
+
+async function loadBusinessCreds(businessId: string | undefined): Promise<MpesaCreds> {
+  if (!businessId) return {};
+  try {
+    const { data: row } = await supabase
+      .from("business_payment_credentials")
+      .select("has_credentials, vault_secret_names")
+      .eq("business_id", businessId)
+      .eq("provider", "mpesa")
+      .maybeSingle();
+
+    if (!row?.has_credentials || !row.vault_secret_names) return {};
+    const names = row.vault_secret_names as {
+      consumer_key?: string;
+      consumer_secret?: string;
+      passkey?: string;
+    };
+    const wanted = [names.consumer_key, names.consumer_secret, names.passkey].filter(Boolean) as string[];
+    if (wanted.length === 0) return {};
+
+    const { data: secrets } = await supabase
+      .schema("vault" as never)
+      .from("decrypted_secrets" as never)
+      .select("name, decrypted_secret")
+      .in("name", wanted);
+
+    const byName: Record<string, string> = {};
+    for (const s of (secrets as any[]) || []) byName[s.name] = s.decrypted_secret;
+
+    return {
+      consumerKey: names.consumer_key ? byName[names.consumer_key] : undefined,
+      consumerSecret: names.consumer_secret ? byName[names.consumer_secret] : undefined,
+      passkey: names.passkey ? byName[names.passkey] : undefined,
+    };
+  } catch (e) {
+    console.warn("loadBusinessCreds failed", e);
+    return {};
+  }
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -59,6 +98,7 @@ Deno.serve(async (req) => {
       }
 
       const callbackUrl = `${callbackBaseUrl}/mpesa-callback?type=stk`;
+      const creds = await loadBusinessCreds(businessId);
 
       const result = await initiateSTKPush(
         {
@@ -68,7 +108,8 @@ Deno.serve(async (req) => {
           transactionDesc: `Payment for ${accountReference || "sale"}`,
           callbackUrl,
         },
-        "live"
+        "live",
+        creds
       );
 
       // Record in DB
@@ -96,7 +137,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "stk-query") {
-      const { checkoutRequestId } = body;
+      const { checkoutRequestId, businessId: qBusinessId } = body;
       if (!checkoutRequestId) {
         return new Response(
           JSON.stringify({ error: "checkoutRequestId is required" }),
@@ -104,7 +145,18 @@ Deno.serve(async (req) => {
         );
       }
 
-      const result = await querySTKPushStatus(checkoutRequestId, "live");
+      let bizId = qBusinessId as string | undefined;
+      if (!bizId) {
+        const { data: txn } = await supabase
+          .from("mpesa_transactions")
+          .select("business_id")
+          .eq("checkout_request_id", checkoutRequestId)
+          .maybeSingle();
+        bizId = (txn as any)?.business_id;
+      }
+      const creds = await loadBusinessCreds(bizId);
+      const result = await querySTKPushStatus(checkoutRequestId, "live", creds);
+
 
       return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -123,6 +175,7 @@ Deno.serve(async (req) => {
 
       const resultUrl = `${callbackBaseUrl}/mpesa-callback?type=b2c`;
       const timeoutUrl = `${callbackBaseUrl}/mpesa-callback?type=b2c-timeout`;
+      const b2cCreds = await loadBusinessCreds(businessId);
 
       const result = await initiateB2C(
         {
@@ -132,7 +185,8 @@ Deno.serve(async (req) => {
           resultUrl,
           timeoutUrl,
         },
-        "live"
+        "live",
+        b2cCreds
       );
 
       await supabase.from("mpesa_transactions").insert({
