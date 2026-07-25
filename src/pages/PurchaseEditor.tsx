@@ -517,6 +517,7 @@ export default function PurchaseEditor() {
                     <TableHead className="w-[90px]">Qty</TableHead>
                     <TableHead className="w-[110px]">Unit Cost</TableHead>
                     <TableHead className="w-[110px]">Total</TableHead>
+                    {vatEnabled && <TableHead className="w-[160px]">VAT</TableHead>}
                     <TableHead className="w-[130px]">New Sell Price</TableHead>
                     <TableHead className="w-[40px]"></TableHead>
                   </TableRow>
@@ -524,6 +525,7 @@ export default function PurchaseEditor() {
                 <TableBody>
                   {items.map((item, idx) => {
                     const currentProduct = productsQuery.data?.find((p) => p.id === item.product_id);
+                    const effectiveRateId = item.tax_rate_id || (defaultTaxRate?.id ?? "");
                     return (
                       <TableRow key={idx}>
                         <TableCell className="font-medium">
@@ -541,6 +543,32 @@ export default function PurchaseEditor() {
                         <TableCell>
                           <Input type="number" min={0} step={0.01} value={item.total} onChange={(e) => updateItem(idx, "total", parseFloat(e.target.value) || 0)} className="h-8" />
                         </TableCell>
+                        {vatEnabled && (
+                          <TableCell>
+                            {activeTaxRates.length === 0 ? (
+                              <span className="text-[11px] text-muted-foreground">Default ({taxRate}%)</span>
+                            ) : (
+                              <Select
+                                value={effectiveRateId || "__default__"}
+                                onValueChange={(v) => {
+                                  const next = [...items];
+                                  next[idx] = { ...next[idx], tax_rate_id: v === "__default__" ? null : v };
+                                  setItems(next);
+                                }}
+                              >
+                                <SelectTrigger className="h-8"><SelectValue placeholder="Select VAT" /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="__default__">Default ({taxRate}%)</SelectItem>
+                                  {activeTaxRates.map((r) => (
+                                    <SelectItem key={r.id} value={r.id}>
+                                      {r.name} [{Number(r.rate).toFixed(r.rate % 1 ? 1 : 0)}%]
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </TableCell>
+                        )}
                         <TableCell>
                           <Input
                             type="number"
@@ -573,7 +601,7 @@ export default function PurchaseEditor() {
             <div className="flex justify-end">
               <div className="space-y-1 text-right text-sm">
                 <div>Subtotal: <span className="font-medium">{formatKES(subtotal)}</span></div>
-                <div>Tax {vatEnabled ? `(${taxRate}%)` : "(VAT off)"}: <span className="font-medium">{formatKES(tax)}</span></div>
+                <div>Tax {vatEnabled ? "(per-line)" : "(VAT off)"}: <span className="font-medium">{formatKES(tax)}</span></div>
                 <div className="text-base font-bold">Total: {formatKES(total)}</div>
               </div>
             </div>
