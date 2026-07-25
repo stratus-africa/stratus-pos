@@ -93,11 +93,11 @@ export function TopBar() {
                 <Receipt className="h-3.5 w-3.5 mr-1" />
                 Expense
               </Button>
-              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setZReportOpen(true)}>
+              <Button size="sm" variant="outline" className="hidden sm:inline-flex h-7 text-xs" onClick={() => setZReportOpen(true)}>
                 <FileText className="h-3.5 w-3.5 mr-1" />
                 Z Report
               </Button>
-              <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => setEndDayOpen(true)}>
+              <Button size="sm" variant="destructive" className="hidden sm:inline-flex h-7 text-xs" onClick={() => setEndDayOpen(true)}>
                 <Sunset className="h-3.5 w-3.5 mr-1" />
                 End Day
               </Button>
