@@ -348,7 +348,42 @@ export function BusinessProfileTab() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Customer Loyalty */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Customer Loyalty</CardTitle>
+          <CardDescription>
+            Award points to customers on every sale. Cashiers can capture a customer's phone at payment time.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base">Loyalty program enabled</Label>
+              <p className="text-sm text-muted-foreground">Show the loyalty phone field on the payment dialog.</p>
+            </div>
+            <Switch checked={loyaltyEnabled} onCheckedChange={setLoyaltyEnabled} />
+          </div>
+          {loyaltyEnabled && (
+            <div className="space-y-2 max-w-xs">
+              <Label>Points earned per KES 1 spent</Label>
+              <Input
+                type="number"
+                min={0.01}
+                step={0.01}
+                value={loyaltyPointsPerKes}
+                onChange={(e) => setLoyaltyPointsPerKes(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Example: 1 = 1 point per KES 1 spent (KES 500 sale → 500 points).
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
       </div>
+
 
 
       <div className="flex justify-end">
