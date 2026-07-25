@@ -17,7 +17,7 @@ import {
   Palmtree, Stethoscope, Baby, Heart, GraduationCap, PlaneTakeoff, Briefcase as BriefcaseIcon,
   CalendarDays, Wallet,
 } from "lucide-react";
-import { DynamicIcon } from "lucide-react/dynamic";
+import { icons as LucideIcons } from "lucide-react";
 import {
   useEmployees, useMyEmployee, useLeaveTypes, useLeaveRequests, usePayslips,
   useHRAccess, useLinkableUsers, useLeaveAdjustments, usePayrollRuns,
