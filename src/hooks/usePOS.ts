@@ -334,6 +334,8 @@ export function usePOS() {
           if (picks.length > 0) batchId = picks[0].batch_id;
           batchDeductions.push(...picks);
         }
+        // Resolve which tax_rate_id to persist. Fall back to the business default.
+        const resolvedTaxRateId = i.tax_rate_id ?? defaultTaxRate?.id ?? null;
         saleItems.push({
           sale_id: saleId,
           product_id: i.product.id,
@@ -342,7 +344,9 @@ export function usePOS() {
           discount: i.discount,
           total: i.unit_price * i.quantity - i.discount,
           batch_id: batchId,
+          tax_rate_id: vatEnabled ? resolvedTaxRateId : null,
         });
+
       }
       const { error: itemsErr } = await supabase.from("sale_items").insert(saleItems);
       if (itemsErr) throw itemsErr;
