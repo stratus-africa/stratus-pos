@@ -44,6 +44,7 @@ export interface PurchaseItem {
   quantity: number;
   unit_cost: number;
   total: number;
+  tax_rate_id?: string | null;
   products?: { name: string } | null;
 }
 
@@ -217,7 +218,7 @@ export function usePurchases() {
       if (items.length > 0) {
         const { error: iError } = await supabase
           .from("purchase_items")
-          .insert(items.map((i) => ({ purchase_id: purchaseId, product_id: i.product_id, quantity: i.quantity, unit_cost: i.unit_cost, total: i.total })));
+          .insert(items.map((i) => ({ purchase_id: purchaseId, product_id: i.product_id, quantity: i.quantity, unit_cost: i.unit_cost, total: i.total, tax_rate_id: i.tax_rate_id ?? null })));
         if (iError) throw iError;
       }
 
@@ -303,7 +304,7 @@ export function usePurchases() {
       if (items.length > 0) {
         const { error: iError } = await supabase
           .from("purchase_items")
-          .insert(items.map((i) => ({ purchase_id: id, product_id: i.product_id, quantity: i.quantity, unit_cost: i.unit_cost, total: i.total })));
+          .insert(items.map((i) => ({ purchase_id: id, product_id: i.product_id, quantity: i.quantity, unit_cost: i.unit_cost, total: i.total, tax_rate_id: i.tax_rate_id ?? null })));
         if (iError) throw iError;
       }
 

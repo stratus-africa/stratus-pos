@@ -1,0 +1,2 @@
+ALTER TABLE public.purchase_items ADD COLUMN IF NOT EXISTS tax_rate_id uuid REFERENCES public.tax_rates(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_purchase_items_tax_rate ON public.purchase_items(tax_rate_id);
