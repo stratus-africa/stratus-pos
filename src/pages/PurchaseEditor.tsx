@@ -12,6 +12,7 @@ import { Plus, Trash2, AlertCircle, UserPlus, ArrowLeft, ScanLine, Ban } from "l
 import { toast } from "sonner";
 import { useSuppliers, usePurchases, type PurchaseItem } from "@/hooks/usePurchases";
 import { useProducts } from "@/hooks/useProducts";
+import { useTaxRates } from "@/hooks/useTaxRates";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,6 +33,9 @@ export default function PurchaseEditor() {
   const { locations, currentLocation, business } = useBusiness();
   const { user } = useAuth();
   const { data: bankAccounts } = useBankAccounts();
+  const { query: taxRatesQuery } = useTaxRates();
+  const activeTaxRates = (taxRatesQuery.data || []).filter((r) => r.is_active);
+  const defaultTaxRate = activeTaxRates.find((r) => r.is_default);
 
   const orgVatEnabled = (business as any)?.vat_enabled ?? true;
   const orgTaxInclusive = (business as any)?.tax_inclusive_pricing ?? false;
