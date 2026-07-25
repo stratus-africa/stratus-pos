@@ -120,12 +120,27 @@ export default function PurchaseEditor() {
     }]);
   };
 
-  const updateItem = (idx: number, field: "quantity" | "unit_cost", value: number) => {
+  // Editable fields: qty, unit_cost, total. When qty or unit_cost changes, total = qty * unit_cost.
+  // When total changes, unit_cost = total / qty (qty stays fixed).
+  const updateItem = (idx: number, field: "quantity" | "unit_cost" | "total", value: number) => {
     const updated = [...items];
-    updated[idx] = { ...updated[idx], [field]: value, total: field === "quantity" ? value * updated[idx].unit_cost : updated[idx].quantity * value };
+    const row = { ...updated[idx] };
+    if (field === "quantity") {
+      row.quantity = value;
+      row.total = value * row.unit_cost;
+    } else if (field === "unit_cost") {
+      row.unit_cost = value;
+      row.total = row.quantity * value;
+    } else {
+      row.total = value;
+      row.unit_cost = row.quantity > 0 ? value / row.quantity : 0;
+    }
+    updated[idx] = row;
     setItems(updated);
   };
 
+  // Per-line "update selling price" overrides. Keyed by product_id. Empty = no change.
+  const [sellingPriceOverrides, setSellingPriceOverrides] = useState<Record<string, string>>({});
   const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
 
   const subtotal = items.reduce((s, i) => s + i.total, 0);
@@ -233,10 +248,28 @@ export default function PurchaseEditor() {
       created_by: user.id,
     };
 
+    const applySellingPriceOverrides = async () => {
+      const entries = Object.entries(sellingPriceOverrides)
+        .map(([pid, v]) => [pid, parseFloat(v)] as const)
+        .filter(([, n]) => Number.isFinite(n) && n > 0);
+      if (entries.length === 0) return;
+      await Promise.all(
+        entries.map(([pid, price]) =>
+          supabase.from("products").update({ selling_price: price }).eq("id", pid)
+        )
+      );
+      toast.success(`Updated selling price on ${entries.length} product(s)`);
+    };
+
+    const onDone = async () => {
+      await applySellingPriceOverrides();
+      navigate("/purchases");
+    };
+
     if (isEditing && id) {
-      updatePurchase.mutate({ id, purchase, items, additionalPayment }, { onSuccess: () => navigate("/purchases") });
+      updatePurchase.mutate({ id, purchase, items, additionalPayment }, { onSuccess: onDone });
     } else {
-      createPurchase.mutate({ purchase, items, paidThrough }, { onSuccess: () => navigate("/purchases") });
+      createPurchase.mutate({ purchase, items, paidThrough }, { onSuccess: onDone });
     }
   };
 
@@ -436,35 +469,61 @@ export default function PurchaseEditor() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Product</TableHead>
-                    <TableHead className="w-[100px]">Qty</TableHead>
-                    <TableHead className="w-[120px]">Unit Cost</TableHead>
-                    <TableHead className="text-right w-[120px]">Total</TableHead>
+                    <TableHead className="w-[90px]">Qty</TableHead>
+                    <TableHead className="w-[110px]">Unit Cost</TableHead>
+                    <TableHead className="w-[110px]">Total</TableHead>
+                    <TableHead className="w-[130px]">New Sell Price</TableHead>
                     <TableHead className="w-[40px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {items.map((item, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell className="font-medium">{item.products?.name}</TableCell>
-                      <TableCell>
-                        <Input type="number" min={1} step={0.01} value={item.quantity} onChange={(e) => updateItem(idx, "quantity", parseFloat(e.target.value) || 1)} className="h-8" />
-                      </TableCell>
-                      <TableCell>
-                        <Input type="number" min={0} step={0.01} value={item.unit_cost} onChange={(e) => updateItem(idx, "unit_cost", parseFloat(e.target.value) || 0)} className="h-8" />
-                      </TableCell>
-                      <TableCell className="text-right">{formatKES(item.total)}</TableCell>
-                      <TableCell>
-                        <Button type="button" size="icon" variant="ghost" onClick={() => removeItem(idx)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {items.map((item, idx) => {
+                    const currentProduct = productsQuery.data?.find((p) => p.id === item.product_id);
+                    return (
+                      <TableRow key={idx}>
+                        <TableCell className="font-medium">
+                          <div>{item.products?.name}</div>
+                          {currentProduct && (
+                            <div className="text-[11px] text-muted-foreground">Sells at {formatKES(currentProduct.selling_price)}</div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Input type="number" min={0.01} step={0.01} value={item.quantity} onChange={(e) => updateItem(idx, "quantity", parseFloat(e.target.value) || 1)} className="h-8" />
+                        </TableCell>
+                        <TableCell>
+                          <Input type="number" min={0} step={0.01} value={item.unit_cost} onChange={(e) => updateItem(idx, "unit_cost", parseFloat(e.target.value) || 0)} className="h-8" />
+                        </TableCell>
+                        <TableCell>
+                          <Input type="number" min={0} step={0.01} value={item.total} onChange={(e) => updateItem(idx, "total", parseFloat(e.target.value) || 0)} className="h-8" />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            value={sellingPriceOverrides[item.product_id] ?? ""}
+                            onChange={(e) => setSellingPriceOverrides((prev) => ({ ...prev, [item.product_id]: e.target.value }))}
+                            placeholder="—"
+                            className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Button type="button" size="icon" variant="ghost" onClick={() => removeItem(idx)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-6">No items yet. Add products or scan a barcode.</p>
             )}
+
+            <p className="text-xs text-muted-foreground">
+              Tip: enter <strong>Total</strong> and the Unit Cost auto-computes from Total ÷ Qty. Fill <strong>New Sell Price</strong> to update the product's selling price when saving.
+            </p>
 
             <div className="flex justify-end">
               <div className="space-y-1 text-right text-sm">
@@ -475,6 +534,7 @@ export default function PurchaseEditor() {
             </div>
           </CardContent>
         </Card>
+
 
         {showPaymentSection && (
           <Card>

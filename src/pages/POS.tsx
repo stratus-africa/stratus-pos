@@ -27,6 +27,7 @@ import BarcodeScanner from "@/components/BarcodeScanner";
 import { CartItemRow } from "@/components/pos/CartItemRow";
 import { logAudit } from "@/lib/audit";
 import { CartItem } from "@/hooks/usePOS";
+import { supabase } from "@/integrations/supabase/client";
 
 const POS = () => {
   const { productsQuery } = useProducts();
@@ -143,7 +144,46 @@ const POS = () => {
     [products, search, categoryFilter, stockMap, hideZeroStock]
   );
 
-  const handlePaymentConfirm = async (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean) => {
+  const handlePaymentConfirm = async (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean, loyaltyPhone: string | null) => {
+    // Loyalty capture: if a phone was provided and loyalty is enabled, link/create the customer
+    // BEFORE the sale is written so points and customer_id land on the correct record.
+    if (loyaltyPhone && business) {
+      try {
+        const cleanPhone = loyaltyPhone.replace(/\s+/g, "");
+        const { data: existing } = await supabase
+          .from("customers")
+          .select("id, name, loyalty_points")
+          .eq("business_id", business.id)
+          .eq("phone", cleanPhone)
+          .maybeSingle();
+        let customerId = existing?.id ?? null;
+        let existingPoints = Number(existing?.loyalty_points ?? 0);
+        if (!customerId) {
+          const { data: created, error } = await supabase
+            .from("customers")
+            .insert({ business_id: business.id, name: `Customer ${cleanPhone.slice(-4)}`, phone: cleanPhone, balance: 0 })
+            .select("id, loyalty_points")
+            .single();
+          if (error) throw error;
+          customerId = created.id;
+          existingPoints = 0;
+        }
+        pos.setCustomerId(customerId);
+        pos.setCustomerName(existing?.name || `Customer ${cleanPhone.slice(-4)}`);
+        // Award points AFTER we know the sale total.
+        const pointsPerKes = Number((business as { loyalty_points_per_kes?: number } | null)?.loyalty_points_per_kes ?? 1);
+        const earned = Math.floor(pos.cartTotal * pointsPerKes);
+        if (earned > 0) {
+          await supabase
+            .from("customers")
+            .update({ loyalty_points: existingPoints + earned, loyalty_last_earned_at: new Date().toISOString() })
+            .eq("id", customerId);
+          toast.success(`+${earned} loyalty points awarded`);
+        }
+      } catch (e: any) {
+        toast.warning(`Loyalty capture skipped: ${e.message || "unknown error"}`);
+      }
+    }
     const result = await pos.completeSale(payments, bankAccountId, pushToEtims);
     if (result) {
       setPaymentOpen(false);
@@ -161,19 +201,36 @@ const POS = () => {
     setStartDayOpen(false);
   };
 
-  // Keyboard shortcuts: F2 focus search, F4 pay cash, F9 park sale, ESC clear cart,
-  // F1 open barcode scanner. Ignored while typing in inputs (except F-keys, which
-  // fire globally by design so cashiers can trigger them from anywhere).
+  // Keyboard shortcuts:
+  //   F1  scan barcode          F2  focus search
+  //   F3  Cash sale (quick complete, exact amount)
+  //   F4  open payment dialog on Cash
+  //   F5  open payment dialog on M-Pesa (STK Push flow)
+  //   F6  open payment dialog on M-Pesa (manual confirmation code)
+  //   F7  open payment dialog on Card
+  //   F9  park sale             ESC clear cart
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      // Don't interfere with browser shortcuts
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const openPayment = (method: "cash" | "mpesa" | "card") => {
+      if (pos.cart.length === 0) return;
+      setInitialPaymentMethod(method);
+      setPaymentOpen(true);
+    };
 
+    const quickCashComplete = async () => {
+      if (pos.cart.length === 0 || pos.processing) return;
+      const digitaxOn = (business as any)?.digitax_enabled === true;
+      await pos.completeSale(
+        [{ method: "cash", amount: pos.cartTotal, reference: "" }],
+        null,
+        digitaxOn,
+      );
+    };
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
       const typing = !!target && (
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable
+        target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable
       );
 
       switch (e.key) {
@@ -186,11 +243,23 @@ const POS = () => {
           searchInputRef.current?.focus();
           searchInputRef.current?.select();
           break;
-        case "F4":
+        case "F3":
           if (pos.cart.length === 0) return;
           e.preventDefault();
-          setInitialPaymentMethod("cash");
-          setPaymentOpen(true);
+          void quickCashComplete();
+          break;
+        case "F4":
+          e.preventDefault();
+          openPayment("cash");
+          break;
+        case "F5":
+        case "F6":
+          e.preventDefault();
+          openPayment("mpesa");
+          break;
+        case "F7":
+          e.preventDefault();
+          openPayment("card");
           break;
         case "F9":
           if (pos.cart.length === 0) return;
@@ -212,7 +281,7 @@ const POS = () => {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [pos, paymentOpen, scannerOpen, approvalOpen, receiptOpen, startDayOpen]);
+  }, [pos, business, paymentOpen, scannerOpen, approvalOpen, receiptOpen, startDayOpen]);
 
 
 

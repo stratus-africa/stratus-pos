@@ -5,6 +5,8 @@ import { Printer } from "lucide-react";
 import { useRef } from "react";
 import { format } from "date-fns";
 import { CartItem, PaymentEntry } from "@/hooks/usePOS";
+import { useBusiness } from "@/contexts/BusinessContext";
+import { loadReceiptConfig } from "@/lib/receiptTemplate";
 
 interface ReceiptData {
   invoiceNumber: string;
@@ -40,6 +42,9 @@ interface Props {
 
 export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
   const receiptRef = useRef<HTMLDivElement>(null);
+  const { business } = useBusiness();
+  const cfg = loadReceiptConfig(business?.id);
+  const showLogo = cfg.showLogo && !!business?.logo_url;
 
   if (!data) return null;
 
@@ -56,12 +61,13 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
         .right { text-align: right; }
         .bold { font-weight: bold; }
         .line { border-top: 1px dashed #000; margin: 6px 0; }
+        img { max-height: 60px; display: block; margin: 0 auto 4px; }
         table { width: 100%; border-collapse: collapse; }
         td { padding: 2px 0; }
         @media print { body { margin: 0; } }
       </style></head><body>
       ${content.innerHTML}
-      <script>window.print();window.close();</script>
+      <script>setTimeout(function(){window.print();window.close();}, 250);</script>
       </body></html>
     `);
     win.document.close();
@@ -76,6 +82,14 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
 
         <div ref={receiptRef} className="text-xs font-mono space-y-2 p-2">
           <div className="text-center">
+            {showLogo && (
+              <img
+                src={business!.logo_url!}
+                alt="Logo"
+                className="mx-auto max-h-16 mb-1 object-contain"
+                crossOrigin="anonymous"
+              />
+            )}
             <p className="font-bold text-sm">{data.businessName}</p>
             <p>{data.locationName}</p>
             <p>{format(data.date, "PPp")}</p>
