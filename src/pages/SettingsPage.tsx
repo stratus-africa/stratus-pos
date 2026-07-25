@@ -5,6 +5,7 @@ import { BrandingTab } from "@/components/settings/BrandingTab";
 import { LocationsTab } from "@/components/settings/LocationsTab";
 import { UserManagementTab } from "@/components/settings/UserManagementTab";
 import { ReceiptSettingsTab } from "@/components/settings/ReceiptSettingsTab";
+import { PriceTagSettingsTab } from "@/components/settings/PriceTagSettingsTab";
 import { SubscriptionTab } from "@/components/settings/SubscriptionTab";
 import { RolesPermissionsTab } from "@/components/settings/RolesPermissionsTab";
 import { PaymentAccountsTab } from "@/components/settings/PaymentAccountsTab";
