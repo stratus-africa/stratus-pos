@@ -127,29 +127,30 @@ export function PrintTagsDialog({ open, onOpenChange, items }: Props) {
                 >
                   <div>
                     {cfg.showBusinessName && business?.name && (
-                      <div style={{ fontSize: 10, color: "#64748b" }}>{business.name}</div>
+                      <div style={{ fontSize: 10, color: "#64748b", textAlign: cfg.businessNameAlign }}>{business.name}</div>
                     )}
                     {cfg.showProductName && (
-                      <div style={{ fontWeight: 600, fontSize: cfg.nameFontSize, lineHeight: 1.2 }}>{it.name}</div>
+                      <div style={{ fontWeight: 600, fontSize: cfg.nameFontSize, lineHeight: 1.2, textAlign: cfg.nameAlign }}>{it.name}</div>
                     )}
                     {cfg.showSku && it.sku && (
-                      <div style={{ fontSize: 10, color: "#64748b" }}>SKU: {it.sku}</div>
+                      <div style={{ fontSize: 10, color: "#64748b", textAlign: cfg.metaAlign }}>SKU: {it.sku}</div>
                     )}
                     {cfg.showBatch && it.batch_number && (
-                      <div style={{ fontSize: 10, color: "#334155" }}>
+                      <div style={{ fontSize: 10, color: "#334155", textAlign: cfg.metaAlign }}>
                         Batch: {it.batch_number}{it.expiry_date ? ` · Exp ${new Date(it.expiry_date).toLocaleDateString()}` : ""}
                       </div>
                     )}
                   </div>
                   {cfg.showBarcode && <BarcodeSvg value={it.barcode || it.sku || it.id} />}
                   {cfg.showPrice && (
-                    <div style={{ fontWeight: 700, fontSize: cfg.priceFontSize, color: cfg.priceColor }}>
+                    <div style={{ fontWeight: 700, fontSize: cfg.priceFontSize, color: cfg.priceColor, textAlign: cfg.priceAlign }}>
                       {formatPrice(Number(it.selling_price))}
                     </div>
                   )}
                   {cfg.footerText && (
-                    <div style={{ fontSize: 9, color: "#64748b", textAlign: "center" }}>{cfg.footerText}</div>
+                    <div style={{ fontSize: 9, color: "#64748b", textAlign: cfg.footerAlign }}>{cfg.footerText}</div>
                   )}
+
                 </div>
               ))}
             </div>

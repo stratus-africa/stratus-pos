@@ -18,7 +18,14 @@ import {
   PRICE_TAG_FONT_OPTIONS,
   PRICE_TAG_LAYOUTS,
   type PriceTagConfig,
+  type TextAlign,
 } from "@/lib/priceTagTemplate";
+
+const ALIGN_OPTIONS: { value: TextAlign; label: string }[] = [
+  { value: "left", label: "Left" },
+  { value: "center", label: "Center" },
+  { value: "right", label: "Right" },
+];
 
 function PreviewBarcode({ value }: { value: string }) {
   const ref = useRef<SVGSVGElement>(null);
@@ -151,6 +158,37 @@ export function PriceTagSettingsTab() {
             </div>
           </div>
 
+          <Separator />
+
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Text alignment</Label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {([
+                ["businessNameAlign", "Business name"],
+                ["nameAlign", "Product name"],
+                ["metaAlign", "SKU / batch"],
+                ["priceAlign", "Price"],
+                ["footerAlign", "Footer"],
+              ] as [keyof PriceTagConfig, string][]).map(([k, label]) => (
+                <div key={k} className="space-y-2">
+                  <Label className="text-sm font-normal">{label}</Label>
+                  <Select
+                    value={config[k] as TextAlign}
+                    onValueChange={(v) => update(k, v as never)}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {ALIGN_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+            </div>
+          </div>
+
+
           <div className="flex justify-end">
             <Button onClick={handleSave}><Save className="h-4 w-4 mr-2" /> Save price tag template</Button>
           </div>
@@ -176,23 +214,24 @@ export function PriceTagSettingsTab() {
             >
               <div>
                 {config.showBusinessName && business?.name && (
-                  <div style={{ fontSize: 10, color: "#64748b" }}>{business.name}</div>
+                  <div style={{ fontSize: 10, color: "#64748b", textAlign: config.businessNameAlign }}>{business.name}</div>
                 )}
                 {config.showProductName && (
-                  <div style={{ fontWeight: 600, fontSize: config.nameFontSize, lineHeight: 1.2 }}>Sample product</div>
+                  <div style={{ fontWeight: 600, fontSize: config.nameFontSize, lineHeight: 1.2, textAlign: config.nameAlign }}>Sample product</div>
                 )}
-                {config.showSku && <div style={{ fontSize: 10, color: "#64748b" }}>SKU: SAMPLE-001</div>}
+                {config.showSku && <div style={{ fontSize: 10, color: "#64748b", textAlign: config.metaAlign }}>SKU: SAMPLE-001</div>}
                 {config.showBatch && (
-                  <div style={{ fontSize: 10, color: "#334155" }}>Batch: B-042 · Exp 12/2026</div>
+                  <div style={{ fontSize: 10, color: "#334155", textAlign: config.metaAlign }}>Batch: B-042 · Exp 12/2026</div>
                 )}
               </div>
               {config.showBarcode && <PreviewBarcode value="SAMPLE-001" />}
               {config.showPrice && (
-                <div style={{ fontWeight: 700, fontSize: config.priceFontSize, color: config.priceColor }}>{samplePrice}</div>
+                <div style={{ fontWeight: 700, fontSize: config.priceFontSize, color: config.priceColor, textAlign: config.priceAlign }}>{samplePrice}</div>
               )}
               {config.footerText && (
-                <div style={{ fontSize: 9, color: "#64748b", textAlign: "center" }}>{config.footerText}</div>
+                <div style={{ fontSize: 9, color: "#64748b", textAlign: config.footerAlign }}>{config.footerText}</div>
               )}
+
             </div>
           </div>
           <p className="text-xs text-muted-foreground">Preview uses sample data. Actual tags use each product's details.</p>
