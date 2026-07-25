@@ -12,7 +12,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Save, Loader2 } from "lucide-react";
-import { loadReceiptConfig, saveReceiptConfig, defaultReceiptConfig, FONT_OPTIONS, type ReceiptConfig, type QRCodeType } from "@/lib/receiptTemplate";
+import { loadReceiptConfig, saveReceiptConfig, defaultReceiptConfig, FONT_OPTIONS, type ReceiptConfig, type QRCodeType, type QRCodePosition } from "@/lib/receiptTemplate";
 import { QRCodeSVG } from "qrcode.react";
 import { format } from "date-fns";
 
@@ -139,6 +139,18 @@ export function ReceiptSettingsTab() {
                       <SelectItem value="invoice_url">Invoice URL — links to online invoice</SelectItem>
                       <SelectItem value="fiscal_url">KRA Fiscal Verification URL</SelectItem>
                       <SelectItem value="custom">Custom URL / Text</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>QR Code Position on Receipt</Label>
+                  <Select value={config.qrCodePosition} onValueChange={(v) => update("qrCodePosition", v as QRCodePosition)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="header">Header — top of receipt</SelectItem>
+                      <SelectItem value="middle">Middle — after totals</SelectItem>
+                      <SelectItem value="footer">Footer — bottom of receipt</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

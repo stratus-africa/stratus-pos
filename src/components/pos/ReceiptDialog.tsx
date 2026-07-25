@@ -10,6 +10,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { loadReceiptConfig } from "@/lib/receiptTemplate";
 
 interface ReceiptData {
+  saleId?: string;
   invoiceNumber: string;
   items: CartItem[];
   subtotal: number;
@@ -61,10 +62,23 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
         .replace(/\{total\}/g, String(data.total))
         .replace(/\{business\}/g, data.businessName);
     }
-    // invoice_url default
+    // invoice_url — auto-generated public invoice URL for this sale
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    return `${origin}/invoice/${encodeURIComponent(data.invoiceNumber)}`;
+    const ref = data.saleId || data.invoiceNumber;
+    return `${origin}/invoice/${encodeURIComponent(ref)}`;
   })();
+
+  const qrBlock = cfg.showQRCode && qrValue ? (
+    <>
+      <div className="line border-t border-dashed border-foreground/30 my-2" />
+      <div className="text-center space-y-1">
+        <div className="flex justify-center">
+          <QRCodeSVG value={qrValue} size={cfg.qrCodeSize} level="M" includeMargin={false} />
+        </div>
+        {cfg.qrCodeLabel && <p className="text-[10px]">{cfg.qrCodeLabel}</p>}
+      </div>
+    </>
+  ) : null;
 
   const handlePrint = () => {
     const content = receiptRef.current;
@@ -112,6 +126,8 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
             <p>{data.locationName}</p>
             <p>{format(data.date, "PPp")}</p>
           </div>
+
+          {cfg.qrCodePosition === "header" && qrBlock}
 
           <div className="line border-t border-dashed border-foreground/30 my-2" />
 
@@ -165,6 +181,8 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
           <div className="flex justify-between font-bold text-sm"><span>TOTAL</span><span>KES {data.total.toLocaleString()}</span></div>
 
 
+          {cfg.qrCodePosition === "middle" && qrBlock}
+
           <div className="line border-t border-dashed border-foreground/30 my-2" />
 
           {data.payments.map((p, i) => (
@@ -207,17 +225,7 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
             </>
           )}
 
-          {cfg.showQRCode && qrValue && (
-            <>
-              <div className="line border-t border-dashed border-foreground/30 my-2" />
-              <div className="text-center space-y-1">
-                <div className="flex justify-center">
-                  <QRCodeSVG value={qrValue} size={cfg.qrCodeSize} level="M" includeMargin={false} />
-                </div>
-                {cfg.qrCodeLabel && <p className="text-[10px]">{cfg.qrCodeLabel}</p>}
-              </div>
-            </>
-          )}
+          {cfg.qrCodePosition === "footer" && qrBlock}
         </div>
 
 

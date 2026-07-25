@@ -168,6 +168,7 @@ const CmsCta = lazy(() => import("./pages/super-admin/cms/CmsCta"));
 const SuperAdminSettings = lazy(() => import("./pages/super-admin/SuperAdminSettings"));
 const PaystackSettings = lazy(() => import("./pages/super-admin/payments/PaystackSettings"));
 const MpesaSettings = lazy(() => import("./pages/super-admin/payments/MpesaSettings"));
+const PublicInvoice = lazy(() => import("./pages/PublicInvoice"));
 
 
 const queryClient = new QueryClient({
@@ -347,6 +348,7 @@ const App = () => (
               <Suspense fallback={<PageLoader />}>
                 <Routes>
                   <Route path="/landing" element={<Landing />} />
+                  <Route path="/invoice/:id" element={<PublicInvoice />} />
                   <Route path="/pricing" element={<Pricing />} />
                   <Route path="/terms" element={<Terms />} />
                   <Route path="/privacy" element={<Privacy />} />
