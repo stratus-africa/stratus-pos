@@ -63,6 +63,8 @@ interface NavItem {
   featureKey?: string;
   /** Granular permission key (e.g. "products.view") required to see this item. */
   permission?: string;
+  /** Show the item when ANY of these permissions is granted (used for hubs like Reports). */
+  anyPermission?: string[];
   /** Hide for these roles even if permission is granted (used to avoid duplicates with role-specific aliases). */
   hideForRoles?: AppRole[];
   /** Optional sub-items rendered under this item as a collapsible submenu. */
@@ -103,7 +105,7 @@ const financeNav: NavItem[] = [
 ];
 
 const systemNav: NavItem[] = [
-  { title: "Reports", url: "/reports", icon: BarChart3, roles: ["admin"], featureKey: "reports", permission: "report.sales" },
+  { title: "Reports", url: "/reports", icon: BarChart3, roles: ["admin", "manager", "cashier", "stores_manager"], featureKey: "reports", anyPermission: ["report.sales", "report.purchases", "report.expenses", "report.inventory", "report.pnl", "report.audit"] },
   { title: "Tax Compliance", url: "/tax-compliance", icon: ShieldCheck, roles: ["admin", "manager"], featureKey: "digitax", permission: "settings.view" },
   { title: "Profile", url: "/profile", icon: UserCircle, roles: ["admin", "manager", "cashier"] },
   { title: "Settings", url: "/settings", icon: Settings, roles: ["admin"], permission: "settings.view" },
@@ -130,6 +132,7 @@ export function AppSidebar() {
     // Tax Compliance nav is only shown when DigiTax is turned on in settings.
     if (item.url === "/tax-compliance" && !digitaxEnabled) return false;
     if (userRole && item.hideForRoles?.includes(userRole)) return false;
+    if (item.anyPermission && item.anyPermission.length > 0) return item.anyPermission.some((p) => hasPermission(p));
     if (item.permission) return hasPermission(item.permission);
     return !!userRole && item.roles.includes(userRole);
   };
