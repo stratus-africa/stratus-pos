@@ -132,6 +132,7 @@ export function AppSidebar() {
     // Tax Compliance nav is only shown when DigiTax is turned on in settings.
     if (item.url === "/tax-compliance" && !digitaxEnabled) return false;
     if (userRole && item.hideForRoles?.includes(userRole)) return false;
+    if (item.anyPermission && item.anyPermission.length > 0) return item.anyPermission.some((p) => hasPermission(p));
     if (item.permission) return hasPermission(item.permission);
     return !!userRole && item.roles.includes(userRole);
   };
