@@ -1918,6 +1918,7 @@ export type Database = {
           product_id: string
           purchase_id: string
           quantity: number
+          tax_rate_id: string | null
           total: number
           unit_cost: number
         }
@@ -1928,6 +1929,7 @@ export type Database = {
           product_id: string
           purchase_id: string
           quantity?: number
+          tax_rate_id?: string | null
           total?: number
           unit_cost?: number
         }
@@ -1938,6 +1940,7 @@ export type Database = {
           product_id?: string
           purchase_id?: string
           quantity?: number
+          tax_rate_id?: string | null
           total?: number
           unit_cost?: number
         }
@@ -1961,6 +1964,13 @@ export type Database = {
             columns: ["purchase_id"]
             isOneToOne: false
             referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_items_tax_rate_id_fkey"
+            columns: ["tax_rate_id"]
+            isOneToOne: false
+            referencedRelation: "tax_rates"
             referencedColumns: ["id"]
           },
         ]
