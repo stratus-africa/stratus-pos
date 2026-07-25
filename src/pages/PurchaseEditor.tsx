@@ -248,10 +248,28 @@ export default function PurchaseEditor() {
       created_by: user.id,
     };
 
+    const applySellingPriceOverrides = async () => {
+      const entries = Object.entries(sellingPriceOverrides)
+        .map(([pid, v]) => [pid, parseFloat(v)] as const)
+        .filter(([, n]) => Number.isFinite(n) && n > 0);
+      if (entries.length === 0) return;
+      await Promise.all(
+        entries.map(([pid, price]) =>
+          supabase.from("products").update({ selling_price: price }).eq("id", pid)
+        )
+      );
+      toast.success(`Updated selling price on ${entries.length} product(s)`);
+    };
+
+    const onDone = async () => {
+      await applySellingPriceOverrides();
+      navigate("/purchases");
+    };
+
     if (isEditing && id) {
-      updatePurchase.mutate({ id, purchase, items, additionalPayment }, { onSuccess: () => navigate("/purchases") });
+      updatePurchase.mutate({ id, purchase, items, additionalPayment }, { onSuccess: onDone });
     } else {
-      createPurchase.mutate({ purchase, items, paidThrough }, { onSuccess: () => navigate("/purchases") });
+      createPurchase.mutate({ purchase, items, paidThrough }, { onSuccess: onDone });
     }
   };
 
