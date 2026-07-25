@@ -8,8 +8,9 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { UserPlus, Shield, User, Crown, Pencil, Warehouse, Key } from "lucide-react";
+import { UserPlus, Shield, User, Crown, Pencil, Warehouse, Key, ScanLine } from "lucide-react";
 import ManageUserDialog, { SetPasswordDialog, AppRole } from "@/components/users/ManageUserDialog";
+import BarcodeLoginDialog from "@/components/users/BarcodeLoginDialog";
 
 interface TeamMember {
   user_id: string;
@@ -20,6 +21,7 @@ interface TeamMember {
   phone: string | null;
   is_active: boolean;
   assigned_location_id: string | null;
+  login_barcode: string | null;
 }
 
 interface LocationLite { id: string; name: string; }
@@ -51,6 +53,7 @@ export function UserManagementTab() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<TeamMember | null>(null);
   const [pwUser, setPwUser] = useState<TeamMember | null>(null);
+  const [bcUser, setBcUser] = useState<TeamMember | null>(null);
 
   const isAdmin = userRole === "admin";
 
@@ -72,7 +75,7 @@ export function UserManagementTab() {
     const userIds = roles.map((r) => r.user_id);
     const { data: profiles } = await (supabase as any)
       .from("profiles")
-      .select("id, full_name, email, phone, is_active, assigned_location_id")
+      .select("id, full_name, email, phone, is_active, assigned_location_id, login_barcode")
       .in("id", userIds);
 
     const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
@@ -88,6 +91,7 @@ export function UserManagementTab() {
           phone: p?.phone || null,
           is_active: p?.is_active ?? true,
           assigned_location_id: p?.assigned_location_id || null,
+          login_barcode: p?.login_barcode || null,
         };
       })
     );
@@ -176,6 +180,10 @@ export function UserManagementTab() {
                         <Button variant="ghost" size="sm" onClick={() => setPwUser(m)} title="Reset password">
                           <Key className="h-3.5 w-3.5 mr-1" /> Password
                         </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setBcUser(m)} title="Barcode login">
+                          <ScanLine className="h-3.5 w-3.5 mr-1" />
+                          {m.login_barcode ? "Barcode ✓" : "Barcode"}
+                        </Button>
                       </div>
                     </TableCell>
                   )}
@@ -220,6 +228,15 @@ export function UserManagementTab() {
               businessId={business.id}
               userId={pwUser.user_id}
               userLabel={pwUser.full_name || pwUser.email || "user"}
+            />
+          )}
+          {bcUser && (
+            <BarcodeLoginDialog
+              open={!!bcUser}
+              onOpenChange={(o) => { if (!o) { setBcUser(null); fetchAll(); } }}
+              userId={bcUser.user_id}
+              userLabel={bcUser.full_name || bcUser.email || "user"}
+              existingBarcode={bcUser.login_barcode}
             />
           )}
         </>
