@@ -19,6 +19,7 @@ export default function Profile() {
   const { business, userRole, currentLocation } = useBusiness();
 
   const [fullName, setFullName] = useState("");
+  const [username, setUsername] = useState("");
   const [phone, setPhone] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [loading, setLoading] = useState(true);
@@ -33,12 +34,13 @@ export default function Profile() {
     (async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("full_name, phone, avatar_url")
+        .select("full_name, phone, avatar_url, username")
         .eq("id", user.id)
         .maybeSingle();
       setFullName(data?.full_name || "");
       setPhone(data?.phone || "");
       setAvatarUrl(data?.avatar_url || "");
+      setUsername((data as any)?.username || "");
       setLoading(false);
     })();
   }, [user]);
@@ -55,13 +57,25 @@ export default function Profile() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    const uname = username.trim();
+    if (uname && !/^[A-Za-z0-9._-]{3,32}$/.test(uname)) {
+      return toast.error("User ID must be 3–32 chars (letters, numbers, . _ -)");
+    }
     setSaving(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ full_name: fullName.trim() || null, phone: phone.trim() || null, avatar_url: avatarUrl.trim() || null })
+      .update({
+        full_name: fullName.trim() || null,
+        phone: phone.trim() || null,
+        avatar_url: avatarUrl.trim() || null,
+        username: uname || null,
+      } as any)
       .eq("id", user.id);
     setSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      if ((error as any).code === "23505") return toast.error("That User ID is already taken");
+      return toast.error(error.message);
+    }
     toast.success("Profile updated");
   };
 
