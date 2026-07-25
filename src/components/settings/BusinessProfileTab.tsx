@@ -37,6 +37,8 @@ export function BusinessProfileTab() {
   const [remindUnpostedExpenses, setRemindUnpostedExpenses] = useState<boolean>((business as { reminders_unposted_expenses?: boolean })?.reminders_unposted_expenses ?? false);
   const [vatEnabled, setVatEnabled] = useState<boolean>((business as { vat_enabled?: boolean })?.vat_enabled ?? true);
   const [kraPin, setKraPin] = useState<string>((business as { kra_pin?: string })?.kra_pin || "");
+  const [loyaltyEnabled, setLoyaltyEnabled] = useState<boolean>((business as { loyalty_enabled?: boolean })?.loyalty_enabled ?? false);
+  const [loyaltyPointsPerKes, setLoyaltyPointsPerKes] = useState<string>(String((business as { loyalty_points_per_kes?: number })?.loyalty_points_per_kes ?? 1));
   const [managers, setManagers] = useState<{ user_id: string; full_name: string | null; email: string | null }[]>([]);
   const [negativeStockCount, setNegativeStockCount] = useState<number>(0);
 
@@ -93,6 +95,8 @@ export function BusinessProfileTab() {
         reminders_unposted_expenses: remindUnpostedExpenses,
         vat_enabled: vatEnabled,
         kra_pin: kraPin.trim() || null,
+        loyalty_enabled: loyaltyEnabled,
+        loyalty_points_per_kes: parseFloat(loyaltyPointsPerKes) || 1,
       } as never)
       .eq("id", business.id);
 
