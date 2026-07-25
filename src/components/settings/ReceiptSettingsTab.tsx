@@ -120,6 +120,60 @@ export function ReceiptSettingsTab() {
 
           <Separator />
 
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm font-medium">Print QR Code on Receipt</Label>
+                <p className="text-xs text-muted-foreground">Adds a scannable QR code to the printed receipt.</p>
+              </div>
+              <Switch checked={config.showQRCode} onCheckedChange={(v) => update("showQRCode", v)} />
+            </div>
+
+            {config.showQRCode && (
+              <>
+                <div className="space-y-2">
+                  <Label>QR Code Type</Label>
+                  <Select value={config.qrCodeType} onValueChange={(v) => update("qrCodeType", v as QRCodeType)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="invoice_url">Invoice URL — links to online invoice</SelectItem>
+                      <SelectItem value="fiscal_url">KRA Fiscal Verification URL</SelectItem>
+                      <SelectItem value="custom">Custom URL / Text</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {config.qrCodeType === "custom" && (
+                  <div className="space-y-2">
+                    <Label>Custom Value</Label>
+                    <Textarea
+                      value={config.qrCodeCustomValue}
+                      onChange={(e) => update("qrCodeCustomValue", e.target.value)}
+                      placeholder="https://example.com/pay/{invoice}"
+                      rows={2}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Placeholders: <code>{"{invoice}"}</code>, <code>{"{total}"}</code>, <code>{"{business}"}</code>
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label>QR Label (optional)</Label>
+                  <Input value={config.qrCodeLabel} onChange={(e) => update("qrCodeLabel", e.target.value)} placeholder="Scan to view" />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>QR Size: {config.qrCodeSize}px</Label>
+                  <Slider value={[config.qrCodeSize]} min={64} max={200} step={8}
+                    onValueChange={([v]) => update("qrCodeSize", v)} />
+                </div>
+              </>
+            )}
+          </div>
+
+          <Separator />
+
           <div className="space-y-2">
             <Label>Thank You Message</Label>
             <Input
