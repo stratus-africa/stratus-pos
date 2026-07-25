@@ -1,6 +1,7 @@
 // Shared receipt template config used by Settings editor and printable receipts.
 
 export type QRCodeType = "invoice_url" | "fiscal_url" | "custom";
+export type QRCodePosition = "header" | "middle" | "footer";
 
 export interface ReceiptConfig {
   header: string;
