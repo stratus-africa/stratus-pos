@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { User, Mail, Phone, Image as ImageIcon, Lock, Loader2, Building2 } from "lucide-react";
+import { User, Mail, Phone, Image as ImageIcon, Lock, Loader2, Building2, AtSign } from "lucide-react";
 
 export default function Profile() {
   const navigate = useNavigate();
