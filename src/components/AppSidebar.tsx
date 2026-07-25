@@ -63,6 +63,8 @@ interface NavItem {
   featureKey?: string;
   /** Granular permission key (e.g. "products.view") required to see this item. */
   permission?: string;
+  /** Show the item when ANY of these permissions is granted (used for hubs like Reports). */
+  anyPermission?: string[];
   /** Hide for these roles even if permission is granted (used to avoid duplicates with role-specific aliases). */
   hideForRoles?: AppRole[];
   /** Optional sub-items rendered under this item as a collapsible submenu. */
