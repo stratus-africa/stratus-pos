@@ -139,12 +139,3 @@ export default function BarcodeLoginDialog({ open, onOpenChange, userId, userLab
     </Dialog>
   );
 }
-          <div className="flex gap-2">
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="button" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
