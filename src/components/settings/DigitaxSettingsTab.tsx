@@ -185,26 +185,39 @@ export function DigitaxSettingsTab() {
           </div>
 
           {vatEnabled && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Default Tax Rate (%)</Label>
-                <Input type="number" min={0} max={100} step={0.5}
-                  value={taxRate} onChange={(e) => setTaxRate(e.target.value)} />
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Default Tax Rate (%)</Label>
+                  <Input type="number" min={0} max={100} step={0.5}
+                    value={taxRate} onChange={(e) => setTaxRate(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>
+                    KRA PIN <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    value={kraPin}
+                    onChange={(e) => setKraPin(e.target.value.toUpperCase())}
+                    placeholder="e.g. P051234567X"
+                    required
+                    aria-invalid={vatEnabled && !kraPin.trim()}
+                  />
+                  <p className="text-xs text-muted-foreground">Required when VAT is enabled. Used on tax invoices and reports.</p>
+                </div>
               </div>
               <div className="space-y-2">
-                <Label>
-                  KRA PIN <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  value={kraPin}
-                  onChange={(e) => setKraPin(e.target.value.toUpperCase())}
-                  placeholder="e.g. P051234567X"
-                  required
-                  aria-invalid={vatEnabled && !kraPin.trim()}
-                />
-                <p className="text-xs text-muted-foreground">Required when VAT is enabled. Used on tax invoices and reports.</p>
+                <Label>Product Pricing Mode</Label>
+                <Select value={taxInclusive ? "inclusive" : "exclusive"} onValueChange={(v) => setTaxInclusive(v === "inclusive")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="exclusive">Tax Exclusive — product prices do not include tax (tax added at checkout)</SelectItem>
+                    <SelectItem value="inclusive">Tax Inclusive — product prices already include tax</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Applied by default across products, sales and purchases. Individual purchases can override this.</p>
               </div>
-            </div>
+            </>
           )}
 
           <div className="flex justify-end">
