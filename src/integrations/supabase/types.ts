@@ -2859,6 +2859,10 @@ export type Database = {
         Args: { _business_id: string; _notes?: string }
         Returns: undefined
       }
+      create_vault_secret: {
+        Args: { _name: string; _secret: string }
+        Returns: string
+      }
       customer_has_fiscalised_sales: {
         Args: { _customer_id: string }
         Returns: boolean
@@ -3105,6 +3109,10 @@ export type Database = {
       request_tenant_info: {
         Args: { _business_id: string; _message: string }
         Returns: undefined
+      }
+      update_vault_secret: {
+        Args: { _id: string; _secret: string }
+        Returns: boolean
       }
     }
     Enums: {
