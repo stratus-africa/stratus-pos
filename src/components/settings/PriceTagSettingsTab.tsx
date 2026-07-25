@@ -214,23 +214,24 @@ export function PriceTagSettingsTab() {
             >
               <div>
                 {config.showBusinessName && business?.name && (
-                  <div style={{ fontSize: 10, color: "#64748b" }}>{business.name}</div>
+                  <div style={{ fontSize: 10, color: "#64748b", textAlign: config.businessNameAlign }}>{business.name}</div>
                 )}
                 {config.showProductName && (
-                  <div style={{ fontWeight: 600, fontSize: config.nameFontSize, lineHeight: 1.2 }}>Sample product</div>
+                  <div style={{ fontWeight: 600, fontSize: config.nameFontSize, lineHeight: 1.2, textAlign: config.nameAlign }}>Sample product</div>
                 )}
-                {config.showSku && <div style={{ fontSize: 10, color: "#64748b" }}>SKU: SAMPLE-001</div>}
+                {config.showSku && <div style={{ fontSize: 10, color: "#64748b", textAlign: config.metaAlign }}>SKU: SAMPLE-001</div>}
                 {config.showBatch && (
-                  <div style={{ fontSize: 10, color: "#334155" }}>Batch: B-042 · Exp 12/2026</div>
+                  <div style={{ fontSize: 10, color: "#334155", textAlign: config.metaAlign }}>Batch: B-042 · Exp 12/2026</div>
                 )}
               </div>
               {config.showBarcode && <PreviewBarcode value="SAMPLE-001" />}
               {config.showPrice && (
-                <div style={{ fontWeight: 700, fontSize: config.priceFontSize, color: config.priceColor }}>{samplePrice}</div>
+                <div style={{ fontWeight: 700, fontSize: config.priceFontSize, color: config.priceColor, textAlign: config.priceAlign }}>{samplePrice}</div>
               )}
               {config.footerText && (
-                <div style={{ fontSize: 9, color: "#64748b", textAlign: "center" }}>{config.footerText}</div>
+                <div style={{ fontSize: 9, color: "#64748b", textAlign: config.footerAlign }}>{config.footerText}</div>
               )}
+
             </div>
           </div>
           <p className="text-xs text-muted-foreground">Preview uses sample data. Actual tags use each product's details.</p>
