@@ -32,6 +32,7 @@ export function PaymentGatewaysTab() {
   const [passkey, setPasskey] = useState("");
   const [savingSecrets, setSavingSecrets] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     if (!business) return;
