@@ -15,11 +15,20 @@ import { useDigitaxEnabled } from "@/hooks/useDigitax";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+export interface LoyaltyPayload {
+  phone: string;
+  name: string;
+  existingCustomerId: string | null;
+  redeemPoints: number;
+  redemptionValue: number;
+  pointsBalance: number;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   total: number;
-  onConfirm: (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean, loyaltyPhone: string | null) => void;
+  onConfirm: (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean, loyalty: LoyaltyPayload | null) => void;
   processing: boolean;
   initialMethod?: "cash" | "mpesa" | "card";
 }
