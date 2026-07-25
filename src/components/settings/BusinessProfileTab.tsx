@@ -100,6 +100,9 @@ export function BusinessProfileTab() {
         kra_pin: kraPin.trim() || null,
         loyalty_enabled: loyaltyEnabled,
         loyalty_points_per_kes: parseFloat(loyaltyPointsPerKes) || 1,
+        loyalty_min_redeem_points: parseFloat(loyaltyMinRedeem) || 0,
+        loyalty_min_purchase_amount: parseFloat(loyaltyMinPurchase) || 0,
+        loyalty_kes_per_point: parseFloat(loyaltyKesPerPoint) || 1,
       } as never)
       .eq("id", business.id);
 
