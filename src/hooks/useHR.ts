@@ -37,6 +37,9 @@ export interface LeaveType {
   days_per_year: number;
   is_paid: boolean;
   color: string | null;
+  icon: string | null;
+  accrual_frequency: "yearly" | "monthly";
+  carry_forward_limit: number;
   is_active: boolean;
 }
 
