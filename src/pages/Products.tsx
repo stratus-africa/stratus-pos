@@ -368,6 +368,13 @@ const Products = () => {
                       </AlertDialogContent>
                     </AlertDialog>
                   )}
+                  <Button size="sm" variant="outline" onClick={() => {
+                    const selected = filtered.filter((p) => selectedIds.has(p.id));
+                    setPrintTagItems(selected.map((p) => ({ id: p.id, name: p.name, sku: p.sku, barcode: (p as any).barcode, selling_price: Number(p.selling_price) })));
+                    setPrintTagsOpen(true);
+                  }}>
+                    <Printer className="mr-1 h-4 w-4" /> Print Tags
+                  </Button>
                   <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>Clear</Button>
                 </div>
               )}
@@ -431,6 +438,12 @@ const Products = () => {
                                   <Pencil className="h-4 w-4" />
                                 </Button>
                               )}
+                              <Button size="icon" variant="ghost" title="Print tag" onClick={() => {
+                                setPrintTagItems([{ id: p.id, name: p.name, sku: p.sku, barcode: (p as any).barcode, selling_price: Number(p.selling_price) }]);
+                                setPrintTagsOpen(true);
+                              }}>
+                                <Printer className="h-4 w-4" />
+                              </Button>
                               {canDelete && (
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
