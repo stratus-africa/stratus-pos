@@ -150,13 +150,34 @@ export default function PurchaseEditor() {
   const [sellingPriceOverrides, setSellingPriceOverrides] = useState<Record<string, string>>({});
   const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
 
+  // Per-line tax: if a line has tax_rate_id use that rate; otherwise use the header taxRate.
+  // If VAT off entirely, no tax is applied.
   const lineSum = items.reduce((s, i) => s + i.total, 0);
-  const rate = taxRate / 100;
-  const { subtotal, tax, total } = vatEnabled
-    ? taxInclusive
-      ? { subtotal: lineSum / (1 + rate), tax: lineSum - lineSum / (1 + rate), total: lineSum }
-      : { subtotal: lineSum, tax: lineSum * rate, total: lineSum * (1 + rate) }
-    : { subtotal: lineSum, tax: 0, total: lineSum };
+  const computed = items.reduce(
+    (acc, i) => {
+      if (!vatEnabled) {
+        acc.subtotal += i.total;
+        acc.total += i.total;
+        return acc;
+      }
+      const chosen = i.tax_rate_id ? activeTaxRates.find((r) => r.id === i.tax_rate_id) : null;
+      const linePct = chosen ? Number(chosen.rate) : taxRate;
+      const r = linePct / 100;
+      if (taxInclusive) {
+        const sub = i.total / (1 + r);
+        acc.subtotal += sub;
+        acc.tax += i.total - sub;
+        acc.total += i.total;
+      } else {
+        acc.subtotal += i.total;
+        acc.tax += i.total * r;
+        acc.total += i.total * (1 + r);
+      }
+      return acc;
+    },
+    { subtotal: 0, tax: 0, total: 0 }
+  );
+  const { subtotal, tax, total } = computed;
 
   // In edit mode, payment fields are optional — used to record an ADDITIONAL payment.
   const showPaymentSection = paymentStatus !== "unpaid";
