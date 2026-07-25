@@ -17,7 +17,14 @@ export interface PriceTagConfig {
   borderColor: string;
   backgroundColor: string;
   footerText: string;
+  businessNameAlign: TextAlign;
+  nameAlign: TextAlign;
+  metaAlign: TextAlign;
+  priceAlign: TextAlign;
+  footerAlign: TextAlign;
 }
+
+export type TextAlign = "left" | "center" | "right";
 
 export const defaultPriceTagConfig: PriceTagConfig = {
   layout: "30",
@@ -36,6 +43,11 @@ export const defaultPriceTagConfig: PriceTagConfig = {
   borderColor: "#cbd5e1",
   backgroundColor: "#ffffff",
   footerText: "",
+  businessNameAlign: "left",
+  nameAlign: "left",
+  metaAlign: "left",
+  priceAlign: "left",
+  footerAlign: "center",
 };
 
 const key = (businessId: string) => `price_tag_config_${businessId}`;
