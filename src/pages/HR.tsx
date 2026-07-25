@@ -811,7 +811,8 @@ function PayslipsTab() {
 function PayrollRunDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const { query: empQ } = useEmployees();
   const { data: banks } = useBankAccounts();
-  const { data: expenseCategories } = useExpenseCategories();
+  const { query: expenseCategoriesQ } = useExpenseCategories();
+  const expenseCategories = expenseCategoriesQ.data;
   const { execute } = usePayrollRuns();
   const now = new Date();
   const activeEmployees = (empQ.data ?? []).filter((e) => e.status === "active");
