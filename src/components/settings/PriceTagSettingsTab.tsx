@@ -158,6 +158,37 @@ export function PriceTagSettingsTab() {
             </div>
           </div>
 
+          <Separator />
+
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Text alignment</Label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {([
+                ["businessNameAlign", "Business name"],
+                ["nameAlign", "Product name"],
+                ["metaAlign", "SKU / batch"],
+                ["priceAlign", "Price"],
+                ["footerAlign", "Footer"],
+              ] as [keyof PriceTagConfig, string][]).map(([k, label]) => (
+                <div key={k} className="space-y-2">
+                  <Label className="text-sm font-normal">{label}</Label>
+                  <Select
+                    value={config[k] as TextAlign}
+                    onValueChange={(v) => update(k, v as never)}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {ALIGN_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+            </div>
+          </div>
+
+
           <div className="flex justify-end">
             <Button onClick={handleSave}><Save className="h-4 w-4 mr-2" /> Save price tag template</Button>
           </div>
