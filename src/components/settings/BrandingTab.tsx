@@ -43,7 +43,7 @@ export function BrandingTab() {
     setUploading(true);
     try {
       const ext = (file.name.split(".").pop() || "png").toLowerCase();
-      const path = `logos/${business.id}-${Date.now()}.${ext}`;
+      const path = `${business.id}/logo-${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("product-images")
         .upload(path, file, { upsert: true, cacheControl: "3600" });
