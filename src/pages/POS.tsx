@@ -19,7 +19,7 @@ import { usePOSSession } from "@/hooks/usePOSSession";
 import { useInventory } from "@/hooks/useInventory";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useIsMobile } from "@/hooks/use-mobile";
-import PaymentDialog from "@/components/pos/PaymentDialog";
+import PaymentDialog, { LoyaltyPayload } from "@/components/pos/PaymentDialog";
 import ReceiptDialog from "@/components/pos/ReceiptDialog";
 import StartDayDialog from "@/components/pos/StartDayDialog";
 import ManagerApprovalDialog from "@/components/pos/ManagerApprovalDialog";
