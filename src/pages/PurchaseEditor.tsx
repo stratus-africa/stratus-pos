@@ -34,6 +34,7 @@ export default function PurchaseEditor() {
   const { data: bankAccounts } = useBankAccounts();
 
   const orgVatEnabled = (business as any)?.vat_enabled ?? true;
+  const orgTaxInclusive = (business as any)?.tax_inclusive_pricing ?? false;
   const taxRate = business?.tax_rate ?? 16;
 
   const [supplierId, setSupplierId] = useState("");
@@ -44,6 +45,7 @@ export default function PurchaseEditor() {
   const [status, setStatus] = useState("received");
   const [vatEnabledLocal, setVatEnabledLocal] = useState(true);
   const vatEnabled = orgVatEnabled && vatEnabledLocal;
+  const [taxInclusive, setTaxInclusive] = useState<boolean>(orgTaxInclusive);
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<PurchaseItem[]>([]);
   
