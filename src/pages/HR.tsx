@@ -52,9 +52,23 @@ const LEAVE_ICON_OPTIONS: { value: string; label: string }[] = [
   { value: "calendar-days", label: "Personal" },
 ];
 
+// Map lucide-react component keys (PascalCase) from kebab-case names.
+const ICON_KEY_MAP: Record<string, string> = {
+  "palmtree": "Palmtree",
+  "stethoscope": "Stethoscope",
+  "baby": "Baby",
+  "heart": "Heart",
+  "graduation-cap": "GraduationCap",
+  "plane-takeoff": "PlaneTakeoff",
+  "briefcase": "Briefcase",
+  "calendar-days": "CalendarDays",
+};
+
 function LeaveIcon({ name, className = "h-4 w-4" }: { name?: string | null; className?: string }) {
-  if (!name) return <CalendarDays className={className} />;
-  return <DynamicIcon name={name as any} className={className} fallback={() => <CalendarDays className={className} />} />;
+  const key = name ? (ICON_KEY_MAP[name] ?? name) : null;
+  const Comp = key ? (LucideIcons as any)[key] : null;
+  if (!Comp) return <CalendarDays className={className} />;
+  return <Comp className={className} />;
 }
 
 /* ---------------- Employees Tab ---------------- */
