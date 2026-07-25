@@ -252,17 +252,23 @@ export function PaymentGatewaysTab() {
             </div>
           </div>
 
-          <div className="flex justify-between">
+          <div className="flex flex-wrap justify-between gap-2">
             {hasCreds ? (
               <Button variant="outline" onClick={removeSecrets} disabled={removing}>
                 {removing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
                 Remove Credentials
               </Button>
             ) : <span />}
-            <Button onClick={saveSecrets} disabled={savingSecrets}>
-              {savingSecrets ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-              {hasCreds ? "Replace Credentials" : "Save Credentials"}
-            </Button>
+            <div className="flex gap-2 ml-auto">
+              <Button variant="outline" onClick={testCredentials} disabled={testing}>
+                {testing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <PlugZap className="h-4 w-4 mr-2" />}
+                Test credentials
+              </Button>
+              <Button onClick={saveSecrets} disabled={savingSecrets}>
+                {savingSecrets ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                {hasCreds ? "Replace Credentials" : "Save Credentials"}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
