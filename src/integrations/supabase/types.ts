@@ -233,6 +233,30 @@ export type Database = {
           },
         ]
       }
+      barcode_login_attempts: {
+        Row: {
+          barcode: string
+          created_at: string
+          id: string
+          ip: string | null
+          success: boolean
+        }
+        Insert: {
+          barcode: string
+          created_at?: string
+          id?: string
+          ip?: string | null
+          success?: boolean
+        }
+        Update: {
+          barcode?: string
+          created_at?: string
+          id?: string
+          ip?: string | null
+          success?: boolean
+        }
+        Relationships: []
+      }
       brands: {
         Row: {
           business_id: string
@@ -294,6 +318,38 @@ export type Database = {
           vault_secret_names?: Json
         }
         Relationships: []
+      }
+      business_settings: {
+        Row: {
+          business_id: string
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          business_id: string
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          business_id?: string
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_settings_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       businesses: {
         Row: {
@@ -3570,6 +3626,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_barcode_locked: {
+        Args: { _barcode: string; _ip: string }
+        Returns: boolean
+      }
       is_payment_provider_enabled: {
         Args: { _provider: string }
         Returns: boolean
@@ -3634,6 +3694,10 @@ export type Database = {
         }[]
       }
       read_vault_secret: { Args: { _name: string }; Returns: string }
+      record_barcode_attempt: {
+        Args: { _barcode: string; _ip: string; _success: boolean }
+        Returns: undefined
+      }
       reject_offline_payment_request: {
         Args: { _id: string; _review_notes?: string }
         Returns: undefined
