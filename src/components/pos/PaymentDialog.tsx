@@ -19,7 +19,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   total: number;
-  onConfirm: (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean) => void;
+  onConfirm: (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean, loyaltyPhone: string | null) => void;
   processing: boolean;
   initialMethod?: "cash" | "mpesa" | "card";
 }
@@ -41,6 +41,8 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
   const { business } = useBusiness();
   const { enabled: digitaxEnabled } = useDigitaxEnabled();
   const [pushToEtims, setPushToEtims] = useState(true);
+  const loyaltyEnabled = (business as { loyalty_enabled?: boolean } | null)?.loyalty_enabled === true;
+  const [loyaltyPhone, setLoyaltyPhone] = useState("");
 
   // M-Pesa STK Push state
   const [mpesaPhone, setMpesaPhone] = useState("");
@@ -345,6 +347,23 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
               />
             </div>
           )}
+
+          {loyaltyEnabled && (
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <span>🎁 Loyalty — customer phone</span>
+              </Label>
+              <Input
+                value={loyaltyPhone}
+                onChange={(e) => setLoyaltyPhone(e.target.value)}
+                placeholder="e.g. 0712 345 678"
+                inputMode="tel"
+              />
+              <p className="text-xs text-muted-foreground">
+                Points award to the customer with this phone. New numbers create a customer record.
+              </p>
+            </div>
+          )}
         </div>
 
         {hasMpesaPayment && mpesaStatus !== "completed" && !payments.find(p => p.method === "mpesa")?.reference && (
@@ -356,7 +375,7 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button
-            onClick={() => onConfirm(payments, bankAccountId === "none" ? null : bankAccountId, digitaxEnabled && pushToEtims)}
+            onClick={() => onConfirm(payments, bankAccountId === "none" ? null : bankAccountId, digitaxEnabled && pushToEtims, loyaltyPhone.trim() || null)}
             disabled={
               totalPaid <= 0 ||
               processing ||

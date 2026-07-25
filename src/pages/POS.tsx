@@ -143,7 +143,46 @@ const POS = () => {
     [products, search, categoryFilter, stockMap, hideZeroStock]
   );
 
-  const handlePaymentConfirm = async (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean) => {
+  const handlePaymentConfirm = async (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean, loyaltyPhone: string | null) => {
+    // Loyalty capture: if a phone was provided and loyalty is enabled, link/create the customer
+    // BEFORE the sale is written so points and customer_id land on the correct record.
+    if (loyaltyPhone && business) {
+      try {
+        const cleanPhone = loyaltyPhone.replace(/\s+/g, "");
+        const { data: existing } = await supabase
+          .from("customers")
+          .select("id, name, loyalty_points")
+          .eq("business_id", business.id)
+          .eq("phone", cleanPhone)
+          .maybeSingle();
+        let customerId = existing?.id ?? null;
+        let existingPoints = Number(existing?.loyalty_points ?? 0);
+        if (!customerId) {
+          const { data: created, error } = await supabase
+            .from("customers")
+            .insert({ business_id: business.id, name: `Customer ${cleanPhone.slice(-4)}`, phone: cleanPhone, balance: 0 })
+            .select("id, loyalty_points")
+            .single();
+          if (error) throw error;
+          customerId = created.id;
+          existingPoints = 0;
+        }
+        pos.setCustomerId(customerId);
+        pos.setCustomerName(existing?.name || `Customer ${cleanPhone.slice(-4)}`);
+        // Award points AFTER we know the sale total.
+        const pointsPerKes = Number((business as { loyalty_points_per_kes?: number } | null)?.loyalty_points_per_kes ?? 1);
+        const earned = Math.floor(pos.cartTotal * pointsPerKes);
+        if (earned > 0) {
+          await supabase
+            .from("customers")
+            .update({ loyalty_points: existingPoints + earned, loyalty_last_earned_at: new Date().toISOString() })
+            .eq("id", customerId);
+          toast.success(`+${earned} loyalty points awarded`);
+        }
+      } catch (e: any) {
+        toast.warning(`Loyalty capture skipped: ${e.message || "unknown error"}`);
+      }
+    }
     const result = await pos.completeSale(payments, bankAccountId, pushToEtims);
     if (result) {
       setPaymentOpen(false);
