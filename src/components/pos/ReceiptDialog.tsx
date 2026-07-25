@@ -181,6 +181,8 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
           <div className="flex justify-between font-bold text-sm"><span>TOTAL</span><span>KES {data.total.toLocaleString()}</span></div>
 
 
+          {cfg.qrCodePosition === "middle" && qrBlock}
+
           <div className="line border-t border-dashed border-foreground/30 my-2" />
 
           {data.payments.map((p, i) => (
