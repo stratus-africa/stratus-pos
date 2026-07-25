@@ -379,6 +379,17 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
 
           <div className="text-sm space-y-1">
             <div className="flex justify-between"><span className="text-muted-foreground">Total Due</span><span className="font-semibold">KES {total.toLocaleString()}</span></div>
+            {redemptionValue > 0 && (
+              <div className="flex justify-between text-emerald-600 font-semibold">
+                <span>Loyalty Redemption ({redeemPoints} pts)</span>
+                <span>- KES {redemptionValue.toLocaleString()}</span>
+              </div>
+            )}
+            {redemptionValue > 0 && (
+              <div className="flex justify-between font-semibold">
+                <span>Payable</span><span>KES {adjustedTotal.toLocaleString()}</span>
+              </div>
+            )}
             <div className="flex justify-between"><span className="text-muted-foreground">Total Paid</span><span>KES {totalPaid.toLocaleString()}</span></div>
             {change > 0 && (
               <div className="flex justify-between text-primary font-semibold"><span>Change</span><span>KES {change.toLocaleString()}</span></div>
@@ -406,7 +417,7 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
           )}
 
           {loyaltyEnabled && (
-            <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
               <Label className="text-sm font-medium flex items-center gap-2">
                 <span>🎁 Loyalty — customer phone</span>
               </Label>
@@ -416,9 +427,56 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
                 placeholder="e.g. 0712 345 678"
                 inputMode="tel"
               />
-              <p className="text-xs text-muted-foreground">
-                Points award to the customer with this phone. New numbers create a customer record.
-              </p>
+              {loyaltyLoading && <p className="text-xs text-muted-foreground">Looking up customer…</p>}
+              {loyaltyLookup?.id && (
+                <div className="text-xs space-y-1">
+                  <div className="flex justify-between"><span>Customer</span><span className="font-medium">{loyaltyLookup.name}</span></div>
+                  <div className="flex justify-between"><span>Points balance</span><span className="font-medium">{loyaltyLookup.points.toLocaleString()}</span></div>
+                </div>
+              )}
+              {loyaltyLookup && !loyaltyLookup.id && loyaltyPhoneClean.length >= 6 && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Customer name (required for new number)</Label>
+                  <Input
+                    value={loyaltyName}
+                    onChange={(e) => setLoyaltyName(e.target.value)}
+                    placeholder="Full name"
+                    required
+                  />
+                </div>
+              )}
+              {canRedeem && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Redeem points (max {maxRedeemPoints.toLocaleString()})</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={maxRedeemPoints}
+                    value={redeemPoints || ""}
+                    onChange={(e) => {
+                      const v = Math.max(0, Math.min(maxRedeemPoints, parseInt(e.target.value) || 0));
+                      setRedeemPoints(v);
+                    }}
+                    placeholder="0"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    {loyaltyKesPerPoint} KES per point. Min redemption balance: {loyaltyMinRedeem}.
+                  </p>
+                </div>
+              )}
+              {loyaltyLookup && !canRedeem && loyaltyLookup.id && loyaltyMinRedeem > 0 && (
+                <p className="text-[11px] text-muted-foreground">
+                  Needs {Math.max(0, loyaltyMinRedeem - loyaltyLookup.points).toLocaleString()} more points to redeem.
+                </p>
+              )}
+              {loyaltyPhoneClean.length >= 6 && (
+                <p className="text-[11px] text-muted-foreground">
+                  New points to be awarded on this sale: <span className="font-medium">{projectedEarn.toLocaleString()}</span>
+                  {loyaltyMinPurchase > 0 && adjustedTotal < loyaltyMinPurchase && (
+                    <> (min purchase KES {loyaltyMinPurchase.toLocaleString()} to earn)</>
+                  )}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -432,10 +490,24 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button
-            onClick={() => onConfirm(payments, bankAccountId === "none" ? null : bankAccountId, digitaxEnabled && pushToEtims, loyaltyPhone.trim() || null)}
+            onClick={() => {
+              const loyalty: LoyaltyPayload | null =
+                loyaltyEnabled && loyaltyPhoneClean.length >= 6
+                  ? {
+                      phone: loyaltyPhoneClean,
+                      name: (loyaltyLookup?.name || loyaltyName).trim(),
+                      existingCustomerId: loyaltyLookup?.id ?? null,
+                      redeemPoints,
+                      redemptionValue,
+                      pointsBalance: loyaltyLookup?.points ?? 0,
+                    }
+                  : null;
+              onConfirm(payments, bankAccountId === "none" ? null : bankAccountId, digitaxEnabled && pushToEtims, loyalty);
+            }}
             disabled={
               totalPaid <= 0 ||
               processing ||
+              !!requiresName ||
               (hasMpesaPayment && mpesaStatus !== "completed" && !payments.find(p => p.method === "mpesa")?.reference)
             }
           >
