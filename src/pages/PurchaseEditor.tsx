@@ -369,6 +369,18 @@ export default function PurchaseEditor() {
                 </div>
                 <Switch checked={vatEnabled} onCheckedChange={setVatEnabledLocal} disabled={!orgVatEnabled} />
               </div>
+              {vatEnabled && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Tax mode</Label>
+                  <Select value={taxInclusive ? "inclusive" : "exclusive"} onValueChange={(v) => setTaxInclusive(v === "inclusive")}>
+                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="exclusive">Tax Exclusive — tax added on top of unit cost</SelectItem>
+                      <SelectItem value="inclusive">Tax Inclusive — unit cost already includes tax</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               {vatEnabled && supplierMissingPin && (
                 <div className="flex items-start gap-2 text-xs text-destructive bg-destructive/10 rounded p-2">
                   <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
