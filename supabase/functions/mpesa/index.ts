@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "stk-query") {
-      const { checkoutRequestId } = body;
+      const { checkoutRequestId, businessId: qBusinessId } = body;
       if (!checkoutRequestId) {
         return new Response(
           JSON.stringify({ error: "checkoutRequestId is required" }),
@@ -145,7 +145,18 @@ Deno.serve(async (req) => {
         );
       }
 
-      const result = await querySTKPushStatus(checkoutRequestId, "live");
+      let bizId = qBusinessId as string | undefined;
+      if (!bizId) {
+        const { data: txn } = await supabase
+          .from("mpesa_transactions")
+          .select("business_id")
+          .eq("checkout_request_id", checkoutRequestId)
+          .maybeSingle();
+        bizId = (txn as any)?.business_id;
+      }
+      const creds = await loadBusinessCreds(bizId);
+      const result = await querySTKPushStatus(checkoutRequestId, "live", creds);
+
 
       return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
