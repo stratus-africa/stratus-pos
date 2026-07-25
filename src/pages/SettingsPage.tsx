@@ -49,10 +49,14 @@ const SettingsPage = () => {
     { key: "payments", label: "Payment Accounts", icon: <Wallet className="h-4 w-4" />, permission: "banking.view", render: () => <PaymentAccountsTab /> },
     { key: "gateways", label: "Payment Gateways", icon: <Smartphone className="h-4 w-4" />, permission: "settings.edit", render: () => <PaymentGatewaysTab /> },
     { key: "receipt", label: "Customization", icon: <Receipt className="h-4 w-4" />, permission: "settings.edit", render: () => (
-      <div className="space-y-6">
-        <ReceiptSettingsTab />
-        <PriceTagSettingsTab />
-      </div>
+      <Tabs defaultValue="receipt-template" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="receipt-template">Receipt Template</TabsTrigger>
+          <TabsTrigger value="price-tag-template">Price Tag Template</TabsTrigger>
+        </TabsList>
+        <TabsContent value="receipt-template" className="mt-0"><ReceiptSettingsTab /></TabsContent>
+        <TabsContent value="price-tag-template" className="mt-0"><PriceTagSettingsTab /></TabsContent>
+      </Tabs>
     ) },
     { key: "numbering", label: "Numbering", icon: <Hash className="h-4 w-4" />, permission: "settings.edit", render: () => <NumberSeriesTab /> },
     { key: "integrations", label: "Integrations", icon: <Plug className="h-4 w-4" />, permission: "settings.edit", render: () => <IntegrationsTab /> },
