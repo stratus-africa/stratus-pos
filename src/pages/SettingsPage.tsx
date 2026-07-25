@@ -18,7 +18,8 @@ import { useFeatureLimit } from "@/components/FeatureGate";
 
 import { useSearchParams } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface TabDef {
   key: string;
