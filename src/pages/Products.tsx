@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Package, Plus, Search, Pencil, Trash2, Tag, Layers, Ruler, Download, Upload, FileDown, Lock, ScanLine } from "lucide-react";
+import { Package, Plus, Search, Pencil, Trash2, Tag, Layers, Ruler, Download, Upload, FileDown, Lock, ScanLine, Printer } from "lucide-react";
+import { PrintTagsDialog, type PrintTagItem } from "@/components/products/PrintTagsDialog";
 import { useProducts, useCategories, useBrands, useUnits, type ProductFormData, type Product } from "@/hooks/useProducts";
 import { ProductFormDialog } from "@/components/products/ProductFormDialog";
 import { TaxonomyDialog } from "@/components/products/TaxonomyDialog";
@@ -61,6 +62,8 @@ const Products = () => {
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [printTagsOpen, setPrintTagsOpen] = useState(false);
+  const [printTagItems, setPrintTagItems] = useState<PrintTagItem[]>([]);
 
   const handleBulkUpdate = async () => {
     if (selectedIds.size === 0) return;
@@ -365,6 +368,13 @@ const Products = () => {
                       </AlertDialogContent>
                     </AlertDialog>
                   )}
+                  <Button size="sm" variant="outline" onClick={() => {
+                    const selected = filtered.filter((p) => selectedIds.has(p.id));
+                    setPrintTagItems(selected.map((p) => ({ id: p.id, name: p.name, sku: p.sku, barcode: (p as any).barcode, selling_price: Number(p.selling_price) })));
+                    setPrintTagsOpen(true);
+                  }}>
+                    <Printer className="mr-1 h-4 w-4" /> Print Tags
+                  </Button>
                   <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>Clear</Button>
                 </div>
               )}
@@ -428,6 +438,12 @@ const Products = () => {
                                   <Pencil className="h-4 w-4" />
                                 </Button>
                               )}
+                              <Button size="icon" variant="ghost" title="Print tag" onClick={() => {
+                                setPrintTagItems([{ id: p.id, name: p.name, sku: p.sku, barcode: (p as any).barcode, selling_price: Number(p.selling_price) }]);
+                                setPrintTagsOpen(true);
+                              }}>
+                                <Printer className="h-4 w-4" />
+                              </Button>
                               {canDelete && (
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
@@ -671,6 +687,7 @@ const Products = () => {
         importing={importing}
         onConfirm={(m) => runImport(m as Record<string, string | null>)}
       />
+      <PrintTagsDialog open={printTagsOpen} onOpenChange={setPrintTagsOpen} items={printTagItems} />
     </div>
   );
 };

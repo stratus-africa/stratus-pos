@@ -130,6 +130,7 @@ const NotificationsPage = lazy(() => import("./pages/Notifications"));
 const ChartOfAccounts = lazy(() => import("./pages/ChartOfAccounts"));
 const Profile = lazy(() => import("./pages/Profile"));
 const CashierDashboard = lazy(() => import("./pages/CashierDashboard"));
+const StoresManagerDashboard = lazy(() => import("./pages/StoresManagerDashboard"));
 const JournalEntries = lazy(() => import("./pages/JournalEntries"));
 const Banking = lazy(() => import("./pages/Banking"));
 const Digitax = lazy(() => import("./pages/Digitax"));
@@ -276,11 +277,24 @@ const ProtectedRoutes = () => {
     return element;
   };
 
-  // Cashier dashboard = daily records. Other roles get the full Index dashboard
-  // (subject to dashboard.view permission).
+  // Cashier dashboard = daily records. Stores managers get an inventory-focused
+  // dashboard. Other roles get the full Index dashboard (subject to
+  // dashboard.view permission).
   const rootElement = userRole === "cashier"
     ? <CashierDashboard />
-    : guard(<FeatureGate featureKey="dashboard"><Index /></FeatureGate>, "dashboard.view");
+    : userRole === "stores_manager"
+      ? <StoresManagerDashboard />
+      : guard(<FeatureGate featureKey="dashboard"><Index /></FeatureGate>, "dashboard.view");
+
+  // /reports is available if the user has ANY report permission — the Reports
+  // page itself hides tabs the user can't access.
+  const canAnyReport =
+    hasPermission("report.sales") ||
+    hasPermission("report.purchases") ||
+    hasPermission("report.expenses") ||
+    hasPermission("report.inventory") ||
+    hasPermission("report.pnl") ||
+    hasPermission("report.audit");
 
   return (
     <AppLayout>
@@ -301,7 +315,10 @@ const ProtectedRoutes = () => {
             <Route path="/chart-of-accounts" element={guard(<FeatureGate featureKey="chart_of_accounts"><ChartOfAccounts /></FeatureGate>, "chart_of_accounts.view")} />
             <Route path="/journal-entries" element={guard(<FeatureGate featureKey="chart_of_accounts"><JournalEntries /></FeatureGate>, "chart_of_accounts.view")} />
             <Route path="/banking" element={guard(<FeatureGate featureKey="banking"><Banking /></FeatureGate>, "banking.view")} />
-            <Route path="/reports" element={guard(<FeatureGate featureKey="reports"><Reports /></FeatureGate>, "report.sales")} />
+            <Route path="/reports" element={
+              permsLoading ? <PageLoader /> :
+              canAnyReport ? <FeatureGate featureKey="reports"><Reports /></FeatureGate> : <AccessDenied />
+            } />
             <Route path="/tax-compliance" element={guard(<FeatureGate featureKey="digitax"><Digitax /></FeatureGate>, "settings.view")} />
             <Route path="/settings" element={guard(<SettingsPage />, "settings.view")} />
             <Route path="/profile" element={guard(<Profile />)} />

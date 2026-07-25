@@ -62,6 +62,7 @@ export const defaultRolePermissions: Record<AppRole, string[]> = {
     "customers.view", "customers.create",
   ],
   stores_manager: [
+    "dashboard.view",
     "products.view", "products.create", "products.edit",
     "inventory.view", "inventory.create", "inventory.edit",
     "purchases.view", "purchases.create", "purchases.edit",
