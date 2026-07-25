@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Package, Plus, Search, Pencil, Trash2, Tag, Layers, Ruler, Download, Upload, FileDown, Lock, ScanLine } from "lucide-react";
+import { Package, Plus, Search, Pencil, Trash2, Tag, Layers, Ruler, Download, Upload, FileDown, Lock, ScanLine, Printer } from "lucide-react";
+import { PrintTagsDialog, type PrintTagItem } from "@/components/products/PrintTagsDialog";
 import { useProducts, useCategories, useBrands, useUnits, type ProductFormData, type Product } from "@/hooks/useProducts";
 import { ProductFormDialog } from "@/components/products/ProductFormDialog";
 import { TaxonomyDialog } from "@/components/products/TaxonomyDialog";
@@ -61,6 +62,8 @@ const Products = () => {
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [printTagsOpen, setPrintTagsOpen] = useState(false);
+  const [printTagItems, setPrintTagItems] = useState<PrintTagItem[]>([]);
 
   const handleBulkUpdate = async () => {
     if (selectedIds.size === 0) return;
