@@ -251,6 +251,7 @@ export default function PurchaseEditor() {
       payment_status: paymentStatus,
       status,
       vat_enabled: vatEnabled,
+      tax_inclusive: vatEnabled ? taxInclusive : false,
       notes: notes || undefined,
       created_by: user.id,
     };
