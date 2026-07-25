@@ -33,6 +33,7 @@ export function DigitaxSettingsTab() {
   const [taxRate, setTaxRate] = useState(String(business?.tax_rate ?? 16));
   const [kraPin, setKraPin] = useState((business as any)?.kra_pin || "");
   const [vatEnabled, setVatEnabled] = useState((business as { vat_enabled?: boolean })?.vat_enabled ?? true);
+  const [taxInclusive, setTaxInclusive] = useState<boolean>((business as any)?.tax_inclusive_pricing ?? false);
 
   useEffect(() => {
     if (!business) return;
@@ -41,6 +42,7 @@ export function DigitaxSettingsTab() {
     setTaxRate(String(business.tax_rate ?? 16));
     setKraPin((business as any).kra_pin || "");
     setVatEnabled((business as any).vat_enabled ?? true);
+    setTaxInclusive((business as any).tax_inclusive_pricing ?? false);
   }, [business?.id]);
 
   const lockedOn = query.data?.enabled === true && fiscalisedCount > 0;
@@ -120,6 +122,7 @@ export function DigitaxSettingsTab() {
         tax_rate: parseFloat(taxRate) || 0,
         kra_pin: kraPin.trim() || null,
         vat_enabled: vatEnabled,
+        tax_inclusive_pricing: taxInclusive,
       } as never)
       .eq("id", business.id);
     if (error) toast.error("Failed to update: " + error.message);
@@ -182,26 +185,39 @@ export function DigitaxSettingsTab() {
           </div>
 
           {vatEnabled && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Default Tax Rate (%)</Label>
-                <Input type="number" min={0} max={100} step={0.5}
-                  value={taxRate} onChange={(e) => setTaxRate(e.target.value)} />
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Default Tax Rate (%)</Label>
+                  <Input type="number" min={0} max={100} step={0.5}
+                    value={taxRate} onChange={(e) => setTaxRate(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>
+                    KRA PIN <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    value={kraPin}
+                    onChange={(e) => setKraPin(e.target.value.toUpperCase())}
+                    placeholder="e.g. P051234567X"
+                    required
+                    aria-invalid={vatEnabled && !kraPin.trim()}
+                  />
+                  <p className="text-xs text-muted-foreground">Required when VAT is enabled. Used on tax invoices and reports.</p>
+                </div>
               </div>
               <div className="space-y-2">
-                <Label>
-                  KRA PIN <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  value={kraPin}
-                  onChange={(e) => setKraPin(e.target.value.toUpperCase())}
-                  placeholder="e.g. P051234567X"
-                  required
-                  aria-invalid={vatEnabled && !kraPin.trim()}
-                />
-                <p className="text-xs text-muted-foreground">Required when VAT is enabled. Used on tax invoices and reports.</p>
+                <Label>Product Pricing Mode</Label>
+                <Select value={taxInclusive ? "inclusive" : "exclusive"} onValueChange={(v) => setTaxInclusive(v === "inclusive")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="exclusive">Tax Exclusive — product prices do not include tax (tax added at checkout)</SelectItem>
+                    <SelectItem value="inclusive">Tax Inclusive — product prices already include tax</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Applied by default across products, sales and purchases. Individual purchases can override this.</p>
               </div>
-            </div>
+            </>
           )}
 
           <div className="flex justify-end">

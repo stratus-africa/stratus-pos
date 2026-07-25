@@ -34,6 +34,7 @@ export default function PurchaseEditor() {
   const { data: bankAccounts } = useBankAccounts();
 
   const orgVatEnabled = (business as any)?.vat_enabled ?? true;
+  const orgTaxInclusive = (business as any)?.tax_inclusive_pricing ?? false;
   const taxRate = business?.tax_rate ?? 16;
 
   const [supplierId, setSupplierId] = useState("");
@@ -44,6 +45,7 @@ export default function PurchaseEditor() {
   const [status, setStatus] = useState("received");
   const [vatEnabledLocal, setVatEnabledLocal] = useState(true);
   const vatEnabled = orgVatEnabled && vatEnabledLocal;
+  const [taxInclusive, setTaxInclusive] = useState<boolean>(orgTaxInclusive);
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<PurchaseItem[]>([]);
   
@@ -72,6 +74,7 @@ export default function PurchaseEditor() {
     setPaymentStatus(existing.payment_status);
     setStatus(existing.status);
     setVatEnabledLocal(existing.vat_enabled ?? true);
+    setTaxInclusive((existing as any).tax_inclusive ?? false);
     setNotes(existing.notes || "");
     getPurchaseItems(id)
       .then((its) => setItems(its))
@@ -143,9 +146,13 @@ export default function PurchaseEditor() {
   const [sellingPriceOverrides, setSellingPriceOverrides] = useState<Record<string, string>>({});
   const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
 
-  const subtotal = items.reduce((s, i) => s + i.total, 0);
-  const tax = vatEnabled ? subtotal * (taxRate / 100) : 0;
-  const total = subtotal + tax;
+  const lineSum = items.reduce((s, i) => s + i.total, 0);
+  const rate = taxRate / 100;
+  const { subtotal, tax, total } = vatEnabled
+    ? taxInclusive
+      ? { subtotal: lineSum / (1 + rate), tax: lineSum - lineSum / (1 + rate), total: lineSum }
+      : { subtotal: lineSum, tax: lineSum * rate, total: lineSum * (1 + rate) }
+    : { subtotal: lineSum, tax: 0, total: lineSum };
 
   // In edit mode, payment fields are optional — used to record an ADDITIONAL payment.
   const showPaymentSection = paymentStatus !== "unpaid";
@@ -244,6 +251,7 @@ export default function PurchaseEditor() {
       payment_status: paymentStatus,
       status,
       vat_enabled: vatEnabled,
+      tax_inclusive: vatEnabled ? taxInclusive : false,
       notes: notes || undefined,
       created_by: user.id,
     };
@@ -361,6 +369,18 @@ export default function PurchaseEditor() {
                 </div>
                 <Switch checked={vatEnabled} onCheckedChange={setVatEnabledLocal} disabled={!orgVatEnabled} />
               </div>
+              {vatEnabled && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Tax mode</Label>
+                  <Select value={taxInclusive ? "inclusive" : "exclusive"} onValueChange={(v) => setTaxInclusive(v === "inclusive")}>
+                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="exclusive">Tax Exclusive — tax added on top of unit cost</SelectItem>
+                      <SelectItem value="inclusive">Tax Inclusive — unit cost already includes tax</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               {vatEnabled && supplierMissingPin && (
                 <div className="flex items-start gap-2 text-xs text-destructive bg-destructive/10 rounded p-2">
                   <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />

@@ -1,0 +1,2 @@
+ALTER TABLE public.businesses ADD COLUMN IF NOT EXISTS tax_inclusive_pricing boolean NOT NULL DEFAULT false;
+ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS tax_inclusive boolean NOT NULL DEFAULT false;

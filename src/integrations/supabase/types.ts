@@ -345,6 +345,7 @@ export type Database = {
           reminders_unposted_expenses: boolean
           selected_package_id: string | null
           status: string
+          tax_inclusive_pricing: boolean
           tax_rate: number | null
           theme_color: string
           timezone: string
@@ -402,6 +403,7 @@ export type Database = {
           reminders_unposted_expenses?: boolean
           selected_package_id?: string | null
           status?: string
+          tax_inclusive_pricing?: boolean
           tax_rate?: number | null
           theme_color?: string
           timezone?: string
@@ -459,6 +461,7 @@ export type Database = {
           reminders_unposted_expenses?: boolean
           selected_package_id?: string | null
           status?: string
+          tax_inclusive_pricing?: boolean
           tax_rate?: number | null
           theme_color?: string
           timezone?: string
@@ -1976,6 +1979,7 @@ export type Database = {
           subtotal: number
           supplier_id: string | null
           tax: number
+          tax_inclusive: boolean
           total: number
           updated_at: string
           vat_enabled: boolean
@@ -1993,6 +1997,7 @@ export type Database = {
           subtotal?: number
           supplier_id?: string | null
           tax?: number
+          tax_inclusive?: boolean
           total?: number
           updated_at?: string
           vat_enabled?: boolean
@@ -2010,6 +2015,7 @@ export type Database = {
           subtotal?: number
           supplier_id?: string | null
           tax?: number
+          tax_inclusive?: boolean
           total?: number
           updated_at?: string
           vat_enabled?: boolean
