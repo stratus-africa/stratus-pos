@@ -2369,6 +2369,8 @@ export type Database = {
           full_name: string | null
           id: string
           is_active: boolean
+          login_barcode: string | null
+          login_pin_hash: string | null
           phone: string | null
           updated_at: string
           username: string | null
@@ -2382,6 +2384,8 @@ export type Database = {
           full_name?: string | null
           id: string
           is_active?: boolean
+          login_barcode?: string | null
+          login_pin_hash?: string | null
           phone?: string | null
           updated_at?: string
           username?: string | null
@@ -2395,6 +2399,8 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_active?: boolean
+          login_barcode?: string | null
+          login_pin_hash?: string | null
           phone?: string | null
           updated_at?: string
           username?: string | null
@@ -3384,6 +3390,10 @@ export type Database = {
         Args: { _business_id: string; _notes?: string }
         Returns: undefined
       }
+      clear_user_login_barcode: {
+        Args: { _user_id: string }
+        Returns: undefined
+      }
       create_vault_secret: {
         Args: { _name: string; _secret: string }
         Returns: string
@@ -3637,6 +3647,10 @@ export type Database = {
         Returns: undefined
       }
       resolve_login_email: { Args: { _identifier: string }; Returns: string }
+      set_user_login_barcode: {
+        Args: { _barcode: string; _pin: string; _user_id: string }
+        Returns: undefined
+      }
       tax_rate_usage: {
         Args: { _business_id: string }
         Returns: {
@@ -3651,6 +3665,10 @@ export type Database = {
       }
       upsert_vault_secret: {
         Args: { _name: string; _secret: string }
+        Returns: string
+      }
+      verify_barcode_pin: {
+        Args: { _barcode: string; _pin: string }
         Returns: string
       }
     }

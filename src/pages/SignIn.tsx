@@ -11,7 +11,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Mail, Lock, Eye, EyeOff, ArrowLeft, ArrowRight, CheckCircle2, Package, Clock, XCircle, Info } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowLeft, ArrowRight, CheckCircle2, Package, Clock, XCircle, Info, ScanLine } from "lucide-react";
+import BarcodeSignInDialog from "@/components/auth/BarcodeSignInDialog";
 
 const HIGHLIGHTS = [
   "Dedicated subdomain & database",
@@ -45,6 +46,7 @@ export default function SignIn() {
   const [forgotOpen, setForgotOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [sendingReset, setSendingReset] = useState(false);
+  const [barcodeOpen, setBarcodeOpen] = useState(false);
 
   if (!loading && user && !bizLoading && !saLoading && !banner) {
     if (isSuperAdmin) return <Navigate to="/super-admin" replace />;
@@ -206,6 +208,22 @@ export default function SignIn() {
             </Button>
           </form>
 
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-muted-foreground">or</span>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setBarcodeOpen(true)}
+            className="w-full h-11 rounded-lg"
+          >
+            <ScanLine className="mr-2 h-4 w-4" /> Sign in with barcode
+          </Button>
+
           <p className="text-xs text-center text-muted-foreground">
             Don't have an account?{" "}
             <Link to="/onboarding" className="text-emerald-600 font-medium hover:underline">Create workspace</Link>
@@ -254,6 +272,8 @@ export default function SignIn() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <BarcodeSignInDialog open={barcodeOpen} onOpenChange={setBarcodeOpen} />
     </div>
   );
 }
