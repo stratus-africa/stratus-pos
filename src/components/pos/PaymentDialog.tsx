@@ -112,16 +112,53 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
       setMpesaStatus("idle");
       setMpesaPhone("");
       setMpesaCheckoutId("");
+      setLoyaltyPhone("");
+      setLoyaltyName("");
+      setLoyaltyLookup(null);
+      setRedeemPoints(0);
       if (pollRef.current) clearInterval(pollRef.current);
     }
     onOpenChange(v);
   };
 
-  // Whenever dialog opens or initialMethod / total changes, sync the first payment row
+  // Sync first payment row to adjusted total whenever redemption / total / method changes
   useEffect(() => {
     if (!open) return;
-    setPayments([{ method: initialMethod, amount: total, reference: "" }]);
-  }, [open, initialMethod, total]);
+    setPayments([{ method: initialMethod, amount: adjustedTotal, reference: "" }]);
+  }, [open, initialMethod, adjustedTotal]);
+
+  // Lookup customer by phone (debounced)
+  useEffect(() => {
+    if (!loyaltyEnabled || !business) return;
+    const clean = loyaltyPhone.replace(/\s+/g, "");
+    if (!clean || clean.length < 6) { setLoyaltyLookup(null); setRedeemPoints(0); return; }
+    let cancelled = false;
+    setLoyaltyLoading(true);
+    const t = setTimeout(async () => {
+      const { data } = await supabase
+        .from("customers")
+        .select("id, name, loyalty_points")
+        .eq("business_id", business.id)
+        .eq("phone", clean)
+        .maybeSingle();
+      if (cancelled) return;
+      if (data) {
+        setLoyaltyLookup({ id: data.id, name: data.name, points: Number(data.loyalty_points || 0) });
+        setLoyaltyName(data.name || "");
+      } else {
+        setLoyaltyLookup({ id: null, name: "", points: 0 });
+      }
+      setLoyaltyLoading(false);
+    }, 400);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [loyaltyPhone, loyaltyEnabled, business]);
+
+  const canRedeem = !!loyaltyLookup?.id && loyaltyLookup.points >= loyaltyMinRedeem && loyaltyMinRedeem > 0;
+  const maxRedeemPoints = loyaltyLookup ? Math.min(loyaltyLookup.points, Math.floor(total / (loyaltyKesPerPoint || 1))) : 0;
+  const projectedEarn = adjustedTotal >= loyaltyMinPurchase ? Math.floor(adjustedTotal * loyaltyPointsPerKes) : 0;
+  const loyaltyPhoneClean = loyaltyPhone.replace(/\s+/g, "");
+  const requiresName = loyaltyEnabled && loyaltyPhoneClean.length >= 6 && loyaltyLookup && !loyaltyLookup.id && !loyaltyName.trim();
+
 
   const sendSTKPush = async () => {
     if (!mpesaPhone || !business) return;
