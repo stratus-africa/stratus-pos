@@ -39,6 +39,9 @@ export function BusinessProfileTab() {
   const [kraPin, setKraPin] = useState<string>((business as { kra_pin?: string })?.kra_pin || "");
   const [loyaltyEnabled, setLoyaltyEnabled] = useState<boolean>((business as { loyalty_enabled?: boolean })?.loyalty_enabled ?? false);
   const [loyaltyPointsPerKes, setLoyaltyPointsPerKes] = useState<string>(String((business as { loyalty_points_per_kes?: number })?.loyalty_points_per_kes ?? 1));
+  const [loyaltyMinRedeem, setLoyaltyMinRedeem] = useState<string>(String((business as { loyalty_min_redeem_points?: number })?.loyalty_min_redeem_points ?? 100));
+  const [loyaltyMinPurchase, setLoyaltyMinPurchase] = useState<string>(String((business as { loyalty_min_purchase_amount?: number })?.loyalty_min_purchase_amount ?? 0));
+  const [loyaltyKesPerPoint, setLoyaltyKesPerPoint] = useState<string>(String((business as { loyalty_kes_per_point?: number })?.loyalty_kes_per_point ?? 1));
   const [managers, setManagers] = useState<{ user_id: string; full_name: string | null; email: string | null }[]>([]);
   const [negativeStockCount, setNegativeStockCount] = useState<number>(0);
 
@@ -97,6 +100,9 @@ export function BusinessProfileTab() {
         kra_pin: kraPin.trim() || null,
         loyalty_enabled: loyaltyEnabled,
         loyalty_points_per_kes: parseFloat(loyaltyPointsPerKes) || 1,
+        loyalty_min_redeem_points: parseFloat(loyaltyMinRedeem) || 0,
+        loyalty_min_purchase_amount: parseFloat(loyaltyMinPurchase) || 0,
+        loyalty_kes_per_point: parseFloat(loyaltyKesPerPoint) || 1,
       } as never)
       .eq("id", business.id);
 
@@ -323,18 +329,53 @@ export function BusinessProfileTab() {
             <Switch checked={loyaltyEnabled} onCheckedChange={setLoyaltyEnabled} />
           </div>
           {loyaltyEnabled && (
-            <div className="space-y-2 max-w-xs">
-              <Label>Points earned per KES 1 spent</Label>
-              <Input
-                type="number"
-                min={0.01}
-                step={0.01}
-                value={loyaltyPointsPerKes}
-                onChange={(e) => setLoyaltyPointsPerKes(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Example: 1 = 1 point per KES 1 spent (KES 500 sale → 500 points).
-              </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Points earned per KES 1 spent</Label>
+                <Input
+                  type="number"
+                  min={0.01}
+                  step={0.01}
+                  value={loyaltyPointsPerKes}
+                  onChange={(e) => setLoyaltyPointsPerKes(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Example: 1 = 1 point per KES 1 spent.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Minimum purchase to earn points (KES)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={loyaltyMinPurchase}
+                  onChange={(e) => setLoyaltyMinPurchase(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Sales below this total earn no points.</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Minimum points to redeem</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={loyaltyMinRedeem}
+                  onChange={(e) => setLoyaltyMinRedeem(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Customer must reach this balance before redeeming.</p>
+              </div>
+              <div className="space-y-2">
+                <Label>KES value per redeemed point</Label>
+                <Input
+                  type="number"
+                  min={0.01}
+                  step={0.01}
+                  value={loyaltyKesPerPoint}
+                  onChange={(e) => setLoyaltyKesPerPoint(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Example: 1 = 1 point redeems for KES 1.</p>
+              </div>
             </div>
           )}
         </CardContent>

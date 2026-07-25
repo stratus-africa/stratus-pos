@@ -277,7 +277,12 @@ export function usePOS() {
   }, [queryClient]);
 
   // Complete sale
-  const completeSale = async (payments: PaymentEntry[], bankAccountId?: string | null, pushToEtims: boolean = true) => {
+  const completeSale = async (
+    payments: PaymentEntry[],
+    bankAccountId?: string | null,
+    pushToEtims: boolean = true,
+    opts: { loyaltyDiscount?: number; loyaltyNote?: string | null } = {},
+  ) => {
     if (!business || !currentLocation || !user || cart.length === 0) return null;
     if (!ensureCanPost()) return null;
 
@@ -300,8 +305,13 @@ export function usePOS() {
     }
 
     try {
+      const loyaltyDiscount = Math.max(0, Number(opts.loyaltyDiscount || 0));
+      const cartDiscountBase = cart.reduce((s, i) => s + i.discount, 0);
+      const effectiveDiscount = cartDiscountBase + loyaltyDiscount;
+      const effectiveTotal = Math.max(0, cartTotal - loyaltyDiscount);
+
       const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
-      const paymentStatus = totalPaid >= cartTotal ? "paid" : totalPaid > 0 ? "partial" : "unpaid";
+      const paymentStatus = totalPaid >= effectiveTotal ? "paid" : totalPaid > 0 ? "partial" : "unpaid";
 
       const invoiceNumber = consumeNext(business.id, "receipts");
 
@@ -315,11 +325,12 @@ export function usePOS() {
         invoice_number: invoiceNumber,
         subtotal: cartSubtotal,
         tax: Math.round(cartTax * 100) / 100,
-        discount: cart.reduce((s, i) => s + i.discount, 0),
-        total: cartTotal,
+        discount: effectiveDiscount,
+        total: effectiveTotal,
         payment_status: paymentStatus,
         status: "final",
         created_by: user.id,
+        notes: opts.loyaltyNote || null,
       });
       if (saleErr) throw saleErr;
 
@@ -411,7 +422,7 @@ export function usePOS() {
           business_id: business.id,
           bank_account_id: bankAccountId,
           type: "payment_received",
-          amount: Math.min(totalPaid, cartTotal),
+          amount: Math.min(totalPaid, effectiveTotal),
           date: new Date().toISOString().split("T")[0],
           reference: invoiceNumber,
           description: `Sale ${invoiceNumber}`,
@@ -424,7 +435,7 @@ export function usePOS() {
 
         const { data: acc } = await supabase.from("bank_accounts").select("balance").eq("id", bankAccountId).single();
         if (acc) {
-          await supabase.from("bank_accounts").update({ balance: acc.balance + Math.min(totalPaid, cartTotal) }).eq("id", bankAccountId);
+          await supabase.from("bank_accounts").update({ balance: acc.balance + Math.min(totalPaid, effectiveTotal) }).eq("id", bankAccountId);
         }
       }
 
@@ -476,18 +487,20 @@ export function usePOS() {
         items: cart,
         subtotal: cartSubtotal,
         tax: Math.round(cartTax * 100) / 100,
-        discount: cart.reduce((s, i) => s + i.discount, 0),
-        total: cartTotal,
+        discount: effectiveDiscount,
+        total: effectiveTotal,
         payments,
         totalPaid,
-        change: Math.max(0, totalPaid - cartTotal),
+        change: Math.max(0, totalPaid - effectiveTotal),
         customerName,
         locationName: currentLocation.name,
         businessName: business.name,
+        servedBy: (user as { email?: string } | null)?.email || null,
         date: new Date(),
         fiscal,
         vatBreakdown,
         taxInclusive,
+        loyaltyDiscount,
       };
 
 

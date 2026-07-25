@@ -15,11 +15,20 @@ import { useDigitaxEnabled } from "@/hooks/useDigitax";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+export interface LoyaltyPayload {
+  phone: string;
+  name: string;
+  existingCustomerId: string | null;
+  redeemPoints: number;
+  redemptionValue: number;
+  pointsBalance: number;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   total: number;
-  onConfirm: (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean, loyaltyPhone: string | null) => void;
+  onConfirm: (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean, loyalty: LoyaltyPayload | null) => void;
   processing: boolean;
   initialMethod?: "cash" | "mpesa" | "card";
 }
@@ -42,7 +51,18 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
   const { enabled: digitaxEnabled } = useDigitaxEnabled();
   const [pushToEtims, setPushToEtims] = useState(true);
   const loyaltyEnabled = (business as { loyalty_enabled?: boolean } | null)?.loyalty_enabled === true;
+  const loyaltyMinRedeem = Number((business as { loyalty_min_redeem_points?: number } | null)?.loyalty_min_redeem_points ?? 0);
+  const loyaltyMinPurchase = Number((business as { loyalty_min_purchase_amount?: number } | null)?.loyalty_min_purchase_amount ?? 0);
+  const loyaltyKesPerPoint = Number((business as { loyalty_kes_per_point?: number } | null)?.loyalty_kes_per_point ?? 1);
+  const loyaltyPointsPerKes = Number((business as { loyalty_points_per_kes?: number } | null)?.loyalty_points_per_kes ?? 1);
   const [loyaltyPhone, setLoyaltyPhone] = useState("");
+  const [loyaltyName, setLoyaltyName] = useState("");
+  const [loyaltyLookup, setLoyaltyLookup] = useState<{ id: string | null; name: string; points: number } | null>(null);
+  const [loyaltyLoading, setLoyaltyLoading] = useState(false);
+  const [redeemPoints, setRedeemPoints] = useState<number>(0);
+
+  const redemptionValue = Math.min(redeemPoints * loyaltyKesPerPoint, total);
+  const adjustedTotal = Math.max(0, total - redemptionValue);
 
   // M-Pesa STK Push state
   const [mpesaPhone, setMpesaPhone] = useState("");
@@ -51,8 +71,8 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const totalPaid = payments.reduce((s, p) => s + (p.amount || 0), 0);
-  const change = Math.max(0, totalPaid - total);
-  const remaining = Math.max(0, total - totalPaid);
+  const change = Math.max(0, totalPaid - adjustedTotal);
+  const remaining = Math.max(0, adjustedTotal - totalPaid);
 
   const hasMpesaPayment = payments.some(p => p.method === "mpesa");
 
@@ -92,16 +112,53 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
       setMpesaStatus("idle");
       setMpesaPhone("");
       setMpesaCheckoutId("");
+      setLoyaltyPhone("");
+      setLoyaltyName("");
+      setLoyaltyLookup(null);
+      setRedeemPoints(0);
       if (pollRef.current) clearInterval(pollRef.current);
     }
     onOpenChange(v);
   };
 
-  // Whenever dialog opens or initialMethod / total changes, sync the first payment row
+  // Sync first payment row to adjusted total whenever redemption / total / method changes
   useEffect(() => {
     if (!open) return;
-    setPayments([{ method: initialMethod, amount: total, reference: "" }]);
-  }, [open, initialMethod, total]);
+    setPayments([{ method: initialMethod, amount: adjustedTotal, reference: "" }]);
+  }, [open, initialMethod, adjustedTotal]);
+
+  // Lookup customer by phone (debounced)
+  useEffect(() => {
+    if (!loyaltyEnabled || !business) return;
+    const clean = loyaltyPhone.replace(/\s+/g, "");
+    if (!clean || clean.length < 6) { setLoyaltyLookup(null); setRedeemPoints(0); return; }
+    let cancelled = false;
+    setLoyaltyLoading(true);
+    const t = setTimeout(async () => {
+      const { data } = await supabase
+        .from("customers")
+        .select("id, name, loyalty_points")
+        .eq("business_id", business.id)
+        .eq("phone", clean)
+        .maybeSingle();
+      if (cancelled) return;
+      if (data) {
+        setLoyaltyLookup({ id: data.id, name: data.name, points: Number(data.loyalty_points || 0) });
+        setLoyaltyName(data.name || "");
+      } else {
+        setLoyaltyLookup({ id: null, name: "", points: 0 });
+      }
+      setLoyaltyLoading(false);
+    }, 400);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [loyaltyPhone, loyaltyEnabled, business]);
+
+  const canRedeem = !!loyaltyLookup?.id && loyaltyLookup.points >= loyaltyMinRedeem && loyaltyMinRedeem > 0;
+  const maxRedeemPoints = loyaltyLookup ? Math.min(loyaltyLookup.points, Math.floor(total / (loyaltyKesPerPoint || 1))) : 0;
+  const projectedEarn = adjustedTotal >= loyaltyMinPurchase ? Math.floor(adjustedTotal * loyaltyPointsPerKes) : 0;
+  const loyaltyPhoneClean = loyaltyPhone.replace(/\s+/g, "");
+  const requiresName = loyaltyEnabled && loyaltyPhoneClean.length >= 6 && loyaltyLookup && !loyaltyLookup.id && !loyaltyName.trim();
+
 
   const sendSTKPush = async () => {
     if (!mpesaPhone || !business) return;
@@ -322,6 +379,17 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
 
           <div className="text-sm space-y-1">
             <div className="flex justify-between"><span className="text-muted-foreground">Total Due</span><span className="font-semibold">KES {total.toLocaleString()}</span></div>
+            {redemptionValue > 0 && (
+              <div className="flex justify-between text-emerald-600 font-semibold">
+                <span>Loyalty Redemption ({redeemPoints} pts)</span>
+                <span>- KES {redemptionValue.toLocaleString()}</span>
+              </div>
+            )}
+            {redemptionValue > 0 && (
+              <div className="flex justify-between font-semibold">
+                <span>Payable</span><span>KES {adjustedTotal.toLocaleString()}</span>
+              </div>
+            )}
             <div className="flex justify-between"><span className="text-muted-foreground">Total Paid</span><span>KES {totalPaid.toLocaleString()}</span></div>
             {change > 0 && (
               <div className="flex justify-between text-primary font-semibold"><span>Change</span><span>KES {change.toLocaleString()}</span></div>
@@ -349,7 +417,7 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
           )}
 
           {loyaltyEnabled && (
-            <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
               <Label className="text-sm font-medium flex items-center gap-2">
                 <span>🎁 Loyalty — customer phone</span>
               </Label>
@@ -359,9 +427,56 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
                 placeholder="e.g. 0712 345 678"
                 inputMode="tel"
               />
-              <p className="text-xs text-muted-foreground">
-                Points award to the customer with this phone. New numbers create a customer record.
-              </p>
+              {loyaltyLoading && <p className="text-xs text-muted-foreground">Looking up customer…</p>}
+              {loyaltyLookup?.id && (
+                <div className="text-xs space-y-1">
+                  <div className="flex justify-between"><span>Customer</span><span className="font-medium">{loyaltyLookup.name}</span></div>
+                  <div className="flex justify-between"><span>Points balance</span><span className="font-medium">{loyaltyLookup.points.toLocaleString()}</span></div>
+                </div>
+              )}
+              {loyaltyLookup && !loyaltyLookup.id && loyaltyPhoneClean.length >= 6 && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Customer name (required for new number)</Label>
+                  <Input
+                    value={loyaltyName}
+                    onChange={(e) => setLoyaltyName(e.target.value)}
+                    placeholder="Full name"
+                    required
+                  />
+                </div>
+              )}
+              {canRedeem && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Redeem points (max {maxRedeemPoints.toLocaleString()})</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={maxRedeemPoints}
+                    value={redeemPoints || ""}
+                    onChange={(e) => {
+                      const v = Math.max(0, Math.min(maxRedeemPoints, parseInt(e.target.value) || 0));
+                      setRedeemPoints(v);
+                    }}
+                    placeholder="0"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    {loyaltyKesPerPoint} KES per point. Min redemption balance: {loyaltyMinRedeem}.
+                  </p>
+                </div>
+              )}
+              {loyaltyLookup && !canRedeem && loyaltyLookup.id && loyaltyMinRedeem > 0 && (
+                <p className="text-[11px] text-muted-foreground">
+                  Needs {Math.max(0, loyaltyMinRedeem - loyaltyLookup.points).toLocaleString()} more points to redeem.
+                </p>
+              )}
+              {loyaltyPhoneClean.length >= 6 && (
+                <p className="text-[11px] text-muted-foreground">
+                  New points to be awarded on this sale: <span className="font-medium">{projectedEarn.toLocaleString()}</span>
+                  {loyaltyMinPurchase > 0 && adjustedTotal < loyaltyMinPurchase && (
+                    <> (min purchase KES {loyaltyMinPurchase.toLocaleString()} to earn)</>
+                  )}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -375,10 +490,24 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button
-            onClick={() => onConfirm(payments, bankAccountId === "none" ? null : bankAccountId, digitaxEnabled && pushToEtims, loyaltyPhone.trim() || null)}
+            onClick={() => {
+              const loyalty: LoyaltyPayload | null =
+                loyaltyEnabled && loyaltyPhoneClean.length >= 6
+                  ? {
+                      phone: loyaltyPhoneClean,
+                      name: (loyaltyLookup?.name || loyaltyName).trim(),
+                      existingCustomerId: loyaltyLookup?.id ?? null,
+                      redeemPoints,
+                      redemptionValue,
+                      pointsBalance: loyaltyLookup?.points ?? 0,
+                    }
+                  : null;
+              onConfirm(payments, bankAccountId === "none" ? null : bankAccountId, digitaxEnabled && pushToEtims, loyalty);
+            }}
             disabled={
               totalPaid <= 0 ||
               processing ||
+              !!requiresName ||
               (hasMpesaPayment && mpesaStatus !== "completed" && !payments.find(p => p.method === "mpesa")?.reference)
             }
           >

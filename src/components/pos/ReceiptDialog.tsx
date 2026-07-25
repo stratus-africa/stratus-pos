@@ -23,6 +23,7 @@ interface ReceiptData {
   customerName: string | null;
   locationName: string;
   businessName: string;
+  servedBy?: string | null;
   date: Date;
   fiscal?: {
     fiscal_status?: string | null;
@@ -35,6 +36,13 @@ interface ReceiptData {
   } | null;
   vatBreakdown?: { rate: number; label: string; taxable: number; vat: number }[];
   taxInclusive?: boolean;
+  loyaltyDiscount?: number;
+  loyalty?: {
+    pointsBalance: number;
+    pointsEarned: number;
+    pointsRedeemed: number;
+    redemptionValue: number;
+  } | null;
 }
 
 
@@ -193,6 +201,31 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
           ))}
           {data.change > 0 && <div className="flex justify-between font-bold"><span>Change</span><span>KES {data.change.toLocaleString()}</span></div>}
 
+          {data.loyalty && (data.loyalty.pointsEarned > 0 || data.loyalty.pointsRedeemed > 0 || data.loyalty.pointsBalance > 0) && (
+            <>
+              <div className="line border-t border-dashed border-foreground/30 my-2" />
+              <div className="space-y-0.5">
+                <p className="font-bold text-center">Loyalty</p>
+                {data.loyalty.pointsRedeemed > 0 && (
+                  <div className="flex justify-between">
+                    <span>Redeemed</span>
+                    <span>-{data.loyalty.pointsRedeemed.toLocaleString()} pts (KES {data.loyalty.redemptionValue.toLocaleString()})</span>
+                  </div>
+                )}
+                {data.loyalty.pointsEarned > 0 && (
+                  <div className="flex justify-between">
+                    <span>Earned</span>
+                    <span>+{data.loyalty.pointsEarned.toLocaleString()} pts</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-semibold">
+                  <span>Points Balance</span>
+                  <span>{data.loyalty.pointsBalance.toLocaleString()} pts</span>
+                </div>
+              </div>
+            </>
+          )}
+
           <div className="line border-t border-dashed border-foreground/30 my-2" />
           <p className="text-center">Thank you for shopping with us!</p>
 
@@ -226,6 +259,13 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
           )}
 
           {cfg.qrCodePosition === "footer" && qrBlock}
+
+          {(cfg.showServedBy || cfg.showPrintedAt) && (
+            <div className="text-center text-[10px] text-muted-foreground pt-2 space-y-0.5">
+              {cfg.showServedBy && data.servedBy && <p>Served by: {data.servedBy}</p>}
+              {cfg.showPrintedAt && <p>Printed: {format(new Date(), "PPp")}</p>}
+            </div>
+          )}
         </div>
 
 

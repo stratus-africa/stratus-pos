@@ -19,7 +19,7 @@ import { usePOSSession } from "@/hooks/usePOSSession";
 import { useInventory } from "@/hooks/useInventory";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useIsMobile } from "@/hooks/use-mobile";
-import PaymentDialog from "@/components/pos/PaymentDialog";
+import PaymentDialog, { LoyaltyPayload } from "@/components/pos/PaymentDialog";
 import ReceiptDialog from "@/components/pos/ReceiptDialog";
 import StartDayDialog from "@/components/pos/StartDayDialog";
 import ManagerApprovalDialog from "@/components/pos/ManagerApprovalDialog";
@@ -144,47 +144,81 @@ const POS = () => {
     [products, search, categoryFilter, stockMap, hideZeroStock]
   );
 
-  const handlePaymentConfirm = async (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean, loyaltyPhone: string | null) => {
-    // Loyalty capture: if a phone was provided and loyalty is enabled, link/create the customer
-    // BEFORE the sale is written so points and customer_id land on the correct record.
-    if (loyaltyPhone && business) {
+  const handlePaymentConfirm = async (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean, loyalty: LoyaltyPayload | null) => {
+    let loyaltyCtx: {
+      customerId: string;
+      pointsBalance: number;
+      pointsRedeemed: number;
+      pointsEarned: number;
+      redemptionValue: number;
+    } | null = null;
+
+    if (loyalty && business) {
       try {
-        const cleanPhone = loyaltyPhone.replace(/\s+/g, "");
-        const { data: existing } = await supabase
-          .from("customers")
-          .select("id, name, loyalty_points")
-          .eq("business_id", business.id)
-          .eq("phone", cleanPhone)
-          .maybeSingle();
-        let customerId = existing?.id ?? null;
-        let existingPoints = Number(existing?.loyalty_points ?? 0);
+        let customerId = loyalty.existingCustomerId;
+        let currentPoints = loyalty.pointsBalance;
         if (!customerId) {
+          if (!loyalty.name.trim()) {
+            toast.error("Customer name is required for a new phone number");
+            return;
+          }
           const { data: created, error } = await supabase
             .from("customers")
-            .insert({ business_id: business.id, name: `Customer ${cleanPhone.slice(-4)}`, phone: cleanPhone, balance: 0 })
+            .insert({ business_id: business.id, name: loyalty.name.trim(), phone: loyalty.phone, balance: 0 })
             .select("id, loyalty_points")
             .single();
           if (error) throw error;
           customerId = created.id;
-          existingPoints = 0;
+          currentPoints = Number(created.loyalty_points || 0);
         }
         pos.setCustomerId(customerId);
-        pos.setCustomerName(existing?.name || `Customer ${cleanPhone.slice(-4)}`);
-        // Award points AFTER we know the sale total.
+        pos.setCustomerName(loyalty.name || `Customer ${loyalty.phone.slice(-4)}`);
+
+        const minPurchase = Number((business as { loyalty_min_purchase_amount?: number } | null)?.loyalty_min_purchase_amount ?? 0);
         const pointsPerKes = Number((business as { loyalty_points_per_kes?: number } | null)?.loyalty_points_per_kes ?? 1);
-        const earned = Math.floor(pos.cartTotal * pointsPerKes);
-        if (earned > 0) {
-          await supabase
-            .from("customers")
-            .update({ loyalty_points: existingPoints + earned, loyalty_last_earned_at: new Date().toISOString() })
-            .eq("id", customerId);
-          toast.success(`+${earned} loyalty points awarded`);
-        }
+        const adjustedTotal = Math.max(0, pos.cartTotal - loyalty.redemptionValue);
+        const earned = adjustedTotal >= minPurchase ? Math.floor(adjustedTotal * pointsPerKes) : 0;
+
+        loyaltyCtx = {
+          customerId,
+          pointsBalance: currentPoints,
+          pointsRedeemed: loyalty.redeemPoints,
+          pointsEarned: earned,
+          redemptionValue: loyalty.redemptionValue,
+        };
       } catch (e: any) {
         toast.warning(`Loyalty capture skipped: ${e.message || "unknown error"}`);
       }
     }
-    const result = await pos.completeSale(payments, bankAccountId, pushToEtims);
+
+    const result = await pos.completeSale(payments, bankAccountId, pushToEtims, {
+      loyaltyDiscount: loyaltyCtx?.redemptionValue ?? 0,
+      loyaltyNote: loyaltyCtx ? `Redeemed ${loyaltyCtx.pointsRedeemed} pts` : null,
+    });
+
+    if (result && loyaltyCtx) {
+      const newBalance = loyaltyCtx.pointsBalance - loyaltyCtx.pointsRedeemed + loyaltyCtx.pointsEarned;
+      try {
+        await supabase
+          .from("customers")
+          .update({
+            loyalty_points: newBalance,
+            loyalty_last_earned_at: loyaltyCtx.pointsEarned > 0 ? new Date().toISOString() : undefined,
+          })
+          .eq("id", loyaltyCtx.customerId);
+        if (loyaltyCtx.pointsEarned > 0) toast.success(`+${loyaltyCtx.pointsEarned} loyalty points awarded`);
+        if (loyaltyCtx.pointsRedeemed > 0) toast.success(`Redeemed ${loyaltyCtx.pointsRedeemed} points (KES ${loyaltyCtx.redemptionValue.toLocaleString()})`);
+      } catch (e: any) {
+        toast.warning(`Loyalty balance update failed: ${e.message}`);
+      }
+      (result as any).loyalty = {
+        pointsBalance: newBalance,
+        pointsEarned: loyaltyCtx.pointsEarned,
+        pointsRedeemed: loyaltyCtx.pointsRedeemed,
+        redemptionValue: loyaltyCtx.redemptionValue,
+      };
+    }
+
     if (result) {
       setPaymentOpen(false);
       setReceiptData(result);
