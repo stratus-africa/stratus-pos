@@ -13,6 +13,7 @@ import { PaymentGatewaysTab } from "@/components/settings/PaymentGatewaysTab";
 import { NumberSeriesTab } from "@/components/settings/NumberSeriesTab";
 import { IntegrationsTab } from "@/components/settings/IntegrationsTab";
 import { DigitaxSettingsTab } from "@/components/settings/DigitaxSettingsTab";
+import { TaxRatesTab } from "@/components/settings/TaxRatesTab";
 import { useFeatureLimit } from "@/components/FeatureGate";
 
 import { useSearchParams } from "react-router-dom";
@@ -56,6 +57,7 @@ const SettingsPage = () => {
     { key: "numbering", label: "Numbering", icon: <Hash className="h-4 w-4" />, permission: "settings.edit", render: () => <NumberSeriesTab /> },
     { key: "integrations", label: "Integrations", icon: <Plug className="h-4 w-4" />, permission: "settings.edit", render: () => <IntegrationsTab /> },
     { key: "digitax", label: "Tax Compliance", icon: <FileCheck2 className="h-4 w-4" />, permission: "settings.edit", featureKey: "digitax", render: () => <DigitaxSettingsTab /> },
+    { key: "tax-rates", label: "Tax Rates", icon: <Percent className="h-4 w-4" />, permission: "settings.edit", render: () => <TaxRatesTab /> },
     { key: "subscription", label: "Plan", icon: <CreditCard className="h-4 w-4" />, permission: "settings.view", render: () => <SubscriptionTab /> },
   ], []);
 
