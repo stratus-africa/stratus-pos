@@ -27,7 +27,15 @@ interface DeletePayload {
   business_id: string;
 }
 
-type Payload = SetPayload | CheckPayload | DeletePayload;
+interface TestPayload {
+  action: "test";
+  business_id: string;
+  environment?: "sandbox" | "live";
+  consumer_key?: string;
+  consumer_secret?: string;
+}
+
+type Payload = SetPayload | CheckPayload | DeletePayload | TestPayload;
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
