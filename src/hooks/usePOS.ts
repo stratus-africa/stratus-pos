@@ -486,6 +486,8 @@ export function usePOS() {
         businessName: business.name,
         date: new Date(),
         fiscal,
+        vatBreakdown,
+        taxInclusive,
       };
 
 
@@ -503,8 +505,10 @@ export function usePOS() {
   return {
     cart, addToCart, updateCartItem, removeFromCart, clearCart,
     customerId, setCustomerId, customerName, setCustomerName,
-    cartSubtotal, cartTax, cartTotal,
+    cartSubtotal, cartTax, cartTotal, vatBreakdown, taxInclusive, vatEnabled,
+    activeTaxRates, defaultTaxRate,
     heldSales, holdSale, resumeSale, removeHeldSale,
     completeSale, processing,
   };
 }
+
