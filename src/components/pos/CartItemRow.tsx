@@ -34,17 +34,12 @@ interface CartItemRowProps {
 }
 
 
-interface CartItemRowProps {
-  item: CartItem;
-  onUpdate: (id: string, u: Partial<CartItem>) => void;
-  onRemove: (id: string) => void;
-  /** Optional async guard: return true to allow removal, false to block. */
-  onBeforeRemove?: (item: CartItem) => Promise<boolean> | boolean;
-}
+// (interface CartItemRowProps declared above with tax rate fields)
 
 const SWIPE_THRESHOLD = 60; // px to reveal delete
 
-export const CartItemRow = memo(function CartItemRow({ item, onUpdate, onRemove, onBeforeRemove }: CartItemRowProps) {
+export const CartItemRow = memo(function CartItemRow({ item, onUpdate, onRemove, onBeforeRemove, taxRates, defaultRateLabel }: CartItemRowProps) {
+
   const lineTotal = item.unit_price * item.quantity - item.discount;
   const allowDecimal = item.product.allow_decimal_quantity ?? false;
   const step = allowDecimal ? 0.01 : 1;
