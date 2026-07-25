@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { User, Mail, Phone, Image as ImageIcon, Lock, Loader2, Building2 } from "lucide-react";
+import { User, Mail, Phone, Image as ImageIcon, Lock, Loader2, Building2, AtSign } from "lucide-react";
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -19,6 +19,7 @@ export default function Profile() {
   const { business, userRole, currentLocation } = useBusiness();
 
   const [fullName, setFullName] = useState("");
+  const [username, setUsername] = useState("");
   const [phone, setPhone] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [loading, setLoading] = useState(true);
@@ -33,12 +34,13 @@ export default function Profile() {
     (async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("full_name, phone, avatar_url")
+        .select("full_name, phone, avatar_url, username")
         .eq("id", user.id)
         .maybeSingle();
       setFullName(data?.full_name || "");
       setPhone(data?.phone || "");
       setAvatarUrl(data?.avatar_url || "");
+      setUsername((data as any)?.username || "");
       setLoading(false);
     })();
   }, [user]);
@@ -55,13 +57,25 @@ export default function Profile() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    const uname = username.trim();
+    if (uname && !/^[A-Za-z0-9._-]{3,32}$/.test(uname)) {
+      return toast.error("User ID must be 3–32 chars (letters, numbers, . _ -)");
+    }
     setSaving(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ full_name: fullName.trim() || null, phone: phone.trim() || null, avatar_url: avatarUrl.trim() || null })
+      .update({
+        full_name: fullName.trim() || null,
+        phone: phone.trim() || null,
+        avatar_url: avatarUrl.trim() || null,
+        username: uname || null,
+      } as any)
       .eq("id", user.id);
     setSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      if ((error as any).code === "23505") return toast.error("That User ID is already taken");
+      return toast.error(error.message);
+    }
     toast.success("Profile updated");
   };
 
@@ -152,6 +166,21 @@ export default function Profile() {
                   <Input id="email" type="email" value={user?.email || ""} disabled className="pl-10 h-10" />
                 </div>
                 <p className="text-xs text-muted-foreground">Contact an admin to change your sign-in email.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="username">User ID (for sign-in)</Label>
+                <div className="relative">
+                  <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="pl-10 h-10"
+                    placeholder="e.g. jane.doe"
+                    autoComplete="username"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">Optional. 3–32 characters, letters/numbers/. _ - . You can sign in with this instead of your email.</p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="avatar">Avatar URL</Label>

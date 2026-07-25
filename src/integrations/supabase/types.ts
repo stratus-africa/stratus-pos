@@ -1875,6 +1875,7 @@ export type Database = {
           is_active: boolean
           phone: string | null
           updated_at: string
+          username: string | null
         }
         Insert: {
           assigned_location_id?: string | null
@@ -1887,6 +1888,7 @@ export type Database = {
           is_active?: boolean
           phone?: string | null
           updated_at?: string
+          username?: string | null
         }
         Update: {
           assigned_location_id?: string | null
@@ -1899,6 +1901,7 @@ export type Database = {
           is_active?: boolean
           phone?: string | null
           updated_at?: string
+          username?: string | null
         }
         Relationships: [
           {
@@ -3127,6 +3130,7 @@ export type Database = {
         Args: { _business_id: string; _message: string }
         Returns: undefined
       }
+      resolve_login_email: { Args: { _identifier: string }; Returns: string }
       update_vault_secret: {
         Args: { _id: string; _secret: string }
         Returns: boolean

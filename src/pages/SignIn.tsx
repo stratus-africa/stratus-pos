@@ -141,7 +141,7 @@ export default function SignIn() {
 
           <div>
             <h2 className="text-3xl font-bold tracking-tight mb-2">Sign in to your workspace</h2>
-            <p className="text-muted-foreground text-sm">Enter your email and password below.</p>
+            <p className="text-muted-foreground text-sm">Enter your email or User ID and password below.</p>
           </div>
 
           {banner && <StatusBanner banner={banner} />}
@@ -149,16 +149,17 @@ export default function SignIn() {
           <form onSubmit={handleSubmit} className="space-y-4">
 
             <div className="space-y-1.5">
-              <Label htmlFor="email">Email address</Label>
+              <Label htmlFor="email">Email or User ID</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="email"
-                  type="email"
+                  type="text"
+                  autoComplete="username"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@company.com"
+                  placeholder="you@company.com or your User ID"
                   className="pl-10 h-11 rounded-lg"
                 />
               </div>

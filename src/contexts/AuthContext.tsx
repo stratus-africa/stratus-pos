@@ -7,7 +7,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signIn: (identifier: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -46,7 +46,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { error: error as Error | null };
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (identifier: string, password: string) => {
+    const id = identifier.trim();
+    let email = id;
+    if (!id.includes("@")) {
+      const { data, error: rpcError } = await (supabase as any).rpc("resolve_login_email", { _identifier: id });
+      if (rpcError) return { error: rpcError as Error };
+      if (!data) return { error: new Error("No account found for that User ID") };
+      email = data as string;
+    }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error as Error | null };
   };
