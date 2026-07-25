@@ -348,6 +348,7 @@ const App = () => (
               <Suspense fallback={<PageLoader />}>
                 <Routes>
                   <Route path="/landing" element={<Landing />} />
+                  <Route path="/invoice/:id" element={<PublicInvoice />} />
                   <Route path="/pricing" element={<Pricing />} />
                   <Route path="/terms" element={<Terms />} />
                   <Route path="/privacy" element={<Privacy />} />
