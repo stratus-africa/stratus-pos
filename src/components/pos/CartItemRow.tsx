@@ -4,6 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { CartItem } from "@/hooks/usePOS";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -13,6 +20,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
+interface CartItemRowProps {
+  item: CartItem;
+  onUpdate: (id: string, u: Partial<CartItem>) => void;
+  onRemove: (id: string) => void;
+  /** Optional async guard: return true to allow removal, false to block. */
+  onBeforeRemove?: (item: CartItem) => Promise<boolean> | boolean;
+  /** When provided, renders a per-line VAT rate selector. */
+  taxRates?: { id: string; name: string; rate: number }[];
+  /** Label shown when no explicit rate is selected (e.g. "Default 16%"). */
+  defaultRateLabel?: string;
+}
+
 
 interface CartItemRowProps {
   item: CartItem;
