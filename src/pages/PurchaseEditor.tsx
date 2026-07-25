@@ -451,35 +451,61 @@ export default function PurchaseEditor() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Product</TableHead>
-                    <TableHead className="w-[100px]">Qty</TableHead>
-                    <TableHead className="w-[120px]">Unit Cost</TableHead>
-                    <TableHead className="text-right w-[120px]">Total</TableHead>
+                    <TableHead className="w-[90px]">Qty</TableHead>
+                    <TableHead className="w-[110px]">Unit Cost</TableHead>
+                    <TableHead className="w-[110px]">Total</TableHead>
+                    <TableHead className="w-[130px]">New Sell Price</TableHead>
                     <TableHead className="w-[40px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {items.map((item, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell className="font-medium">{item.products?.name}</TableCell>
-                      <TableCell>
-                        <Input type="number" min={1} step={0.01} value={item.quantity} onChange={(e) => updateItem(idx, "quantity", parseFloat(e.target.value) || 1)} className="h-8" />
-                      </TableCell>
-                      <TableCell>
-                        <Input type="number" min={0} step={0.01} value={item.unit_cost} onChange={(e) => updateItem(idx, "unit_cost", parseFloat(e.target.value) || 0)} className="h-8" />
-                      </TableCell>
-                      <TableCell className="text-right">{formatKES(item.total)}</TableCell>
-                      <TableCell>
-                        <Button type="button" size="icon" variant="ghost" onClick={() => removeItem(idx)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {items.map((item, idx) => {
+                    const currentProduct = productsQuery.data?.find((p) => p.id === item.product_id);
+                    return (
+                      <TableRow key={idx}>
+                        <TableCell className="font-medium">
+                          <div>{item.products?.name}</div>
+                          {currentProduct && (
+                            <div className="text-[11px] text-muted-foreground">Sells at {formatKES(currentProduct.selling_price)}</div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Input type="number" min={0.01} step={0.01} value={item.quantity} onChange={(e) => updateItem(idx, "quantity", parseFloat(e.target.value) || 1)} className="h-8" />
+                        </TableCell>
+                        <TableCell>
+                          <Input type="number" min={0} step={0.01} value={item.unit_cost} onChange={(e) => updateItem(idx, "unit_cost", parseFloat(e.target.value) || 0)} className="h-8" />
+                        </TableCell>
+                        <TableCell>
+                          <Input type="number" min={0} step={0.01} value={item.total} onChange={(e) => updateItem(idx, "total", parseFloat(e.target.value) || 0)} className="h-8" />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            value={sellingPriceOverrides[item.product_id] ?? ""}
+                            onChange={(e) => setSellingPriceOverrides((prev) => ({ ...prev, [item.product_id]: e.target.value }))}
+                            placeholder="—"
+                            className="h-8"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Button type="button" size="icon" variant="ghost" onClick={() => removeItem(idx)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-6">No items yet. Add products or scan a barcode.</p>
             )}
+
+            <p className="text-xs text-muted-foreground">
+              Tip: enter <strong>Total</strong> and the Unit Cost auto-computes from Total ÷ Qty. Fill <strong>New Sell Price</strong> to update the product's selling price when saving.
+            </p>
 
             <div className="flex justify-end">
               <div className="space-y-1 text-right text-sm">
@@ -490,6 +516,7 @@ export default function PurchaseEditor() {
             </div>
           </CardContent>
         </Card>
+
 
         {showPaymentSection && (
           <Card>
