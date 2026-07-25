@@ -111,6 +111,38 @@ export function PaymentGatewaysTab() {
     }
   };
 
+  const testCredentials = async () => {
+    if (!business) return;
+    if (!hasCreds && (!consumerKey || !consumerSecret)) {
+      toast.error("Enter consumer key and secret first");
+      return;
+    }
+    setTesting(true);
+    const { data, error } = await supabase.functions.invoke("business-mpesa-credentials", {
+      body: {
+        action: "test",
+        business_id: business.id,
+        environment,
+        consumer_key: consumerKey || undefined,
+        consumer_secret: consumerSecret || undefined,
+      },
+    });
+    setTesting(false);
+    if (error) {
+      toast.error("Test failed: " + error.message);
+      return;
+    }
+    if (data?.ok) {
+      toast.success(`Daraja ${data.environment} OK`, {
+        description: `Access token received in ${data.took_ms}ms${data.expires_in ? ` (expires in ${data.expires_in}s)` : ""}`,
+      });
+    } else {
+      toast.error(`Daraja ${data?.environment ?? environment} rejected credentials`, {
+        description: data?.error || `HTTP ${data?.status ?? "?"}`,
+      });
+    }
+  };
+
   if (!business) return null;
 
   return (
