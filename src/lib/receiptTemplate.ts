@@ -21,6 +21,7 @@ export interface ReceiptConfig {
   qrCodeCustomValue: string;
   qrCodeSize: number;
   qrCodeLabel: string;
+  qrCodePosition: QRCodePosition;
 }
 
 export const defaultReceiptConfig: ReceiptConfig = {
