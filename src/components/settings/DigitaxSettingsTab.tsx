@@ -33,6 +33,7 @@ export function DigitaxSettingsTab() {
   const [taxRate, setTaxRate] = useState(String(business?.tax_rate ?? 16));
   const [kraPin, setKraPin] = useState((business as any)?.kra_pin || "");
   const [vatEnabled, setVatEnabled] = useState((business as { vat_enabled?: boolean })?.vat_enabled ?? true);
+  const [taxInclusive, setTaxInclusive] = useState<boolean>((business as any)?.tax_inclusive_pricing ?? false);
 
   useEffect(() => {
     if (!business) return;
@@ -41,6 +42,7 @@ export function DigitaxSettingsTab() {
     setTaxRate(String(business.tax_rate ?? 16));
     setKraPin((business as any).kra_pin || "");
     setVatEnabled((business as any).vat_enabled ?? true);
+    setTaxInclusive((business as any).tax_inclusive_pricing ?? false);
   }, [business?.id]);
 
   const lockedOn = query.data?.enabled === true && fiscalisedCount > 0;
