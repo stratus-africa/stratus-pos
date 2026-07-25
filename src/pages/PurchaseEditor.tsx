@@ -146,9 +146,13 @@ export default function PurchaseEditor() {
   const [sellingPriceOverrides, setSellingPriceOverrides] = useState<Record<string, string>>({});
   const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
 
-  const subtotal = items.reduce((s, i) => s + i.total, 0);
-  const tax = vatEnabled ? subtotal * (taxRate / 100) : 0;
-  const total = subtotal + tax;
+  const lineSum = items.reduce((s, i) => s + i.total, 0);
+  const rate = taxRate / 100;
+  const { subtotal, tax, total } = vatEnabled
+    ? taxInclusive
+      ? { subtotal: lineSum / (1 + rate), tax: lineSum - lineSum / (1 + rate), total: lineSum }
+      : { subtotal: lineSum, tax: lineSum * rate, total: lineSum * (1 + rate) }
+    : { subtotal: lineSum, tax: 0, total: lineSum };
 
   // In edit mode, payment fields are optional — used to record an ADDITIONAL payment.
   const showPaymentSection = paymentStatus !== "unpaid";
