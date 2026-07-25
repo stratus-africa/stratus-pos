@@ -5,19 +5,41 @@ const DARAJA_LIVE_URL = "https://api.safaricom.co.ke";
 
 export type MpesaEnv = "sandbox" | "live";
 
+export interface MpesaCreds {
+  consumerKey?: string;
+  consumerSecret?: string;
+  shortcode?: string;
+  passkey?: string;
+  initiatorName?: string;
+  securityCredential?: string;
+}
+
 function getBaseUrl(env: MpesaEnv): string {
   return env === "live" ? DARAJA_LIVE_URL : DARAJA_SANDBOX_URL;
 }
 
-export async function getAccessToken(env: MpesaEnv = "sandbox"): Promise<string> {
-  const consumerKey = Deno.env.get("MPESA_CONSUMER_KEY");
-  const consumerSecret = Deno.env.get("MPESA_CONSUMER_SECRET");
+function resolveCreds(creds?: MpesaCreds): Required<Pick<MpesaCreds, "consumerKey" | "consumerSecret">> & MpesaCreds {
+  const consumerKey = creds?.consumerKey || Deno.env.get("MPESA_CONSUMER_KEY") || "";
+  const consumerSecret = creds?.consumerSecret || Deno.env.get("MPESA_CONSUMER_SECRET") || "";
+  return {
+    ...creds,
+    consumerKey,
+    consumerSecret,
+    shortcode: creds?.shortcode || Deno.env.get("MPESA_SHORTCODE") || undefined,
+    passkey: creds?.passkey || Deno.env.get("MPESA_PASSKEY") || undefined,
+    initiatorName: creds?.initiatorName || Deno.env.get("MPESA_B2C_INITIATOR_NAME") || undefined,
+    securityCredential: creds?.securityCredential || Deno.env.get("MPESA_B2C_SECURITY_CREDENTIAL") || undefined,
+  };
+}
 
-  if (!consumerKey || !consumerSecret) {
-    throw new Error("M-Pesa consumer credentials not configured");
+export async function getAccessToken(env: MpesaEnv = "sandbox", creds?: MpesaCreds): Promise<string> {
+  const c = resolveCreds(creds);
+
+  if (!c.consumerKey || !c.consumerSecret) {
+    throw new Error("M-Pesa consumer credentials not configured. Add them in Settings → Payments.");
   }
 
-  const credentials = btoa(`${consumerKey}:${consumerSecret}`);
+  const credentials = btoa(`${c.consumerKey}:${c.consumerSecret}`);
   const baseUrl = getBaseUrl(env);
 
   const response = await fetch(
@@ -28,8 +50,11 @@ export async function getAccessToken(env: MpesaEnv = "sandbox"): Promise<string>
   );
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Failed to get M-Pesa access token: ${response.status} ${text}`);
+    const text = await response.text().catch(() => "");
+    const hint = response.status === 400
+      ? " (Daraja returns 400 when the consumer key/secret are invalid or don't match the selected environment.)"
+      : "";
+    throw new Error(`Failed to get M-Pesa access token: ${response.status}${text ? ` ${text}` : ""}${hint}`);
   }
 
   const data = await response.json();
@@ -48,14 +73,10 @@ export function generateTimestamp(): string {
 }
 
 export function generatePassword(shortcode: string, passkey: string, timestamp: string): string {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(`${shortcode}${passkey}${timestamp}`);
-  // Use base64 encoding of the concatenation
   return btoa(`${shortcode}${passkey}${timestamp}`);
 }
 
 export function formatPhoneNumber(phone: string): string {
-  // Convert various formats to 254XXXXXXXXX
   let cleaned = phone.replace(/[^0-9]/g, "");
   if (cleaned.startsWith("0")) {
     cleaned = "254" + cleaned.substring(1);
@@ -77,18 +98,17 @@ export interface STKPushParams {
 
 export async function initiateSTKPush(
   params: STKPushParams,
-  env: MpesaEnv = "sandbox"
+  env: MpesaEnv = "sandbox",
+  creds?: MpesaCreds
 ): Promise<any> {
-  const shortcode = Deno.env.get("MPESA_SHORTCODE");
-  const passkey = Deno.env.get("MPESA_PASSKEY");
-
-  if (!shortcode || !passkey) {
+  const c = resolveCreds(creds);
+  if (!c.shortcode || !c.passkey) {
     throw new Error("M-Pesa shortcode or passkey not configured");
   }
 
-  const accessToken = await getAccessToken(env);
+  const accessToken = await getAccessToken(env, c);
   const timestamp = generateTimestamp();
-  const password = generatePassword(shortcode, passkey, timestamp);
+  const password = generatePassword(c.shortcode, c.passkey, timestamp);
   const formattedPhone = formatPhoneNumber(params.phoneNumber);
   const baseUrl = getBaseUrl(env);
 
@@ -99,13 +119,13 @@ export async function initiateSTKPush(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      BusinessShortCode: shortcode,
+      BusinessShortCode: c.shortcode,
       Password: password,
       Timestamp: timestamp,
       TransactionType: "CustomerPayBillOnline",
       Amount: Math.round(params.amount),
       PartyA: formattedPhone,
-      PartyB: shortcode,
+      PartyB: c.shortcode,
       PhoneNumber: formattedPhone,
       CallBackURL: params.callbackUrl,
       AccountReference: params.accountReference,
@@ -134,17 +154,15 @@ export interface B2CParams {
 
 export async function initiateB2C(
   params: B2CParams,
-  env: MpesaEnv = "sandbox"
+  env: MpesaEnv = "sandbox",
+  creds?: MpesaCreds
 ): Promise<any> {
-  const shortcode = Deno.env.get("MPESA_SHORTCODE");
-  const initiatorName = Deno.env.get("MPESA_B2C_INITIATOR_NAME");
-  const securityCredential = Deno.env.get("MPESA_B2C_SECURITY_CREDENTIAL");
-
-  if (!shortcode || !initiatorName || !securityCredential) {
+  const c = resolveCreds(creds);
+  if (!c.shortcode || !c.initiatorName || !c.securityCredential) {
     throw new Error("M-Pesa B2C credentials not configured");
   }
 
-  const accessToken = await getAccessToken(env);
+  const accessToken = await getAccessToken(env, c);
   const formattedPhone = formatPhoneNumber(params.phoneNumber);
   const baseUrl = getBaseUrl(env);
 
@@ -156,11 +174,11 @@ export async function initiateB2C(
     },
     body: JSON.stringify({
       OriginatorConversationID: crypto.randomUUID(),
-      InitiatorName: initiatorName,
-      SecurityCredential: securityCredential,
+      InitiatorName: c.initiatorName,
+      SecurityCredential: c.securityCredential,
       CommandID: "BusinessPayment",
       Amount: Math.round(params.amount),
-      PartyA: shortcode,
+      PartyA: c.shortcode,
       PartyB: formattedPhone,
       Remarks: params.remarks,
       Occasion: params.occasion || "",
@@ -181,18 +199,17 @@ export async function initiateB2C(
 
 export async function querySTKPushStatus(
   checkoutRequestId: string,
-  env: MpesaEnv = "sandbox"
+  env: MpesaEnv = "sandbox",
+  creds?: MpesaCreds
 ): Promise<any> {
-  const shortcode = Deno.env.get("MPESA_SHORTCODE");
-  const passkey = Deno.env.get("MPESA_PASSKEY");
-
-  if (!shortcode || !passkey) {
+  const c = resolveCreds(creds);
+  if (!c.shortcode || !c.passkey) {
     throw new Error("M-Pesa shortcode or passkey not configured");
   }
 
-  const accessToken = await getAccessToken(env);
+  const accessToken = await getAccessToken(env, c);
   const timestamp = generateTimestamp();
-  const password = generatePassword(shortcode, passkey, timestamp);
+  const password = generatePassword(c.shortcode, c.passkey, timestamp);
   const baseUrl = getBaseUrl(env);
 
   const response = await fetch(`${baseUrl}/mpesa/stkpushquery/v1/query`, {
@@ -202,7 +219,7 @@ export async function querySTKPushStatus(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      BusinessShortCode: shortcode,
+      BusinessShortCode: c.shortcode,
       Password: password,
       Timestamp: timestamp,
       CheckoutRequestID: checkoutRequestId,
