@@ -487,18 +487,20 @@ export function usePOS() {
         items: cart,
         subtotal: cartSubtotal,
         tax: Math.round(cartTax * 100) / 100,
-        discount: cart.reduce((s, i) => s + i.discount, 0),
-        total: cartTotal,
+        discount: effectiveDiscount,
+        total: effectiveTotal,
         payments,
         totalPaid,
-        change: Math.max(0, totalPaid - cartTotal),
+        change: Math.max(0, totalPaid - effectiveTotal),
         customerName,
         locationName: currentLocation.name,
         businessName: business.name,
+        servedBy: (user as { email?: string } | null)?.email || null,
         date: new Date(),
         fiscal,
         vatBreakdown,
         taxInclusive,
+        loyaltyDiscount,
       };
 
 
