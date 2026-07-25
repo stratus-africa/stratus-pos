@@ -1,5 +1,7 @@
 // Shared price tag template config used by Settings editor and the Print Tags dialog.
 
+export type TextAlign = "left" | "center" | "right";
+
 export interface PriceTagConfig {
   layout: "30" | "24" | "12";
   showBusinessName: boolean;
