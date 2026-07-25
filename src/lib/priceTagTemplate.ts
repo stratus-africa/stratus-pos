@@ -52,6 +52,9 @@ export const defaultPriceTagConfig: PriceTagConfig = {
   footerAlign: "center",
 };
 
+import { supabase } from "@/integrations/supabase/client";
+
+const SETTING_KEY = "price_tag_template";
 const key = (businessId: string) => `price_tag_config_${businessId}`;
 
 export function loadPriceTagConfig(businessId: string | undefined): PriceTagConfig {
@@ -63,8 +66,30 @@ export function loadPriceTagConfig(businessId: string | undefined): PriceTagConf
   return defaultPriceTagConfig;
 }
 
-export function savePriceTagConfig(businessId: string, cfg: PriceTagConfig) {
+export async function fetchPriceTagConfig(businessId: string): Promise<PriceTagConfig> {
+  const { data } = await supabase
+    .from("business_settings" as any)
+    .select("value")
+    .eq("business_id", businessId)
+    .eq("key", SETTING_KEY)
+    .maybeSingle();
+  const value = (data as any)?.value;
+  const merged: PriceTagConfig = value
+    ? { ...defaultPriceTagConfig, ...(value as PriceTagConfig) }
+    : loadPriceTagConfig(businessId);
+  try { localStorage.setItem(key(businessId), JSON.stringify(merged)); } catch {}
+  return merged;
+}
+
+export async function savePriceTagConfig(businessId: string, cfg: PriceTagConfig) {
   localStorage.setItem(key(businessId), JSON.stringify(cfg));
+  const { error } = await supabase
+    .from("business_settings" as any)
+    .upsert(
+      { business_id: businessId, key: SETTING_KEY, value: cfg as any, updated_at: new Date().toISOString() } as any,
+      { onConflict: "business_id,key" } as any,
+    );
+  if (error) throw error;
 }
 
 export const PRICE_TAG_FONT_OPTIONS = [
