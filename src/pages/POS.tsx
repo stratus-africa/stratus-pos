@@ -161,19 +161,36 @@ const POS = () => {
     setStartDayOpen(false);
   };
 
-  // Keyboard shortcuts: F2 focus search, F4 pay cash, F9 park sale, ESC clear cart,
-  // F1 open barcode scanner. Ignored while typing in inputs (except F-keys, which
-  // fire globally by design so cashiers can trigger them from anywhere).
+  // Keyboard shortcuts:
+  //   F1  scan barcode          F2  focus search
+  //   F3  Cash sale (quick complete, exact amount)
+  //   F4  open payment dialog on Cash
+  //   F5  open payment dialog on M-Pesa (STK Push flow)
+  //   F6  open payment dialog on M-Pesa (manual confirmation code)
+  //   F7  open payment dialog on Card
+  //   F9  park sale             ESC clear cart
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      // Don't interfere with browser shortcuts
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const openPayment = (method: "cash" | "mpesa" | "card") => {
+      if (pos.cart.length === 0) return;
+      setInitialPaymentMethod(method);
+      setPaymentOpen(true);
+    };
 
+    const quickCashComplete = async () => {
+      if (pos.cart.length === 0 || pos.processing) return;
+      const digitaxOn = (business as any)?.digitax_enabled === true;
+      await pos.completeSale(
+        [{ method: "cash", amount: pos.cartTotal, reference: "" }],
+        null,
+        digitaxOn,
+      );
+    };
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
       const typing = !!target && (
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable
+        target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable
       );
 
       switch (e.key) {
@@ -186,11 +203,23 @@ const POS = () => {
           searchInputRef.current?.focus();
           searchInputRef.current?.select();
           break;
-        case "F4":
+        case "F3":
           if (pos.cart.length === 0) return;
           e.preventDefault();
-          setInitialPaymentMethod("cash");
-          setPaymentOpen(true);
+          void quickCashComplete();
+          break;
+        case "F4":
+          e.preventDefault();
+          openPayment("cash");
+          break;
+        case "F5":
+        case "F6":
+          e.preventDefault();
+          openPayment("mpesa");
+          break;
+        case "F7":
+          e.preventDefault();
+          openPayment("card");
           break;
         case "F9":
           if (pos.cart.length === 0) return;
@@ -212,7 +241,7 @@ const POS = () => {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [pos, paymentOpen, scannerOpen, approvalOpen, receiptOpen, startDayOpen]);
+  }, [pos, business, paymentOpen, scannerOpen, approvalOpen, receiptOpen, startDayOpen]);
 
 
 
