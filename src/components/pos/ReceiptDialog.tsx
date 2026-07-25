@@ -32,7 +32,10 @@ interface ReceiptData {
     fiscal_submitted_at?: string | null;
     fiscal_error?: string | null;
   } | null;
+  vatBreakdown?: { rate: number; label: string; taxable: number; vat: number }[];
+  taxInclusive?: boolean;
 }
+
 
 
 interface Props {
