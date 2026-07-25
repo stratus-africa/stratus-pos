@@ -122,6 +122,7 @@ export function DigitaxSettingsTab() {
         tax_rate: parseFloat(taxRate) || 0,
         kra_pin: kraPin.trim() || null,
         vat_enabled: vatEnabled,
+        tax_inclusive_pricing: taxInclusive,
       } as never)
       .eq("id", business.id);
     if (error) toast.error("Failed to update: " + error.message);
