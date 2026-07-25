@@ -45,6 +45,9 @@ export const defaultReceiptConfig: ReceiptConfig = {
   qrCodePosition: "footer",
 };
 
+import { supabase } from "@/integrations/supabase/client";
+
+const SETTING_KEY = "receipt_template";
 const key = (businessId: string) => `receipt_config_${businessId}`;
 
 export function loadReceiptConfig(businessId: string | undefined): ReceiptConfig {
@@ -56,8 +59,30 @@ export function loadReceiptConfig(businessId: string | undefined): ReceiptConfig
   return defaultReceiptConfig;
 }
 
-export function saveReceiptConfig(businessId: string, cfg: ReceiptConfig) {
+export async function fetchReceiptConfig(businessId: string): Promise<ReceiptConfig> {
+  const { data } = await supabase
+    .from("business_settings" as any)
+    .select("value")
+    .eq("business_id", businessId)
+    .eq("key", SETTING_KEY)
+    .maybeSingle();
+  const value = (data as any)?.value;
+  const merged: ReceiptConfig = value
+    ? { ...defaultReceiptConfig, ...(value as ReceiptConfig) }
+    : loadReceiptConfig(businessId);
+  try { localStorage.setItem(key(businessId), JSON.stringify(merged)); } catch {}
+  return merged;
+}
+
+export async function saveReceiptConfig(businessId: string, cfg: ReceiptConfig) {
   localStorage.setItem(key(businessId), JSON.stringify(cfg));
+  const { error } = await supabase
+    .from("business_settings" as any)
+    .upsert(
+      { business_id: businessId, key: SETTING_KEY, value: cfg as any, updated_at: new Date().toISOString() } as any,
+      { onConflict: "business_id,key" } as any,
+    );
+  if (error) throw error;
 }
 
 export const FONT_OPTIONS = [

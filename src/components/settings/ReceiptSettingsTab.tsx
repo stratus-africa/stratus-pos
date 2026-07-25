@@ -12,7 +12,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Save, Loader2 } from "lucide-react";
-import { loadReceiptConfig, saveReceiptConfig, defaultReceiptConfig, FONT_OPTIONS, type ReceiptConfig, type QRCodeType, type QRCodePosition } from "@/lib/receiptTemplate";
+import { loadReceiptConfig, saveReceiptConfig, fetchReceiptConfig, defaultReceiptConfig, FONT_OPTIONS, type ReceiptConfig, type QRCodeType, type QRCodePosition } from "@/lib/receiptTemplate";
 import { QRCodeSVG } from "qrcode.react";
 import { format } from "date-fns";
 
@@ -24,16 +24,22 @@ export function ReceiptSettingsTab() {
 
   useEffect(() => {
     setConfig(loadReceiptConfig(business?.id));
+    if (business?.id) {
+      fetchReceiptConfig(business.id).then(setConfig).catch(() => {});
+    }
   }, [business?.id]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!business) return;
     setSaving(true);
-    saveReceiptConfig(business.id, config);
-    setTimeout(() => {
-      setSaving(false);
+    try {
+      await saveReceiptConfig(business.id, config);
       toast.success("Receipt template saved");
-    }, 200);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save receipt template");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const update = <K extends keyof ReceiptConfig>(key: K, value: ReceiptConfig[K]) =>

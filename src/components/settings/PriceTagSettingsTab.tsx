@@ -14,6 +14,7 @@ import { Save } from "lucide-react";
 import {
   loadPriceTagConfig,
   savePriceTagConfig,
+  fetchPriceTagConfig,
   defaultPriceTagConfig,
   PRICE_TAG_FONT_OPTIONS,
   PRICE_TAG_LAYOUTS,
@@ -44,15 +45,22 @@ export function PriceTagSettingsTab() {
 
   useEffect(() => {
     setConfig(loadPriceTagConfig(business?.id));
+    if (business?.id) {
+      fetchPriceTagConfig(business.id).then(setConfig).catch(() => {});
+    }
   }, [business?.id]);
 
   const update = <K extends keyof PriceTagConfig>(key: K, value: PriceTagConfig[K]) =>
     setConfig((c) => ({ ...c, [key]: value }));
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!business) return;
-    savePriceTagConfig(business.id, config);
-    toast.success("Price tag template saved");
+    try {
+      await savePriceTagConfig(business.id, config);
+      toast.success("Price tag template saved");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save price tag template");
+    }
   };
 
   const currency = business?.currency || "KES";
