@@ -120,12 +120,27 @@ export default function PurchaseEditor() {
     }]);
   };
 
-  const updateItem = (idx: number, field: "quantity" | "unit_cost", value: number) => {
+  // Editable fields: qty, unit_cost, total. When qty or unit_cost changes, total = qty * unit_cost.
+  // When total changes, unit_cost = total / qty (qty stays fixed).
+  const updateItem = (idx: number, field: "quantity" | "unit_cost" | "total", value: number) => {
     const updated = [...items];
-    updated[idx] = { ...updated[idx], [field]: value, total: field === "quantity" ? value * updated[idx].unit_cost : updated[idx].quantity * value };
+    const row = { ...updated[idx] };
+    if (field === "quantity") {
+      row.quantity = value;
+      row.total = value * row.unit_cost;
+    } else if (field === "unit_cost") {
+      row.unit_cost = value;
+      row.total = row.quantity * value;
+    } else {
+      row.total = value;
+      row.unit_cost = row.quantity > 0 ? value / row.quantity : 0;
+    }
+    updated[idx] = row;
     setItems(updated);
   };
 
+  // Per-line "update selling price" overrides. Keyed by product_id. Empty = no change.
+  const [sellingPriceOverrides, setSellingPriceOverrides] = useState<Record<string, string>>({});
   const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
 
   const subtotal = items.reduce((s, i) => s + i.total, 0);
