@@ -70,14 +70,40 @@ const SettingsPage = () => {
   const requested = searchParams.get("tab");
   const defaultTab = (requested && allowed.find((t) => t.key === requested)?.key) || allowed[0]?.key || "business";
 
+  const [currentTab, setCurrentTab] = useState(defaultTab);
+  useEffect(() => { setCurrentTab(defaultTab); }, [defaultTab]);
 
   if (allowed.length === 0) return <NotAuthorized />;
+
+  const activeTab = allowed.find((t) => t.key === currentTab) ?? allowed[0];
 
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Settings</h1>
-      <Tabs defaultValue={defaultTab} className="flex flex-col md:flex-row gap-4 md:gap-6">
-        <TabsList className="text-muted-foreground flex md:flex-col h-auto w-full md:w-52 bg-muted rounded-lg p-1.5 shrink-0 md:items-start md:justify-start overflow-x-auto md:overflow-visible flex-nowrap">
+
+      {/* Mobile: dropdown selector */}
+      <div className="md:hidden">
+        <Select value={currentTab} onValueChange={setCurrentTab}>
+          <SelectTrigger className="w-full">
+            <SelectValue>
+              <span className="flex items-center gap-2">
+                {activeTab?.icon}{activeTab?.label}
+              </span>
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {allowed.map((t) => (
+              <SelectItem key={t.key} value={t.key}>
+                <span className="flex items-center gap-2">{t.icon}{t.label}</span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <Tabs value={currentTab} onValueChange={setCurrentTab} className="flex flex-col md:flex-row gap-4 md:gap-6">
+        {/* Desktop: vertical sidebar tabs */}
+        <TabsList className="hidden md:flex text-muted-foreground md:flex-col h-auto w-full md:w-52 bg-muted rounded-lg p-1.5 shrink-0 md:items-start md:justify-start">
           {allowed.map((t) => (
             <TabsTrigger key={t.key} value={t.key} className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
               {t.icon}{t.label}
