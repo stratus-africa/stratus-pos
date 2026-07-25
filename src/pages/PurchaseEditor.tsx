@@ -74,6 +74,7 @@ export default function PurchaseEditor() {
     setPaymentStatus(existing.payment_status);
     setStatus(existing.status);
     setVatEnabledLocal(existing.vat_enabled ?? true);
+    setTaxInclusive((existing as any).tax_inclusive ?? false);
     setNotes(existing.notes || "");
     getPurchaseItems(id)
       .then((its) => setItems(its))
