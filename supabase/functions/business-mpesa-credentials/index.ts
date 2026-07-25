@@ -188,6 +188,46 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (body.action === "test") {
+      let ck = body.consumer_key?.trim();
+      let cs = body.consumer_secret?.trim();
+      if (!ck || !cs) {
+        const { data: ckData } = await admin.rpc("read_vault_secret", { _name: names.consumer_key });
+        const { data: csData } = await admin.rpc("read_vault_secret", { _name: names.consumer_secret });
+        ck = ck || (ckData as string | null) || "";
+        cs = cs || (csData as string | null) || "";
+      }
+      if (!ck || !cs) {
+        return new Response(
+          JSON.stringify({ ok: false, error: "No credentials to test. Enter or save them first." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const env = body.environment === "live" ? "live" : "sandbox";
+      const host = env === "live" ? "https://api.safaricom.co.ke" : "https://sandbox.safaricom.co.ke";
+      const basic = btoa(`${ck}:${cs}`);
+      const started = Date.now();
+      const resp = await fetch(`${host}/oauth/v1/generate?grant_type=client_credentials`, {
+        headers: { Authorization: `Basic ${basic}` },
+      });
+      const took = Date.now() - started;
+      const text = await resp.text();
+      if (!resp.ok) {
+        let msg = text;
+        try { msg = JSON.parse(text)?.errorMessage || msg; } catch { /* keep */ }
+        return new Response(
+          JSON.stringify({ ok: false, environment: env, status: resp.status, error: msg, took_ms: took }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      let expiresIn: string | undefined;
+      try { expiresIn = JSON.parse(text)?.expires_in; } catch { /* ignore */ }
+      return new Response(
+        JSON.stringify({ ok: true, environment: env, status: resp.status, expires_in: expiresIn, took_ms: took }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
