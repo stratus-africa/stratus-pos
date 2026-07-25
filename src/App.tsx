@@ -321,6 +321,7 @@ const ProtectedRoutes = () => {
               canAnyReport ? <FeatureGate featureKey="reports"><Reports /></FeatureGate> : <AccessDenied />
             } />
             <Route path="/tax-compliance" element={guard(<FeatureGate featureKey="digitax"><Digitax /></FeatureGate>, "settings.view")} />
+            <Route path="/hr" element={<HR />} />
             <Route path="/settings" element={guard(<SettingsPage />, "settings.view")} />
             <Route path="/profile" element={guard(<Profile />)} />
             <Route path="/notifications" element={<NotificationsPage />} />
