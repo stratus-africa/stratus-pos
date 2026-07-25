@@ -26,7 +26,7 @@ export interface PriceTagConfig {
   footerAlign: TextAlign;
 }
 
-export type TextAlign = "left" | "center" | "right";
+
 
 export const defaultPriceTagConfig: PriceTagConfig = {
   layout: "30",
