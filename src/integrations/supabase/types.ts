@@ -3114,6 +3114,10 @@ export type Database = {
         Args: { _id: string; _secret: string }
         Returns: boolean
       }
+      upsert_vault_secret: {
+        Args: { _name: string; _secret: string }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "manager" | "cashier" | "stores_manager"
