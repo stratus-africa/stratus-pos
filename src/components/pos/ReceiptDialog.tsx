@@ -10,6 +10,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { loadReceiptConfig } from "@/lib/receiptTemplate";
 
 interface ReceiptData {
+  saleId?: string;
   invoiceNumber: string;
   items: CartItem[];
   subtotal: number;
