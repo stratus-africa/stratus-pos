@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Printer, RefreshCw, Trash2 } from "lucide-react";
+import { Printer, RefreshCw, Trash2, Unlock } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -65,6 +65,13 @@ export default function BarcodeLoginDialog({ open, onOpenChange, userId, userLab
     onOpenChange(false);
   };
 
+  const unlock = async () => {
+    if (!barcode) return toast.error("No barcode to unlock");
+    const { data, error } = await (supabase as any).rpc("unlock_barcode", { _barcode: barcode, _ip: null });
+    if (error) return toast.error(error.message);
+    toast.success(`Lockout cleared (${data ?? 0} attempt records removed)`);
+  };
+
   const print = () => {
     if (!svgRef.current) return;
     const svg = new XMLSerializer().serializeToString(svgRef.current);
@@ -110,12 +117,15 @@ export default function BarcodeLoginDialog({ open, onOpenChange, userId, userLab
         </div>
 
         <DialogFooter className="gap-2 sm:justify-between">
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {existingBarcode && (
               <Button type="button" variant="outline" onClick={clear}>
                 <Trash2 className="h-4 w-4 mr-1" /> Remove
               </Button>
             )}
+            <Button type="button" variant="outline" onClick={unlock} title="Clear failed PIN attempts for this barcode">
+              <Unlock className="h-4 w-4 mr-1" /> Unlock
+            </Button>
             <Button type="button" variant="outline" onClick={print}>
               <Printer className="h-4 w-4 mr-1" /> Print
             </Button>
