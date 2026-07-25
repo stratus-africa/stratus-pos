@@ -39,6 +39,9 @@ export function BusinessProfileTab() {
   const [kraPin, setKraPin] = useState<string>((business as { kra_pin?: string })?.kra_pin || "");
   const [loyaltyEnabled, setLoyaltyEnabled] = useState<boolean>((business as { loyalty_enabled?: boolean })?.loyalty_enabled ?? false);
   const [loyaltyPointsPerKes, setLoyaltyPointsPerKes] = useState<string>(String((business as { loyalty_points_per_kes?: number })?.loyalty_points_per_kes ?? 1));
+  const [loyaltyMinRedeem, setLoyaltyMinRedeem] = useState<string>(String((business as { loyalty_min_redeem_points?: number })?.loyalty_min_redeem_points ?? 100));
+  const [loyaltyMinPurchase, setLoyaltyMinPurchase] = useState<string>(String((business as { loyalty_min_purchase_amount?: number })?.loyalty_min_purchase_amount ?? 0));
+  const [loyaltyKesPerPoint, setLoyaltyKesPerPoint] = useState<string>(String((business as { loyalty_kes_per_point?: number })?.loyalty_kes_per_point ?? 1));
   const [managers, setManagers] = useState<{ user_id: string; full_name: string | null; email: string | null }[]>([]);
   const [negativeStockCount, setNegativeStockCount] = useState<number>(0);
 
