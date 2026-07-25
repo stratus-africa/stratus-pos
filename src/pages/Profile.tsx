@@ -168,6 +168,20 @@ export default function Profile() {
                 <p className="text-xs text-muted-foreground">Contact an admin to change your sign-in email.</p>
               </div>
               <div className="space-y-1.5">
+                <Label htmlFor="username">User ID (for sign-in)</Label>
+                <div className="relative">
+                  <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="pl-10 h-10"
+                    placeholder="e.g. jane.doe"
+                    autoComplete="username"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">Optional. 3–32 characters, letters/numbers/. _ - . You can sign in with this instead of your email.</p>
+              <div className="space-y-1.5">
                 <Label htmlFor="avatar">Avatar URL</Label>
                 <div className="relative">
                   <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
