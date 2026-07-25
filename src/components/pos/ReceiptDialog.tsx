@@ -127,6 +127,8 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
             <p>{format(data.date, "PPp")}</p>
           </div>
 
+          {cfg.qrCodePosition === "header" && qrBlock}
+
           <div className="line border-t border-dashed border-foreground/30 my-2" />
 
           <p>Invoice: {data.invoiceNumber}</p>
