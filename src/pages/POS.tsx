@@ -548,8 +548,9 @@ const POS = () => {
               <div className="space-y-1">
                 <div className="flex justify-between text-2xl"><span className="text-muted-foreground">Subtotal</span><span>KES {pos.cartSubtotal.toLocaleString()}</span></div>
                 {pos.cartTax > 0 && (
-                  <div className="flex justify-between text-2xl"><span className="text-muted-foreground">VAT (incl.)</span><span>KES {Math.round(pos.cartTax).toLocaleString()}</span></div>
+                  <div className="flex justify-between text-2xl"><span className="text-muted-foreground">VAT ({pos.taxInclusive ? "incl." : "excl."})</span><span>KES {Math.round(pos.cartTax).toLocaleString()}</span></div>
                 )}
+
                 <Separator />
                 <div className="flex justify-between font-bold text-lg"><span>Total</span><span className="text-5xl">KES {pos.cartTotal.toLocaleString()}</span></div>
               </div>
