@@ -62,10 +62,23 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
         .replace(/\{total\}/g, String(data.total))
         .replace(/\{business\}/g, data.businessName);
     }
-    // invoice_url default
+    // invoice_url — auto-generated public invoice URL for this sale
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    return `${origin}/invoice/${encodeURIComponent(data.invoiceNumber)}`;
+    const ref = data.saleId || data.invoiceNumber;
+    return `${origin}/invoice/${encodeURIComponent(ref)}`;
   })();
+
+  const qrBlock = cfg.showQRCode && qrValue ? (
+    <>
+      <div className="line border-t border-dashed border-foreground/30 my-2" />
+      <div className="text-center space-y-1">
+        <div className="flex justify-center">
+          <QRCodeSVG value={qrValue} size={cfg.qrCodeSize} level="M" includeMargin={false} />
+        </div>
+        {cfg.qrCodeLabel && <p className="text-[10px]">{cfg.qrCodeLabel}</p>}
+      </div>
+    </>
+  ) : null;
 
   const handlePrint = () => {
     const content = receiptRef.current;
