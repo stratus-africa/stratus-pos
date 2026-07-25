@@ -181,6 +181,7 @@ export default function Profile() {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">Optional. 3–32 characters, letters/numbers/. _ - . You can sign in with this instead of your email.</p>
+              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="avatar">Avatar URL</Label>
                 <div className="relative">
