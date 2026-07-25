@@ -98,6 +98,7 @@ Deno.serve(async (req) => {
       }
 
       const callbackUrl = `${callbackBaseUrl}/mpesa-callback?type=stk`;
+      const creds = await loadBusinessCreds(businessId);
 
       const result = await initiateSTKPush(
         {
@@ -107,7 +108,8 @@ Deno.serve(async (req) => {
           transactionDesc: `Payment for ${accountReference || "sale"}`,
           callbackUrl,
         },
-        "live"
+        "live",
+        creds
       );
 
       // Record in DB
