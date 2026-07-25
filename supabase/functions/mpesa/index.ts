@@ -175,6 +175,7 @@ Deno.serve(async (req) => {
 
       const resultUrl = `${callbackBaseUrl}/mpesa-callback?type=b2c`;
       const timeoutUrl = `${callbackBaseUrl}/mpesa-callback?type=b2c-timeout`;
+      const b2cCreds = await loadBusinessCreds(businessId);
 
       const result = await initiateB2C(
         {
@@ -184,7 +185,8 @@ Deno.serve(async (req) => {
           resultUrl,
           timeoutUrl,
         },
-        "live"
+        "live",
+        b2cCreds
       );
 
       await supabase.from("mpesa_transactions").insert({
