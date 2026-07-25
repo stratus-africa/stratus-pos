@@ -687,6 +687,7 @@ const Products = () => {
         importing={importing}
         onConfirm={(m) => runImport(m as Record<string, string | null>)}
       />
+      <PrintTagsDialog open={printTagsOpen} onOpenChange={setPrintTagsOpen} items={printTagItems} />
     </div>
   );
 };
