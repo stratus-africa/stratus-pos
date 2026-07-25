@@ -134,6 +134,7 @@ const StoresManagerDashboard = lazy(() => import("./pages/StoresManagerDashboard
 const JournalEntries = lazy(() => import("./pages/JournalEntries"));
 const Banking = lazy(() => import("./pages/Banking"));
 const Digitax = lazy(() => import("./pages/Digitax"));
+const HR = lazy(() => import("./pages/HR"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const Landing = lazy(() => import("./pages/Landing"));
@@ -320,6 +321,7 @@ const ProtectedRoutes = () => {
               canAnyReport ? <FeatureGate featureKey="reports"><Reports /></FeatureGate> : <AccessDenied />
             } />
             <Route path="/tax-compliance" element={guard(<FeatureGate featureKey="digitax"><Digitax /></FeatureGate>, "settings.view")} />
+            <Route path="/hr" element={<HR />} />
             <Route path="/settings" element={guard(<SettingsPage />, "settings.view")} />
             <Route path="/profile" element={guard(<Profile />)} />
             <Route path="/notifications" element={<NotificationsPage />} />

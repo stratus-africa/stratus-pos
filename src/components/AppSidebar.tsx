@@ -18,6 +18,7 @@ import {
   Lock,
   ShieldCheck,
   UserCircle,
+  UserCog,
 } from "lucide-react";
 import { useFeatureLimit } from "@/components/FeatureGate";
 import { useDigitaxEnabled } from "@/hooks/useDigitax";
@@ -106,6 +107,7 @@ const financeNav: NavItem[] = [
 
 const systemNav: NavItem[] = [
   { title: "Reports", url: "/reports", icon: BarChart3, roles: ["admin", "manager", "cashier", "stores_manager"], featureKey: "reports", anyPermission: ["report.sales", "report.purchases", "report.expenses", "report.inventory", "report.pnl", "report.audit"] },
+  { title: "HR", url: "/hr", icon: UserCog, roles: ["admin", "manager", "cashier", "stores_manager"] },
   { title: "Tax Compliance", url: "/tax-compliance", icon: ShieldCheck, roles: ["admin", "manager"], featureKey: "digitax", permission: "settings.view" },
   { title: "Profile", url: "/profile", icon: UserCircle, roles: ["admin", "manager", "cashier"] },
   { title: "Settings", url: "/settings", icon: Settings, roles: ["admin"], permission: "settings.view" },
