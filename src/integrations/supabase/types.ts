@@ -3723,6 +3723,10 @@ export type Database = {
           tax_rate_id: string
         }[]
       }
+      unlock_barcode: {
+        Args: { _barcode?: string; _ip?: string }
+        Returns: number
+      }
       update_vault_secret: {
         Args: { _id: string; _secret: string }
         Returns: boolean
