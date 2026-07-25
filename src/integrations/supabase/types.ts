@@ -322,6 +322,8 @@ export type Database = {
           is_active: boolean
           kra_pin: string | null
           logo_url: string | null
+          loyalty_enabled: boolean
+          loyalty_points_per_kes: number
           mpesa_account_reference: string | null
           mpesa_callback_url: string | null
           mpesa_enabled: boolean
@@ -377,6 +379,8 @@ export type Database = {
           is_active?: boolean
           kra_pin?: string | null
           logo_url?: string | null
+          loyalty_enabled?: boolean
+          loyalty_points_per_kes?: number
           mpesa_account_reference?: string | null
           mpesa_callback_url?: string | null
           mpesa_enabled?: boolean
@@ -432,6 +436,8 @@ export type Database = {
           is_active?: boolean
           kra_pin?: string | null
           logo_url?: string | null
+          loyalty_enabled?: boolean
+          loyalty_points_per_kes?: number
           mpesa_account_reference?: string | null
           mpesa_callback_url?: string | null
           mpesa_enabled?: boolean
@@ -578,6 +584,8 @@ export type Database = {
           email: string | null
           id: string
           kra_pin: string | null
+          loyalty_last_earned_at: string | null
+          loyalty_points: number
           name: string
           phone: string | null
           tax_exemption_number: string | null
@@ -593,6 +601,8 @@ export type Database = {
           email?: string | null
           id?: string
           kra_pin?: string | null
+          loyalty_last_earned_at?: string | null
+          loyalty_points?: number
           name: string
           phone?: string | null
           tax_exemption_number?: string | null
@@ -608,6 +618,8 @@ export type Database = {
           email?: string | null
           id?: string
           kra_pin?: string | null
+          loyalty_last_earned_at?: string | null
+          loyalty_points?: number
           name?: string
           phone?: string | null
           tax_exemption_number?: string | null
