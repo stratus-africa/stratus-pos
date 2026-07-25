@@ -323,6 +323,9 @@ export type Database = {
           kra_pin: string | null
           logo_url: string | null
           loyalty_enabled: boolean
+          loyalty_kes_per_point: number
+          loyalty_min_purchase_amount: number
+          loyalty_min_redeem_points: number
           loyalty_points_per_kes: number
           mpesa_account_reference: string | null
           mpesa_callback_url: string | null
@@ -381,6 +384,9 @@ export type Database = {
           kra_pin?: string | null
           logo_url?: string | null
           loyalty_enabled?: boolean
+          loyalty_kes_per_point?: number
+          loyalty_min_purchase_amount?: number
+          loyalty_min_redeem_points?: number
           loyalty_points_per_kes?: number
           mpesa_account_reference?: string | null
           mpesa_callback_url?: string | null
@@ -439,6 +445,9 @@ export type Database = {
           kra_pin?: string | null
           logo_url?: string | null
           loyalty_enabled?: boolean
+          loyalty_kes_per_point?: number
+          loyalty_min_purchase_amount?: number
+          loyalty_min_redeem_points?: number
           loyalty_points_per_kes?: number
           mpesa_account_reference?: string | null
           mpesa_callback_url?: string | null
