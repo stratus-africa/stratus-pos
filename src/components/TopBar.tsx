@@ -146,6 +146,20 @@ export function TopBar() {
               <DropdownMenuItem onSelect={() => navigate("/profile#change-password")} aria-label="Change password">
                 <KeyRound className="mr-2 h-4 w-4" aria-hidden="true" /> Change Password
               </DropdownMenuItem>
+              {isPOS && session.activeSession && (
+                <div className="sm:hidden">
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => setZReportOpen(true)}>
+                    <FileText className="mr-2 h-4 w-4" aria-hidden="true" /> Z Report
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => setEndDayOpen(true)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Sunset className="mr-2 h-4 w-4" aria-hidden="true" /> End Day
+                  </DropdownMenuItem>
+                </div>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onSelect={() => { void (async () => { await signOut(); navigate("/auth"); })(); }}
