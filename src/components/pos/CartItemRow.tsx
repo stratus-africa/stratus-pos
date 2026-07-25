@@ -161,6 +161,31 @@ export const CartItemRow = memo(function CartItemRow({ item, onUpdate, onRemove,
               KES {lineTotal.toLocaleString()}
             </p>
           </div>
+
+          {taxRates && taxRates.length > 0 && (
+            <div className="mt-1.5 flex items-center gap-2">
+              <span className="text-[11px] text-muted-foreground shrink-0">VAT</span>
+              <Select
+                value={item.tax_rate_id || "__default__"}
+                onValueChange={(v) =>
+                  onUpdate(item.product.id, { tax_rate_id: v === "__default__" ? null : v })
+                }
+              >
+                <SelectTrigger className="h-7 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__default__">{defaultRateLabel || "Default"}</SelectItem>
+                  {taxRates.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name} · {Number(r.rate)}%
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
         </div>
       </div>
 
