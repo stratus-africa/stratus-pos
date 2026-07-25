@@ -23,6 +23,7 @@ interface ReceiptData {
   customerName: string | null;
   locationName: string;
   businessName: string;
+  servedBy?: string | null;
   date: Date;
   fiscal?: {
     fiscal_status?: string | null;
@@ -35,6 +36,13 @@ interface ReceiptData {
   } | null;
   vatBreakdown?: { rate: number; label: string; taxable: number; vat: number }[];
   taxInclusive?: boolean;
+  loyaltyDiscount?: number;
+  loyalty?: {
+    pointsBalance: number;
+    pointsEarned: number;
+    pointsRedeemed: number;
+    redemptionValue: number;
+  } | null;
 }
 
 
