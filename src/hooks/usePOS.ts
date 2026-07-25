@@ -15,7 +15,17 @@ export interface CartItem {
   quantity: number;
   unit_price: number;
   discount: number;
+  /** Optional per-line VAT rate override (tax_rates.id). If null/undefined, product/business default is used. */
+  tax_rate_id?: string | null;
 }
+
+export interface VatBreakdownRow {
+  rate: number;      // percent (e.g. 16)
+  label: string;     // display label (e.g. "VAT 16%")
+  taxable: number;   // net (excl. VAT)
+  vat: number;       // VAT amount
+}
+
 
 export interface HeldSale {
   id: string;
