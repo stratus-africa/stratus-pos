@@ -27,6 +27,7 @@ import BarcodeScanner from "@/components/BarcodeScanner";
 import { CartItemRow } from "@/components/pos/CartItemRow";
 import { logAudit } from "@/lib/audit";
 import { CartItem } from "@/hooks/usePOS";
+import { supabase } from "@/integrations/supabase/client";
 
 const POS = () => {
   const { productsQuery } = useProducts();
