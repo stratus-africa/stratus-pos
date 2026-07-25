@@ -32,7 +32,10 @@ interface ReceiptData {
     fiscal_submitted_at?: string | null;
     fiscal_error?: string | null;
   } | null;
+  vatBreakdown?: { rate: number; label: string; taxable: number; vat: number }[];
+  taxInclusive?: boolean;
 }
+
 
 
 interface Props {
@@ -132,9 +135,35 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
           <div className="line border-t border-dashed border-foreground/30 my-2" />
 
           <div className="flex justify-between"><span>Subtotal</span><span>{data.subtotal.toLocaleString()}</span></div>
-          {data.tax > 0 && <div className="flex justify-between"><span>VAT</span><span>{data.tax.toLocaleString()}</span></div>}
+          {data.tax > 0 && (
+            <div className="flex justify-between">
+              <span>VAT {data.taxInclusive ? "(incl.)" : "(excl.)"}</span>
+              <span>{data.tax.toLocaleString()}</span>
+            </div>
+          )}
+          {data.vatBreakdown && data.vatBreakdown.length > 0 && (
+            <table className="w-full text-[10px]">
+              <thead>
+                <tr>
+                  <td>Rate</td>
+                  <td className="text-right">Taxable</td>
+                  <td className="text-right">VAT</td>
+                </tr>
+              </thead>
+              <tbody>
+                {data.vatBreakdown.map((v) => (
+                  <tr key={v.rate}>
+                    <td>{v.rate}%</td>
+                    <td className="text-right">{Math.round(v.taxable).toLocaleString()}</td>
+                    <td className="text-right">{Math.round(v.vat).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
           {data.discount > 0 && <div className="flex justify-between"><span>Discount</span><span>-{data.discount.toLocaleString()}</span></div>}
           <div className="flex justify-between font-bold text-sm"><span>TOTAL</span><span>KES {data.total.toLocaleString()}</span></div>
+
 
           <div className="line border-t border-dashed border-foreground/30 my-2" />
 

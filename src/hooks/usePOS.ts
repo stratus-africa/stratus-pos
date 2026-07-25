@@ -15,7 +15,17 @@ export interface CartItem {
   quantity: number;
   unit_price: number;
   discount: number;
+  /** Optional per-line VAT rate override (tax_rates.id). If null/undefined, product/business default is used. */
+  tax_rate_id?: string | null;
 }
+
+export interface VatBreakdownRow {
+  rate: number;      // percent (e.g. 16)
+  label: string;     // display label (e.g. "VAT 16%")
+  taxable: number;   // net (excl. VAT)
+  vat: number;       // VAT amount
+}
+
 
 export interface HeldSale {
   id: string;
@@ -138,16 +148,90 @@ export function usePOS() {
     setCustomerName(null);
   }, []);
 
-  const cartSubtotal = cart.reduce((sum, i) => sum + i.unit_price * i.quantity - i.discount, 0);
+  // VAT rates for per-line selection.
+  const taxRatesQuery = useQuery({
+    queryKey: ["tax_rates", "pos", business?.id],
+    queryFn: async () => {
+      if (!business) return [] as { id: string; name: string; rate: number; is_default: boolean; is_active: boolean }[];
+      const { data, error } = await supabase
+        .from("tax_rates")
+        .select("id, name, rate, is_default, is_active")
+        .eq("business_id", business.id);
+      if (error) throw error;
+      return (data || []).filter((r: any) => r.is_active) as any;
+    },
+    enabled: !!business?.id,
+  });
+  const activeTaxRates = (taxRatesQuery.data || []) as { id: string; name: string; rate: number; is_default: boolean; is_active: boolean }[];
+  const defaultTaxRate = activeTaxRates.find((r) => r.is_default) || null;
+
   const vatEnabled = (business as { vat_enabled?: boolean } | null)?.vat_enabled ?? true;
-  const cartTax = vatEnabled
-    ? cart.reduce((sum, i) => {
-        const lineTotal = i.unit_price * i.quantity - i.discount;
-        const rate = (i.product.tax_rate ?? business?.tax_rate ?? 16) / 100;
-        return sum + (lineTotal * rate) / (1 + rate);
-      }, 0)
-    : 0;
-  const cartTotal = cartSubtotal;
+  const taxInclusive = (business as { tax_inclusive_pricing?: boolean } | null)?.tax_inclusive_pricing ?? true;
+  const orgTaxRate = business?.tax_rate ?? 16;
+
+  /** Resolve the VAT % for a cart line: explicit tax_rate_id → product.tax_rate → default rate → org rate. */
+  const resolveLineRate = (i: CartItem): number => {
+    if (!vatEnabled) return 0;
+    if (i.tax_rate_id) {
+      const found = activeTaxRates.find((r) => r.id === i.tax_rate_id);
+      if (found) return Number(found.rate);
+    }
+    if (typeof i.product.tax_rate === "number") return Number(i.product.tax_rate);
+    if (defaultTaxRate) return Number(defaultTaxRate.rate);
+    return Number(orgTaxRate);
+  };
+
+  // Totals — respect inclusive vs exclusive pricing.
+  const totals = cart.reduce(
+    (acc, i) => {
+      const lineGross = i.unit_price * i.quantity - i.discount;
+      const r = resolveLineRate(i) / 100;
+      if (!vatEnabled || r === 0) {
+        acc.subtotal += lineGross;
+        acc.total += lineGross;
+        return acc;
+      }
+      if (taxInclusive) {
+        const net = lineGross / (1 + r);
+        acc.subtotal += net;
+        acc.tax += lineGross - net;
+        acc.total += lineGross;
+      } else {
+        acc.subtotal += lineGross;
+        acc.tax += lineGross * r;
+        acc.total += lineGross * (1 + r);
+      }
+      return acc;
+    },
+    { subtotal: 0, tax: 0, total: 0 }
+  );
+  const cartSubtotal = totals.subtotal;
+  const cartTax = totals.tax;
+  const cartTotal = totals.total;
+
+  // Group VAT by rate for audit / receipt.
+  const vatBreakdown: VatBreakdownRow[] = (() => {
+    if (!vatEnabled) return [];
+    const map = new Map<number, VatBreakdownRow>();
+    for (const i of cart) {
+      const pct = resolveLineRate(i);
+      if (pct === 0) continue;
+      const lineGross = i.unit_price * i.quantity - i.discount;
+      const r = pct / 100;
+      const net = taxInclusive ? lineGross / (1 + r) : lineGross;
+      const vat = taxInclusive ? lineGross - net : lineGross * r;
+      const key = Math.round(pct * 100) / 100;
+      const existing = map.get(key);
+      if (existing) {
+        existing.taxable += net;
+        existing.vat += vat;
+      } else {
+        map.set(key, { rate: key, label: `VAT ${key}%`, taxable: net, vat });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.rate - b.rate);
+  })();
+
 
   // Hold current sale — persist to suspended_sales table so it survives reload & syncs across devices
   const holdSale = useCallback(async (customLabel?: string) => {
@@ -250,6 +334,8 @@ export function usePOS() {
           if (picks.length > 0) batchId = picks[0].batch_id;
           batchDeductions.push(...picks);
         }
+        // Resolve which tax_rate_id to persist. Fall back to the business default.
+        const resolvedTaxRateId = i.tax_rate_id ?? defaultTaxRate?.id ?? null;
         saleItems.push({
           sale_id: saleId,
           product_id: i.product.id,
@@ -258,7 +344,9 @@ export function usePOS() {
           discount: i.discount,
           total: i.unit_price * i.quantity - i.discount,
           batch_id: batchId,
+          tax_rate_id: vatEnabled ? resolvedTaxRateId : null,
         });
+
       }
       const { error: itemsErr } = await supabase.from("sale_items").insert(saleItems);
       if (itemsErr) throw itemsErr;
@@ -398,6 +486,8 @@ export function usePOS() {
         businessName: business.name,
         date: new Date(),
         fiscal,
+        vatBreakdown,
+        taxInclusive,
       };
 
 
@@ -415,8 +505,10 @@ export function usePOS() {
   return {
     cart, addToCart, updateCartItem, removeFromCart, clearCart,
     customerId, setCustomerId, customerName, setCustomerName,
-    cartSubtotal, cartTax, cartTotal,
+    cartSubtotal, cartTax, cartTotal, vatBreakdown, taxInclusive, vatEnabled,
+    activeTaxRates, defaultTaxRate,
     heldSales, holdSale, resumeSale, removeHeldSale,
     completeSale, processing,
   };
 }
+

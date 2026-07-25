@@ -2090,6 +2090,7 @@ export type Database = {
           product_id: string
           quantity: number
           sale_id: string
+          tax_rate_id: string | null
           total: number
           unit_price: number
         }
@@ -2101,6 +2102,7 @@ export type Database = {
           product_id: string
           quantity?: number
           sale_id: string
+          tax_rate_id?: string | null
           total?: number
           unit_price?: number
         }
@@ -2112,6 +2114,7 @@ export type Database = {
           product_id?: string
           quantity?: number
           sale_id?: string
+          tax_rate_id?: string | null
           total?: number
           unit_price?: number
         }
@@ -2135,6 +2138,13 @@ export type Database = {
             columns: ["sale_id"]
             isOneToOne: false
             referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_items_tax_rate_id_fkey"
+            columns: ["tax_rate_id"]
+            isOneToOne: false
+            referencedRelation: "tax_rates"
             referencedColumns: ["id"]
           },
         ]
@@ -3131,6 +3141,14 @@ export type Database = {
         Returns: undefined
       }
       resolve_login_email: { Args: { _identifier: string }; Returns: string }
+      tax_rate_usage: {
+        Args: { _business_id: string }
+        Returns: {
+          purchase_item_count: number
+          sale_item_count: number
+          tax_rate_id: string
+        }[]
+      }
       update_vault_secret: {
         Args: { _id: string; _secret: string }
         Returns: boolean

@@ -4,6 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { CartItem } from "@/hooks/usePOS";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -20,11 +27,19 @@ interface CartItemRowProps {
   onRemove: (id: string) => void;
   /** Optional async guard: return true to allow removal, false to block. */
   onBeforeRemove?: (item: CartItem) => Promise<boolean> | boolean;
+  /** When provided, renders a per-line VAT rate selector. */
+  taxRates?: { id: string; name: string; rate: number }[];
+  /** Label shown when no explicit rate is selected (e.g. "Default 16%"). */
+  defaultRateLabel?: string;
 }
+
+
+// (interface CartItemRowProps declared above with tax rate fields)
 
 const SWIPE_THRESHOLD = 60; // px to reveal delete
 
-export const CartItemRow = memo(function CartItemRow({ item, onUpdate, onRemove, onBeforeRemove }: CartItemRowProps) {
+export const CartItemRow = memo(function CartItemRow({ item, onUpdate, onRemove, onBeforeRemove, taxRates, defaultRateLabel }: CartItemRowProps) {
+
   const lineTotal = item.unit_price * item.quantity - item.discount;
   const allowDecimal = item.product.allow_decimal_quantity ?? false;
   const step = allowDecimal ? 0.01 : 1;
@@ -146,6 +161,31 @@ export const CartItemRow = memo(function CartItemRow({ item, onUpdate, onRemove,
               KES {lineTotal.toLocaleString()}
             </p>
           </div>
+
+          {taxRates && taxRates.length > 0 && (
+            <div className="mt-1.5 flex items-center gap-2">
+              <span className="text-[11px] text-muted-foreground shrink-0">VAT</span>
+              <Select
+                value={item.tax_rate_id || "__default__"}
+                onValueChange={(v) =>
+                  onUpdate(item.product.id, { tax_rate_id: v === "__default__" ? null : v })
+                }
+              >
+                <SelectTrigger className="h-7 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__default__">{defaultRateLabel || "Default"}</SelectItem>
+                  {taxRates.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name} · {Number(r.rate)}%
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
         </div>
       </div>
 

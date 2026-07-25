@@ -598,6 +598,50 @@ export default function PurchaseEditor() {
               Tip: enter <strong>Total</strong> and the Unit Cost auto-computes from Total ÷ Qty. Fill <strong>New Sell Price</strong> to update the product's selling price when saving.
             </p>
 
+            {vatEnabled && (() => {
+              // Group taxable amount + VAT by resolved rate for auditability.
+              const map = new Map<number, { rate: number; taxable: number; vat: number }>();
+              for (const i of items) {
+                const chosen = i.tax_rate_id ? activeTaxRates.find((r) => r.id === i.tax_rate_id) : null;
+                const pct = chosen ? Number(chosen.rate) : taxRate;
+                if (!pct) continue;
+                const r = pct / 100;
+                const net = taxInclusive ? i.total / (1 + r) : i.total;
+                const vat = taxInclusive ? i.total - net : i.total * r;
+                const key = Math.round(pct * 100) / 100;
+                const existing = map.get(key);
+                if (existing) { existing.taxable += net; existing.vat += vat; }
+                else map.set(key, { rate: key, taxable: net, vat });
+              }
+              const rows = Array.from(map.values()).sort((a, b) => a.rate - b.rate);
+              if (rows.length === 0) return null;
+              return (
+                <div className="rounded-md border bg-muted/30 p-3">
+                  <p className="text-xs font-semibold mb-2">VAT Breakdown ({taxInclusive ? "tax inclusive" : "tax exclusive"})</p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="h-8">Rate</TableHead>
+                        <TableHead className="h-8 text-right">Taxable</TableHead>
+                        <TableHead className="h-8 text-right">VAT</TableHead>
+                        <TableHead className="h-8 text-right">Gross</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {rows.map((r) => (
+                        <TableRow key={r.rate}>
+                          <TableCell className="py-1.5">{r.rate}%</TableCell>
+                          <TableCell className="py-1.5 text-right">{formatKES(r.taxable)}</TableCell>
+                          <TableCell className="py-1.5 text-right">{formatKES(r.vat)}</TableCell>
+                          <TableCell className="py-1.5 text-right">{formatKES(r.taxable + r.vat)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              );
+            })()}
+
             <div className="flex justify-end">
               <div className="space-y-1 text-right text-sm">
                 <div>Subtotal: <span className="font-medium">{formatKES(subtotal)}</span></div>
@@ -605,6 +649,7 @@ export default function PurchaseEditor() {
                 <div className="text-base font-bold">Total: {formatKES(total)}</div>
               </div>
             </div>
+
           </CardContent>
         </Card>
 
