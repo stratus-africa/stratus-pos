@@ -27,6 +27,7 @@ export const moduleCatalog: ModuleDef[] = [
   { key: "settings", label: "Settings & Business Profile", actions: ["view", "edit"] },
   { key: "users", label: "User Management", actions: ["view", "create", "edit", "delete"] },
   { key: "roles", label: "Roles Management", actions: ["view", "edit"] },
+  { key: "hr", label: "Human Resources & Payroll", actions: ["view", "create", "edit", "delete"] },
 ];
 
 export const reportsCatalog = [
@@ -54,12 +55,14 @@ export const defaultRolePermissions: Record<AppRole, string[]> = {
     "customers.view", "customers.create", "customers.edit",
     "purchases.view", "purchases.create", "purchases.edit",
     "suppliers.view", "suppliers.create", "suppliers.edit",
+    "hr.view", "hr.create", "hr.edit",
     "report.sales", "report.purchases", "report.inventory",
   ],
   cashier: [
     "pos.view", "pos.create",
     "sales.view",
     "customers.view", "customers.create",
+    "hr.view",
   ],
   stores_manager: [
     "dashboard.view",

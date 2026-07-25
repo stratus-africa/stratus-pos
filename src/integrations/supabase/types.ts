@@ -1296,6 +1296,57 @@ export type Database = {
         }
         Relationships: []
       }
+      leave_balance_adjustments: {
+        Row: {
+          business_id: string
+          created_at: string
+          created_by: string | null
+          delta: number
+          employee_id: string
+          id: string
+          leave_type_id: string
+          reason: string | null
+          year: number
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          created_by?: string | null
+          delta: number
+          employee_id: string
+          id?: string
+          leave_type_id: string
+          reason?: string | null
+          year: number
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          created_by?: string | null
+          delta?: number
+          employee_id?: string
+          id?: string
+          leave_type_id?: string
+          reason?: string | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_balance_adjustments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_balance_adjustments_leave_type_id_fkey"
+            columns: ["leave_type_id"]
+            isOneToOne: false
+            referencedRelation: "leave_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leave_balances: {
         Row: {
           business_id: string
@@ -1432,10 +1483,13 @@ export type Database = {
       }
       leave_types: {
         Row: {
+          accrual_frequency: string
           business_id: string
+          carry_forward_limit: number
           color: string | null
           created_at: string
           days_per_year: number
+          icon: string | null
           id: string
           is_active: boolean
           is_paid: boolean
@@ -1443,10 +1497,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          accrual_frequency?: string
           business_id: string
+          carry_forward_limit?: number
           color?: string | null
           created_at?: string
           days_per_year?: number
+          icon?: string | null
           id?: string
           is_active?: boolean
           is_paid?: boolean
@@ -1454,10 +1511,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          accrual_frequency?: string
           business_id?: string
+          carry_forward_limit?: number
           color?: string | null
           created_at?: string
           days_per_year?: number
+          icon?: string | null
           id?: string
           is_active?: boolean
           is_paid?: boolean
@@ -1827,6 +1887,78 @@ export type Database = {
           },
         ]
       }
+      payroll_runs: {
+        Row: {
+          bank_account_id: string | null
+          business_id: string
+          created_at: string
+          created_by: string | null
+          employee_count: number
+          expense_id: string | null
+          id: string
+          notes: string | null
+          period_month: number
+          period_year: number
+          processed_at: string | null
+          status: string
+          total_deductions: number
+          total_gross: number
+          total_net: number
+          updated_at: string
+        }
+        Insert: {
+          bank_account_id?: string | null
+          business_id: string
+          created_at?: string
+          created_by?: string | null
+          employee_count?: number
+          expense_id?: string | null
+          id?: string
+          notes?: string | null
+          period_month: number
+          period_year: number
+          processed_at?: string | null
+          status?: string
+          total_deductions?: number
+          total_gross?: number
+          total_net?: number
+          updated_at?: string
+        }
+        Update: {
+          bank_account_id?: string | null
+          business_id?: string
+          created_at?: string
+          created_by?: string | null
+          employee_count?: number
+          expense_id?: string | null
+          id?: string
+          notes?: string | null
+          period_month?: number
+          period_year?: number
+          processed_at?: string | null
+          status?: string
+          total_deductions?: number
+          total_gross?: number
+          total_net?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_runs_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_runs_expense_id_fkey"
+            columns: ["expense_id"]
+            isOneToOne: false
+            referencedRelation: "expenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payslips: {
         Row: {
           allowances: Json
@@ -1841,6 +1973,7 @@ export type Database = {
           issued_at: string | null
           net_pay: number
           notes: string | null
+          payroll_run_id: string | null
           period_month: number
           period_year: number
           status: string
@@ -1860,6 +1993,7 @@ export type Database = {
           issued_at?: string | null
           net_pay?: number
           notes?: string | null
+          payroll_run_id?: string | null
           period_month: number
           period_year: number
           status?: string
@@ -1879,6 +2013,7 @@ export type Database = {
           issued_at?: string | null
           net_pay?: number
           notes?: string | null
+          payroll_run_id?: string | null
           period_month?: number
           period_year?: number
           status?: string
@@ -1898,6 +2033,13 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payslips_payroll_run_id_fkey"
+            columns: ["payroll_run_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_runs"
             referencedColumns: ["id"]
           },
         ]
