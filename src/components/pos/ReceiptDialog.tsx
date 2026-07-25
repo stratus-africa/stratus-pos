@@ -49,6 +49,20 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
 
   if (!data) return null;
 
+  const qrValue = (() => {
+    if (!cfg.showQRCode) return "";
+    if (cfg.qrCodeType === "fiscal_url") return data.fiscal?.fiscal_verification_url || "";
+    if (cfg.qrCodeType === "custom") {
+      return (cfg.qrCodeCustomValue || "")
+        .replace(/\{invoice\}/g, data.invoiceNumber)
+        .replace(/\{total\}/g, String(data.total))
+        .replace(/\{business\}/g, data.businessName);
+    }
+    // invoice_url default
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    return `${origin}/invoice/${encodeURIComponent(data.invoiceNumber)}`;
+  })();
+
   const handlePrint = () => {
     const content = receiptRef.current;
     if (!content) return;
