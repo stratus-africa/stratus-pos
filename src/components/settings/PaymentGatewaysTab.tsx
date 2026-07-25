@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Smartphone, Save, Loader2, KeyRound, Trash2, ShieldCheck } from "lucide-react";
+import { Smartphone, Save, Loader2, KeyRound, Trash2, ShieldCheck, PlugZap } from "lucide-react";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -32,6 +32,7 @@ export function PaymentGatewaysTab() {
   const [passkey, setPasskey] = useState("");
   const [savingSecrets, setSavingSecrets] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     if (!business) return;
@@ -107,6 +108,38 @@ export function PaymentGatewaysTab() {
       toast.success("Credentials removed");
       setHasCreds(false);
       setCredsUpdatedAt(null);
+    }
+  };
+
+  const testCredentials = async () => {
+    if (!business) return;
+    if (!hasCreds && (!consumerKey || !consumerSecret)) {
+      toast.error("Enter consumer key and secret first");
+      return;
+    }
+    setTesting(true);
+    const { data, error } = await supabase.functions.invoke("business-mpesa-credentials", {
+      body: {
+        action: "test",
+        business_id: business.id,
+        environment,
+        consumer_key: consumerKey || undefined,
+        consumer_secret: consumerSecret || undefined,
+      },
+    });
+    setTesting(false);
+    if (error) {
+      toast.error("Test failed: " + error.message);
+      return;
+    }
+    if (data?.ok) {
+      toast.success(`Daraja ${data.environment} OK`, {
+        description: `Access token received in ${data.took_ms}ms${data.expires_in ? ` (expires in ${data.expires_in}s)` : ""}`,
+      });
+    } else {
+      toast.error(`Daraja ${data?.environment ?? environment} rejected credentials`, {
+        description: data?.error || `HTTP ${data?.status ?? "?"}`,
+      });
     }
   };
 
@@ -219,17 +252,23 @@ export function PaymentGatewaysTab() {
             </div>
           </div>
 
-          <div className="flex justify-between">
+          <div className="flex flex-wrap justify-between gap-2">
             {hasCreds ? (
               <Button variant="outline" onClick={removeSecrets} disabled={removing}>
                 {removing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
                 Remove Credentials
               </Button>
             ) : <span />}
-            <Button onClick={saveSecrets} disabled={savingSecrets}>
-              {savingSecrets ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-              {hasCreds ? "Replace Credentials" : "Save Credentials"}
-            </Button>
+            <div className="flex gap-2 ml-auto">
+              <Button variant="outline" onClick={testCredentials} disabled={testing}>
+                {testing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <PlugZap className="h-4 w-4 mr-2" />}
+                Test credentials
+              </Button>
+              <Button onClick={saveSecrets} disabled={savingSecrets}>
+                {savingSecrets ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                {hasCreds ? "Replace Credentials" : "Save Credentials"}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
