@@ -177,6 +177,18 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
               </div>
             </>
           )}
+
+          {cfg.showQRCode && qrValue && (
+            <>
+              <div className="line border-t border-dashed border-foreground/30 my-2" />
+              <div className="text-center space-y-1">
+                <div className="flex justify-center">
+                  <QRCodeSVG value={qrValue} size={cfg.qrCodeSize} level="M" includeMargin={false} />
+                </div>
+                {cfg.qrCodeLabel && <p className="text-[10px]">{cfg.qrCodeLabel}</p>}
+              </div>
+            </>
+          )}
         </div>
 
 
