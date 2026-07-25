@@ -143,6 +143,18 @@ export function ReceiptSettingsTab() {
                   </Select>
                 </div>
 
+                <div className="space-y-2">
+                  <Label>QR Code Position on Receipt</Label>
+                  <Select value={config.qrCodePosition} onValueChange={(v) => update("qrCodePosition", v as QRCodePosition)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="header">Header — top of receipt</SelectItem>
+                      <SelectItem value="middle">Middle — after totals</SelectItem>
+                      <SelectItem value="footer">Footer — bottom of receipt</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 {config.qrCodeType === "custom" && (
                   <div className="space-y-2">
                     <Label>Custom Value</Label>
