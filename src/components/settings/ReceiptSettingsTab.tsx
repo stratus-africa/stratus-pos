@@ -249,6 +249,27 @@ export function ReceiptSettingsTab() {
             {config.showPrintedAt && (
               <div className="text-center opacity-80">Printed: {format(new Date(), "PPp")}</div>
             )}
+            {config.showQRCode && (
+              <>
+                <div className="border-t border-dashed my-2" />
+                <div className="text-center space-y-1">
+                  <div className="flex justify-center">
+                    <QRCodeSVG
+                      value={
+                        config.qrCodeType === "custom"
+                          ? (config.qrCodeCustomValue || "SAMPLE").replace(/\{invoice\}/g, "INV-00001").replace(/\{total\}/g, "870").replace(/\{business\}/g, business?.name || "Business")
+                          : config.qrCodeType === "fiscal_url"
+                          ? "https://etims.kra.go.ke/verify/SAMPLE"
+                          : `${typeof window !== "undefined" ? window.location.origin : ""}/invoice/INV-00001`
+                      }
+                      size={config.qrCodeSize}
+                      level="M"
+                    />
+                  </div>
+                  {config.qrCodeLabel && <div className="text-[10px]">{config.qrCodeLabel}</div>}
+                </div>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
