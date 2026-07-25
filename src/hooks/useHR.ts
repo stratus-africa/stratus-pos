@@ -356,3 +356,182 @@ export function useLinkableUsers() {
     },
   });
 }
+
+export interface LeaveAdjustment {
+  id: string;
+  business_id: string;
+  employee_id: string;
+  leave_type_id: string;
+  year: number;
+  delta: number;
+  reason: string | null;
+  created_at: string;
+}
+
+export function useLeaveAdjustments() {
+  const { business } = useBusiness();
+  const qc = useQueryClient();
+  const businessId = business?.id;
+  const query = useQuery({
+    queryKey: ["leave-adjustments", businessId],
+    enabled: !!businessId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("leave_balance_adjustments" as any)
+        .select("*")
+        .eq("business_id", businessId!)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as LeaveAdjustment[];
+    },
+  });
+  const create = useMutation({
+    mutationFn: async (payload: Partial<LeaveAdjustment>) => {
+      if (!businessId) throw new Error("No business");
+      const { error } = await supabase.from("leave_balance_adjustments" as any).insert({ ...payload, business_id: businessId });
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["leave-adjustments"] }); toast.success("Adjustment recorded"); },
+    onError: (e: any) => toast.error(e.message ?? "Failed"),
+  });
+  return { query, create };
+}
+
+export interface PayrollRun {
+  id: string;
+  business_id: string;
+  period_month: number;
+  period_year: number;
+  status: "draft" | "processed";
+  bank_account_id: string | null;
+  expense_id: string | null;
+  total_gross: number;
+  total_deductions: number;
+  total_net: number;
+  employee_count: number;
+  notes: string | null;
+  processed_at: string | null;
+  created_at: string;
+}
+
+export function usePayrollRuns() {
+  const { business } = useBusiness();
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const businessId = business?.id;
+
+  const query = useQuery({
+    queryKey: ["payroll-runs", businessId],
+    enabled: !!businessId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payroll_runs" as any)
+        .select("*")
+        .eq("business_id", businessId!)
+        .order("period_year", { ascending: false })
+        .order("period_month", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as PayrollRun[];
+    },
+  });
+
+  const execute = useMutation({
+    mutationFn: async (payload: {
+      period_month: number; period_year: number;
+      employees: Array<{ employee_id: string; basic_salary: number; allowances: any[]; deductions: any[] }>;
+      bank_account_id: string; expense_category_id?: string | null; location_id?: string | null;
+      notes?: string;
+    }) => {
+      if (!businessId || !user) throw new Error("Not ready");
+      let totalGross = 0, totalDed = 0, totalNet = 0;
+      const payslipRows = payload.employees.map((e) => {
+        const gross = Number(e.basic_salary || 0) + e.allowances.reduce((s, a) => s + Number(a.amount || 0), 0);
+        const ded = e.deductions.reduce((s, d) => s + Number(d.amount || 0), 0);
+        const net = gross - ded;
+        totalGross += gross; totalDed += ded; totalNet += net;
+        return {
+          business_id: businessId, employee_id: e.employee_id,
+          period_month: payload.period_month, period_year: payload.period_year,
+          basic_salary: e.basic_salary, allowances: e.allowances, deductions: e.deductions,
+          gross_pay: gross, total_deductions: ded, net_pay: net, status: "issued",
+          issued_at: new Date().toISOString(),
+        };
+      });
+
+      // 1. Create payroll run
+      const { data: runData, error: runErr } = await supabase
+        .from("payroll_runs" as any)
+        .insert({
+          business_id: businessId,
+          period_month: payload.period_month,
+          period_year: payload.period_year,
+          status: "processed",
+          bank_account_id: payload.bank_account_id,
+          total_gross: totalGross, total_deductions: totalDed, total_net: totalNet,
+          employee_count: payload.employees.length,
+          notes: payload.notes ?? null,
+          created_by: user.id,
+          processed_at: new Date().toISOString(),
+        } as any)
+        .select()
+        .single();
+      if (runErr) throw runErr;
+      const runId = (runData as any).id;
+
+      // 2. Insert payslips linked to run
+      const { error: psErr } = await supabase
+        .from("payslips" as any)
+        .insert(payslipRows.map((r) => ({ ...r, payroll_run_id: runId })) as any);
+      if (psErr) throw psErr;
+
+      // 3. Post expense for payroll payout
+      const monthLabel = new Date(payload.period_year, payload.period_month - 1, 1).toLocaleString("en", { month: "long", year: "numeric" });
+      const { data: expData, error: expErr } = await supabase
+        .from("expenses" as any)
+        .insert({
+          business_id: businessId,
+          location_id: payload.location_id ?? null,
+          category_id: payload.expense_category_id ?? null,
+          amount: totalNet,
+          description: `Payroll - ${monthLabel} (${payload.employees.length} employees)`,
+          date: new Date().toISOString().split("T")[0],
+          payment_method: "bank_transfer",
+          reference: `PAYROLL-${runId.slice(0, 8)}`,
+          created_by: user.id,
+        } as any)
+        .select()
+        .single();
+      if (expErr) throw expErr;
+
+      // 4. Bank transaction (debit)
+      const { error: txErr } = await supabase
+        .from("bank_transactions" as any)
+        .insert({
+          business_id: businessId,
+          bank_account_id: payload.bank_account_id,
+          type: "payroll",
+          amount: totalNet,
+          date: new Date().toISOString().split("T")[0],
+          reference: `PAYROLL-${runId.slice(0, 8)}`,
+          description: `Payroll payout - ${monthLabel}`,
+          category: "Payroll",
+          expense_id: (expData as any).id,
+          created_by: user.id,
+        } as any);
+      if (txErr) throw txErr;
+
+      // 5. Link expense back to run
+      await supabase.from("payroll_runs" as any).update({ expense_id: (expData as any).id }).eq("id", runId);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["payroll-runs"] });
+      qc.invalidateQueries({ queryKey: ["payslips"] });
+      qc.invalidateQueries({ queryKey: ["expenses"] });
+      qc.invalidateQueries({ queryKey: ["bank-transactions"] });
+      toast.success("Payroll processed successfully");
+    },
+    onError: (e: any) => toast.error(e.message ?? "Payroll failed"),
+  });
+
+  return { query, execute };
+}
