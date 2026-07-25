@@ -9,12 +9,25 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, CheckCircle2, XCircle, FileText, Printer } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Plus, Pencil, Trash2, CheckCircle2, XCircle, FileText, Printer, Download,
+  Palmtree, Stethoscope, Baby, Heart, GraduationCap, PlaneTakeoff, Briefcase as BriefcaseIcon,
+  CalendarDays, Wallet,
+} from "lucide-react";
+import { DynamicIcon } from "lucide-react/dynamic";
 import {
   useEmployees, useMyEmployee, useLeaveTypes, useLeaveRequests, usePayslips,
-  useHRAccess, useLinkableUsers, type Employee, type LeaveType, type Payslip,
+  useHRAccess, useLinkableUsers, useLeaveAdjustments, usePayrollRuns,
+  type Employee, type LeaveType, type Payslip,
 } from "@/hooks/useHR";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useBankAccounts } from "@/hooks/useBankAccounts";
+import { useExpenseCategories } from "@/hooks/useExpenses";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const KES = (n: number) =>
   new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(n || 0);
@@ -26,6 +39,23 @@ const daysBetween = (a: string, b: string) => {
   const d = Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86400000) + 1;
   return Math.max(0, d);
 };
+
+/** Icon options for leave types */
+const LEAVE_ICON_OPTIONS: { value: string; label: string }[] = [
+  { value: "palmtree", label: "Vacation" },
+  { value: "stethoscope", label: "Sick" },
+  { value: "baby", label: "Maternity/Paternity" },
+  { value: "heart", label: "Compassionate" },
+  { value: "graduation-cap", label: "Study" },
+  { value: "plane-takeoff", label: "Travel" },
+  { value: "briefcase", label: "Business" },
+  { value: "calendar-days", label: "Personal" },
+];
+
+function LeaveIcon({ name, className = "h-4 w-4" }: { name?: string | null; className?: string }) {
+  if (!name) return <CalendarDays className={className} />;
+  return <DynamicIcon name={name as any} className={className} fallback={() => <CalendarDays className={className} />} />;
+}
 
 /* ---------------- Employees Tab ---------------- */
 function EmployeeDialog({ open, onOpenChange, editing }: { open: boolean; onOpenChange: (v: boolean) => void; editing: Employee | null }) {
@@ -162,11 +192,14 @@ function LeaveTypesCard() {
   const { query, upsert, remove } = useLeaveTypes();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<LeaveType | null>(null);
-  const [form, setForm] = useState<Partial<LeaveType>>({ is_paid: true, is_active: true, days_per_year: 21 });
+  const [form, setForm] = useState<Partial<LeaveType>>({
+    is_paid: true, is_active: true, days_per_year: 21,
+    accrual_frequency: "yearly", carry_forward_limit: 0, icon: "palmtree",
+  });
 
   const start = (t: LeaveType | null) => {
     setEditing(t);
-    setForm(t ?? { is_paid: true, is_active: true, days_per_year: 21 });
+    setForm(t ?? { is_paid: true, is_active: true, days_per_year: 21, accrual_frequency: "yearly", carry_forward_limit: 0, icon: "palmtree" });
     setOpen(true);
   };
 
@@ -177,12 +210,20 @@ function LeaveTypesCard() {
       </CardHeader>
       <CardContent className="p-0">
         <Table>
-          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead className="text-right">Days/yr</TableHead><TableHead>Paid</TableHead>{canManage && <TableHead></TableHead>}</TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead className="text-right">Days/yr</TableHead><TableHead>Accrual</TableHead><TableHead>Paid</TableHead>{canManage && <TableHead></TableHead>}</TableRow></TableHeader>
           <TableBody>
             {(query.data ?? []).map((t) => (
               <TableRow key={t.id}>
-                <TableCell>{t.name}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <LeaveIcon name={t.icon} />
+                    <span>{t.name}</span>
+                  </div>
+                </TableCell>
                 <TableCell className="text-right">{t.days_per_year}</TableCell>
+                <TableCell className="text-xs capitalize text-muted-foreground">
+                  {t.accrual_frequency}{t.carry_forward_limit > 0 ? ` · CF ${t.carry_forward_limit}` : ""}
+                </TableCell>
                 <TableCell>{t.is_paid ? "Yes" : "No"}</TableCell>
                 {canManage && (
                   <TableCell className="text-right">
@@ -192,7 +233,7 @@ function LeaveTypesCard() {
                 )}
               </TableRow>
             ))}
-            {(query.data ?? []).length === 0 && <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">No leave types</TableCell></TableRow>}
+            {(query.data ?? []).length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No leave types</TableCell></TableRow>}
           </TableBody>
         </Table>
       </CardContent>
@@ -201,12 +242,119 @@ function LeaveTypesCard() {
           <DialogHeader><DialogTitle>{editing ? "Edit Leave Type" : "New Leave Type"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label>Name</Label><Input value={form.name ?? ""} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-            <div><Label>Days per year</Label><Input type="number" value={form.days_per_year ?? 0} onChange={(e) => setForm({ ...form, days_per_year: Number(e.target.value) })} /></div>
-            <div className="flex items-center gap-2"><input type="checkbox" checked={!!form.is_paid} onChange={(e) => setForm({ ...form, is_paid: e.target.checked })} /><Label>Paid leave</Label></div>
+            <div>
+              <Label>Icon</Label>
+              <Select value={form.icon ?? "palmtree"} onValueChange={(v) => setForm({ ...form, icon: v })}>
+                <SelectTrigger>
+                  <div className="flex items-center gap-2"><LeaveIcon name={form.icon} /><SelectValue /></div>
+                </SelectTrigger>
+                <SelectContent>
+                  {LEAVE_ICON_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      <div className="flex items-center gap-2"><LeaveIcon name={o.value} /> {o.label}</div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Days per year</Label><Input type="number" value={form.days_per_year ?? 0} onChange={(e) => setForm({ ...form, days_per_year: Number(e.target.value) })} /></div>
+              <div>
+                <Label>Accrual</Label>
+                <Select value={form.accrual_frequency ?? "yearly"} onValueChange={(v: any) => setForm({ ...form, accrual_frequency: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="yearly">Yearly (all at once)</SelectItem>
+                    <SelectItem value="monthly">Monthly (pro-rata)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>Carry-forward limit (days)</Label>
+              <Input type="number" value={form.carry_forward_limit ?? 0} onChange={(e) => setForm({ ...form, carry_forward_limit: Number(e.target.value) })} />
+              <p className="text-xs text-muted-foreground mt-1">Max unused days that roll to next year (0 = no carry-forward).</p>
+            </div>
+            <div className="flex items-center gap-2"><Switch checked={!!form.is_paid} onCheckedChange={(v) => setForm({ ...form, is_paid: v })} /><Label>Paid leave</Label></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button onClick={async () => { await upsert.mutateAsync({ ...form, id: editing?.id }); setOpen(false); }}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
+/* ---------------- Leave Balance Adjustments ---------------- */
+function LeaveAdjustmentsCard() {
+  const { query: empQ } = useEmployees();
+  const { query: typesQ } = useLeaveTypes();
+  const { query, create } = useLeaveAdjustments();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState<any>({ year: new Date().getFullYear(), delta: 0 });
+
+  const submit = async () => {
+    if (!form.employee_id || !form.leave_type_id) return;
+    await create.mutateAsync({ ...form, delta: Number(form.delta) });
+    setOpen(false);
+    setForm({ year: new Date().getFullYear(), delta: 0 });
+  };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="text-base">Balance Adjustments</CardTitle>
+        <Button size="sm" variant="outline" onClick={() => setOpen(true)}><Plus className="h-4 w-4 mr-1" />Adjust</Button>
+      </CardHeader>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader><TableRow><TableHead>Employee</TableHead><TableHead>Type</TableHead><TableHead>Year</TableHead><TableHead className="text-right">Delta</TableHead></TableRow></TableHeader>
+          <TableBody>
+            {(query.data ?? []).slice(0, 8).map((a) => {
+              const emp = empQ.data?.find((e) => e.id === a.employee_id);
+              const type = typesQ.data?.find((t) => t.id === a.leave_type_id);
+              return (
+                <TableRow key={a.id}>
+                  <TableCell>{emp?.full_name ?? "—"}</TableCell>
+                  <TableCell>{type?.name ?? "—"}</TableCell>
+                  <TableCell>{a.year}</TableCell>
+                  <TableCell className={`text-right font-medium ${a.delta >= 0 ? "text-emerald-600" : "text-destructive"}`}>{a.delta > 0 ? "+" : ""}{a.delta}</TableCell>
+                </TableRow>
+              );
+            })}
+            {(query.data ?? []).length === 0 && <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">No adjustments</TableCell></TableRow>}
+          </TableBody>
+        </Table>
+      </CardContent>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Adjust Leave Balance</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Employee</Label>
+              <Select value={form.employee_id ?? ""} onValueChange={(v) => setForm({ ...form, employee_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent>{(empQ.data ?? []).map((e) => <SelectItem key={e.id} value={e.id}>{e.full_name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Leave Type</Label>
+              <Select value={form.leave_type_id ?? ""} onValueChange={(v) => setForm({ ...form, leave_type_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent>{(typesQ.data ?? []).map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Year</Label><Input type="number" value={form.year} onChange={(e) => setForm({ ...form, year: Number(e.target.value) })} /></div>
+              <div><Label>Delta (± days)</Label><Input type="number" step="0.5" value={form.delta} onChange={(e) => setForm({ ...form, delta: e.target.value })} /></div>
+            </div>
+            <div><Label>Reason</Label><Textarea value={form.reason ?? ""} onChange={(e) => setForm({ ...form, reason: e.target.value })} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={submit} disabled={create.isPending}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -246,7 +394,11 @@ function LeaveRequestDialog({ open, onOpenChange, myEmployeeId }: { open: boolea
             <Label>Leave Type</Label>
             <Select value={form.leave_type_id} onValueChange={(v) => setForm({ ...form, leave_type_id: v })}>
               <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
-              <SelectContent>{(typesQ.data ?? []).map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+              <SelectContent>{(typesQ.data ?? []).map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  <div className="flex items-center gap-2"><LeaveIcon name={t.icon} />{t.name}</div>
+                </SelectItem>
+              ))}</SelectContent>
             </Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -265,62 +417,183 @@ function LeaveRequestDialog({ open, onOpenChange, myEmployeeId }: { open: boolea
   );
 }
 
+function LeaveCalendarCard({ requests }: { requests: any[] }) {
+  const [month, setMonth] = useState<Date>(new Date());
+
+  const days = useMemo(() => {
+    const approved: Date[] = [], pending: Date[] = [], rejected: Date[] = [];
+    for (const r of requests) {
+      const start = new Date(r.start_date);
+      const end = new Date(r.end_date);
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dt = new Date(d);
+        if (r.status === "approved") approved.push(dt);
+        else if (r.status === "pending") pending.push(dt);
+        else if (r.status === "rejected") rejected.push(dt);
+      }
+    }
+    return { approved, pending, rejected };
+  }, [requests]);
+
+  const selectedDate = month;
+  const dayRequests = requests.filter((r) => {
+    const s = new Date(r.start_date), e = new Date(r.end_date);
+    return selectedDate >= new Date(s.setHours(0,0,0,0)) && selectedDate <= new Date(e.setHours(23,59,59,999));
+  });
+
+  return (
+    <Card>
+      <CardHeader><CardTitle className="text-base flex items-center gap-2"><CalendarDays className="h-4 w-4" />Leave Calendar</CardTitle></CardHeader>
+      <CardContent className="space-y-3">
+        <Calendar
+          mode="single"
+          selected={month}
+          onSelect={(d) => d && setMonth(d)}
+          modifiers={{ approved: days.approved, pending: days.pending, rejected: days.rejected }}
+          modifiersClassNames={{
+            approved: "bg-emerald-100 text-emerald-900 font-semibold",
+            pending: "bg-amber-100 text-amber-900 font-semibold",
+            rejected: "bg-rose-100 text-rose-900 line-through",
+          }}
+          className="p-3 pointer-events-auto rounded-md border"
+        />
+        <div className="flex flex-wrap gap-3 text-xs">
+          <span className="flex items-center gap-1"><span className="h-3 w-3 rounded bg-emerald-100 border border-emerald-300"></span>Approved</span>
+          <span className="flex items-center gap-1"><span className="h-3 w-3 rounded bg-amber-100 border border-amber-300"></span>Pending</span>
+          <span className="flex items-center gap-1"><span className="h-3 w-3 rounded bg-rose-100 border border-rose-300"></span>Rejected</span>
+        </div>
+        <div className="border-t pt-3">
+          <div className="text-xs font-medium mb-2">On leave {selectedDate.toDateString()}:</div>
+          {dayRequests.length === 0 ? (
+            <div className="text-xs text-muted-foreground">No employees on leave.</div>
+          ) : (
+            <div className="space-y-1">
+              {dayRequests.map((r) => (
+                <div key={r.id} className="flex items-center justify-between text-xs">
+                  <span>{r.employees?.full_name ?? "—"}</span>
+                  <Badge variant={r.status === "approved" ? "default" : r.status === "pending" ? "secondary" : "destructive"} className="text-[10px]">{r.status}</Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function LeaveTab() {
   const { canManage } = useHRAccess();
   const { data: me } = useMyEmployee();
   const { query, review, cancel } = useLeaveRequests();
   const [open, setOpen] = useState(false);
+  const [view, setView] = useState<"list" | "calendar">("list");
 
   const rows = query.data ?? [];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <div className="lg:col-span-2 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Leave Requests</h3>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold">Leave Requests</h3>
+            <div className="flex rounded-md border">
+              <Button size="sm" variant={view === "list" ? "default" : "ghost"} onClick={() => setView("list")} className="rounded-r-none">List</Button>
+              <Button size="sm" variant={view === "calendar" ? "default" : "ghost"} onClick={() => setView("calendar")} className="rounded-l-none"><CalendarDays className="h-4 w-4 mr-1" />Calendar</Button>
+            </div>
+          </div>
           <Button onClick={() => setOpen(true)} disabled={!canManage && !me}>
             <Plus className="h-4 w-4 mr-1" /> Request Leave
           </Button>
         </div>
-        <Card><CardContent className="p-0">
-          <Table>
-            <TableHeader><TableRow>
-              <TableHead>Employee</TableHead><TableHead>Type</TableHead><TableHead>Dates</TableHead>
-              <TableHead className="text-right">Days</TableHead><TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow></TableHeader>
-            <TableBody>
-              {rows.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No leave requests</TableCell></TableRow>}
-              {rows.map((r) => (
-                <TableRow key={r.id} className="odd:bg-muted/30">
-                  <TableCell>{r.employees?.full_name ?? "—"}</TableCell>
-                  <TableCell>{r.leave_types?.name ?? "—"}</TableCell>
-                  <TableCell>{r.start_date} → {r.end_date}</TableCell>
-                  <TableCell className="text-right">{r.days}</TableCell>
-                  <TableCell>
-                    <Badge variant={r.status === "approved" ? "default" : r.status === "rejected" ? "destructive" : r.status === "cancelled" ? "outline" : "secondary"}>{r.status}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right space-x-1">
-                    {canManage && r.status === "pending" && (
-                      <>
-                        <Button size="icon" variant="ghost" onClick={() => review.mutate({ id: r.id, status: "approved" })} title="Approve"><CheckCircle2 className="h-4 w-4 text-green-600" /></Button>
-                        <Button size="icon" variant="ghost" onClick={() => review.mutate({ id: r.id, status: "rejected" })} title="Reject"><XCircle className="h-4 w-4 text-destructive" /></Button>
-                      </>
-                    )}
-                    {r.status === "pending" && r.employee_id === me?.id && (
-                      <Button size="sm" variant="outline" onClick={() => cancel.mutate(r.id)}>Cancel</Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent></Card>
+        {view === "calendar" ? (
+          <LeaveCalendarCard requests={rows} />
+        ) : (
+          <Card><CardContent className="p-0">
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead>Employee</TableHead><TableHead>Type</TableHead><TableHead>Dates</TableHead>
+                <TableHead className="text-right">Days</TableHead><TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {rows.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No leave requests</TableCell></TableRow>}
+                {rows.map((r) => (
+                  <TableRow key={r.id} className="odd:bg-muted/30">
+                    <TableCell>{r.employees?.full_name ?? "—"}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <LeaveIcon name={r.leave_types?.icon} />
+                        {r.leave_types?.name ?? "—"}
+                      </div>
+                    </TableCell>
+                    <TableCell>{r.start_date} → {r.end_date}</TableCell>
+                    <TableCell className="text-right">{r.days}</TableCell>
+                    <TableCell>
+                      <Badge variant={r.status === "approved" ? "default" : r.status === "rejected" ? "destructive" : r.status === "cancelled" ? "outline" : "secondary"}>{r.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right space-x-1">
+                      {canManage && r.status === "pending" && (
+                        <>
+                          <Button size="icon" variant="ghost" onClick={() => review.mutate({ id: r.id, status: "approved" })} title="Approve"><CheckCircle2 className="h-4 w-4 text-green-600" /></Button>
+                          <Button size="icon" variant="ghost" onClick={() => review.mutate({ id: r.id, status: "rejected" })} title="Reject"><XCircle className="h-4 w-4 text-destructive" /></Button>
+                        </>
+                      )}
+                      {r.status === "pending" && r.employee_id === me?.id && (
+                        <Button size="sm" variant="outline" onClick={() => cancel.mutate(r.id)}>Cancel</Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent></Card>
+        )}
       </div>
-      {canManage && <LeaveTypesCard />}
+      {canManage && (
+        <div className="space-y-4">
+          <LeaveTypesCard />
+          <LeaveAdjustmentsCard />
+        </div>
+      )}
       {open && <LeaveRequestDialog open={open} onOpenChange={setOpen} myEmployeeId={me?.id ?? null} />}
     </div>
   );
+}
+
+/* ---------------- Payslip PDF ---------------- */
+function generatePayslipPdf(payslip: any, businessName: string | undefined) {
+  const doc = new jsPDF();
+  doc.setFontSize(16); doc.text(businessName || "Payslip", 14, 20);
+  doc.setFontSize(11); doc.text(`Payslip — ${MONTHS[payslip.period_month - 1]} ${payslip.period_year}`, 14, 28);
+  doc.setFontSize(10);
+  doc.text(`Employee: ${payslip.employees?.full_name ?? ""}`, 14, 38);
+  doc.text(`Status: ${payslip.status}`, 14, 44);
+  if (payslip.issued_at) doc.text(`Issued: ${new Date(payslip.issued_at).toLocaleDateString()}`, 14, 50);
+
+  autoTable(doc, {
+    startY: 58,
+    head: [["Earnings", "Amount (KES)"]],
+    body: [
+      ["Basic Salary", Number(payslip.basic_salary).toLocaleString()],
+      ...(payslip.allowances ?? []).map((a: any) => [a.label, Number(a.amount).toLocaleString()]),
+      [{ content: "Gross Pay", styles: { fontStyle: "bold" } }, { content: Number(payslip.gross_pay).toLocaleString(), styles: { fontStyle: "bold" } }],
+    ],
+  });
+  autoTable(doc, {
+    startY: (doc as any).lastAutoTable.finalY + 4,
+    head: [["Deductions", "Amount (KES)"]],
+    body: [
+      ...((payslip.deductions ?? []).length === 0 ? [["None", "0"]] : (payslip.deductions ?? []).map((d: any) => [d.label, Number(d.amount).toLocaleString()])),
+      [{ content: "Total Deductions", styles: { fontStyle: "bold" } }, { content: Number(payslip.total_deductions).toLocaleString(), styles: { fontStyle: "bold" } }],
+    ],
+  });
+  autoTable(doc, {
+    startY: (doc as any).lastAutoTable.finalY + 4,
+    body: [[{ content: "NET PAY", styles: { fontStyle: "bold", fontSize: 13 } }, { content: `KES ${Number(payslip.net_pay).toLocaleString()}`, styles: { fontStyle: "bold", fontSize: 13, halign: "right" } }]],
+  });
+  if (payslip.notes) doc.text(`Notes: ${payslip.notes}`, 14, (doc as any).lastAutoTable.finalY + 10);
+  doc.save(`Payslip-${payslip.employees?.full_name ?? "employee"}-${payslip.period_year}-${String(payslip.period_month).padStart(2, "0")}.pdf`);
 }
 
 /* ---------------- Payslips Tab ---------------- */
@@ -339,7 +612,6 @@ function PayslipDialog({ open, onOpenChange, editing }: { open: boolean; onOpenC
 
   const addLine = (key: "allowances" | "deductions") =>
     setForm({ ...form, [key]: [...(form[key] ?? []), { label: "", amount: 0 }] });
-
   const updateLine = (key: "allowances" | "deductions", i: number, field: "label" | "amount", value: string) => {
     const arr = [...(form[key] ?? [])];
     arr[i] = { ...arr[i], [field]: field === "amount" ? Number(value) : value };
@@ -455,6 +727,7 @@ function PayslipViewer({ payslip, onClose }: { payslip: any; onClose: () => void
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Close</Button>
+          <Button variant="outline" onClick={() => generatePayslipPdf(payslip, business?.name)}><Download className="h-4 w-4 mr-1" /> Download PDF</Button>
           <Button onClick={() => window.print()}><Printer className="h-4 w-4 mr-1" /> Print</Button>
         </DialogFooter>
       </DialogContent>
@@ -465,6 +738,7 @@ function PayslipViewer({ payslip, onClose }: { payslip: any; onClose: () => void
 function PayslipsTab() {
   const { canManage } = useHRAccess();
   const { data: me } = useMyEmployee();
+  const { business } = useBusiness();
   const { query, issue, remove } = usePayslips(canManage ? {} : { onlyMine: true, myEmployeeId: me?.id ?? null });
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Payslip | null>(null);
@@ -498,7 +772,8 @@ function PayslipsTab() {
                 <TableCell className="text-right font-semibold">{KES(p.net_pay)}</TableCell>
                 <TableCell><Badge variant={p.status === "issued" ? "default" : "secondary"}>{p.status}</Badge></TableCell>
                 <TableCell className="text-right space-x-1">
-                  <Button size="icon" variant="ghost" onClick={() => setViewing(p)}><FileText className="h-4 w-4" /></Button>
+                  <Button size="icon" variant="ghost" onClick={() => setViewing(p)} title="View"><FileText className="h-4 w-4" /></Button>
+                  <Button size="icon" variant="ghost" onClick={() => generatePayslipPdf(p, business?.name)} title="Download PDF"><Download className="h-4 w-4" /></Button>
                   {canManage && p.status === "draft" && (
                     <>
                       <Button size="icon" variant="ghost" onClick={() => { setEditing(p); setOpen(true); }}><Pencil className="h-4 w-4" /></Button>
@@ -514,6 +789,159 @@ function PayslipsTab() {
       </CardContent></Card>
       {open && <PayslipDialog open={open} onOpenChange={setOpen} editing={editing} />}
       {viewing && <PayslipViewer payslip={viewing} onClose={() => setViewing(null)} />}
+    </div>
+  );
+}
+
+/* ---------------- Payroll Tab ---------------- */
+function PayrollRunDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const { query: empQ } = useEmployees();
+  const { data: banks } = useBankAccounts();
+  const { data: expenseCategories } = useExpenseCategories();
+  const { execute } = usePayrollRuns();
+  const now = new Date();
+  const activeEmployees = (empQ.data ?? []).filter((e) => e.status === "active");
+
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(now.getFullYear());
+  const [bankAccountId, setBankAccountId] = useState<string>("");
+  const [categoryId, setCategoryId] = useState<string>("");
+  const [notes, setNotes] = useState("");
+  const [selected, setSelected] = useState<Record<string, boolean>>(
+    Object.fromEntries(activeEmployees.map((e) => [e.id, true]))
+  );
+  const [salaryOverrides, setSalaryOverrides] = useState<Record<string, number>>({});
+
+  const chosen = activeEmployees.filter((e) => selected[e.id]);
+  const totalNet = chosen.reduce((s, e) => s + (salaryOverrides[e.id] ?? e.basic_salary), 0);
+
+  const submit = async () => {
+    if (!bankAccountId) { alert("Choose a bank account to pay from"); return; }
+    if (chosen.length === 0) { alert("Select at least one employee"); return; }
+    await execute.mutateAsync({
+      period_month: month, period_year: year,
+      bank_account_id: bankAccountId,
+      expense_category_id: categoryId || null,
+      notes,
+      employees: chosen.map((e) => ({
+        employee_id: e.id,
+        basic_salary: salaryOverrides[e.id] ?? e.basic_salary,
+        allowances: [], deductions: [],
+      })),
+    });
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Run Payroll</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div>
+              <Label>Month</Label>
+              <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{MONTHS.map((m, i) => <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div><Label>Year</Label><Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} /></div>
+            <div>
+              <Label>Pay From Account *</Label>
+              <Select value={bankAccountId} onValueChange={setBankAccountId}>
+                <SelectTrigger><SelectValue placeholder="Choose bank/cash" /></SelectTrigger>
+                <SelectContent>{(banks ?? []).map((b) => <SelectItem key={b.id} value={b.id}>{b.name} ({KES(b.balance)})</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Expense Category</Label>
+              <Select value={categoryId} onValueChange={setCategoryId}>
+                <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
+                <SelectContent>{(expenseCategories ?? []).map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="border rounded-md">
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead className="w-10"></TableHead><TableHead>Employee</TableHead>
+                <TableHead>Job Title</TableHead><TableHead className="text-right">Basic Salary</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {activeEmployees.length === 0 && <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground">No active employees</TableCell></TableRow>}
+                {activeEmployees.map((e) => (
+                  <TableRow key={e.id}>
+                    <TableCell><Checkbox checked={!!selected[e.id]} onCheckedChange={(v) => setSelected({ ...selected, [e.id]: !!v })} /></TableCell>
+                    <TableCell>{e.full_name}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{e.job_title || "—"}</TableCell>
+                    <TableCell className="text-right">
+                      <Input type="number" className="w-32 ml-auto text-right" value={salaryOverrides[e.id] ?? e.basic_salary}
+                        onChange={(ev) => setSalaryOverrides({ ...salaryOverrides, [e.id]: Number(ev.target.value) })} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="rounded border p-3 bg-muted/30 flex items-center justify-between">
+            <div className="text-sm">{chosen.length} employees selected</div>
+            <div className="text-base font-bold text-primary">Total Payout: {KES(totalNet)}</div>
+          </div>
+
+          <div><Label>Notes</Label><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes for this payroll run" /></div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={submit} disabled={execute.isPending}>
+            {execute.isPending ? "Processing..." : `Process Payroll (${KES(totalNet)})`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PayrollTab() {
+  const { query } = usePayrollRuns();
+  const [open, setOpen] = useState(false);
+  const rows = query.data ?? [];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <div>
+          <h3 className="text-lg font-semibold flex items-center gap-2"><Wallet className="h-5 w-5" /> Payroll Runs</h3>
+          <p className="text-sm text-muted-foreground">Bulk-process monthly payroll and post it as an expense.</p>
+        </div>
+        <Button onClick={() => setOpen(true)}><Plus className="h-4 w-4 mr-1" /> Run Payroll</Button>
+      </div>
+      <Card><CardContent className="p-0">
+        <Table>
+          <TableHeader><TableRow>
+            <TableHead>Period</TableHead><TableHead>Employees</TableHead>
+            <TableHead className="text-right">Gross</TableHead><TableHead className="text-right">Deductions</TableHead>
+            <TableHead className="text-right">Net Payout</TableHead><TableHead>Status</TableHead>
+            <TableHead>Processed</TableHead>
+          </TableRow></TableHeader>
+          <TableBody>
+            {rows.length === 0 && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No payroll runs yet</TableCell></TableRow>}
+            {rows.map((r) => (
+              <TableRow key={r.id} className="odd:bg-muted/30">
+                <TableCell>{MONTHS[r.period_month - 1]} {r.period_year}</TableCell>
+                <TableCell>{r.employee_count}</TableCell>
+                <TableCell className="text-right">{KES(r.total_gross)}</TableCell>
+                <TableCell className="text-right">{KES(r.total_deductions)}</TableCell>
+                <TableCell className="text-right font-semibold">{KES(r.total_net)}</TableCell>
+                <TableCell><Badge variant={r.status === "processed" ? "default" : "secondary"}>{r.status}</Badge></TableCell>
+                <TableCell className="text-xs text-muted-foreground">{r.processed_at ? new Date(r.processed_at).toLocaleDateString() : "—"}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent></Card>
+      {open && <PayrollRunDialog open={open} onOpenChange={setOpen} />}
     </div>
   );
 }
@@ -545,10 +973,12 @@ export default function HR() {
           {canManage && <TabsTrigger value="employees">Employees</TabsTrigger>}
           <TabsTrigger value="leave">Leave</TabsTrigger>
           <TabsTrigger value="payslips">Payslips</TabsTrigger>
+          {canManage && <TabsTrigger value="payroll">Payroll</TabsTrigger>}
         </TabsList>
         {canManage && <TabsContent value="employees"><EmployeesTab /></TabsContent>}
         <TabsContent value="leave"><LeaveTab /></TabsContent>
         <TabsContent value="payslips"><PayslipsTab /></TabsContent>
+        {canManage && <TabsContent value="payroll"><PayrollTab /></TabsContent>}
       </Tabs>
     </div>
   );
