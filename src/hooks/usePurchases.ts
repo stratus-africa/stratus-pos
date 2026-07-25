@@ -30,6 +30,7 @@ export interface Purchase {
   payment_status: string;
   status: string;
   vat_enabled: boolean;
+  tax_inclusive?: boolean;
   notes: string | null;
   created_by: string;
   created_at: string;
