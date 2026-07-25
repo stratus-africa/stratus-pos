@@ -168,6 +168,7 @@ const CmsCta = lazy(() => import("./pages/super-admin/cms/CmsCta"));
 const SuperAdminSettings = lazy(() => import("./pages/super-admin/SuperAdminSettings"));
 const PaystackSettings = lazy(() => import("./pages/super-admin/payments/PaystackSettings"));
 const MpesaSettings = lazy(() => import("./pages/super-admin/payments/MpesaSettings"));
+const PublicInvoice = lazy(() => import("./pages/PublicInvoice"));
 
 
 const queryClient = new QueryClient({
