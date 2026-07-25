@@ -82,27 +82,11 @@ async function ensureAdminAccess(req: Request, businessId: string): Promise<stri
 }
 
 async function vaultUpsert(admin: any, name: string, secret: string) {
-  // Try to find existing
-  const { data: existing } = await admin
-    .schema("vault")
-    .from("secrets")
-    .select("id")
-    .eq("name", name)
-    .maybeSingle();
-
-  if (existing) {
-    const { error } = await admin.rpc("update_vault_secret", {
-      _id: existing.id,
-      _secret: secret,
-    });
-    if (error) throw error;
-  } else {
-    const { error } = await admin.rpc("create_vault_secret", {
-      _name: name,
-      _secret: secret,
-    });
-    if (error) throw error;
-  }
+  const { error } = await admin.rpc("upsert_vault_secret", {
+    _name: name,
+    _secret: secret,
+  });
+  if (error) throw error;
 }
 
 async function vaultDelete(admin: any, name: string) {
