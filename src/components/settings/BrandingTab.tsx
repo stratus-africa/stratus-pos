@@ -1,15 +1,17 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Save, Loader2, Palette } from "lucide-react";
+import { Save, Loader2, Palette, Image as ImageIcon, Upload, Trash2 } from "lucide-react";
 import { THEMES, DEFAULT_THEME, applyTheme, type ThemeKey } from "@/lib/themes";
 
 export function BrandingTab() {
   const { business, refreshBusiness } = useBusiness();
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [themeColor, setThemeColor] = useState<ThemeKey>(
     ((business as { theme_color?: ThemeKey })?.theme_color || DEFAULT_THEME) as ThemeKey
   );
@@ -32,8 +34,93 @@ export function BrandingTab() {
     setSaving(false);
   };
 
+  const handleLogoPick = async (file: File) => {
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Logo must be smaller than 2 MB");
+      return;
+    }
+    setUploading(true);
+    try {
+      const ext = (file.name.split(".").pop() || "png").toLowerCase();
+      const path = `logos/${business.id}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("product-images")
+        .upload(path, file, { upsert: true, cacheControl: "3600" });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("product-images").getPublicUrl(path);
+      const { error } = await supabase
+        .from("businesses")
+        .update({ logo_url: pub.publicUrl })
+        .eq("id", business.id);
+      if (error) throw error;
+      toast.success("Logo updated");
+      await refreshBusiness();
+    } catch (e: any) {
+      toast.error(e.message || "Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    if (!window.confirm("Remove the business logo?")) return;
+    const { error } = await supabase
+      .from("businesses")
+      .update({ logo_url: null })
+      .eq("id", business.id);
+    if (error) return toast.error(error.message);
+    toast.success("Logo removed");
+    await refreshBusiness();
+  };
+
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ImageIcon className="h-5 w-5" />
+            Business Logo
+          </CardTitle>
+          <CardDescription>
+            Shown on receipts (when enabled in Receipt settings) and in emails. PNG or JPG, max 2 MB.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            <div className="h-24 w-24 rounded-lg border bg-muted/40 flex items-center justify-center overflow-hidden shrink-0">
+              {business.logo_url ? (
+                <img src={business.logo_url} alt="Logo" className="h-full w-full object-contain" />
+              ) : (
+                <ImageIcon className="h-8 w-8 text-muted-foreground" />
+              )}
+            </div>
+            <div className="flex flex-col gap-2">
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void handleLogoPick(f);
+                }}
+              />
+              <Button type="button" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading}>
+                {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                {business.logo_url ? "Replace logo" : "Upload logo"}
+              </Button>
+              {business.logo_url && (
+                <Button type="button" variant="ghost" size="sm" onClick={handleLogoRemove} className="text-destructive">
+                  <Trash2 className="mr-2 h-3 w-3" /> Remove
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
