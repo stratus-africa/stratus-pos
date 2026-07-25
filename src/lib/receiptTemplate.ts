@@ -42,6 +42,7 @@ export const defaultReceiptConfig: ReceiptConfig = {
   qrCodeCustomValue: "",
   qrCodeSize: 96,
   qrCodeLabel: "Scan to view",
+  qrCodePosition: "footer",
 };
 
 const key = (businessId: string) => `receipt_config_${businessId}`;
