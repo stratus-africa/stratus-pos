@@ -509,8 +509,21 @@ const POS = () => {
               ) : (
                 <div className="space-y-2">
                   {pos.cart.map((item) => (
-                    <CartItemRow key={item.product.id} item={item} onUpdate={pos.updateCartItem} onRemove={pos.removeFromCart} onBeforeRemove={handleBeforeRemove} />
+                    <CartItemRow
+                      key={item.product.id}
+                      item={item}
+                      onUpdate={pos.updateCartItem}
+                      onRemove={pos.removeFromCart}
+                      onBeforeRemove={handleBeforeRemove}
+                      taxRates={pos.vatEnabled ? pos.activeTaxRates : undefined}
+                      defaultRateLabel={
+                        pos.defaultTaxRate
+                          ? `Default (${Number(pos.defaultTaxRate.rate)}%)`
+                          : "Default"
+                      }
+                    />
                   ))}
+
                 </div>
               )}
             </ScrollArea>
