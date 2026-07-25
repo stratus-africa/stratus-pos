@@ -48,9 +48,10 @@ export default function CustomerFormDialog({ open, onOpenChange, onSubmit, initi
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!phone.trim()) return;
     onSubmit({
       name,
-      phone: phone || null,
+      phone: phone.trim(),
       email: email || null,
       address: address || null,
       ...(digitaxEnabled ? {
@@ -74,7 +75,7 @@ export default function CustomerFormDialog({ open, onOpenChange, onSubmit, initi
             <Input disabled={fiscalised} value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><Label>Phone</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
+            <div><Label>Phone *</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 0712345678" required /></div>
             <div><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
           </div>
           <div>
