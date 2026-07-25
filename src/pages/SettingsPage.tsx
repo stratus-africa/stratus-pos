@@ -1,5 +1,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, MapPin, Users, Receipt, CreditCard, ShieldCheck, Wallet, Smartphone, Palette, Hash, Plug, FileCheck2, Percent } from "lucide-react";
+import { Building2, MapPin, Users, Receipt, CreditCard, ShieldCheck, Wallet, Smartphone, Palette, Hash, Plug, FileCheck2, Percent, Printer } from "lucide-react";
+import CashDrawerTab from "@/components/settings/CashDrawerTab";
 import { BusinessProfileTab } from "@/components/settings/BusinessProfileTab";
 import { BrandingTab } from "@/components/settings/BrandingTab";
 import { LocationsTab } from "@/components/settings/LocationsTab";
@@ -60,6 +61,7 @@ const SettingsPage = () => {
       </Tabs>
     ) },
     { key: "numbering", label: "Numbering", icon: <Hash className="h-4 w-4" />, permission: "settings.edit", render: () => <NumberSeriesTab /> },
+    { key: "cash-drawer", label: "Cash Drawer", icon: <Printer className="h-4 w-4" />, permission: "settings.edit", render: () => <CashDrawerTab /> },
     { key: "integrations", label: "Integrations", icon: <Plug className="h-4 w-4" />, permission: "settings.edit", render: () => <IntegrationsTab /> },
     { key: "digitax", label: "Tax Compliance", icon: <FileCheck2 className="h-4 w-4" />, permission: "settings.edit", featureKey: "digitax", render: () => <DigitaxSettingsTab /> },
     { key: "tax-rates", label: "Tax Rates", icon: <Percent className="h-4 w-4" />, permission: "settings.edit", render: () => <TaxRatesTab /> },
