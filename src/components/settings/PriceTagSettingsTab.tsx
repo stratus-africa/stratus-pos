@@ -18,7 +18,14 @@ import {
   PRICE_TAG_FONT_OPTIONS,
   PRICE_TAG_LAYOUTS,
   type PriceTagConfig,
+  type TextAlign,
 } from "@/lib/priceTagTemplate";
+
+const ALIGN_OPTIONS: { value: TextAlign; label: string }[] = [
+  { value: "left", label: "Left" },
+  { value: "center", label: "Center" },
+  { value: "right", label: "Right" },
+];
 
 function PreviewBarcode({ value }: { value: string }) {
   const ref = useRef<SVGSVGElement>(null);
