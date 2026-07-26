@@ -544,7 +544,7 @@ function LeaveTab() {
                     <TableCell>{r.start_date} → {r.end_date}</TableCell>
                     <TableCell className="text-right">{r.days}</TableCell>
                     <TableCell>
-                      <Badge variant={r.status === "approved" ? "default" : r.status === "rejected" ? "destructive" : r.status === "cancelled" ? "outline" : "secondary"}>{r.status}</Badge>
+                      <Badge className={r.status === "approved" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""} variant={r.status === "approved" ? "default" : r.status === "rejected" ? "destructive" : r.status === "cancelled" ? "outline" : "secondary"}>{r.status}</Badge>
                     </TableCell>
                     <TableCell className="text-right space-x-1">
                       {canManage && r.status === "pending" && (
