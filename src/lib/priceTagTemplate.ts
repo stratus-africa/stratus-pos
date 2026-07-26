@@ -3,7 +3,7 @@
 export type TextAlign = "left" | "center" | "right";
 
 export interface PriceTagConfig {
-  layout: "30" | "24" | "12";
+  layout: "30" | "24" | "12" | "receipt2";
   showBusinessName: boolean;
   showProductName: boolean;
   showSku: boolean;
