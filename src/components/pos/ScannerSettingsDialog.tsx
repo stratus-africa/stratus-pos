@@ -10,8 +10,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  BarcodeScanSettings, DEFAULT_SCAN_SETTINGS, loadScanSettings, saveScanSettings,
+  BarcodeScanSettings, DEFAULT_SCAN_SETTINGS, loadScanSettings, fetchScanSettings, saveScanSettings,
 } from "@/lib/barcodeScan";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { toast } from "sonner";
 
 interface Props {
@@ -20,22 +21,36 @@ interface Props {
 }
 
 export function ScannerSettingsDialog({ open, onOpenChange }: Props) {
+  const { business } = useBusiness();
   const [s, setS] = useState<BarcodeScanSettings>(DEFAULT_SCAN_SETTINGS);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) setS(loadScanSettings());
-  }, [open]);
+    if (!open) return;
+    setS(loadScanSettings(business?.id));
+    if (business?.id) {
+      fetchScanSettings(business.id).then(setS).catch(() => { /* cached */ });
+    }
+  }, [open, business?.id]);
 
-  const save = () => {
-    saveScanSettings({
-      ...s,
-      minLength: Math.max(1, Number(s.minLength) || 1),
-      maxInterval: Math.max(10, Number(s.maxInterval) || 10),
-      idleFlush: Math.max(50, Number(s.idleFlush) || 50),
-    });
-    toast.success("Scanner settings saved");
-    onOpenChange(false);
+  const save = async () => {
+    setSaving(true);
+    try {
+      await saveScanSettings({
+        ...s,
+        minLength: Math.max(1, Number(s.minLength) || 1),
+        maxInterval: Math.max(10, Number(s.maxInterval) || 10),
+        idleFlush: Math.max(50, Number(s.idleFlush) || 50),
+      }, business?.id);
+      toast.success("Scanner settings saved for all tills");
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save scanner settings");
+    } finally {
+      setSaving(false);
+    }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
