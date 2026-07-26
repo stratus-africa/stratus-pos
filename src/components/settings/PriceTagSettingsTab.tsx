@@ -18,6 +18,8 @@ import {
   defaultPriceTagConfig,
   PRICE_TAG_FONT_OPTIONS,
   PRICE_TAG_LAYOUTS,
+  PAPER_MODE_OPTIONS,
+  THERMAL_80_PRINTABLE_MM,
   type PriceTagConfig,
   type TextAlign,
 } from "@/lib/priceTagTemplate";
@@ -80,8 +82,19 @@ export function PriceTagSettingsTab() {
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
+              <Label>Paper / printer</Label>
+              <Select value={config.paperMode} onValueChange={(v) => update("paperMode", v as PriceTagConfig["paperMode"])}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PAPER_MODE_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label>Default layout</Label>
-              <Select value={config.layout} onValueChange={(v) => update("layout", v as PriceTagConfig["layout"])}>
+              <Select value={config.layout} onValueChange={(v) => update("layout", v as PriceTagConfig["layout"])} disabled={config.paperMode === "thermal80"}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.entries(PRICE_TAG_LAYOUTS).map(([k, v]) => (
@@ -90,6 +103,32 @@ export function PriceTagSettingsTab() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label>Tag width (mm)</Label>
+              <Input
+                type="number"
+                min={20}
+                max={config.paperMode === "thermal80" ? THERMAL_80_PRINTABLE_MM : 210}
+                value={config.tagWidthMm}
+                onChange={(e) => update("tagWidthMm", Number(e.target.value) || 1)}
+              />
+              {config.paperMode === "thermal80" && (
+                <p className="text-xs text-muted-foreground">80mm roll printable width is {THERMAL_80_PRINTABLE_MM}mm.</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Tag height (mm)</Label>
+              <Input type="number" min={10} max={150} value={config.tagHeightMm} onChange={(e) => update("tagHeightMm", Number(e.target.value) || 1)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Gap between tags (mm)</Label>
+              <Input type="number" min={0} max={20} value={config.gapMm} onChange={(e) => update("gapMm", Number(e.target.value) || 0)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Inner padding (mm)</Label>
+              <Input type="number" min={0} max={10} value={config.paddingMm} onChange={(e) => update("paddingMm", Number(e.target.value) || 0)} />
+            </div>
+
             <div className="space-y-2">
               <Label>Font family</Label>
               <Select value={config.fontFamily} onValueChange={(v) => update("fontFamily", v)}>
@@ -207,9 +246,11 @@ export function PriceTagSettingsTab() {
           <div className="rounded-md border p-4 bg-muted/30 flex justify-center">
             <div
               style={{
-                width: 220,
-                minHeight: 110,
-                padding: "10px 12px",
+                width: `${config.paperMode === "thermal80" ? Math.min(config.tagWidthMm, THERMAL_80_PRINTABLE_MM) : config.tagWidthMm}mm`,
+                minHeight: `${config.tagHeightMm}mm`,
+                boxSizing: "border-box",
+                overflow: "hidden",
+                padding: `${config.paddingMm}mm`,
                 background: config.backgroundColor,
                 border: config.borderStyle === "none" ? "none" : `1px ${config.borderStyle} ${config.borderColor}`,
                 borderRadius: 6,

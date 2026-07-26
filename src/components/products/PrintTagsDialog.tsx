@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { Printer } from "lucide-react";
-import { loadPriceTagConfig, PRICE_TAG_LAYOUTS, type PriceTagConfig } from "@/lib/priceTagTemplate";
+import { loadPriceTagConfig, PRICE_TAG_LAYOUTS, PAPER_MODE_OPTIONS, THERMAL_80_PRINTABLE_MM, type PriceTagConfig } from "@/lib/priceTagTemplate";
 
 export interface PrintTagItem {
   id: string;
@@ -43,10 +43,20 @@ export function PrintTagsDialog({ open, onOpenChange, items }: Props) {
 
   const [layoutKey, setLayoutKey] = useState<PriceTagConfig["layout"]>(cfg.layout);
   useEffect(() => { setLayoutKey(cfg.layout); }, [cfg.layout]);
+  const [paperMode, setPaperMode] = useState<PriceTagConfig["paperMode"]>(cfg.paperMode);
+  useEffect(() => { setPaperMode(cfg.paperMode); }, [cfg.paperMode]);
+  const [widthMm, setWidthMm] = useState(cfg.tagWidthMm);
+  const [heightMm, setHeightMm] = useState(cfg.tagHeightMm);
+  useEffect(() => { setWidthMm(cfg.tagWidthMm); setHeightMm(cfg.tagHeightMm); }, [cfg.tagWidthMm, cfg.tagHeightMm]);
   const [copiesPerItem, setCopiesPerItem] = useState(1);
   const currency = business?.currency || "KES";
 
+  const isThermal = paperMode === "thermal80";
   const layout = PRICE_TAG_LAYOUTS[layoutKey];
+  const effWidth = isThermal ? Math.min(widthMm, THERMAL_80_PRINTABLE_MM) : widthMm;
+  const cols = isThermal ? 1 : layout.cols;
+  const gap = cfg.gapMm;
+  const pad = cfg.paddingMm;
 
   const expanded = useMemo(() => {
     const arr: PrintTagItem[] = [];
@@ -69,18 +79,22 @@ export function PrintTagsDialog({ open, onOpenChange, items }: Props) {
     if (!node) return;
     const win = window.open("", "_blank", "width=900,height=1000");
     if (!win) return;
+    const pageCss = isThermal
+      ? `@page { size: 80mm auto; margin: 2mm; }`
+      : `@page { size: A4; margin: 8mm; }`;
     win.document.write(`<!doctype html><html><head><title>Price tags</title>
       <style>
-        @page { size: A4; margin: 8mm; }
+        ${pageCss}
         body { font-family: ${cfg.fontFamily}; margin: 0; background: #fff; }
-        .sheet { display: grid; grid-template-columns: repeat(${layout.cols}, 1fr); gap: 4mm; }
-        .tag { border: ${borderCss}; border-radius: 4px; padding: 6px 8px; display: flex; flex-direction: column; justify-content: space-between; min-height: 70px; page-break-inside: avoid; background: ${cfg.backgroundColor}; }
+        .sheet { display: grid; grid-template-columns: repeat(${cols}, ${isThermal ? `${effWidth}mm` : "1fr"}); gap: ${gap}mm; }
+        .tag { border: ${borderCss}; border-radius: 4px; padding: ${pad}mm; display: flex; flex-direction: column; justify-content: space-between; width: ${effWidth}mm; min-height: ${heightMm}mm; box-sizing: border-box; overflow: hidden; page-break-inside: avoid; background: ${cfg.backgroundColor}; }
         .tag svg { width: 100%; height: 30px; }
       </style></head><body>${node.innerHTML}</body></html>`);
     win.document.close();
     win.focus();
     setTimeout(() => { win.print(); win.close(); }, 250);
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -89,13 +103,30 @@ export function PrintTagsDialog({ open, onOpenChange, items }: Props) {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
+            <Label>Paper</Label>
+            <Select value={paperMode} onValueChange={(v) => setPaperMode(v as PriceTagConfig["paperMode"])}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {PAPER_MODE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
             <Label>Layout</Label>
-            <Select value={layoutKey} onValueChange={(v) => setLayoutKey(v as PriceTagConfig["layout"])}>
+            <Select value={layoutKey} onValueChange={(v) => setLayoutKey(v as PriceTagConfig["layout"])} disabled={isThermal}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {Object.entries(PRICE_TAG_LAYOUTS).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
               </SelectContent>
             </Select>
+          </div>
+          <div>
+            <Label>Tag width (mm)</Label>
+            <Input type="number" min={20} max={isThermal ? THERMAL_80_PRINTABLE_MM : 210} value={widthMm} onChange={(e) => setWidthMm(Number(e.target.value) || 1)} />
+          </div>
+          <div>
+            <Label>Tag height (mm)</Label>
+            <Input type="number" min={10} max={150} value={heightMm} onChange={(e) => setHeightMm(Number(e.target.value) || 1)} />
           </div>
           <div>
             <Label>Copies per item</Label>
@@ -108,7 +139,7 @@ export function PrintTagsDialog({ open, onOpenChange, items }: Props) {
 
         <div className="border rounded-md p-3 max-h-[50vh] overflow-auto bg-muted/30">
           <div id="print-tags-sheet">
-            <div className="sheet" style={{ display: "grid", gridTemplateColumns: `repeat(${layout.cols}, minmax(0, 1fr))`, gap: "4mm" }}>
+            <div className="sheet" style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, ${isThermal ? `${effWidth}mm` : "minmax(0, 1fr)"})`, gap: `${gap}mm` }}>
               {expanded.map((it, i) => (
                 <div
                   key={i}
@@ -116,15 +147,19 @@ export function PrintTagsDialog({ open, onOpenChange, items }: Props) {
                   style={{
                     border: borderCss,
                     borderRadius: 4,
-                    padding: "6px 8px",
+                    padding: `${pad}mm`,
                     background: cfg.backgroundColor,
                     fontFamily: cfg.fontFamily,
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "space-between",
-                    minHeight: 70,
+                    width: `${effWidth}mm`,
+                    minHeight: `${heightMm}mm`,
+                    boxSizing: "border-box",
+                    overflow: "hidden",
                   }}
                 >
+
                   <div>
                     {cfg.showBusinessName && business?.name && (
                       <div style={{ fontSize: 10, color: "#64748b", textAlign: cfg.businessNameAlign }}>{business.name}</div>

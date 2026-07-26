@@ -2,8 +2,15 @@
 
 export type TextAlign = "left" | "center" | "right";
 
+export type PaperMode = "a4" | "thermal80";
+
 export interface PriceTagConfig {
   layout: "30" | "24" | "12" | "receipt2";
+  paperMode: PaperMode;
+  tagWidthMm: number;
+  tagHeightMm: number;
+  gapMm: number;
+  paddingMm: number;
   showBusinessName: boolean;
   showProductName: boolean;
   showSku: boolean;
@@ -30,6 +37,11 @@ export interface PriceTagConfig {
 
 export const defaultPriceTagConfig: PriceTagConfig = {
   layout: "30",
+  paperMode: "a4",
+  tagWidthMm: 63,
+  tagHeightMm: 25,
+  gapMm: 4,
+  paddingMm: 2,
   showBusinessName: false,
   showProductName: true,
   showSku: true,
@@ -106,3 +118,11 @@ export const PRICE_TAG_LAYOUTS: Record<PriceTagConfig["layout"], { cols: number;
   "12": { cols: 2, rows: 6, label: "12 per page (2×6)" },
   "receipt2": { cols: 2, rows: 10, label: "Receipt labels (2 per column)" },
 };
+
+// 80mm thermal roll: ~72mm printable width.
+export const THERMAL_80_PRINTABLE_MM = 72;
+
+export const PAPER_MODE_OPTIONS: { value: PaperMode; label: string }[] = [
+  { value: "a4", label: "A4 sheet (label grid)" },
+  { value: "thermal80", label: "80mm thermal roll" },
+];
