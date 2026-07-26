@@ -103,13 +103,30 @@ export function PrintTagsDialog({ open, onOpenChange, items }: Props) {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
+            <Label>Paper</Label>
+            <Select value={paperMode} onValueChange={(v) => setPaperMode(v as PriceTagConfig["paperMode"])}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {PAPER_MODE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
             <Label>Layout</Label>
-            <Select value={layoutKey} onValueChange={(v) => setLayoutKey(v as PriceTagConfig["layout"])}>
+            <Select value={layoutKey} onValueChange={(v) => setLayoutKey(v as PriceTagConfig["layout"])} disabled={isThermal}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {Object.entries(PRICE_TAG_LAYOUTS).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
               </SelectContent>
             </Select>
+          </div>
+          <div>
+            <Label>Tag width (mm)</Label>
+            <Input type="number" min={20} max={isThermal ? THERMAL_80_PRINTABLE_MM : 210} value={widthMm} onChange={(e) => setWidthMm(Number(e.target.value) || 1)} />
+          </div>
+          <div>
+            <Label>Tag height (mm)</Label>
+            <Input type="number" min={10} max={150} value={heightMm} onChange={(e) => setHeightMm(Number(e.target.value) || 1)} />
           </div>
           <div>
             <Label>Copies per item</Label>
@@ -122,7 +139,7 @@ export function PrintTagsDialog({ open, onOpenChange, items }: Props) {
 
         <div className="border rounded-md p-3 max-h-[50vh] overflow-auto bg-muted/30">
           <div id="print-tags-sheet">
-            <div className="sheet" style={{ display: "grid", gridTemplateColumns: `repeat(${layout.cols}, minmax(0, 1fr))`, gap: "4mm" }}>
+            <div className="sheet" style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, ${isThermal ? `${effWidth}mm` : "minmax(0, 1fr)"})`, gap: `${gap}mm` }}>
               {expanded.map((it, i) => (
                 <div
                   key={i}
@@ -130,15 +147,19 @@ export function PrintTagsDialog({ open, onOpenChange, items }: Props) {
                   style={{
                     border: borderCss,
                     borderRadius: 4,
-                    padding: "6px 8px",
+                    padding: `${pad}mm`,
                     background: cfg.backgroundColor,
                     fontFamily: cfg.fontFamily,
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "space-between",
-                    minHeight: 70,
+                    width: `${effWidth}mm`,
+                    minHeight: `${heightMm}mm`,
+                    boxSizing: "border-box",
+                    overflow: "hidden",
                   }}
                 >
+
                   <div>
                     {cfg.showBusinessName && business?.name && (
                       <div style={{ fontSize: 10, color: "#64748b", textAlign: cfg.businessNameAlign }}>{business.name}</div>
