@@ -562,10 +562,10 @@ const Inventory = () => {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search product..."
+                    placeholder="Search product / ref / reason..."
                     value={adjSearch}
                     onChange={(e) => { setAdjSearch(e.target.value); setAdjPage(1); }}
-                    className="pl-9 h-9 w-[220px]"
+                    className="pl-9 h-9 w-[240px]"
                   />
                 </div>
                 <Select value={adjSort} onValueChange={(v) => { setAdjSort(v as SortKey); setAdjPage(1); }}>
@@ -573,27 +573,25 @@ const Inventory = () => {
                   <SelectContent>
                     <SelectItem value="date_desc">Date (newest)</SelectItem>
                     <SelectItem value="date_asc">Date (oldest)</SelectItem>
-                    <SelectItem value="product_asc">Product (A–Z)</SelectItem>
-                    <SelectItem value="product_desc">Product (Z–A)</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="sm" onClick={() => exportAdjustments()} disabled={adjustmentsFiltered.length === 0}>
+                <Button variant="outline" size="sm" onClick={() => exportAdjustments()} disabled={documentsFiltered.length === 0}>
                   <Download className="mr-2 h-4 w-4" /> Export CSV
                 </Button>
               </div>
             </CardHeader>
-            {selectedAdjustments.length > 0 && (
+            {selectedDocuments.length > 0 && (
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b bg-muted/40 px-4 py-2">
-                <div className="text-sm font-medium">{selectedAdjustments.length} selected</div>
+                <div className="text-sm font-medium">{selectedDocuments.length} selected</div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => exportAdjustments(selectedAdjustments)}>
+                  <Button variant="outline" size="sm" onClick={() => exportAdjustments(selectedDocuments)}>
                     <Download className="mr-2 h-4 w-4" /> Export
                   </Button>
                   <Button variant="outline" size="sm" onClick={bulkPrintAdjustments}>
                     <Printer className="mr-2 h-4 w-4" /> Print
                   </Button>
                   {canEditAdjustments && (
-                    <Button variant="destructive" size="sm" onClick={bulkDeleteAdjustments} disabled={deleteAdjustment.isPending}>
+                    <Button variant="destructive" size="sm" onClick={bulkDeleteAdjustments} disabled={deleteAdjustmentDocument.isPending}>
                       <Trash2 className="mr-2 h-4 w-4" /> Delete
                     </Button>
                   )}
@@ -607,67 +605,77 @@ const Inventory = () => {
                   <TableRow>
                     <TableHead className="w-10">
                       <Checkbox
-                        checked={adjustmentsFiltered.length > 0 && selectedAdjIds.size === adjustmentsFiltered.length}
+                        checked={documentsFiltered.length > 0 && selectedAdjIds.size === documentsFiltered.length}
                         onCheckedChange={toggleSelectAllAdj}
                         aria-label="Select all"
                       />
                     </TableHead>
                     <TableHead>Date</TableHead>
-                    <TableHead>Product</TableHead>
+                    <TableHead>Reference</TableHead>
                     <TableHead>Location</TableHead>
-                    <TableHead className="text-right">Change</TableHead>
                     <TableHead>Reason</TableHead>
+                    <TableHead className="text-right">Lines</TableHead>
+                    <TableHead className="text-right">Total Δ</TableHead>
                     {canEditAdjustments && <TableHead className="w-24 text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {adjustmentsFiltered.length === 0 ? (
+                  {documentsFiltered.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={canEditAdjustments ? 7 : 6} className="text-center text-muted-foreground py-8">
-                        {adjSearch ? "No adjustments match your search." : "No adjustments yet."}
+                      <TableCell colSpan={canEditAdjustments ? 8 : 7} className="text-center text-muted-foreground py-8">
+                        {adjSearch ? "No documents match your search." : "No adjustment documents yet."}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    adjustmentsFiltered.map((a) => (
-                      <TableRow key={a.id} data-state={selectedAdjIds.has(a.id) ? "selected" : undefined}>
-                        <TableCell>
-                          <Checkbox
-                            checked={selectedAdjIds.has(a.id)}
-                            onCheckedChange={() => toggleSelectAdj(a.id)}
-                            aria-label={`Select adjustment ${a.id}`}
-                          />
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">{fmtDate(a.created_at)}</TableCell>
-                        <TableCell className="font-medium">{a.products?.name || "—"}</TableCell>
-                        <TableCell>{a.locations?.name || "—"}</TableCell>
-                        <TableCell className={`text-right font-medium ${a.quantity_change > 0 ? "text-green-600" : "text-destructive"}`}>
-                          {a.quantity_change > 0 ? "+" : ""}{a.quantity_change}
-                        </TableCell>
-                        <TableCell>{a.reason}</TableCell>
-                        {canEditAdjustments && (
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingAdj(a)}>
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                disabled={deleteAdjustment.isPending}
-                                onClick={() => {
-                                  if (confirm(`Delete this adjustment? Inventory will be reversed by ${a.quantity_change > 0 ? "-" : "+"}${Math.abs(a.quantity_change)}.`)) {
-                                    deleteAdjustment.mutate(a.id);
-                                  }
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
+                    documentsFiltered.map((d) => {
+                      const delta = totalDelta(d);
+                      const lineCount = (d.lines || []).length;
+                      const productPreview = (d.lines || []).slice(0, 2).map((l) => l.products?.name || "—").join(", ") + (lineCount > 2 ? ` +${lineCount - 2} more` : "");
+                      return (
+                        <TableRow key={d.id} data-state={selectedAdjIds.has(d.id) ? "selected" : undefined}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedAdjIds.has(d.id)}
+                              onCheckedChange={() => toggleSelectAdj(d.id)}
+                              aria-label={`Select document ${d.id}`}
+                            />
                           </TableCell>
-                        )}
-                      </TableRow>
-                    ))
+                          <TableCell className="text-muted-foreground">{fmtDate(d.created_at)}</TableCell>
+                          <TableCell className="font-medium">
+                            {d.reference || <span className="text-muted-foreground">—</span>}
+                            <div className="text-xs text-muted-foreground truncate max-w-[240px]">{productPreview}</div>
+                          </TableCell>
+                          <TableCell>{d.locations?.name || "—"}</TableCell>
+                          <TableCell>{d.reason}</TableCell>
+                          <TableCell className="text-right">{lineCount}</TableCell>
+                          <TableCell className={`text-right font-medium ${delta > 0 ? "text-green-600" : delta < 0 ? "text-destructive" : ""}`}>
+                            {delta > 0 ? "+" : ""}{delta}
+                          </TableCell>
+                          {canEditAdjustments && (
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingDoc(d)}>
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  disabled={deleteAdjustmentDocument.isPending}
+                                  onClick={() => {
+                                    if (confirm(`Delete this adjustment document (${lineCount} line${lineCount === 1 ? "" : "s"})? All line effects will be reversed on inventory.`)) {
+                                      deleteAdjustmentDocument.mutate(d.id);
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
