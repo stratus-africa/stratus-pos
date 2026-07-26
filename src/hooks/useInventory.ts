@@ -416,6 +416,7 @@ export function useInventory(
       reference?: string | null;
       items: { product_id: string; quantity_change: number }[];
       location_id: string;
+      created_by: string;
     }) => {
       assertCanPost();
       if (!business) throw new Error("No business context");
