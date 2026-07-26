@@ -430,7 +430,7 @@ const Inventory = () => {
         <TabsContent value="stock" className="space-y-4">
           <Card>
             <CardHeader className="pb-3">
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col gap-3">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -440,26 +440,28 @@ const Inventory = () => {
                     className="pl-9"
                   />
                 </div>
-                <Select value={stockSort} onValueChange={(v) => { setStockSort(v as StockSort); setStockPage(1); }}>
-                  <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="name_asc">Product (A–Z)</SelectItem>
-                    <SelectItem value="name_desc">Product (Z–A)</SelectItem>
-                    <SelectItem value="sku_asc">SKU (A–Z)</SelectItem>
-                    <SelectItem value="sku_desc">SKU (Z–A)</SelectItem>
-                    <SelectItem value="qty_desc">Quantity (high → low)</SelectItem>
-                    <SelectItem value="qty_asc">Quantity (low → high)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={locationFilter} onValueChange={(v) => { setLocationFilter(v); setStockPage(1); }}>
-                  <SelectTrigger className="w-[180px]"><SelectValue placeholder="Location" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Locations</SelectItem>
-                    {locations.map((l) => (
-                      <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-row">
+                  <Select value={stockSort} onValueChange={(v) => { setStockSort(v as StockSort); setStockPage(1); }}>
+                    <SelectTrigger className="w-full sm:w-[180px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="name_asc">Product (A–Z)</SelectItem>
+                      <SelectItem value="name_desc">Product (Z–A)</SelectItem>
+                      <SelectItem value="sku_asc">SKU (A–Z)</SelectItem>
+                      <SelectItem value="sku_desc">SKU (Z–A)</SelectItem>
+                      <SelectItem value="qty_desc">Quantity (high → low)</SelectItem>
+                      <SelectItem value="qty_asc">Quantity (low → high)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={locationFilter} onValueChange={(v) => { setLocationFilter(v); setStockPage(1); }}>
+                    <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Location" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Locations</SelectItem>
+                      {locations.map((l) => (
+                        <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -474,15 +476,6 @@ const Inventory = () => {
                     >
                       <span className="flex items-center">Product {sortIcon("name")}</span>
                     </TableHead>
-                    <TableHead
-                      className="cursor-pointer hover:bg-muted/50 select-none"
-                      onClick={() => toggleStockSort("sku")}
-                      role="button"
-                      aria-label="Sort by SKU"
-                    >
-                      <span className="flex items-center">SKU {sortIcon("sku")}</span>
-                    </TableHead>
-                    <TableHead>Location</TableHead>
                     <TableHead
                       className="text-right cursor-pointer hover:bg-muted/50 select-none"
                       onClick={() => toggleStockSort("qty")}
@@ -499,7 +492,7 @@ const Inventory = () => {
                 <TableBody>
                   {stockPaged.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                         No inventory records. Adjust stock to get started.
                       </TableCell>
                     </TableRow>
@@ -510,8 +503,6 @@ const Inventory = () => {
                       return (
                         <TableRow key={i.id} className={isLow ? "bg-destructive/5" : ""}>
                           <TableCell className="font-medium">{i.products?.name || "—"}</TableCell>
-                          <TableCell className="text-muted-foreground">{i.products?.sku || "—"}</TableCell>
-                          <TableCell>{i.locations?.name || "—"}</TableCell>
                           <TableCell className="text-right font-medium">{i.quantity}</TableCell>
                           <TableCell className="text-right text-muted-foreground">{i.low_stock_threshold}</TableCell>
                           <TableCell className="text-right">{formatKES(i.quantity * (i.products?.selling_price || 0))}</TableCell>
