@@ -706,7 +706,7 @@ const Inventory = () => {
                   <Download className="mr-2 h-4 w-4" /> Export CSV
                 </Button>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col gap-2">
                 <div className="flex flex-col">
                   <label className="text-xs text-muted-foreground mb-1">Product</label>
                   <div className="relative">
@@ -715,44 +715,48 @@ const Inventory = () => {
                       placeholder="Search product..."
                       value={mvSearch}
                       onChange={(e) => { setMvSearch(e.target.value); setMvPage(1); }}
-                      className="pl-9 h-9 w-[220px]"
+                      className="pl-9 h-9 w-full"
                     />
                   </div>
                 </div>
-                <div className="flex flex-col">
-                  <label className="text-xs text-muted-foreground mb-1">From</label>
-                  <Input type="date" value={mvFrom} onChange={(e) => { setMvFrom(e.target.value); setMvPage(1); }} className="h-9 w-[160px]" />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-col">
+                    <label className="text-xs text-muted-foreground mb-1">From</label>
+                    <Input type="date" value={mvFrom} onChange={(e) => { setMvFrom(e.target.value); setMvPage(1); }} className="h-9 w-full" />
+                  </div>
+                  <div className="flex flex-col">
+                    <label className="text-xs text-muted-foreground mb-1">To</label>
+                    <Input type="date" value={mvTo} onChange={(e) => { setMvTo(e.target.value); setMvPage(1); }} className="h-9 w-full" />
+                  </div>
                 </div>
-                <div className="flex flex-col">
-                  <label className="text-xs text-muted-foreground mb-1">To</label>
-                  <Input type="date" value={mvTo} onChange={(e) => { setMvTo(e.target.value); setMvPage(1); }} className="h-9 w-[160px]" />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-xs text-muted-foreground mb-1">Source</label>
-                  <Select value={mvSource} onValueChange={(v) => { setMvSource(v as MovementSource); setMvPage(1); }}>
-                    <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All sources</SelectItem>
-                      <SelectItem value="sale">Sale</SelectItem>
-                      <SelectItem value="return">Return</SelectItem>
-                      <SelectItem value="purchase">Purchase</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-xs text-muted-foreground mb-1">Sort</label>
-                  <Select value={mvSort} onValueChange={(v) => { setMvSort(v as SortKey); setMvPage(1); }}>
-                    <SelectTrigger className="h-9 w-[170px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="date_desc">Date (newest)</SelectItem>
-                      <SelectItem value="date_asc">Date (oldest)</SelectItem>
-                      <SelectItem value="product_asc">Product (A–Z)</SelectItem>
-                      <SelectItem value="product_desc">Product (Z–A)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-col">
+                    <label className="text-xs text-muted-foreground mb-1">Source</label>
+                    <Select value={mvSource} onValueChange={(v) => { setMvSource(v as MovementSource); setMvPage(1); }}>
+                      <SelectTrigger className="h-9 w-full"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All sources</SelectItem>
+                        <SelectItem value="sale">Sale</SelectItem>
+                        <SelectItem value="return">Return</SelectItem>
+                        <SelectItem value="purchase">Purchase</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col">
+                    <label className="text-xs text-muted-foreground mb-1">Sort</label>
+                    <Select value={mvSort} onValueChange={(v) => { setMvSort(v as SortKey); setMvPage(1); }}>
+                      <SelectTrigger className="h-9 w-full"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="date_desc">Date (newest)</SelectItem>
+                        <SelectItem value="date_asc">Date (oldest)</SelectItem>
+                        <SelectItem value="product_asc">Product (A–Z)</SelectItem>
+                        <SelectItem value="product_desc">Product (Z–A)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 {(mvFrom || mvTo || mvSource !== "all" || mvSearch) && (
-                  <div className="flex items-end">
+                  <div className="flex items-end justify-end">
                     <Button variant="ghost" size="sm" onClick={() => { setMvFrom(""); setMvTo(""); setMvSource("all"); setMvSearch(""); setMvPage(1); }}>
                       Clear
                     </Button>
