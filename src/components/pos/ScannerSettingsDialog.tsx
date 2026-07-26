@@ -107,6 +107,32 @@ export function ScannerSettingsDialog({ open, onOpenChange }: Props) {
 
           <div className="flex items-center justify-between rounded-md border p-3">
             <div className="pr-4">
+              <Label htmlFor="autoAdd">Scan automatically adds item to cart</Label>
+              <p className="text-xs text-muted-foreground">
+                Matched scans go straight into the cart without any click.
+              </p>
+            </div>
+            <Switch
+              id="autoAdd" checked={s.autoAddToCart}
+              onCheckedChange={(v) => setS({ ...s, autoAddToCart: v })}
+            />
+          </div>
+
+          <div className="flex items-center justify-between rounded-md border p-3">
+            <div className="pr-4">
+              <Label htmlFor="parseGs1">Parse GS1 / GTIN labels</Label>
+              <p className="text-xs text-muted-foreground">
+                Reads GTIN, batch and weight/price-embedded retail barcodes.
+              </p>
+            </div>
+            <Switch
+              id="parseGs1" checked={s.parseGs1}
+              onCheckedChange={(v) => setS({ ...s, parseGs1: v })}
+            />
+          </div>
+
+          <div className="flex items-center justify-between rounded-md border p-3">
+            <div className="pr-4">
               <Label htmlFor="openSearch">Open search on unknown barcode</Label>
               <p className="text-xs text-muted-foreground">
                 Fills the search box with the scanned code for manual selection.
@@ -121,7 +147,8 @@ export function ScannerSettingsDialog({ open, onOpenChange }: Props) {
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => setS(DEFAULT_SCAN_SETTINGS)}>Reset defaults</Button>
-          <Button onClick={save}>Save</Button>
+          <Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
+
         </DialogFooter>
       </DialogContent>
     </Dialog>
