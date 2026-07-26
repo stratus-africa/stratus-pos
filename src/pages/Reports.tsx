@@ -234,58 +234,44 @@ const Reports = () => {
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col md:flex-row gap-4 md:gap-6">
-        <TabsList className="text-muted-foreground flex md:flex-col h-auto w-full md:w-52 bg-muted rounded-lg p-1.5 shrink-0 md:items-start md:justify-start overflow-x-auto md:overflow-visible flex-nowrap">
-          {canSales && (
-            <TabsTrigger value="sales" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
-              <BarChart3 className="h-4 w-4" /> Sales
-            </TabsTrigger>
-          )}
-          {canPurchases && (
-            <TabsTrigger value="purchases" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
-              <ShoppingCart className="h-4 w-4" /> Purchases
-            </TabsTrigger>
-          )}
-          {canExpenses && (
-            <TabsTrigger value="expenses" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
-              <Receipt className="h-4 w-4" /> Expenses
-            </TabsTrigger>
-          )}
-          {canInventory && (
-            <TabsTrigger value="inventory" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
-              <Package className="h-4 w-4" /> Inventory
-            </TabsTrigger>
-          )}
-          {canInventory && (
-            <TabsTrigger value="stock" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
-              <Package className="h-4 w-4" /> Product Sales Report
-            </TabsTrigger>
-          )}
-          {canInventory && (
-            <TabsTrigger value="aging" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
-              <Clock className="h-4 w-4" /> Stock Aging
-            </TabsTrigger>
-          )}
-          {canPnL && (
-            <TabsTrigger value="pnl" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
-              <TrendingUp className="h-4 w-4" /> P&amp;L
-            </TabsTrigger>
-          )}
-          {canEOD && (
-            <TabsTrigger value="eod" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
-              <Sun className="h-4 w-4" /> End of Day
-            </TabsTrigger>
-          )}
-          {canZ && (
-            <TabsTrigger value="zreport" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
-              <FileText className="h-4 w-4" /> Z Report
-            </TabsTrigger>
-          )}
-          {canAudit && (
-            <TabsTrigger value="audit" className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
-              <ClipboardList className="h-4 w-4" /> Audit Trail
-            </TabsTrigger>
-          )}
-        </TabsList>
+        {(() => {
+          const items: Array<{ value: string; label: string; icon: any; show: boolean }> = [
+            { value: "sales", label: "Sales", icon: BarChart3, show: canSales },
+            { value: "purchases", label: "Purchases", icon: ShoppingCart, show: canPurchases },
+            { value: "expenses", label: "Expenses", icon: Receipt, show: canExpenses },
+            { value: "inventory", label: "Inventory", icon: Package, show: canInventory },
+            { value: "stock", label: "Product Sales Report", icon: Package, show: canInventory },
+            { value: "aging", label: "Stock Aging", icon: Clock, show: canInventory },
+            { value: "pnl", label: "P&L", icon: TrendingUp, show: canPnL },
+            { value: "eod", label: "End of Day", icon: Sun, show: canEOD },
+            { value: "zreport", label: "Z Report", icon: FileText, show: canZ },
+            { value: "audit", label: "Audit Trail", icon: ClipboardList, show: canAudit },
+          ].filter(i => i.show);
+          return (
+            <>
+              <div className="md:hidden">
+                <Select value={activeTab} onValueChange={setActiveTab}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Select report" /></SelectTrigger>
+                  <SelectContent>
+                    {items.map(i => (
+                      <SelectItem key={i.value} value={i.value}>
+                        <span className="flex items-center gap-2"><i.icon className="h-4 w-4" /> {i.label}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <TabsList className="hidden md:flex text-muted-foreground md:flex-col h-auto md:w-52 bg-muted rounded-lg p-1.5 shrink-0 md:items-start md:justify-start">
+                {items.map(i => (
+                  <TabsTrigger key={i.value} value={i.value} className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
+                    <i.icon className="h-4 w-4" /> {i.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </>
+          );
+        })()}
+
 
         <div className="flex-1 min-w-0">
           {canSales && (
