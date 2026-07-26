@@ -374,9 +374,15 @@ const POS = () => {
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
               ref={searchInputRef}
-              placeholder="Search... (F2)"
+              placeholder="Search or scan... (F2)"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && search.trim()) {
+                  e.preventDefault();
+                  handleScanned(search.trim());
+                }
+              }}
               className="pl-9"
               autoFocus
             />
