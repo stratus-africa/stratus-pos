@@ -33,6 +33,8 @@ export function BusinessProfileTab() {
   const [trackBatches, setTrackBatches] = useState<boolean>((business as { track_batches?: boolean })?.track_batches ?? false);
   const [posShowStockQty, setPosShowStockQty] = useState<boolean>((business as { pos_show_stock_qty?: boolean })?.pos_show_stock_qty ?? true);
   const [posHideZeroStock, setPosHideZeroStock] = useState<boolean>((business as { pos_hide_zero_stock?: boolean })?.pos_hide_zero_stock ?? true);
+  const [lockApprovedStockCounts, setLockApprovedStockCounts] = useState<boolean>((business as { lock_approved_stock_counts?: boolean })?.lock_approved_stock_counts ?? true);
+
   const [remindUnpaidPurchases, setRemindUnpaidPurchases] = useState<boolean>((business as { reminders_unpaid_purchases?: boolean })?.reminders_unpaid_purchases ?? false);
   const [remindUnpostedExpenses, setRemindUnpostedExpenses] = useState<boolean>((business as { reminders_unposted_expenses?: boolean })?.reminders_unposted_expenses ?? false);
   const [vatEnabled, setVatEnabled] = useState<boolean>((business as { vat_enabled?: boolean })?.vat_enabled ?? true);
@@ -94,6 +96,8 @@ export function BusinessProfileTab() {
         track_batches: businessType === "pharmacy" ? trackBatches : false,
         pos_show_stock_qty: posShowStockQty,
         pos_hide_zero_stock: posHideZeroStock,
+        lock_approved_stock_counts: lockApprovedStockCounts,
+
         reminders_unpaid_purchases: remindUnpaidPurchases,
         reminders_unposted_expenses: remindUnpostedExpenses,
         vat_enabled: vatEnabled,
@@ -277,6 +281,19 @@ export function BusinessProfileTab() {
             </div>
             <Switch checked={posHideZeroStock} onCheckedChange={setPosHideZeroStock} />
           </div>
+
+          <Separator />
+
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base">Lock approved stock takes</Label>
+              <p className="text-sm text-muted-foreground">
+                Once a stock take is approved it can no longer be edited or deleted. Turn off to allow admins to amend approved count sheets.
+              </p>
+            </div>
+            <Switch checked={lockApprovedStockCounts} onCheckedChange={setLockApprovedStockCounts} />
+          </div>
+
         </CardContent>
       </Card>
 

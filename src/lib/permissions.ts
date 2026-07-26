@@ -17,6 +17,8 @@ export const moduleCatalog: ModuleDef[] = [
   { key: "pos", label: "Point of Sale (POS)", actions: ["view", "create"] },
   { key: "products", label: "Products", actions: ["view", "create", "edit", "delete"] },
   { key: "inventory", label: "Inventory", actions: ["view", "create", "edit", "delete"] },
+  { key: "stock_take", label: "Stock Take (Counts)", actions: ["view", "create", "edit", "delete"] },
+
   { key: "sales", label: "Sales", actions: ["view", "create", "edit", "delete"] },
   { key: "customers", label: "Customers", actions: ["view", "create", "edit", "delete"] },
   { key: "purchases", label: "Purchases", actions: ["view", "create", "edit", "delete"] },
