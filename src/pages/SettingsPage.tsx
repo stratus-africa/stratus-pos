@@ -63,6 +63,7 @@ const SettingsPage = () => {
     ) },
     { key: "numbering", label: "Numbering", icon: <Hash className="h-4 w-4" />, permission: "settings.edit", render: () => <NumberSeriesTab /> },
     { key: "cash-drawer", label: "Cash Drawer", icon: <Printer className="h-4 w-4" />, permission: "settings.edit", render: () => <CashDrawerTab /> },
+    { key: "customer-display", label: "Customer Display", icon: <MonitorSmartphone className="h-4 w-4" />, permission: "settings.edit", render: () => <CustomerDisplayTab /> },
     { key: "integrations", label: "Integrations", icon: <Plug className="h-4 w-4" />, permission: "settings.edit", render: () => <IntegrationsTab /> },
     { key: "digitax", label: "Tax Compliance", icon: <FileCheck2 className="h-4 w-4" />, permission: "settings.edit", featureKey: "digitax", render: () => <DigitaxSettingsTab /> },
     { key: "tax-rates", label: "Tax Rates", icon: <Percent className="h-4 w-4" />, permission: "settings.edit", render: () => <TaxRatesTab /> },
