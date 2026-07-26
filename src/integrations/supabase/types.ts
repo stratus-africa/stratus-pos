@@ -2862,10 +2862,65 @@ export type Database = {
           },
         ]
       }
+      stock_adjustment_documents: {
+        Row: {
+          business_id: string
+          created_at: string
+          created_by: string
+          id: string
+          location_id: string
+          notes: string | null
+          reason: string
+          reference: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          location_id: string
+          notes?: string | null
+          reason?: string
+          reference?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          location_id?: string
+          notes?: string | null
+          reason?: string
+          reference?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_adjustment_documents_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_adjustment_documents_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_adjustments: {
         Row: {
           created_at: string
           created_by: string
+          document_id: string | null
           id: string
           location_id: string
           notes: string | null
@@ -2878,6 +2933,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by: string
+          document_id?: string | null
           id?: string
           location_id: string
           notes?: string | null
@@ -2890,6 +2946,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string
+          document_id?: string | null
           id?: string
           location_id?: string
           notes?: string | null
@@ -2900,6 +2957,13 @@ export type Database = {
           sale_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "stock_adjustments_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "stock_adjustment_documents"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "stock_adjustments_location_id_fkey"
             columns: ["location_id"]
