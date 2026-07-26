@@ -377,6 +377,7 @@ export type Database = {
           internal_notes: string | null
           is_active: boolean
           kra_pin: string | null
+          lock_approved_stock_counts: boolean
           logo_url: string | null
           loyalty_enabled: boolean
           loyalty_kes_per_point: number
@@ -438,6 +439,7 @@ export type Database = {
           internal_notes?: string | null
           is_active?: boolean
           kra_pin?: string | null
+          lock_approved_stock_counts?: boolean
           logo_url?: string | null
           loyalty_enabled?: boolean
           loyalty_kes_per_point?: number
@@ -499,6 +501,7 @@ export type Database = {
           internal_notes?: string | null
           is_active?: boolean
           kra_pin?: string | null
+          lock_approved_stock_counts?: boolean
           logo_url?: string | null
           loyalty_enabled?: boolean
           loyalty_kes_per_point?: number
