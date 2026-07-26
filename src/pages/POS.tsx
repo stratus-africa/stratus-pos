@@ -31,6 +31,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBarcodeScanner, useScanSettings } from "@/hooks/useBarcodeScanner";
 import { ScannerSettingsDialog } from "@/components/pos/ScannerSettingsDialog";
 import { parseBarcode } from "@/lib/barcodeScan";
+import {
+  displayLineItem, displayPaid, displayThankYou, displayTotal, displayWelcome,
+  loadCustomerDisplayConfig,
+} from "@/lib/customerDisplay";
 
 
 
@@ -62,6 +66,37 @@ const POS = () => {
   const [approvalOpen, setApprovalOpen] = useState(false);
   const pendingRemoveResolver = useRef<((approved: boolean) => void) | null>(null);
   const pendingRemoveItem = useRef<CartItem | null>(null);
+
+  // --- Customer display pole -------------------------------------------------
+  // Mirrors the cart on a customer-facing VFD/LCD pole (configured in Settings).
+  const displayCfg = useMemo(() => loadCustomerDisplayConfig(), []);
+  const lastCartKey = useRef<string>("");
+  useEffect(() => {
+    if (displayCfg.mode === "off") return;
+    const cart = pos.cart;
+    const key = cart.map((i) => `${i.product.id}:${i.quantity}`).join("|");
+    if (key === lastCartKey.current) return;
+    lastCartKey.current = key;
+    if (cart.length === 0) {
+      void displayWelcome(displayCfg);
+      return;
+    }
+    const last = cart[cart.length - 1];
+    void displayLineItem(
+      last.product.name,
+      (last.unit_price * last.quantity) - (last.discount || 0),
+      pos.cartTotal,
+      displayCfg,
+    );
+  }, [pos.cart, pos.cartTotal, displayCfg]);
+
+  // Show the amount due while the payment dialog is open.
+  useEffect(() => {
+    if (displayCfg.mode === "off" || !paymentOpen) return;
+    void displayTotal(pos.cartTotal, displayCfg);
+  }, [paymentOpen, pos.cartTotal, displayCfg]);
+
+
 
   // Per-location override (true/false) takes precedence over business default.
   const businessRequires = (business as any)?.pos_require_manager_to_remove_item ?? false;
@@ -254,6 +289,14 @@ const POS = () => {
       setPaymentOpen(false);
       setReceiptData(result);
       setReceiptOpen(true);
+      // Customer display: show paid / change, then the thank-you message.
+      if (displayCfg.mode !== "off") {
+        const tendered = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
+        const saleTotal = Number((result as any)?.total ?? tendered);
+        void displayPaid(saleTotal, tendered, Math.max(0, tendered - saleTotal), displayCfg);
+        window.setTimeout(() => { void displayThankYou(displayCfg); }, 4000);
+        lastCartKey.current = "";
+      }
       // Auto-open cash drawer if configured
       try {
         const { loadCashDrawerConfig, openCashDrawer } = await import("@/lib/cashDrawer");
