@@ -31,6 +31,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBarcodeScanner, useScanSettings } from "@/hooks/useBarcodeScanner";
 import { ScannerSettingsDialog } from "@/components/pos/ScannerSettingsDialog";
 import { parseBarcode } from "@/lib/barcodeScan";
+import {
+  displayLineItem, displayPaid, displayThankYou, displayTotal, displayWelcome,
+  loadCustomerDisplayConfig,
+} from "@/lib/customerDisplay";
 
 
 
