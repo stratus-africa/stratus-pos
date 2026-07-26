@@ -342,64 +342,14 @@ const POS = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [pos, business, paymentOpen, scannerOpen, approvalOpen, receiptOpen, startDayOpen]);
 
-  // Global barcode scanner listener — works even when no input is focused.
-  // USB/Bluetooth scanners emit keystrokes rapidly and terminate with Enter.
-  // Heuristic: characters typed with <50ms between them, length >= 4, ending in Enter.
-  const scanHandlerRef = useRef(handleScanned);
-  scanHandlerRef.current = handleScanned;
-  useEffect(() => {
-    let buffer = "";
-    let lastTime = 0;
-    const MAX_GAP = 50; // ms between chars for scanner-speed input
-    const MIN_LEN = 4;
+  // Global keyboard-wedge scanner listener — works even when nothing is focused.
+  useBarcodeScanner({
+    onScan: handleScanned,
+    disabled: scannerOpen || scanSettingsOpen,
+    searchInputRef,
+    settings: scanSettings,
+  });
 
-    const onKey = (e: KeyboardEvent) => {
-      // Ignore any modal that captures the scanner already
-      if (scannerOpen) return;
-      const now = performance.now();
-      const gap = now - lastTime;
-      lastTime = now;
-
-      const target = e.target as HTMLElement | null;
-      const isSearchInput = target === searchInputRef.current;
-      const typingElsewhere = !isSearchInput && !!target && (
-        target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable
-      );
-
-      if (e.key === "Enter") {
-        if (buffer.length >= MIN_LEN) {
-          const code = buffer;
-          buffer = "";
-          e.preventDefault();
-          e.stopPropagation();
-          if (isSearchInput) setSearch("");
-          scanHandlerRef.current(code);
-          return;
-        }
-        buffer = "";
-        return;
-      }
-
-      // Only accept printable single-character keys
-      if (e.key.length !== 1 || e.metaKey || e.ctrlKey || e.altKey) {
-        buffer = "";
-        return;
-      }
-
-      // Reset buffer on slow typing (human)
-      if (gap > MAX_GAP) buffer = "";
-      buffer += e.key;
-
-      // If we're accumulating a scan while focus is in an unrelated input,
-      // suppress the keystroke so it doesn't pollute that field.
-      if (typingElsewhere && buffer.length >= 2) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [scannerOpen]);
 
 
 
