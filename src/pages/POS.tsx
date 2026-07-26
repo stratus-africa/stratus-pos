@@ -177,7 +177,7 @@ const POS = () => {
         const minPurchase = Number((business as { loyalty_min_purchase_amount?: number } | null)?.loyalty_min_purchase_amount ?? 0);
         const pointsPerKes = Number((business as { loyalty_points_per_kes?: number } | null)?.loyalty_points_per_kes ?? 1);
         const adjustedTotal = Math.max(0, pos.cartTotal - loyalty.redemptionValue);
-        const earned = adjustedTotal >= minPurchase ? Math.floor(adjustedTotal * pointsPerKes) : 0;
+        const earned = adjustedTotal >= minPurchase ? Math.floor((adjustedTotal / 10) * pointsPerKes) : 0;
 
         loyaltyCtx = {
           customerId,
