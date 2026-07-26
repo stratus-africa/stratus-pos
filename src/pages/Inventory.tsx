@@ -549,28 +549,28 @@ const Inventory = () => {
           <Card>
             <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 space-y-0">
               <CardTitle className="text-lg">Stock Adjustments</CardTitle>
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search product / ref / reason..."
-                    value={adjSearch}
-                    onChange={(e) => { setAdjSearch(e.target.value); setAdjPage(1); }}
-                    className="pl-9 h-9 w-[240px]"
-                  />
-                </div>
-                <Select value={adjSort} onValueChange={(v) => { setAdjSort(v as SortKey); setAdjPage(1); }}>
-                  <SelectTrigger className="h-9 w-[170px]"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="date_desc">Date (newest)</SelectItem>
-                    <SelectItem value="date_asc">Date (oldest)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" size="sm" onClick={() => exportAdjustments()} disabled={documentsFiltered.length === 0}>
-                  <Download className="mr-2 h-4 w-4" /> Export CSV
-                </Button>
-              </div>
+              <Button variant="outline" size="sm" onClick={() => exportAdjustments()} disabled={documentsFiltered.length === 0}>
+                <Download className="mr-2 h-4 w-4" /> Export CSV
+              </Button>
             </CardHeader>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 px-6 py-3 border-b">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search product / ref / reason..."
+                  value={adjSearch}
+                  onChange={(e) => { setAdjSearch(e.target.value); setAdjPage(1); }}
+                  className="pl-9 h-9 w-[240px]"
+                />
+              </div>
+              <Select value={adjSort} onValueChange={(v) => { setAdjSort(v as SortKey); setAdjPage(1); }}>
+                <SelectTrigger className="h-9 w-[220px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date_desc">Date (newest)</SelectItem>
+                  <SelectItem value="date_asc">Date (oldest)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             {selectedDocuments.length > 0 && (
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b bg-muted/40 px-4 py-2">
                 <div className="text-sm font-medium">{selectedDocuments.length} selected</div>
