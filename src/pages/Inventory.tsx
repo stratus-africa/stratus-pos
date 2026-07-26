@@ -11,13 +11,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ArrowLeftRight, Download, ChevronLeft, ChevronRight, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Printer } from "lucide-react";
-import { useInventory, classifyMovement, type MovementSource, type SortKey, type StockAdjustment } from "@/hooks/useInventory";
+import { useInventory, classifyMovement, type MovementSource, type SortKey, type StockAdjustment, type AdjustmentDocument } from "@/hooks/useInventory";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { usePurchases } from "@/hooks/usePurchases";
 import { StockAdjustmentDialog, type AdjustStockSubmit } from "@/components/inventory/StockAdjustmentDialog";
-import { EditAdjustmentDialog } from "@/components/inventory/EditAdjustmentDialog";
+import { EditAdjustmentDocumentDialog } from "@/components/inventory/EditAdjustmentDocumentDialog";
 
 const PAGE_SIZE_OPTIONS = [25, 100, 200] as const;
 type StockSort = "name_asc" | "name_desc" | "sku_asc" | "sku_desc" | "qty_asc" | "qty_desc";
