@@ -53,10 +53,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const isPOS = location.pathname.startsWith("/pos");
   const [open, setOpen] = useState(!isPOS);
 
-  // Auto-collapse the sidebar whenever the user navigates to POS.
+  // Auto-collapse sidebar on POS; auto-expand when returning to Dashboard.
+  const isDashboard = location.pathname === "/" || location.pathname.startsWith("/dashboard");
   useEffect(() => {
     if (isPOS) setOpen(false);
-  }, [isPOS]);
+    else if (isDashboard) setOpen(true);
+  }, [isPOS, isDashboard]);
 
   return (
     <SidebarProvider open={open} onOpenChange={setOpen}>
