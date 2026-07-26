@@ -155,7 +155,7 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
 
   const canRedeem = !!loyaltyLookup?.id && loyaltyLookup.points >= loyaltyMinRedeem && loyaltyMinRedeem > 0;
   const maxRedeemPoints = loyaltyLookup ? Math.min(loyaltyLookup.points, Math.floor(total / (loyaltyKesPerPoint || 1))) : 0;
-  const projectedEarn = adjustedTotal >= loyaltyMinPurchase ? Math.floor(adjustedTotal * loyaltyPointsPerKes) : 0;
+  const projectedEarn = adjustedTotal >= loyaltyMinPurchase ? Math.floor((adjustedTotal / 10) * loyaltyPointsPerKes) : 0;
   const loyaltyPhoneClean = loyaltyPhone.replace(/\s+/g, "");
   const requiresName = loyaltyEnabled && loyaltyPhoneClean.length >= 6 && loyaltyLookup && !loyaltyLookup.id && !loyaltyName.trim();
 
