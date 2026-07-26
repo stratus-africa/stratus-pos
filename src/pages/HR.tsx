@@ -485,7 +485,7 @@ function LeaveCalendarCard({ requests }: { requests: any[] }) {
               {dayRequests.map((r) => (
                 <div key={r.id} className="flex items-center justify-between text-xs">
                   <span>{r.employees?.full_name ?? "—"}</span>
-                  <Badge variant={r.status === "approved" ? "default" : r.status === "pending" ? "secondary" : "destructive"} className="text-[10px]">{r.status}</Badge>
+                  <Badge className={r.status === "approved" ? "bg-emerald-600 hover:bg-emerald-700 text-white text-[10px]" : "text-[10px]"} variant={r.status === "approved" ? "default" : r.status === "pending" ? "secondary" : "destructive"}>{r.status}</Badge>
                 </div>
               ))}
             </div>
