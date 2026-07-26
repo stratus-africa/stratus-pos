@@ -485,7 +485,7 @@ function LeaveCalendarCard({ requests }: { requests: any[] }) {
               {dayRequests.map((r) => (
                 <div key={r.id} className="flex items-center justify-between text-xs">
                   <span>{r.employees?.full_name ?? "—"}</span>
-                  <Badge variant={r.status === "approved" ? "default" : r.status === "pending" ? "secondary" : "destructive"} className="text-[10px]">{r.status}</Badge>
+                  <Badge className={r.status === "approved" ? "bg-emerald-600 hover:bg-emerald-700 text-white text-[10px]" : "text-[10px]"} variant={r.status === "approved" ? "default" : r.status === "pending" ? "secondary" : "destructive"}>{r.status}</Badge>
                 </div>
               ))}
             </div>
@@ -509,16 +509,16 @@ function LeaveTab() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <div className="lg:col-span-2 space-y-4">
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2">
-            <h3 className="text-lg font-semibold">Leave Requests</h3>
+          <h3 className="text-lg font-semibold">Leave Requests</h3>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button onClick={() => setOpen(true)} disabled={!canManage && !me}>
+              <Plus className="h-4 w-4 mr-1" /> Request Leave
+            </Button>
             <div className="flex rounded-md border">
               <Button size="sm" variant={view === "list" ? "default" : "ghost"} onClick={() => setView("list")} className="rounded-r-none">List</Button>
               <Button size="sm" variant={view === "calendar" ? "default" : "ghost"} onClick={() => setView("calendar")} className="rounded-l-none"><CalendarDays className="h-4 w-4 mr-1" />Calendar</Button>
             </div>
           </div>
-          <Button onClick={() => setOpen(true)} disabled={!canManage && !me}>
-            <Plus className="h-4 w-4 mr-1" /> Request Leave
-          </Button>
         </div>
         {view === "calendar" ? (
           <LeaveCalendarCard requests={rows} />
@@ -544,7 +544,7 @@ function LeaveTab() {
                     <TableCell>{r.start_date} → {r.end_date}</TableCell>
                     <TableCell className="text-right">{r.days}</TableCell>
                     <TableCell>
-                      <Badge variant={r.status === "approved" ? "default" : r.status === "rejected" ? "destructive" : r.status === "cancelled" ? "outline" : "secondary"}>{r.status}</Badge>
+                      <Badge className={r.status === "approved" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""} variant={r.status === "approved" ? "default" : r.status === "rejected" ? "destructive" : r.status === "cancelled" ? "outline" : "secondary"}>{r.status}</Badge>
                     </TableCell>
                     <TableCell className="text-right space-x-1">
                       {canManage && r.status === "pending" && (

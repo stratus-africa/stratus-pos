@@ -542,6 +542,7 @@ export type Database = {
           business_id: string
           color_code: string | null
           created_at: string
+          department_id: string | null
           id: string
           name: string
           parent_id: string | null
@@ -551,6 +552,7 @@ export type Database = {
           business_id: string
           color_code?: string | null
           created_at?: string
+          department_id?: string | null
           id?: string
           name: string
           parent_id?: string | null
@@ -560,6 +562,7 @@ export type Database = {
           business_id?: string
           color_code?: string | null
           created_at?: string
+          department_id?: string | null
           id?: string
           name?: string
           parent_id?: string | null
@@ -571,6 +574,13 @@ export type Database = {
             columns: ["business_id"]
             isOneToOne: false
             referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "categories_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
             referencedColumns: ["id"]
           },
           {
@@ -697,6 +707,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "customers_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      departments: {
+        Row: {
+          business_id: string
+          code: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          business_id: string
+          code?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          business_id?: string
+          code?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "departments_business_id_fkey"
             columns: ["business_id"]
             isOneToOne: false
             referencedRelation: "businesses"
@@ -3335,6 +3383,45 @@ export type Database = {
           },
         ]
       }
+      user_departments: {
+        Row: {
+          business_id: string
+          created_at: string
+          department_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          department_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          department_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_departments_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_departments_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           business_id: string
@@ -3607,6 +3694,7 @@ export type Database = {
         }[]
       }
       get_user_business_id: { Args: { _user_id: string }; Returns: string }
+      get_user_department_ids: { Args: { _user_id: string }; Returns: string[] }
       has_active_subscription: {
         Args: { check_env?: string; user_uuid: string }
         Returns: boolean
