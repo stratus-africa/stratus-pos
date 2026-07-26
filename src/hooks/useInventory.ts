@@ -86,13 +86,34 @@ export function useInventory(
       reason: string;
       notes?: string;
       created_by: string;
+      reference?: string;
     }) => {
       assertCanPost();
+      if (!business) throw new Error("No business context");
       const preventOverselling = (business as { prevent_overselling?: boolean } | null)?.prevent_overselling === true;
 
+      // 1) Create the document header (like a Purchase Order)
+      const { data: doc, error: docErr } = await (supabase as unknown as {
+        from: (t: string) => {
+          insert: (v: Record<string, unknown>) => { select: (c: string) => { single: () => Promise<{ data: { id: string } | null; error: unknown }> } };
+        };
+      })
+        .from("stock_adjustment_documents")
+        .insert({
+          business_id: business.id,
+          location_id: batch.location_id,
+          reason: batch.reason,
+          notes: batch.notes || null,
+          reference: batch.reference || null,
+          created_by: batch.created_by,
+          status: "posted",
+        })
+        .select("id")
+        .single();
+      if (docErr) throw docErr as Error;
+      const documentId = doc!.id;
 
       for (const item of batch.items) {
-        // Look up current inventory first
         const { data: existing } = await supabase
           .from("inventory")
           .select("id, quantity")
@@ -109,6 +130,7 @@ export function useInventory(
 
         const { error: adjError } = await supabase
           .from("stock_adjustments")
+          // document_id column exists but types may not yet include it
           .insert({
             product_id: item.product_id,
             location_id: batch.location_id,
@@ -116,7 +138,8 @@ export function useInventory(
             reason: batch.reason,
             notes: batch.notes || null,
             created_by: batch.created_by,
-          });
+            document_id: documentId,
+          } as unknown as never);
         if (adjError) throw adjError;
 
         if (existing) {
@@ -136,11 +159,13 @@ export function useInventory(
           if (error) throw error;
         }
       }
+      return { document_id: documentId };
     },
     onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["stock_adjustments"] });
-      toast.success(`Stock adjusted for ${vars.items.length} product(s)`);
+      queryClient.invalidateQueries({ queryKey: ["stock_adjustment_documents"] });
+      toast.success(`Stock adjustment posted (${vars.items.length} line${vars.items.length === 1 ? "" : "s"})`);
     },
     onError: (e) => toast.error(e.message),
   });
