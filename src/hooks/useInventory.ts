@@ -327,5 +327,222 @@ export function useInventory(
     onError: (e) => toast.error(e.message),
   });
 
-  return { inventoryQuery, adjustStock, editAdjustment, deleteAdjustment, adjustmentsQuery, movementsQuery };
+  // -------- Document-based Stock Adjustments (single document = many lines) --------
+  const adjustmentDocumentsQuery = useQuery({
+    queryKey: ["stock_adjustment_documents", business?.id, locationId, adjPage, adjPageSize, adjSort],
+    queryFn: async () => {
+      if (!business) return { rows: [] as AdjustmentDocument[], count: 0 };
+      const fromIdx = (adjPage - 1) * adjPageSize;
+      const toIdx = fromIdx + adjPageSize - 1;
+      const client = supabase as unknown as {
+        from: (t: string) => {
+          select: (c: string, o?: { count?: "exact" }) => {
+            eq: (k: string, v: unknown) => unknown;
+            order: (k: string, o?: { ascending?: boolean }) => unknown;
+            range: (a: number, b: number) => Promise<{ data: unknown; error: unknown; count: number | null }>;
+          };
+        };
+      };
+      let q = client
+        .from("stock_adjustment_documents")
+        .select(
+          "id, reference, reason, notes, location_id, created_at, updated_at, created_by, status, locations:location_id(name), lines:stock_adjustments(id, product_id, quantity_change, products(name, sku))",
+          { count: "exact" },
+        )
+        .eq("business_id", business.id) as unknown as {
+        order: (k: string, o?: { ascending?: boolean }) => {
+          eq?: (k: string, v: unknown) => unknown;
+          range: (a: number, b: number) => Promise<{ data: unknown; error: unknown; count: number | null }>;
+        };
+        eq: (k: string, v: unknown) => typeof q;
+      };
+      if (locationId) q = q.eq("location_id", locationId);
+      const ordered = (q as unknown as { order: (k: string, o?: { ascending?: boolean }) => { range: (a: number, b: number) => Promise<{ data: unknown; error: unknown; count: number | null }> } })
+        .order("created_at", { ascending: adjSort === "date_asc" });
+      const { data, error, count } = await ordered.range(fromIdx, toIdx);
+      if (error) throw error as Error;
+      return { rows: (data || []) as AdjustmentDocument[], count: count ?? 0 };
+    },
+    enabled: !!business,
+  });
+
+  const deleteAdjustmentDocument = useMutation({
+    mutationFn: async (id: string) => {
+      assertCanPost();
+      // Load lines to reverse inventory
+      const { data: lines, error: linesErr } = await supabase
+        .from("stock_adjustments")
+        .select("id, product_id, location_id, quantity_change")
+        // @ts-expect-error document_id column exists post-migration
+        .eq("document_id", id);
+      if (linesErr) throw linesErr;
+      for (const l of (lines || [])) {
+        const { data: inv } = await supabase
+          .from("inventory")
+          .select("id, quantity")
+          .eq("product_id", l.product_id)
+          .eq("location_id", l.location_id)
+          .maybeSingle();
+        if (inv) {
+          const { error } = await supabase
+            .from("inventory")
+            .update({ quantity: Number(inv.quantity) - Number(l.quantity_change) })
+            .eq("id", inv.id);
+          if (error) throw error;
+        }
+      }
+      // Cascade removes stock_adjustments rows
+      const { error: delErr } = await (supabase as unknown as {
+        from: (t: string) => { delete: () => { eq: (k: string, v: unknown) => Promise<{ error: unknown }> } };
+      })
+        .from("stock_adjustment_documents")
+        .delete()
+        .eq("id", id);
+      if (delErr) throw delErr as Error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["stock_adjustments"] });
+      queryClient.invalidateQueries({ queryKey: ["stock_adjustment_documents"] });
+      toast.success("Adjustment document deleted and inventory reversed");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const updateAdjustmentDocument = useMutation({
+    mutationFn: async (input: {
+      id: string;
+      reason: string;
+      notes?: string | null;
+      reference?: string | null;
+      items: { product_id: string; quantity_change: number }[];
+      location_id: string;
+    }) => {
+      assertCanPost();
+      if (!business) throw new Error("No business context");
+
+      // 1) Reverse & delete existing lines
+      const { data: lines, error: linesErr } = await supabase
+        .from("stock_adjustments")
+        .select("id, product_id, location_id, quantity_change")
+        // @ts-expect-error document_id column exists post-migration
+        .eq("document_id", input.id);
+      if (linesErr) throw linesErr;
+      for (const l of (lines || [])) {
+        const { data: inv } = await supabase
+          .from("inventory")
+          .select("id, quantity")
+          .eq("product_id", l.product_id)
+          .eq("location_id", l.location_id)
+          .maybeSingle();
+        if (inv) {
+          const { error } = await supabase
+            .from("inventory")
+            .update({ quantity: Number(inv.quantity) - Number(l.quantity_change) })
+            .eq("id", inv.id);
+          if (error) throw error;
+        }
+      }
+      const { error: delLinesErr } = await supabase
+        .from("stock_adjustments")
+        .delete()
+        // @ts-expect-error document_id column exists post-migration
+        .eq("document_id", input.id);
+      if (delLinesErr) throw delLinesErr;
+
+      // 2) Update document header
+      const { error: updErr } = await (supabase as unknown as {
+        from: (t: string) => { update: (v: Record<string, unknown>) => { eq: (k: string, v: unknown) => Promise<{ error: unknown }> } };
+      })
+        .from("stock_adjustment_documents")
+        .update({
+          reason: input.reason,
+          notes: input.notes ?? null,
+          reference: input.reference ?? null,
+          location_id: input.location_id,
+        })
+        .eq("id", input.id);
+      if (updErr) throw updErr as Error;
+
+      // 3) Re-insert new lines & re-apply inventory changes
+      const preventOverselling = (business as { prevent_overselling?: boolean } | null)?.prevent_overselling === true;
+      for (const item of input.items) {
+        const { data: existing } = await supabase
+          .from("inventory")
+          .select("id, quantity")
+          .eq("product_id", item.product_id)
+          .eq("location_id", input.location_id)
+          .maybeSingle();
+        const currentQty = existing ? Number(existing.quantity) : 0;
+        const newQty = currentQty + item.quantity_change;
+        if (preventOverselling && newQty < 0) {
+          throw new Error(`Adjustment would push stock below zero (current: ${currentQty}, change: ${item.quantity_change})`);
+        }
+        const { error: adjErr } = await supabase
+          .from("stock_adjustments")
+          .insert({
+            product_id: item.product_id,
+            location_id: input.location_id,
+            quantity_change: item.quantity_change,
+            reason: input.reason,
+            notes: input.notes || null,
+            created_by: (existing?.id ? existing.id : undefined) as unknown as string, // placeholder never used
+            document_id: input.id,
+          } as unknown as never);
+        if (adjErr) throw adjErr;
+        if (existing) {
+          const { error } = await supabase.from("inventory").update({ quantity: newQty }).eq("id", existing.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("inventory").insert({
+            product_id: item.product_id,
+            location_id: input.location_id,
+            quantity: item.quantity_change,
+          });
+          if (error) throw error;
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["stock_adjustments"] });
+      queryClient.invalidateQueries({ queryKey: ["stock_adjustment_documents"] });
+      toast.success("Adjustment document updated");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  return {
+    inventoryQuery,
+    adjustStock,
+    editAdjustment,
+    deleteAdjustment,
+    adjustmentsQuery,
+    movementsQuery,
+    adjustmentDocumentsQuery,
+    deleteAdjustmentDocument,
+    updateAdjustmentDocument,
+  };
 }
+
+export interface AdjustmentDocumentLine {
+  id: string;
+  product_id: string;
+  quantity_change: number;
+  products?: { name: string; sku: string | null } | null;
+}
+
+export interface AdjustmentDocument {
+  id: string;
+  reference: string | null;
+  reason: string;
+  notes: string | null;
+  location_id: string;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+  status: string;
+  locations?: { name: string } | null;
+  lines: AdjustmentDocumentLine[];
+}
+
