@@ -2,8 +2,15 @@
 
 export type TextAlign = "left" | "center" | "right";
 
+export type PaperMode = "a4" | "thermal80";
+
 export interface PriceTagConfig {
   layout: "30" | "24" | "12" | "receipt2";
+  paperMode: PaperMode;
+  tagWidthMm: number;
+  tagHeightMm: number;
+  gapMm: number;
+  paddingMm: number;
   showBusinessName: boolean;
   showProductName: boolean;
   showSku: boolean;
@@ -30,6 +37,11 @@ export interface PriceTagConfig {
 
 export const defaultPriceTagConfig: PriceTagConfig = {
   layout: "30",
+  paperMode: "a4",
+  tagWidthMm: 63,
+  tagHeightMm: 25,
+  gapMm: 4,
+  paddingMm: 2,
   showBusinessName: false,
   showProductName: true,
   showSku: true,
