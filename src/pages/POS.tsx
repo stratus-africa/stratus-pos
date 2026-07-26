@@ -67,6 +67,37 @@ const POS = () => {
   const pendingRemoveResolver = useRef<((approved: boolean) => void) | null>(null);
   const pendingRemoveItem = useRef<CartItem | null>(null);
 
+  // --- Customer display pole -------------------------------------------------
+  // Mirrors the cart on a customer-facing VFD/LCD pole (configured in Settings).
+  const displayCfg = useMemo(() => loadCustomerDisplayConfig(), []);
+  const lastCartKey = useRef<string>("");
+  useEffect(() => {
+    if (displayCfg.mode === "off") return;
+    const cart = pos.cart;
+    const key = cart.map((i) => `${i.product.id}:${i.quantity}`).join("|");
+    if (key === lastCartKey.current) return;
+    lastCartKey.current = key;
+    if (cart.length === 0) {
+      void displayWelcome(displayCfg);
+      return;
+    }
+    const last = cart[cart.length - 1];
+    void displayLineItem(
+      last.product.name,
+      (last.unit_price * last.quantity) - (last.discount || 0),
+      pos.cartTotal,
+      displayCfg,
+    );
+  }, [pos.cart, pos.cartTotal, displayCfg]);
+
+  // Show the amount due while the payment dialog is open.
+  useEffect(() => {
+    if (displayCfg.mode === "off" || !paymentOpen) return;
+    void displayTotal(pos.cartTotal, displayCfg);
+  }, [paymentOpen, pos.cartTotal, displayCfg]);
+
+
+
   // Per-location override (true/false) takes precedence over business default.
   const businessRequires = (business as any)?.pos_require_manager_to_remove_item ?? false;
   const locationOverride = (currentLocation as any)?.pos_require_manager_to_remove_item;
