@@ -484,7 +484,7 @@ export function useInventory(
             quantity_change: item.quantity_change,
             reason: input.reason,
             notes: input.notes || null,
-            created_by: (existing?.id ? existing.id : undefined) as unknown as string, // placeholder never used
+            created_by: input.created_by,
             document_id: input.id,
           } as unknown as never);
         if (adjErr) throw adjErr;
