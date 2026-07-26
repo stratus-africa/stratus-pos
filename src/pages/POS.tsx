@@ -28,6 +28,9 @@ import { CartItemRow } from "@/components/pos/CartItemRow";
 import { logAudit } from "@/lib/audit";
 import { CartItem } from "@/hooks/usePOS";
 import { supabase } from "@/integrations/supabase/client";
+import { useBarcodeScanner, useScanSettings } from "@/hooks/useBarcodeScanner";
+import { ScannerSettingsDialog } from "@/components/pos/ScannerSettingsDialog";
+
 
 const POS = () => {
   const { productsQuery } = useProducts();
@@ -50,6 +53,9 @@ const POS = () => {
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [startDayOpen, setStartDayOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [scanSettingsOpen, setScanSettingsOpen] = useState(false);
+  const scanSettings = useScanSettings();
+
   const [mobileCartExpanded, setMobileCartExpanded] = useState(false);
   const [approvalOpen, setApprovalOpen] = useState(false);
   const pendingRemoveResolver = useRef<((approved: boolean) => void) | null>(null);
