@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   ShoppingCart, Search, Plus, Minus, Trash2, Pause, Play, X,
   User, List, LayoutGrid, Sunrise, Banknote, Smartphone, CreditCard, ScanLine,
-  ChevronUp, ChevronDown,
+  ChevronUp, ChevronDown, Settings2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useProducts, useCategories } from "@/hooks/useProducts";
@@ -431,6 +431,13 @@ const POS = () => {
           <Button size="icon" variant="outline" className="shrink-0" onClick={() => setScannerOpen(true)} title="Scan barcode">
             <ScanLine className="h-4 w-4" />
           </Button>
+          <Button
+            size="icon" variant="outline" className="shrink-0 hidden sm:inline-flex"
+            onClick={() => setScanSettingsOpen(true)} title="Scanner settings"
+          >
+            <Settings2 className="h-4 w-4" />
+          </Button>
+
           <div className="flex gap-1 shrink-0">
             <Button size="icon" variant={viewMode === "grid" ? "default" : "outline"} onClick={() => setViewMode("grid")}>
               <LayoutGrid className="h-4 w-4" />
@@ -714,6 +721,9 @@ const POS = () => {
       />
 
       <BarcodeScanner open={scannerOpen} onOpenChange={setScannerOpen} onDetected={handleScanned} />
+
+      <ScannerSettingsDialog open={scanSettingsOpen} onOpenChange={setScanSettingsOpen} />
+
 
       <ManagerApprovalDialog
         open={approvalOpen}
