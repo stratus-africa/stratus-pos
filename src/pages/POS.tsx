@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   ShoppingCart, Search, Plus, Minus, Trash2, Pause, Play, X,
   User, List, LayoutGrid, Sunrise, Banknote, Smartphone, CreditCard, ScanLine,
-  ChevronUp, ChevronDown,
+  ChevronUp, ChevronDown, Settings2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useProducts, useCategories } from "@/hooks/useProducts";
@@ -28,6 +28,9 @@ import { CartItemRow } from "@/components/pos/CartItemRow";
 import { logAudit } from "@/lib/audit";
 import { CartItem } from "@/hooks/usePOS";
 import { supabase } from "@/integrations/supabase/client";
+import { useBarcodeScanner, useScanSettings } from "@/hooks/useBarcodeScanner";
+import { ScannerSettingsDialog } from "@/components/pos/ScannerSettingsDialog";
+
 
 const POS = () => {
   const { productsQuery } = useProducts();
@@ -50,6 +53,9 @@ const POS = () => {
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [startDayOpen, setStartDayOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [scanSettingsOpen, setScanSettingsOpen] = useState(false);
+  const scanSettings = useScanSettings();
+
   const [mobileCartExpanded, setMobileCartExpanded] = useState(false);
   const [approvalOpen, setApprovalOpen] = useState(false);
   const pendingRemoveResolver = useRef<((approved: boolean) => void) | null>(null);
@@ -103,17 +109,29 @@ const POS = () => {
   }, []);
 
   const handleScanned = (code: string) => {
+    const trimmed = code.trim();
+    if (!trimmed) return;
     const match = (productsQuery.data ?? []).find(
-      (p) => p.is_active && (p.barcode === code || p.sku === code)
+      (p) => p.is_active && (p.barcode === trimmed || p.sku === trimmed)
     );
     if (match) {
       pos.addToCart(match);
       setSearch("");
+      return;
+    }
+    // Not found: cart stays unchanged; optionally surface the code for manual lookup.
+    toast.warning(`No product matches "${trimmed}"`);
+    if (scanSettings.openSearchOnMiss) {
+      setSearch(trimmed);
+      requestAnimationFrame(() => {
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      });
     } else {
-      toast.warning(`No product matches "${code}"`);
       setSearch("");
     }
   };
+
 
   const products = productsQuery.data ?? [];
   const categories = categoriesQuery.data ?? [];
@@ -324,64 +342,14 @@ const POS = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [pos, business, paymentOpen, scannerOpen, approvalOpen, receiptOpen, startDayOpen]);
 
-  // Global barcode scanner listener — works even when no input is focused.
-  // USB/Bluetooth scanners emit keystrokes rapidly and terminate with Enter.
-  // Heuristic: characters typed with <50ms between them, length >= 4, ending in Enter.
-  const scanHandlerRef = useRef(handleScanned);
-  scanHandlerRef.current = handleScanned;
-  useEffect(() => {
-    let buffer = "";
-    let lastTime = 0;
-    const MAX_GAP = 50; // ms between chars for scanner-speed input
-    const MIN_LEN = 4;
+  // Global keyboard-wedge scanner listener — works even when nothing is focused.
+  useBarcodeScanner({
+    onScan: handleScanned,
+    disabled: scannerOpen || scanSettingsOpen,
+    searchInputRef,
+    settings: scanSettings,
+  });
 
-    const onKey = (e: KeyboardEvent) => {
-      // Ignore any modal that captures the scanner already
-      if (scannerOpen) return;
-      const now = performance.now();
-      const gap = now - lastTime;
-      lastTime = now;
-
-      const target = e.target as HTMLElement | null;
-      const isSearchInput = target === searchInputRef.current;
-      const typingElsewhere = !isSearchInput && !!target && (
-        target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable
-      );
-
-      if (e.key === "Enter") {
-        if (buffer.length >= MIN_LEN) {
-          const code = buffer;
-          buffer = "";
-          e.preventDefault();
-          e.stopPropagation();
-          if (isSearchInput) setSearch("");
-          scanHandlerRef.current(code);
-          return;
-        }
-        buffer = "";
-        return;
-      }
-
-      // Only accept printable single-character keys
-      if (e.key.length !== 1 || e.metaKey || e.ctrlKey || e.altKey) {
-        buffer = "";
-        return;
-      }
-
-      // Reset buffer on slow typing (human)
-      if (gap > MAX_GAP) buffer = "";
-      buffer += e.key;
-
-      // If we're accumulating a scan while focus is in an unrelated input,
-      // suppress the keystroke so it doesn't pollute that field.
-      if (typingElsewhere && buffer.length >= 2) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [scannerOpen]);
 
 
 
@@ -463,6 +431,13 @@ const POS = () => {
           <Button size="icon" variant="outline" className="shrink-0" onClick={() => setScannerOpen(true)} title="Scan barcode">
             <ScanLine className="h-4 w-4" />
           </Button>
+          <Button
+            size="icon" variant="outline" className="shrink-0 hidden sm:inline-flex"
+            onClick={() => setScanSettingsOpen(true)} title="Scanner settings"
+          >
+            <Settings2 className="h-4 w-4" />
+          </Button>
+
           <div className="flex gap-1 shrink-0">
             <Button size="icon" variant={viewMode === "grid" ? "default" : "outline"} onClick={() => setViewMode("grid")}>
               <LayoutGrid className="h-4 w-4" />
@@ -746,6 +721,9 @@ const POS = () => {
       />
 
       <BarcodeScanner open={scannerOpen} onOpenChange={setScannerOpen} onDetected={handleScanned} />
+
+      <ScannerSettingsDialog open={scanSettingsOpen} onOpenChange={setScanSettingsOpen} />
+
 
       <ManagerApprovalDialog
         open={approvalOpen}
