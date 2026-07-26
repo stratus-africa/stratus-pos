@@ -142,9 +142,18 @@ const Inventory = () => {
   const movements = movementsQuery.data?.rows ?? [];
   const mvCount = movementsQuery.data?.count ?? 0;
 
-  const adjustmentsFiltered = adjSearch
-    ? adjustments.filter((a) => (a.products?.name || "").toLowerCase().includes(adjSearch.toLowerCase()))
-    : adjustments;
+  const documentsFiltered = adjSearch
+    ? documents.filter((d) => {
+        const q = adjSearch.toLowerCase();
+        return (
+          (d.reference || "").toLowerCase().includes(q) ||
+          (d.reason || "").toLowerCase().includes(q) ||
+          (d.notes || "").toLowerCase().includes(q) ||
+          (d.locations?.name || "").toLowerCase().includes(q) ||
+          (d.lines || []).some((l) => (l.products?.name || "").toLowerCase().includes(q))
+        );
+      })
+    : documents;
   const movementsFiltered = mvSearch
     ? movements.filter((m) => (m.products?.name || "").toLowerCase().includes(mvSearch.toLowerCase()))
     : movements;
