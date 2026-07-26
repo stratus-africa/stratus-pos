@@ -111,12 +111,21 @@ const POS = () => {
   const handleScanned = (code: string) => {
     const trimmed = code.trim();
     if (!trimmed) return;
-    const match = (productsQuery.data ?? []).find(
-      (p) => p.is_active && (p.barcode === trimmed || p.sku === trimmed)
-    );
+    const parsed = parseBarcode(trimmed, scanSettings.parseGs1);
+    const list = (productsQuery.data ?? []).filter((p) => p.is_active);
+    let match: (typeof list)[number] | undefined;
+    for (const candidate of parsed.candidates) {
+      match = list.find((p) => p.barcode === candidate || p.sku === candidate);
+      if (match) break;
+    }
     if (match) {
-      pos.addToCart(match);
-      setSearch("");
+      if (scanSettings.autoAddToCart) {
+        pos.addToCart(match);
+        setSearch("");
+      } else {
+        setSearch(match.name);
+        requestAnimationFrame(() => searchInputRef.current?.focus());
+      }
       return;
     }
     // Not found: cart stays unchanged; optionally surface the code for manual lookup.
@@ -131,6 +140,7 @@ const POS = () => {
       setSearch("");
     }
   };
+
 
 
   const products = productsQuery.data ?? [];
