@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { Printer } from "lucide-react";
-import { loadPriceTagConfig, PRICE_TAG_LAYOUTS, type PriceTagConfig } from "@/lib/priceTagTemplate";
+import { loadPriceTagConfig, PRICE_TAG_LAYOUTS, PAPER_MODE_OPTIONS, THERMAL_80_PRINTABLE_MM, type PriceTagConfig } from "@/lib/priceTagTemplate";
 
 export interface PrintTagItem {
   id: string;
@@ -43,10 +43,20 @@ export function PrintTagsDialog({ open, onOpenChange, items }: Props) {
 
   const [layoutKey, setLayoutKey] = useState<PriceTagConfig["layout"]>(cfg.layout);
   useEffect(() => { setLayoutKey(cfg.layout); }, [cfg.layout]);
+  const [paperMode, setPaperMode] = useState<PriceTagConfig["paperMode"]>(cfg.paperMode);
+  useEffect(() => { setPaperMode(cfg.paperMode); }, [cfg.paperMode]);
+  const [widthMm, setWidthMm] = useState(cfg.tagWidthMm);
+  const [heightMm, setHeightMm] = useState(cfg.tagHeightMm);
+  useEffect(() => { setWidthMm(cfg.tagWidthMm); setHeightMm(cfg.tagHeightMm); }, [cfg.tagWidthMm, cfg.tagHeightMm]);
   const [copiesPerItem, setCopiesPerItem] = useState(1);
   const currency = business?.currency || "KES";
 
+  const isThermal = paperMode === "thermal80";
   const layout = PRICE_TAG_LAYOUTS[layoutKey];
+  const effWidth = isThermal ? Math.min(widthMm, THERMAL_80_PRINTABLE_MM) : widthMm;
+  const cols = isThermal ? 1 : layout.cols;
+  const gap = cfg.gapMm;
+  const pad = cfg.paddingMm;
 
   const expanded = useMemo(() => {
     const arr: PrintTagItem[] = [];
@@ -69,18 +79,22 @@ export function PrintTagsDialog({ open, onOpenChange, items }: Props) {
     if (!node) return;
     const win = window.open("", "_blank", "width=900,height=1000");
     if (!win) return;
+    const pageCss = isThermal
+      ? `@page { size: 80mm auto; margin: 2mm; }`
+      : `@page { size: A4; margin: 8mm; }`;
     win.document.write(`<!doctype html><html><head><title>Price tags</title>
       <style>
-        @page { size: A4; margin: 8mm; }
+        ${pageCss}
         body { font-family: ${cfg.fontFamily}; margin: 0; background: #fff; }
-        .sheet { display: grid; grid-template-columns: repeat(${layout.cols}, 1fr); gap: 4mm; }
-        .tag { border: ${borderCss}; border-radius: 4px; padding: 6px 8px; display: flex; flex-direction: column; justify-content: space-between; min-height: 70px; page-break-inside: avoid; background: ${cfg.backgroundColor}; }
+        .sheet { display: grid; grid-template-columns: repeat(${cols}, ${isThermal ? `${effWidth}mm` : "1fr"}); gap: ${gap}mm; }
+        .tag { border: ${borderCss}; border-radius: 4px; padding: ${pad}mm; display: flex; flex-direction: column; justify-content: space-between; width: ${effWidth}mm; min-height: ${heightMm}mm; box-sizing: border-box; overflow: hidden; page-break-inside: avoid; background: ${cfg.backgroundColor}; }
         .tag svg { width: 100%; height: 30px; }
       </style></head><body>${node.innerHTML}</body></html>`);
     win.document.close();
     win.focus();
     setTimeout(() => { win.print(); win.close(); }, 250);
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
