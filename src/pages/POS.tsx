@@ -30,6 +30,8 @@ import { CartItem } from "@/hooks/usePOS";
 import { supabase } from "@/integrations/supabase/client";
 import { useBarcodeScanner, useScanSettings } from "@/hooks/useBarcodeScanner";
 import { ScannerSettingsDialog } from "@/components/pos/ScannerSettingsDialog";
+import { parseBarcode } from "@/lib/barcodeScan";
+
 
 
 const POS = () => {
