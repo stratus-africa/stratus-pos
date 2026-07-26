@@ -11,9 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { ClipboardCheck, Plus, Search, Trash2 } from "lucide-react";
+import { ClipboardCheck, Lock, Plus, Search, Trash2 } from "lucide-react";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useProducts } from "@/hooks/useProducts";
 import { useStockCounts, type StockCount, type StockCountStatus } from "@/hooks/useStockCounts";
 import { toast } from "sonner";
@@ -28,16 +29,20 @@ const statusMeta: Record<StockCountStatus, { label: string; variant: "default" |
 };
 
 export function StockCountsTab() {
-  const { locations, currentLocation, userRole } = useBusiness();
+  const { locations, currentLocation, userRole, business } = useBusiness();
   const { user } = useAuth();
+  const { hasPermission } = usePermissions();
   const { productsQuery } = useProducts();
   const {
     countsQuery, assigneesQuery, createCount, saveCounts,
     submitCount, approveCount, rejectCount, deleteCount,
   } = useStockCounts();
 
-  const isApprover = userRole === "admin" || userRole === "manager";
-  const canCreate = isApprover || userRole === "stores_manager";
+  const isApprover = hasPermission("stock_take.delete") || userRole === "admin";
+  const canCreate = hasPermission("stock_take.create") || isApprover;
+  const canEdit = hasPermission("stock_take.edit") || isApprover;
+  const lockApproved =
+    (business as { lock_approved_stock_counts?: boolean } | null)?.lock_approved_stock_counts ?? true;
 
   const [newOpen, setNewOpen] = useState(false);
   const [openCount, setOpenCount] = useState<StockCount | null>(null);
@@ -103,16 +108,18 @@ export function StockCountsTab() {
     return a?.full_name || a?.email || "User";
   };
   const locationName = (id: string) => locations.find((l) => l.id === id)?.name ?? "—";
+  const canDelete = (c: StockCount) =>
+    isApprover && !(c.status === "approved" && lockApproved);
 
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader className="pb-3 flex flex-row items-center justify-between gap-2">
+        <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <CardTitle className="text-base flex items-center gap-2">
             <ClipboardCheck className="h-4 w-4" /> Stock Takes
           </CardTitle>
           {canCreate && (
-            <Button size="sm" onClick={() => { resetForm(); setNewOpen(true); }}>
+            <Button size="sm" className="w-full sm:w-auto" onClick={() => { resetForm(); setNewOpen(true); }}>
               <Plus className="mr-1 h-4 w-4" /> New stock count
             </Button>
           )}
@@ -123,56 +130,90 @@ export function StockCountsTab() {
               No stock counts yet. Create a count sheet, assign it to a user, and approve it once submitted.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Reference</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Assigned to</TableHead>
-                    <TableHead className="text-right">Items</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {counts.map((c) => (
-                    <TableRow key={c.id} className="odd:bg-muted/30">
-                      <TableCell className="font-medium">{c.reference || c.id.slice(0, 8)}</TableCell>
-                      <TableCell>{locationName(c.location_id)}</TableCell>
-                      <TableCell>{nameOf(c.assigned_to)}</TableCell>
-                      <TableCell className="text-right">{c.stock_count_items?.length ?? 0}</TableCell>
-                      <TableCell>
-                        <Badge variant={statusMeta[c.status]?.variant ?? "outline"}>
-                          {statusMeta[c.status]?.label ?? c.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{new Date(c.created_at).toLocaleDateString()}</TableCell>
-                      <TableCell className="text-right space-x-1">
-                        <Button size="sm" variant="outline" onClick={() => setOpenCount(c)}>Open</Button>
-                        {canCreate && c.status !== "approved" && (
-                          <Button
-                            size="icon" variant="ghost"
-                            onClick={() => deleteCount.mutate(c.id)}
-                            aria-label="Delete stock count"
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
-                      </TableCell>
+            <>
+              {/* Mobile: card list */}
+              <div className="space-y-2 md:hidden">
+                {counts.map((c) => (
+                  <div key={c.id} className="rounded-md border p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{c.reference || c.id.slice(0, 8)}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {locationName(c.location_id)} · {c.stock_count_items?.length ?? 0} items
+                        </p>
+                      </div>
+                      <Badge variant={statusMeta[c.status]?.variant ?? "outline"}>
+                        {statusMeta[c.status]?.label ?? c.status}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span className="truncate">{nameOf(c.assigned_to)}</span>
+                      <span>{new Date(c.created_at).toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => setOpenCount(c)}>Open</Button>
+                      {canDelete(c) && (
+                        <Button size="icon" variant="ghost" onClick={() => deleteCount.mutate(c.id)} aria-label="Delete stock count">
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop: table */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Reference</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>Assigned to</TableHead>
+                      <TableHead className="text-right">Items</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {counts.map((c) => (
+                      <TableRow key={c.id} className="odd:bg-muted/30">
+                        <TableCell className="font-medium">{c.reference || c.id.slice(0, 8)}</TableCell>
+                        <TableCell>{locationName(c.location_id)}</TableCell>
+                        <TableCell>{nameOf(c.assigned_to)}</TableCell>
+                        <TableCell className="text-right">{c.stock_count_items?.length ?? 0}</TableCell>
+                        <TableCell>
+                          <Badge variant={statusMeta[c.status]?.variant ?? "outline"}>
+                            {statusMeta[c.status]?.label ?? c.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{new Date(c.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell className="text-right space-x-1">
+                          <Button size="sm" variant="outline" onClick={() => setOpenCount(c)}>Open</Button>
+                          {canDelete(c) && (
+                            <Button
+                              size="icon" variant="ghost"
+                              onClick={() => deleteCount.mutate(c.id)}
+                              aria-label="Delete stock count"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
 
       {/* New stock count */}
       <Dialog open={newOpen} onOpenChange={setNewOpen}>
-        <DialogContent className="sm:max-w-3xl">
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>New stock count</DialogTitle>
             <DialogDescription>
@@ -214,16 +255,16 @@ export function StockCountsTab() {
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <Label>Products ({selected.size} selected)</Label>
               <div className="flex items-center gap-2">
                 <Button
-                  type="button" size="sm" variant="outline"
+                  type="button" size="sm" variant="outline" className="flex-1 sm:flex-none"
                   onClick={() => setSelected(new Set(filteredProducts.map((p) => p.id)))}
                 >
                   Select all shown
                 </Button>
-                <Button type="button" size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Clear</Button>
+                <Button type="button" size="sm" variant="ghost" className="flex-1 sm:flex-none" onClick={() => setSelected(new Set())}>Clear</Button>
               </div>
             </div>
             <div className="relative">
@@ -233,12 +274,12 @@ export function StockCountsTab() {
                 value={productSearch} onChange={(e) => setProductSearch(e.target.value)}
               />
             </div>
-            <div className="max-h-64 overflow-y-auto rounded-md border divide-y">
+            <div className="max-h-52 sm:max-h-64 overflow-y-auto rounded-md border divide-y">
               {filteredProducts.map((p) => (
-                <label key={p.id} className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer">
+                <label key={p.id} className="flex items-center gap-3 px-3 py-2.5 text-sm cursor-pointer">
                   <Checkbox checked={selected.has(p.id)} onCheckedChange={() => toggleProduct(p.id)} />
-                  <span className="flex-1">{p.name}</span>
-                  <span className="text-xs text-muted-foreground">{p.sku}</span>
+                  <span className="flex-1 min-w-0 truncate">{p.name}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">{p.sku}</span>
                 </label>
               ))}
               {filteredProducts.length === 0 && (
@@ -247,9 +288,9 @@ export function StockCountsTab() {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setNewOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={createCount.isPending}>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => setNewOpen(false)}>Cancel</Button>
+            <Button className="w-full sm:w-auto" onClick={handleCreate} disabled={createCount.isPending}>
               {createCount.isPending ? "Creating…" : "Create count sheet"}
             </Button>
           </DialogFooter>
@@ -262,6 +303,8 @@ export function StockCountsTab() {
           open={!!openCount}
           onOpenChange={(o) => !o && setOpenCount(null)}
           isApprover={isApprover}
+          canEdit={canEdit}
+          lockApproved={lockApproved}
           isAssignee={openCount.assigned_to === user?.id}
           onSave={(items) => saveCounts.mutate({ countId: openCount.id, items })}
           onSubmit={() => submitCount.mutate(openCount.id, { onSuccess: () => setOpenCount(null) })}
@@ -279,6 +322,8 @@ interface DetailProps {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   isApprover: boolean;
+  canEdit: boolean;
+  lockApproved: boolean;
   isAssignee: boolean;
   onSave: (items: { id: string; counted_qty: number | null; notes?: string | null }[]) => void;
   onSubmit: () => void;
@@ -288,7 +333,8 @@ interface DetailProps {
 }
 
 function StockCountDetailDialog({
-  count, open, onOpenChange, isApprover, isAssignee, onSave, onSubmit, onApprove, onReject, saving,
+  count, open, onOpenChange, isApprover, canEdit, lockApproved, isAssignee,
+  onSave, onSubmit, onApprove, onReject, saving,
 }: DetailProps) {
   const items = count.stock_count_items ?? [];
   const [values, setValues] = useState<Record<string, string>>(() =>
@@ -296,8 +342,12 @@ function StockCountDetailDialog({
   );
   const [rejectReason, setRejectReason] = useState("");
 
-  const editable = (count.status === "draft" || count.status === "assigned" || count.status === "rejected")
-    && (isAssignee || isApprover);
+  const approvedLocked = count.status === "approved" && lockApproved;
+  const editable =
+    !approvedLocked
+    && (count.status === "draft" || count.status === "assigned" || count.status === "rejected"
+        || (count.status === "approved" && isApprover))
+    && (isAssignee || canEdit);
 
   const payload = () =>
     items.map((i) => ({
@@ -311,18 +361,67 @@ function StockCountDetailDialog({
     return s + (Number(v) - Number(i.expected_qty));
   }, 0);
 
+  const varianceClass = (variance: number | null) =>
+    variance === null ? "" : variance < 0 ? "text-destructive" : variance > 0 ? "text-emerald-600" : "";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl">
+      <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{count.reference || "Stock count"}</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-base sm:text-lg">{count.reference || "Stock count"}</DialogTitle>
+          <DialogDescription className="flex flex-wrap items-center gap-1">
             {statusMeta[count.status]?.label ?? count.status}
             {count.rejection_reason ? ` — ${count.rejection_reason}` : ""}
+            {approvedLocked && (
+              <span className="inline-flex items-center gap-1 text-xs">
+                <Lock className="h-3 w-3" /> locked
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[55vh] overflow-y-auto rounded-md border">
+        {/* Mobile: stacked rows */}
+        <div className="space-y-2 md:hidden max-h-[45vh] overflow-y-auto">
+          {items.map((i) => {
+            const raw = values[i.id];
+            const variance = raw === "" || raw === undefined ? null : Number(raw) - Number(i.expected_qty);
+            return (
+              <div key={i.id} className="rounded-md border p-3 space-y-2">
+                <div className="min-w-0">
+                  <p className="font-medium text-sm truncate">{i.products?.name ?? "Product"}</p>
+                  {i.products?.sku && <p className="text-xs text-muted-foreground">{i.products.sku}</p>}
+                </div>
+                <div className="flex items-end gap-3">
+                  <div className="text-xs text-muted-foreground">
+                    Expected<br />
+                    <span className="text-sm text-foreground font-medium">{Number(i.expected_qty)}</span>
+                  </div>
+                  <div className="flex-1">
+                    <Label className="text-xs text-muted-foreground">Counted</Label>
+                    {editable ? (
+                      <Input
+                        type="number" inputMode="decimal" className="h-9"
+                        value={raw ?? ""}
+                        onChange={(e) => setValues((p) => ({ ...p, [i.id]: e.target.value }))}
+                      />
+                    ) : (
+                      <p className="text-sm font-medium">{i.counted_qty ?? "—"}</p>
+                    )}
+                  </div>
+                  <div className={`text-xs text-muted-foreground text-right ${varianceClass(variance)}`}>
+                    Variance<br />
+                    <span className="text-sm font-medium">
+                      {variance === null ? "—" : variance > 0 ? `+${variance}` : variance}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop: table */}
+        <div className="hidden md:block max-h-[55vh] overflow-y-auto rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -354,7 +453,7 @@ function StockCountDetailDialog({
                         i.counted_qty ?? "—"
                       )}
                     </TableCell>
-                    <TableCell className={`text-right ${variance && variance < 0 ? "text-destructive" : variance ? "text-emerald-600" : ""}`}>
+                    <TableCell className={`text-right ${varianceClass(variance)}`}>
                       {variance === null ? "—" : variance > 0 ? `+${variance}` : variance}
                     </TableCell>
                   </TableRow>
@@ -375,11 +474,12 @@ function StockCountDetailDialog({
           </div>
         )}
 
-        <DialogFooter className="gap-2">
-          {editable && (
+        <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+          {editable && count.status !== "approved" && (
             <>
-              <Button variant="outline" onClick={() => onSave(payload())} disabled={saving}>Save progress</Button>
+              <Button variant="outline" className="w-full sm:w-auto" onClick={() => onSave(payload())} disabled={saving}>Save progress</Button>
               <Button
+                className="w-full sm:w-auto"
                 onClick={() => { onSave(payload()); onSubmit(); }}
                 disabled={saving}
               >
@@ -387,20 +487,25 @@ function StockCountDetailDialog({
               </Button>
             </>
           )}
+          {editable && count.status === "approved" && (
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => onSave(payload())} disabled={saving}>
+              Save changes
+            </Button>
+          )}
           {count.status === "submitted" && isApprover && (
             <>
               <Button
-                variant="outline"
+                variant="outline" className="w-full sm:w-auto"
                 onClick={() => rejectReason.trim() ? onReject(rejectReason.trim()) : toast.error("Add a reason")}
                 disabled={saving}
               >
                 Send back
               </Button>
-              <Button onClick={onApprove} disabled={saving}>Approve &amp; adjust stock</Button>
+              <Button className="w-full sm:w-auto" onClick={onApprove} disabled={saving}>Approve &amp; adjust stock</Button>
             </>
           )}
           {!editable && count.status !== "submitted" && (
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>Close</Button>
           )}
         </DialogFooter>
       </DialogContent>
