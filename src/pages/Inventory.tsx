@@ -549,22 +549,22 @@ const Inventory = () => {
           <Card>
             <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 space-y-0">
               <CardTitle className="text-lg">Stock Adjustments</CardTitle>
-              <Button variant="outline" size="sm" onClick={() => exportAdjustments()} disabled={documentsFiltered.length === 0}>
+              <Button variant="outline" size="sm" onClick={() => exportAdjustments()} disabled={documentsFiltered.length === 0} className="hidden sm:inline-flex">
                 <Download className="mr-2 h-4 w-4" /> Export CSV
               </Button>
             </CardHeader>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 px-6 py-3 border-b">
+            <div className="grid grid-cols-2 gap-2 px-6 py-3 border-b items-start sm:items-center">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search product / ref / reason..."
                   value={adjSearch}
                   onChange={(e) => { setAdjSearch(e.target.value); setAdjPage(1); }}
-                  className="pl-9 h-9 w-[240px]"
+                  className="pl-9 h-9 w-full"
                 />
               </div>
               <Select value={adjSort} onValueChange={(v) => { setAdjSort(v as SortKey); setAdjPage(1); }}>
-                <SelectTrigger className="h-9 w-[220px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9 w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="date_desc">Date (newest)</SelectItem>
                   <SelectItem value="date_asc">Date (oldest)</SelectItem>
