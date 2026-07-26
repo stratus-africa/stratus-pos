@@ -2,22 +2,39 @@ import { useEffect, useRef, useState } from "react";
 import {
   BarcodeScanSettings,
   loadScanSettings,
+  fetchScanSettings,
 } from "@/lib/barcodeScan";
+import { useBusiness } from "@/contexts/BusinessContext";
 
-/** Live copy of the persisted scanner settings. */
+/** Live copy of the scanner settings (tenant-wide, cached locally). */
 export function useScanSettings(): BarcodeScanSettings {
-  const [settings, setSettings] = useState<BarcodeScanSettings>(() => loadScanSettings());
+  const { business } = useBusiness();
+  const businessId = business?.id;
+  const [settings, setSettings] = useState<BarcodeScanSettings>(() => loadScanSettings(businessId));
+
   useEffect(() => {
-    const sync = () => setSettings(loadScanSettings());
+    const sync = () => setSettings(loadScanSettings(businessId));
+    sync();
     window.addEventListener("barcode-scan-settings-changed", sync);
     window.addEventListener("storage", sync);
     return () => {
       window.removeEventListener("barcode-scan-settings-changed", sync);
       window.removeEventListener("storage", sync);
     };
-  }, []);
+  }, [businessId]);
+
+  useEffect(() => {
+    if (!businessId) return;
+    let cancelled = false;
+    fetchScanSettings(businessId)
+      .then((s) => { if (!cancelled) setSettings(s); })
+      .catch(() => { /* keep cached settings */ });
+    return () => { cancelled = true; };
+  }, [businessId]);
+
   return settings;
 }
+
 
 interface Options {
   /** Called with the complete, untruncated scanned code. */
