@@ -76,7 +76,7 @@ const Inventory = () => {
   const [locationFilter, setLocationFilter] = useState<string>(currentLocation?.id || "all");
   const [search, setSearch] = useState<string>(initialStr("q", ""));
   const [adjDialogOpen, setAdjDialogOpen] = useState(false);
-  const [editingAdj, setEditingAdj] = useState<StockAdjustment | null>(null);
+  const [editingDoc, setEditingDoc] = useState<AdjustmentDocument | null>(null);
   const [selectedAdjIds, setSelectedAdjIds] = useState<Set<string>>(new Set());
 
   const [stockPage, setStockPage] = useState(initialNum("sPage", 1));
