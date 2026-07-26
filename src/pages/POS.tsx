@@ -103,17 +103,29 @@ const POS = () => {
   }, []);
 
   const handleScanned = (code: string) => {
+    const trimmed = code.trim();
+    if (!trimmed) return;
     const match = (productsQuery.data ?? []).find(
-      (p) => p.is_active && (p.barcode === code || p.sku === code)
+      (p) => p.is_active && (p.barcode === trimmed || p.sku === trimmed)
     );
     if (match) {
       pos.addToCart(match);
       setSearch("");
+      return;
+    }
+    // Not found: cart stays unchanged; optionally surface the code for manual lookup.
+    toast.warning(`No product matches "${trimmed}"`);
+    if (scanSettings.openSearchOnMiss) {
+      setSearch(trimmed);
+      requestAnimationFrame(() => {
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      });
     } else {
-      toast.warning(`No product matches "${code}"`);
       setSearch("");
     }
   };
+
 
   const products = productsQuery.data ?? [];
   const categories = categoriesQuery.data ?? [];
