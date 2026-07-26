@@ -131,14 +131,14 @@ const Inventory = () => {
   const updateMvSize = (n: number) => { setMvPageSize(n); writeStoredSize(LS_KEYS.mv, n); setMvPage(1); };
 
   const effectiveLocationId = locationFilter === "all" ? undefined : locationFilter;
-  const { inventoryQuery, adjustStock, editAdjustment, deleteAdjustment, adjustmentsQuery, movementsQuery } = useInventory(effectiveLocationId, {
+  const { inventoryQuery, adjustStock, deleteAdjustment, adjustmentsQuery, movementsQuery, adjustmentDocumentsQuery, deleteAdjustmentDocument, updateAdjustmentDocument } = useInventory(effectiveLocationId, {
     adjustmentsPage: { page: adjPage, pageSize: adjPageSize, sort: adjSort },
     movements: { page: mvPage, pageSize: mvPageSize, from: mvFrom || undefined, to: mvTo || undefined, source: mvSource, sort: mvSort },
   });
 
   const inventory = inventoryQuery.data || [];
-  const adjustments = adjustmentsQuery.data?.rows ?? [];
-  const adjCount = adjustmentsQuery.data?.count ?? 0;
+  const documents = adjustmentDocumentsQuery.data?.rows ?? [];
+  const adjCount = adjustmentDocumentsQuery.data?.count ?? 0;
   const movements = movementsQuery.data?.rows ?? [];
   const mvCount = movementsQuery.data?.count ?? 0;
 
