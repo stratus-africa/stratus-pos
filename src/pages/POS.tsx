@@ -108,9 +108,10 @@ const POS = () => {
     );
     if (match) {
       pos.addToCart(match);
+      setSearch("");
     } else {
-      setSearch(code);
       toast.warning(`No product matches "${code}"`);
+      setSearch("");
     }
   };
 
