@@ -289,6 +289,14 @@ const POS = () => {
       setPaymentOpen(false);
       setReceiptData(result);
       setReceiptOpen(true);
+      // Customer display: show paid / change, then the thank-you message.
+      if (displayCfg.mode !== "off") {
+        const tendered = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
+        const saleTotal = Number((result as any)?.total ?? tendered);
+        void displayPaid(saleTotal, tendered, Math.max(0, tendered - saleTotal), displayCfg);
+        window.setTimeout(() => { void displayThankYou(displayCfg); }, 4000);
+        lastCartKey.current = "";
+      }
       // Auto-open cash drawer if configured
       try {
         const { loadCashDrawerConfig, openCashDrawer } = await import("@/lib/cashDrawer");
