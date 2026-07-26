@@ -10,8 +10,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  BarcodeScanSettings, DEFAULT_SCAN_SETTINGS, loadScanSettings, saveScanSettings,
+  BarcodeScanSettings, DEFAULT_SCAN_SETTINGS, loadScanSettings, fetchScanSettings, saveScanSettings,
 } from "@/lib/barcodeScan";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { toast } from "sonner";
 
 interface Props {
@@ -20,22 +21,36 @@ interface Props {
 }
 
 export function ScannerSettingsDialog({ open, onOpenChange }: Props) {
+  const { business } = useBusiness();
   const [s, setS] = useState<BarcodeScanSettings>(DEFAULT_SCAN_SETTINGS);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) setS(loadScanSettings());
-  }, [open]);
+    if (!open) return;
+    setS(loadScanSettings(business?.id));
+    if (business?.id) {
+      fetchScanSettings(business.id).then(setS).catch(() => { /* cached */ });
+    }
+  }, [open, business?.id]);
 
-  const save = () => {
-    saveScanSettings({
-      ...s,
-      minLength: Math.max(1, Number(s.minLength) || 1),
-      maxInterval: Math.max(10, Number(s.maxInterval) || 10),
-      idleFlush: Math.max(50, Number(s.idleFlush) || 50),
-    });
-    toast.success("Scanner settings saved");
-    onOpenChange(false);
+  const save = async () => {
+    setSaving(true);
+    try {
+      await saveScanSettings({
+        ...s,
+        minLength: Math.max(1, Number(s.minLength) || 1),
+        maxInterval: Math.max(10, Number(s.maxInterval) || 10),
+        idleFlush: Math.max(50, Number(s.idleFlush) || 50),
+      }, business?.id);
+      toast.success("Scanner settings saved for all tills");
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save scanner settings");
+    } finally {
+      setSaving(false);
+    }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -92,6 +107,32 @@ export function ScannerSettingsDialog({ open, onOpenChange }: Props) {
 
           <div className="flex items-center justify-between rounded-md border p-3">
             <div className="pr-4">
+              <Label htmlFor="autoAdd">Scan automatically adds item to cart</Label>
+              <p className="text-xs text-muted-foreground">
+                Matched scans go straight into the cart without any click.
+              </p>
+            </div>
+            <Switch
+              id="autoAdd" checked={s.autoAddToCart}
+              onCheckedChange={(v) => setS({ ...s, autoAddToCart: v })}
+            />
+          </div>
+
+          <div className="flex items-center justify-between rounded-md border p-3">
+            <div className="pr-4">
+              <Label htmlFor="parseGs1">Parse GS1 / GTIN labels</Label>
+              <p className="text-xs text-muted-foreground">
+                Reads GTIN, batch and weight/price-embedded retail barcodes.
+              </p>
+            </div>
+            <Switch
+              id="parseGs1" checked={s.parseGs1}
+              onCheckedChange={(v) => setS({ ...s, parseGs1: v })}
+            />
+          </div>
+
+          <div className="flex items-center justify-between rounded-md border p-3">
+            <div className="pr-4">
               <Label htmlFor="openSearch">Open search on unknown barcode</Label>
               <p className="text-xs text-muted-foreground">
                 Fills the search box with the scanned code for manual selection.
@@ -106,7 +147,8 @@ export function ScannerSettingsDialog({ open, onOpenChange }: Props) {
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => setS(DEFAULT_SCAN_SETTINGS)}>Reset defaults</Button>
-          <Button onClick={save}>Save</Button>
+          <Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
+
         </DialogFooter>
       </DialogContent>
     </Dialog>
