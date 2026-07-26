@@ -477,15 +477,6 @@ const Inventory = () => {
                       <span className="flex items-center">Product {sortIcon("name")}</span>
                     </TableHead>
                     <TableHead
-                      className="cursor-pointer hover:bg-muted/50 select-none"
-                      onClick={() => toggleStockSort("sku")}
-                      role="button"
-                      aria-label="Sort by SKU"
-                    >
-                      <span className="flex items-center">SKU {sortIcon("sku")}</span>
-                    </TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead
                       className="text-right cursor-pointer hover:bg-muted/50 select-none"
                       onClick={() => toggleStockSort("qty")}
                       role="button"
@@ -501,7 +492,7 @@ const Inventory = () => {
                 <TableBody>
                   {stockPaged.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                         No inventory records. Adjust stock to get started.
                       </TableCell>
                     </TableRow>
@@ -512,8 +503,6 @@ const Inventory = () => {
                       return (
                         <TableRow key={i.id} className={isLow ? "bg-destructive/5" : ""}>
                           <TableCell className="font-medium">{i.products?.name || "—"}</TableCell>
-                          <TableCell className="text-muted-foreground">{i.products?.sku || "—"}</TableCell>
-                          <TableCell>{i.locations?.name || "—"}</TableCell>
                           <TableCell className="text-right font-medium">{i.quantity}</TableCell>
                           <TableCell className="text-right text-muted-foreground">{i.low_stock_threshold}</TableCell>
                           <TableCell className="text-right">{formatKES(i.quantity * (i.products?.selling_price || 0))}</TableCell>
