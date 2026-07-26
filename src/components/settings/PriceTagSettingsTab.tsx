@@ -18,6 +18,8 @@ import {
   defaultPriceTagConfig,
   PRICE_TAG_FONT_OPTIONS,
   PRICE_TAG_LAYOUTS,
+  PAPER_MODE_OPTIONS,
+  THERMAL_80_PRINTABLE_MM,
   type PriceTagConfig,
   type TextAlign,
 } from "@/lib/priceTagTemplate";
