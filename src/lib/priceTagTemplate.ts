@@ -104,4 +104,5 @@ export const PRICE_TAG_LAYOUTS: Record<PriceTagConfig["layout"], { cols: number;
   "30": { cols: 3, rows: 10, label: "30 per page (3×10)" },
   "24": { cols: 3, rows: 8, label: "24 per page (3×8)" },
   "12": { cols: 2, rows: 6, label: "12 per page (2×6)" },
+  "receipt2": { cols: 2, rows: 10, label: "Receipt labels (2 per column)" },
 };
