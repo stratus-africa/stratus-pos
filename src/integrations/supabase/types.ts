@@ -3022,6 +3022,13 @@ export type Database = {
             referencedRelation: "stock_counts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "stock_count_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
         ]
       }
       stock_counts: {
