@@ -246,9 +246,11 @@ export function PriceTagSettingsTab() {
           <div className="rounded-md border p-4 bg-muted/30 flex justify-center">
             <div
               style={{
-                width: 220,
-                minHeight: 110,
-                padding: "10px 12px",
+                width: `${config.paperMode === "thermal80" ? Math.min(config.tagWidthMm, THERMAL_80_PRINTABLE_MM) : config.tagWidthMm}mm`,
+                minHeight: `${config.tagHeightMm}mm`,
+                boxSizing: "border-box",
+                overflow: "hidden",
+                padding: `${config.paddingMm}mm`,
                 background: config.backgroundColor,
                 border: config.borderStyle === "none" ? "none" : `1px ${config.borderStyle} ${config.borderColor}`,
                 borderRadius: 6,
