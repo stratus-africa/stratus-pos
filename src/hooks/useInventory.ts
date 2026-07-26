@@ -373,7 +373,6 @@ export function useInventory(
       const { data: lines, error: linesErr } = await supabase
         .from("stock_adjustments")
         .select("id, product_id, location_id, quantity_change")
-        // @ts-expect-error document_id column exists post-migration
         .eq("document_id", id);
       if (linesErr) throw linesErr;
       for (const l of (lines || [])) {
@@ -425,7 +424,6 @@ export function useInventory(
       const { data: lines, error: linesErr } = await supabase
         .from("stock_adjustments")
         .select("id, product_id, location_id, quantity_change")
-        // @ts-expect-error document_id column exists post-migration
         .eq("document_id", input.id);
       if (linesErr) throw linesErr;
       for (const l of (lines || [])) {
@@ -446,7 +444,6 @@ export function useInventory(
       const { error: delLinesErr } = await supabase
         .from("stock_adjustments")
         .delete()
-        // @ts-expect-error document_id column exists post-migration
         .eq("document_id", input.id);
       if (delLinesErr) throw delLinesErr;
 
