@@ -176,14 +176,15 @@ export default function ReceiptDialog({ open, onOpenChange, data, reprint = fals
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Receipt</DialogTitle>
+          <DialogTitle>{reprint ? "Reprint Receipt" : "Receipt"}</DialogTitle>
         </DialogHeader>
 
         <div
           ref={receiptRef}
           className="space-y-2 p-2"
-          style={{ fontFamily: cfg.fontFamily, fontSize: `${cfg.fontSize}px`, lineHeight: 1.45, width: "80mm", maxWidth: "100%", margin: "0 auto" }}
+          style={{ fontFamily: cfg.fontFamily, fontSize: `${cfg.fontSize}px`, lineHeight: 1.45, width, maxWidth: "100%", margin: "0 auto" }}
         >
+
           <div className="text-center">
             {showLogo && (
               <img
