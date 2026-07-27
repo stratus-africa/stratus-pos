@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Download, Package } from "lucide-react";
 import { toast } from "sonner";
 import { formatKES, downloadCSV } from "./reportUtils";
+import ReportTableScroll from "./ReportTableScroll";
 
 interface InventoryReportTabProps {
   inventory: any[];
@@ -47,7 +48,7 @@ const InventoryReportTab = ({ inventory, loading, showBatches = true }: Inventor
           <Card><CardContent className="pt-4 text-center"><p className="text-xs text-muted-foreground">Low Stock Items</p><p className="text-lg font-bold text-destructive">{inventory.filter((i: any) => Number(i.quantity) <= Number(i.low_stock_threshold)).length}</p></CardContent></Card>
         </div>
 
-        <div className="max-h-96 overflow-auto rounded border">
+        <ReportTableScroll>
           <Table>
             <TableHeader><TableRow>
               <TableHead>Product</TableHead><TableHead>Barcode</TableHead><TableHead>Category</TableHead><TableHead className="text-right">Qty</TableHead>{showBatches && <TableHead>Batches</TableHead>}<TableHead className="text-right">Value</TableHead><TableHead>Status</TableHead>
@@ -77,7 +78,7 @@ const InventoryReportTab = ({ inventory, loading, showBatches = true }: Inventor
               {inventory.length === 0 && <TableRow><TableCell colSpan={showBatches ? 7 : 6} className="text-center text-muted-foreground py-8">No inventory data</TableCell></TableRow>}
             </TableBody>
           </Table>
-        </div>
+        </ReportTableScroll>
       </CardContent>
     </Card>
   );

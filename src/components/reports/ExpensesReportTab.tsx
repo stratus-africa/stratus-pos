@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Download, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { formatKES, downloadCSV } from "./reportUtils";
+import ReportTableScroll from "./ReportTableScroll";
 
 interface ExpensesReportTabProps {
   expenses: any[];
@@ -98,7 +99,7 @@ const ExpensesReportTab = ({ expenses, from, to, loading }: ExpensesReportTabPro
         </div>
 
         <h3 className="font-semibold mb-2">All Expenses</h3>
-        <div className="max-h-96 overflow-auto rounded border">
+        <ReportTableScroll>
           <Table>
             <TableHeader><TableRow>
               <TableHead>Date</TableHead><TableHead>Category</TableHead><TableHead>Description</TableHead><TableHead>Method</TableHead><TableHead className="text-right">Amount</TableHead>
@@ -116,7 +117,7 @@ const ExpensesReportTab = ({ expenses, from, to, loading }: ExpensesReportTabPro
               {expenses.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No expenses in this period</TableCell></TableRow>}
             </TableBody>
           </Table>
-        </div>
+        </ReportTableScroll>
       </CardContent>
     </Card>
   );

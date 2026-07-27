@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Download, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 import { formatKES, downloadCSV } from "./reportUtils";
+import ReportTableScroll from "./ReportTableScroll";
 import { useBusiness } from "@/contexts/BusinessContext";
 
 interface SalesReportTabProps {
@@ -86,7 +87,7 @@ const SalesReportTab = ({ sales, topProducts, totalRevenue, totalTax, totalDisco
         )}
 
         <h3 className="font-semibold mb-2">All Sales</h3>
-        <div className="max-h-96 overflow-auto rounded border">
+        <ReportTableScroll>
           <Table>
             <TableHeader><TableRow>
               <TableHead>Date</TableHead><TableHead>Invoice</TableHead><TableHead>Customer</TableHead><TableHead>Batches</TableHead><TableHead className="text-right">Total</TableHead><TableHead>Status</TableHead>
@@ -110,7 +111,7 @@ const SalesReportTab = ({ sales, topProducts, totalRevenue, totalTax, totalDisco
               {sales.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No sales in this period</TableCell></TableRow>}
             </TableBody>
           </Table>
-        </div>
+        </ReportTableScroll>
       </CardContent>
     </Card>
   );

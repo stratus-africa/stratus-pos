@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Download, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 import { formatKES, downloadCSV } from "./reportUtils";
+import ReportTableScroll from "./ReportTableScroll";
 import { useBusiness } from "@/contexts/BusinessContext";
 
 interface PurchasesReportTabProps {
@@ -88,7 +89,7 @@ const PurchasesReportTab = ({ purchases, from, to, loading }: PurchasesReportTab
         )}
 
         <h3 className="font-semibold mb-2">All Purchases</h3>
-        <div className="max-h-96 overflow-auto rounded border">
+        <ReportTableScroll>
           <Table>
             <TableHeader><TableRow>
               <TableHead>Date</TableHead><TableHead>Invoice</TableHead><TableHead>Supplier</TableHead><TableHead className="text-right">Total</TableHead><TableHead>Status</TableHead><TableHead>Payment</TableHead>
@@ -107,7 +108,7 @@ const PurchasesReportTab = ({ purchases, from, to, loading }: PurchasesReportTab
               {purchases.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No purchases in this period</TableCell></TableRow>}
             </TableBody>
           </Table>
-        </div>
+        </ReportTableScroll>
       </CardContent>
     </Card>
   );
