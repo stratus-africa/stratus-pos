@@ -11,7 +11,7 @@ export interface InventoryItem {
   location_id: string;
   quantity: number;
   low_stock_threshold: number;
-  products?: { name: string; sku: string | null; selling_price: number; purchase_price: number } | null;
+  products?: { name: string; sku: string | null; barcode?: string | null; selling_price: number; purchase_price: number } | null;
   locations?: { name: string } | null;
 }
 
