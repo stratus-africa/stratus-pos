@@ -356,7 +356,7 @@ interface DetailProps {
   canEdit: boolean;
   lockApproved: boolean;
   isAssignee: boolean;
-  allProducts: { id: string; name: string; sku: string | null; category_id: string | null }[];
+  allProducts: { id: string; name: string; sku: string | null; barcode?: string | null; category_id: string | null }[];
   categories: { id: string; name: string }[];
   onAddProducts: (ids: string[]) => void;
   addingProducts: boolean;
