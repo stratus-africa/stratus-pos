@@ -77,11 +77,7 @@ export function useSupplierPayments() {
       } as any);
       if (btErr) throw btErr;
 
-      // Deduct from bank account
-      const { data: acc } = await supabase.from("bank_accounts").select("id, balance").eq("id", input.bank_account_id).maybeSingle();
-      if (acc) {
-        await supabase.from("bank_accounts").update({ balance: Number(acc.balance) - input.amount }).eq("id", acc.id);
-      }
+      // Bank account balance is maintained by the database (recomputed from transactions).
 
       // Reduce supplier balance (amount owed)
       await supabase.from("suppliers").update({ balance: Number(sup.balance || 0) - input.amount }).eq("id", input.supplier_id);
