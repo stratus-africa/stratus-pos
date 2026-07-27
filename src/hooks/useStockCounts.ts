@@ -131,7 +131,38 @@ export function useStockCounts() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /** Add more products to an existing (not yet approved) count sheet. */
+  const addItems = useMutation({
+    mutationFn: async ({ countId, locationId, productIds }: { countId: string; locationId: string; productIds: string[] }) => {
+      if (productIds.length === 0) return;
+      const { data: existing, error: exErr } = await supabase
+        .from("stock_count_items")
+        .select("product_id")
+        .eq("count_id", countId);
+      if (exErr) throw exErr;
+      const already = new Set((existing || []).map((r) => r.product_id));
+      const toAdd = productIds.filter((id) => !already.has(id));
+      if (toAdd.length === 0) throw new Error("Those products are already on the sheet");
+
+      const { data: inv, error: invErr } = await supabase
+        .from("inventory")
+        .select("product_id, quantity")
+        .eq("location_id", locationId)
+        .in("product_id", toAdd);
+      if (invErr) throw invErr;
+      const expected = new Map((inv || []).map((r) => [r.product_id, Number(r.quantity)]));
+
+      const { error } = await supabase.from("stock_count_items").insert(
+        toAdd.map((pid) => ({ count_id: countId, product_id: pid, expected_qty: expected.get(pid) ?? 0 })),
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => { invalidate(); toast.success("Products added to sheet"); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const saveCounts = useMutation({
+
     mutationFn: async ({ items }: { countId: string; items: { id: string; counted_qty: number | null; notes?: string | null }[] }) => {
       for (const it of items) {
         const { error } = await supabase
