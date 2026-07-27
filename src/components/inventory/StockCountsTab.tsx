@@ -381,6 +381,13 @@ function StockCountDetailDialog({
   const [addCategory, setAddCategory] = useState("all");
   const [addSearch, setAddSearch] = useState("");
   const [addSelected, setAddSelected] = useState<Set<string>>(new Set());
+  const [scanValue, setScanValue] = useState("");
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const scanRef = useRef<HTMLInputElement>(null);
+  const eventsQuery = useStockCountEvents(showHistory ? count.id : null);
+
+
 
   const approvedLocked = count.status === "approved" && lockApproved;
   const editable =
