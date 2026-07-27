@@ -51,14 +51,17 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   data: ReceiptData | null;
+  /** Marks the printout as a reprint and disables auto-print. */
+  reprint?: boolean;
 }
 
-export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
+export default function ReceiptDialog({ open, onOpenChange, data, reprint = false }: Props) {
   const receiptRef = useRef<HTMLDivElement>(null);
   const { business } = useBusiness();
   const cfg = loadReceiptConfig(business?.id);
+  const width = paperWidth(cfg.paper);
   const showLogo = cfg.showLogo && !!business?.logo_url;
-  const autoPrint = (business as { pos_auto_print_receipt?: boolean } | null)?.pos_auto_print_receipt ?? false;
+  const autoPrint = ((business as { pos_auto_print_receipt?: boolean } | null)?.pos_auto_print_receipt ?? false) && !reprint;
   const printFnRef = useRef<() => void>(() => {});
   const autoPrintedFor = useRef<string | null>(null);
 
@@ -71,7 +74,14 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
     return () => clearTimeout(t);
   }, [open, autoPrint, data?.saleId, data?.invoiceNumber]);
 
+  // Remember the most recent receipt so it can be reprinted later.
+  useEffect(() => {
+    if (!open || reprint || !data || !business?.id) return;
+    saveLastReceipt(business.id, data);
+  }, [open, reprint, data, business?.id]);
+
   if (!data) return null;
+
 
   const qrValue = (() => {
     if (!cfg.showQRCode) return "";
