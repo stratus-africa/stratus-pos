@@ -543,6 +543,14 @@ function StockCountDetailDialog({
           </div>
         )}
 
+        <BarcodeScanner
+          open={cameraOpen}
+          onOpenChange={setCameraOpen}
+          onDetected={(code) => { setCameraOpen(false); handleScan(code); }}
+        />
+
+
+
         {/* Mobile: stacked rows */}
         <div className="space-y-2 md:hidden max-h-[45vh] overflow-y-auto">
           {items.map((i) => {
