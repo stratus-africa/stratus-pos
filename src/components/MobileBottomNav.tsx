@@ -216,7 +216,7 @@ export function MobileBottomNav() {
             </p>
           )}
           <div className="flex-1 overflow-y-auto p-4">
-            <ul className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+            <ul className="grid grid-cols-4 gap-2 sm:grid-cols-5">
               {items.map((it) => {
                 const k = keyOf(it);
                 const active = isActive(it.to);
@@ -224,7 +224,7 @@ export function MobileBottomNav() {
                 const count = badgeFor(it.to);
                 const highlight = customizing ? picked : active;
                 const disabled = customizing && !picked && selected.length >= MAX_QUICK;
-                const className = `relative flex h-full w-full flex-col items-center justify-center gap-2 rounded-xl border p-3 aspect-square text-center transition-colors ${
+                const className = `relative flex h-full w-full flex-col items-center justify-center gap-1.5 rounded-xl border px-1.5 py-3 text-center transition-colors ${
                   highlight
                     ? "bg-primary/10 border-primary text-primary"
                     : "bg-card hover:bg-muted border-border text-foreground"
@@ -232,7 +232,7 @@ export function MobileBottomNav() {
                 const inner = (
                   <>
                     <span className="relative">
-                      <it.icon className="h-6 w-6" />
+                      <it.icon className="h-5 w-5" />
                       {!customizing && renderBadge(count)}
                       {customizing && picked && (
                         <span className="absolute -right-2 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
@@ -240,7 +240,7 @@ export function MobileBottomNav() {
                         </span>
                       )}
                     </span>
-                    <span className="text-[11px] font-medium leading-tight line-clamp-2">{it.label}</span>
+                    <span className="text-[10px] font-medium leading-tight line-clamp-2">{it.label}</span>
                   </>
                 );
                 return (
