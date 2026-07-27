@@ -128,9 +128,6 @@ export default function Banking() {
     fetchData();
   };
 
-  // Returns +1 for inflow, -1 for outflow on a non-loan account
-  const balanceSign = (type: string) =>
-    ["payment_received", "transfer_in", "owner_deposit", "loan_disbursement_received"].includes(type) ? 1 : -1;
 
   const handleCreateTransaction = async () => {
     if (!business || !user || !txnForm.bank_account_id || !txnForm.amount) {
