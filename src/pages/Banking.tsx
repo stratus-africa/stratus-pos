@@ -147,13 +147,7 @@ export default function Banking() {
     });
     if (error) { toast.error(error.message); return; }
 
-    // Update account balance
-    const acc = accounts.find((a) => a.id === txnForm.bank_account_id);
-    if (acc) {
-      const delta = balanceSign(txnForm.type) * amount;
-      const newBalance = Number(acc.balance) + delta;
-      await supabase.from("bank_accounts").update({ balance: newBalance }).eq("id", acc.id);
-    }
+    // Account balance is maintained by the database (recomputed from transactions).
 
     toast.success("Transaction recorded");
     setTxnDialogOpen(false);
