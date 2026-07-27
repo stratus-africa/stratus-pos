@@ -898,9 +898,11 @@ const Inventory = () => {
 
       <ProductDetailDialog
         productId={detailProductId}
+        locationId={effectiveLocationId ?? null}
         open={!!detailProductId}
         onOpenChange={(o) => { if (!o) setDetailProductId(null); }}
       />
+
 
 
       <StockAdjustmentDialog
