@@ -80,18 +80,23 @@ export function useNotifications() {
     await supabase.from("notifications").delete().eq("user_id", user.id);
   };
 
+  const clearRead = async () => {
+    if (!user) return;
+    await supabase.from("notifications").delete().eq("user_id", user.id).not("read_at", "is", null);
+  };
+
   const remove = async (id: string) => {
     await supabase.from("notifications").delete().eq("id", id);
   };
 
   const unread = items.filter((i) => !i.read_at).length;
 
-  return { items, unread, loading, markRead, markAllRead, clearAll, remove, reload: load };
+  return { items, unread, loading, markRead, markAllRead, clearAll, clearRead, remove, reload: load };
 }
 
 export function NotificationBell() {
   const navigate = useNavigate();
-  const { items, unread, markRead, markAllRead } = useNotifications();
+  const { items, unread, markRead, markAllRead, clearRead } = useNotifications();
 
   const preview = items.slice(0, 8);
 
@@ -120,11 +125,26 @@ export function NotificationBell() {
       <DropdownMenuContent align="end" className="w-96 p-0">
         <div className="flex items-center justify-between px-3 py-2">
           <DropdownMenuLabel className="p-0">Notifications</DropdownMenuLabel>
-          {unread > 0 && (
-            <Button variant="ghost" size="sm" className="h-6 text-[11px] gap-1" onClick={markAllRead}>
-              <CheckCheck className="h-3 w-3" /> Mark all read
-            </Button>
-          )}
+          <div className="flex items-center gap-1">
+            {unread > 0 && (
+              <Button variant="ghost" size="sm" className="h-6 text-[11px] gap-1" onClick={markAllRead}>
+                <CheckCheck className="h-3 w-3" /> Mark all read
+              </Button>
+            )}
+            {items.some((i) => i.read_at) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[11px] gap-1 text-destructive hover:text-destructive"
+                onClick={(e) => {
+                  e.preventDefault();
+                  clearRead();
+                }}
+              >
+                <Trash2 className="h-3 w-3" /> Clear read
+              </Button>
+            )}
+          </div>
         </div>
         <DropdownMenuSeparator className="m-0" />
         {preview.length === 0 ? (
