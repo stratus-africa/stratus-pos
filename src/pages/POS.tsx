@@ -770,6 +770,23 @@ const POS = () => {
                 <span className="text-[10px] font-medium">Clear</span>
               </Button>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-xs"
+              onClick={() => {
+                const last = loadLastReceipt(business?.id);
+                if (!last) {
+                  toast.error("No previous receipt found on this device.");
+                  return;
+                }
+                setReprintData(last);
+                setReprintOpen(true);
+              }}
+            >
+              <Printer className="h-3.5 w-3.5 mr-1" /> Reprint Last Receipt
+            </Button>
+
           </div>
         </CardContent>
       </Card>
