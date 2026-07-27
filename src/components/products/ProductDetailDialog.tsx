@@ -182,6 +182,68 @@ export default function ProductDetailDialog({ product: productProp, productId: p
       ? "All locations"
       : invRows.find((r) => r.location_id === selectedLocation)?.locations?.name || "Selected location";
 
+  // Unified movement timeline (purchases, sales, transfers, adjustments) for the
+  // currently selected location.
+  type TimelineEntry = {
+    id: string;
+    date: string;
+    kind: "Purchase" | "Sale" | "Transfer" | "Adjustment";
+    reference: string;
+    detail: string;
+    change: number;
+    locationId?: string | null;
+    locationName?: string;
+  };
+
+  const timeline = useMemo<TimelineEntry[]>(() => {
+    const entries: TimelineEntry[] = [];
+
+    for (const row of (purchasesQuery.data || []) as any[]) {
+      entries.push({
+        id: `p-${row.id}`,
+        date: row.purchases?.created_at || row.created_at,
+        kind: "Purchase",
+        reference: row.purchases?.invoice_number || "—",
+        detail: row.purchases?.suppliers?.name || "Supplier",
+        change: Number(row.quantity || 0),
+        locationId: row.purchases?.location_id ?? null,
+      });
+    }
+
+    for (const row of (salesQuery.data || []) as any[]) {
+      entries.push({
+        id: `s-${row.id}`,
+        date: row.sales?.created_at || row.created_at,
+        kind: "Sale",
+        reference: row.sales?.invoice_number || "—",
+        detail: row.sales?.customers?.name || "Walk-in",
+        change: -Number(row.quantity || 0),
+        locationId: row.sales?.location_id ?? null,
+      });
+    }
+
+    for (const row of (adjustmentsQuery.data || []) as any[]) {
+      const reason = String(row.reason || "");
+      const isTransfer = reason.toLowerCase().startsWith("transfer");
+      entries.push({
+        id: `a-${row.id}`,
+        date: row.created_at,
+        kind: isTransfer ? "Transfer" : "Adjustment",
+        reference: reason || "—",
+        detail: row.notes || "—",
+        change: Number(row.quantity_change || 0),
+        locationId: row.location_id ?? null,
+        locationName: row.locations?.name,
+      });
+    }
+
+    return entries
+      .filter((e) => selectedLocation === "all" || !e.locationId || e.locationId === selectedLocation)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 60);
+  }, [purchasesQuery.data, salesQuery.data, adjustmentsQuery.data, selectedLocation]);
+
+
   if (!product) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
