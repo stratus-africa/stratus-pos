@@ -833,6 +833,14 @@ const POS = () => {
         data={receiptData}
       />
 
+      <ReceiptDialog
+        open={reprintOpen}
+        onOpenChange={setReprintOpen}
+        data={reprintData}
+        reprint
+      />
+
+
       <BarcodeScanner open={scannerOpen} onOpenChange={setScannerOpen} onDetected={handleScanned} />
 
       <ScannerSettingsDialog open={scanSettingsOpen} onOpenChange={setScanSettingsOpen} />
