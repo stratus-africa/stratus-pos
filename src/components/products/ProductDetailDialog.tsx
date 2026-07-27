@@ -126,9 +126,33 @@ export default function ProductDetailDialog({ product: productProp, productId: p
     enabled: !!productId && open,
   });
 
-  if (!product) return null;
+  const invRows = (inventoryQuery.data || []) as any[];
+  const filteredInv = selectedLocation === "all" ? invRows : invRows.filter((r) => r.location_id === selectedLocation);
+  const totalQty = invRows.reduce((s, r: any) => s + Number(r.quantity || 0), 0);
+  const selectedQty = filteredInv.reduce((s, r: any) => s + Number(r.quantity || 0), 0);
+  const selectedLocationName =
+    selectedLocation === "all"
+      ? "All locations"
+      : invRows.find((r) => r.location_id === selectedLocation)?.locations?.name || "Selected location";
 
-  const totalQty = (inventoryQuery.data || []).reduce((s, r: any) => s + Number(r.quantity || 0), 0);
+  if (!product) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Loading item…</DialogTitle>
+            <DialogDescription>Fetching item details</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+            </div>
+            <Skeleton className="h-40 w-full rounded-lg" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -164,11 +188,29 @@ export default function ProductDetailDialog({ product: productProp, productId: p
               <Info label="Purchase Price" value={fmt(product.purchase_price)} />
               <Info label="Selling Price" value={fmt(product.selling_price)} />
               <Info label="Tax Rate" value={`${product.tax_rate ?? 0}%`} />
-              <Info label="Total Stock" value={<span className="font-semibold">{totalQty}</span>} />
+              <Info
+                label={selectedLocation === "all" ? "Total Stock" : `Stock · ${selectedLocationName}`}
+                value={
+                  inventoryQuery.isLoading
+                    ? <Skeleton className="h-4 w-10" />
+                    : <span className="font-semibold">{selectedLocation === "all" ? totalQty : selectedQty}</span>
+                }
+              />
             </div>
 
             <div>
-              <h4 className="text-sm font-semibold mb-2">Stock by Location</h4>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <h4 className="text-sm font-semibold">Stock by Location</h4>
+                <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                  <SelectTrigger className="h-8 w-[200px]"><SelectValue placeholder="Location" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Locations</SelectItem>
+                    {invRows.map((r) => (
+                      <SelectItem key={r.location_id || r.id} value={r.location_id}>{r.locations?.name || "—"}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -180,11 +222,17 @@ export default function ProductDetailDialog({ product: productProp, productId: p
                 </TableHeader>
                 <TableBody>
                   {inventoryQuery.isLoading ? (
-                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>
-                  ) : (inventoryQuery.data || []).length === 0 ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                      <TableRow key={i}>
+                        {Array.from({ length: 4 }).map((__, j) => (
+                          <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : filteredInv.length === 0 ? (
                     <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">No inventory records</TableCell></TableRow>
                   ) : (
-                    (inventoryQuery.data as any[]).map((row) => {
+                    filteredInv.map((row) => {
                       const low = Number(row.quantity) <= Number(row.low_stock_threshold);
                       return (
                         <TableRow key={row.id}>
@@ -198,6 +246,7 @@ export default function ProductDetailDialog({ product: productProp, productId: p
                       );
                     })
                   )}
+
                 </TableBody>
               </Table>
             </div>
