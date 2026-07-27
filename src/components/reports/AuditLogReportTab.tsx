@@ -10,6 +10,7 @@ import { Search, Download, FileText, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import ReportTableScroll from "./ReportTableScroll";
 
 interface AuditLog {
   id: string;
@@ -238,64 +239,66 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
 
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>User</TableHead>
-                <TableHead>Action</TableHead>
-                <TableHead>Entity</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead className="w-[60px] text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
-              ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No audit entries match filters</TableCell></TableRow>
-              ) : (
-                filtered.map((l) => {
-                  const meta = l.metadata || {};
-                  const extra = [meta.invoice_number, meta.total ? `Total: ${meta.total}` : null].filter(Boolean).join(" • ");
-                  const printable = hasSnapshot(l);
-                  return (
-                    <TableRow key={l.id}>
-                      <TableCell className="text-xs whitespace-nowrap">{format(new Date(l.created_at), "dd MMM yyyy HH:mm")}</TableCell>
-                      <TableCell>
-                        <div className="text-sm font-medium">{l.user_name || "—"}</div>
-                        <div className="text-xs text-muted-foreground">{l.user_email || ""}</div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={actionColor(l.action) as any} className="capitalize">{l.action.replace(/_/g, " ")}</Badge>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {l.entity_type ? <span className="capitalize">{l.entity_type}</span> : "—"}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-[400px]">
-                        <div className="truncate" title={l.description || ""}>{l.description || "—"}</div>
-                        {extra && <div className="text-xs text-muted-foreground/80 mt-0.5">{extra}</div>}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {printable && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 px-2"
-                            onClick={() => setPreviewLog(l)}
-                            aria-label="Print preview deleted record"
-                            title="Print preview deleted record"
-                          >
-                            <Printer className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+          <ReportTableScroll>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>User</TableHead>
+                  <TableHead>Action</TableHead>
+                  <TableHead>Entity</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="w-[60px] text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
+                ) : filtered.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No audit entries match filters</TableCell></TableRow>
+                ) : (
+                  filtered.map((l) => {
+                    const meta = l.metadata || {};
+                    const extra = [meta.invoice_number, meta.total ? `Total: ${meta.total}` : null].filter(Boolean).join(" • ");
+                    const printable = hasSnapshot(l);
+                    return (
+                      <TableRow key={l.id}>
+                        <TableCell className="text-xs whitespace-nowrap">{format(new Date(l.created_at), "dd MMM yyyy HH:mm")}</TableCell>
+                        <TableCell>
+                          <div className="text-sm font-medium">{l.user_name || "—"}</div>
+                          <div className="text-xs text-muted-foreground">{l.user_email || ""}</div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={actionColor(l.action) as any} className="capitalize">{l.action.replace(/_/g, " ")}</Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {l.entity_type ? <span className="capitalize">{l.entity_type}</span> : "—"}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground max-w-[400px]">
+                          <div className="truncate" title={l.description || ""}>{l.description || "—"}</div>
+                          {extra && <div className="text-xs text-muted-foreground/80 mt-0.5">{extra}</div>}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {printable && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2"
+                              onClick={() => setPreviewLog(l)}
+                              aria-label="Print preview deleted record"
+                              title="Print preview deleted record"
+                            >
+                              <Printer className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </ReportTableScroll>
         </CardContent>
       </Card>
 

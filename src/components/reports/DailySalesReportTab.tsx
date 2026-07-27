@@ -9,6 +9,7 @@ import { TrendingUp, ShoppingCart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { formatKES, downloadCSV } from "./reportUtils";
+import ReportTableScroll from "./ReportTableScroll";
 
 interface Props {
   from: string;
@@ -169,28 +170,30 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Method</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {stats.byPay.length === 0 ? (
+            <ReportTableScroll>
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={2} className="text-sm text-muted-foreground">No data.</TableCell>
+                    <TableHead>Method</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
                   </TableRow>
-                ) : (
-                  stats.byPay.map(([m, t]) => (
-                    <TableRow key={m}>
-                      <TableCell className="capitalize">{m}</TableCell>
-                      <TableCell className="text-right">{formatKES(t)}</TableCell>
+                </TableHeader>
+                <TableBody>
+                  {stats.byPay.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={2} className="text-sm text-muted-foreground">No data.</TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    stats.byPay.map(([m, t]) => (
+                      <TableRow key={m}>
+                        <TableCell className="capitalize">{m}</TableCell>
+                        <TableCell className="text-right">{formatKES(t)}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </ReportTableScroll>
           </CardContent>
         </Card>
 
@@ -201,30 +204,32 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Item</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Revenue</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {stats.topItems.length === 0 ? (
+            <ReportTableScroll>
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={3} className="text-sm text-muted-foreground">No data.</TableCell>
+                    <TableHead>Item</TableHead>
+                    <TableHead className="text-right">Qty</TableHead>
+                    <TableHead className="text-right">Revenue</TableHead>
                   </TableRow>
-                ) : (
-                  stats.topItems.map(([name, v]) => (
-                    <TableRow key={name}>
-                      <TableCell className="truncate max-w-[200px]">{name}</TableCell>
-                      <TableCell className="text-right">{v.qty}</TableCell>
-                      <TableCell className="text-right">{formatKES(v.total)}</TableCell>
+                </TableHeader>
+                <TableBody>
+                  {stats.topItems.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-sm text-muted-foreground">No data.</TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    stats.topItems.map(([name, v]) => (
+                      <TableRow key={name}>
+                        <TableCell className="truncate max-w-[200px]">{name}</TableCell>
+                        <TableCell className="text-right">{v.qty}</TableCell>
+                        <TableCell className="text-right">{formatKES(v.total)}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </ReportTableScroll>
           </CardContent>
         </Card>
       </div>
@@ -234,36 +239,38 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
           <CardTitle className="text-base">Sales ({stats.count})</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Time</TableHead>
-                <TableHead>Invoice</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {stats.active.length === 0 ? (
+          <ReportTableScroll>
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={5} className="text-sm text-muted-foreground">No sales in this range.</TableCell>
+                  <TableHead>Time</TableHead>
+                  <TableHead>Invoice</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
-              ) : (
-                stats.active.slice((page - 1) * pageSize, page * pageSize).map((s: any) => (
-                  <TableRow key={s.id}>
-                    <TableCell>{new Date(s.created_at).toLocaleString()}</TableCell>
-                    <TableCell>{s.invoice_number || "—"}</TableCell>
-                    <TableCell>{s.customers?.name || "Walk-in"}</TableCell>
-                    <TableCell className="text-right">{formatKES(Number(s.total))}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="capitalize">{s.status}</Badge>
-                    </TableCell>
+              </TableHeader>
+              <TableBody>
+                {stats.active.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-sm text-muted-foreground">No sales in this range.</TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  stats.active.slice((page - 1) * pageSize, page * pageSize).map((s: any) => (
+                    <TableRow key={s.id}>
+                      <TableCell>{new Date(s.created_at).toLocaleString()}</TableCell>
+                      <TableCell>{s.invoice_number || "—"}</TableCell>
+                      <TableCell>{s.customers?.name || "Walk-in"}</TableCell>
+                      <TableCell className="text-right">{formatKES(Number(s.total))}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="capitalize">{s.status}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </ReportTableScroll>
 
           {stats.active.length > 0 && (
             <div className="flex flex-wrap items-center justify-between gap-3 mt-4">

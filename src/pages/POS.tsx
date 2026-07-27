@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   ShoppingCart, Search, Plus, Minus, Trash2, Pause, Play, X,
   User, List, LayoutGrid, Sunrise, Banknote, Smartphone, CreditCard, ScanLine,
-  ChevronUp, ChevronDown, Settings2, Printer,
+  ChevronUp, ChevronDown, Settings2, Printer, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useProducts, useCategories } from "@/hooks/useProducts";
@@ -467,18 +467,46 @@ const POS = () => {
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
               ref={searchInputRef}
-              placeholder="Search or scan... (F2)"
+              placeholder="Search or scan... (F2 focus · Esc clear)"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setSearch("");
+                  return;
+                }
                 if (e.key === "Enter" && search.trim()) {
                   e.preventDefault();
+                  // Enter-to-select: if the current filter narrows to exactly one
+                  // product, add it straight to the cart; otherwise treat the text
+                  // as a scanned/typed barcode lookup.
+                  if (activeProducts.length === 1) {
+                    pos.addToCart(activeProducts[0]);
+                    setSearch("");
+                    return;
+                  }
                   handleScanned(search.trim());
                 }
               }}
-              className="pl-9"
+              className="pl-9 pr-9"
               autoFocus
+              aria-label="Search or scan products"
             />
+            {productsQuery.isFetching ? (
+              <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin text-muted-foreground" />
+            ) : search ? (
+              <button
+                type="button"
+                aria-label="Clear search"
+                title="Clear search (Esc)"
+                onClick={() => { setSearch(""); searchInputRef.current?.focus(); }}
+                className="absolute right-2 top-1.5 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
           </div>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger className="w-24 sm:w-40 shrink-0">
