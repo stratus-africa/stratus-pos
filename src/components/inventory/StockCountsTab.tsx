@@ -375,6 +375,10 @@ function StockCountDetailDialog({
     Object.fromEntries(items.map((i) => [i.id, i.counted_qty === null ? "" : String(i.counted_qty)])),
   );
   const [rejectReason, setRejectReason] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const [addCategory, setAddCategory] = useState("all");
+  const [addSearch, setAddSearch] = useState("");
+  const [addSelected, setAddSelected] = useState<Set<string>>(new Set());
 
   const approvedLocked = count.status === "approved" && lockApproved;
   const editable =
@@ -395,6 +399,15 @@ function StockCountDetailDialog({
     return s + (Number(v) - Number(i.expected_qty));
   }, 0);
 
+  const existingProductIds = new Set(items.map((i) => i.product_id));
+  const addCandidates = allProducts.filter((p) => {
+    if (existingProductIds.has(p.id)) return false;
+    if (addCategory !== "all" && p.category_id !== addCategory) return false;
+    const q = addSearch.trim().toLowerCase();
+    if (!q) return true;
+    return p.name.toLowerCase().includes(q) || (p.sku || "").toLowerCase().includes(q);
+  });
+
   const varianceClass = (variance: number | null) =>
     variance === null ? "" : variance < 0 ? "text-destructive" : variance > 0 ? "text-emerald-600" : "";
 
@@ -413,6 +426,68 @@ function StockCountDetailDialog({
             )}
           </DialogDescription>
         </DialogHeader>
+
+        {editable && canEdit && (
+          <div className="rounded-md border p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm">Add more products</Label>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setAddOpen((v) => !v)}>
+                {addOpen ? "Close" : "Add products"}
+              </Button>
+            </div>
+            {addOpen && (
+              <div className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Select value={addCategory} onValueChange={setAddCategory}>
+                    <SelectTrigger><SelectValue placeholder="All categories" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All categories</SelectItem>
+                      {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Input placeholder="Search products…" value={addSearch} onChange={(e) => setAddSearch(e.target.value)} />
+                </div>
+                <div className="max-h-44 overflow-y-auto rounded-md border divide-y">
+                  {addCandidates.map((p) => (
+                    <label key={p.id} className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer">
+                      <Checkbox
+                        checked={addSelected.has(p.id)}
+                        onCheckedChange={() => setAddSelected((prev) => {
+                          const next = new Set(prev);
+                          next.has(p.id) ? next.delete(p.id) : next.add(p.id);
+                          return next;
+                        })}
+                      />
+                      <span className="flex-1 min-w-0 truncate">{p.name}</span>
+                      <span className="text-xs text-muted-foreground shrink-0">{p.sku}</span>
+                    </label>
+                  ))}
+                  {addCandidates.length === 0 && (
+                    <p className="p-3 text-sm text-muted-foreground text-center">No more products to add.</p>
+                  )}
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    size="sm" variant="outline" disabled={addCategory === "all"}
+                    onClick={() => setAddSelected((prev) => {
+                      const next = new Set(prev);
+                      addCandidates.filter((p) => p.category_id === addCategory).forEach((p) => next.add(p.id));
+                      return next;
+                    })}
+                  >
+                    Select category
+                  </Button>
+                  <Button
+                    size="sm" disabled={addSelected.size === 0 || addingProducts}
+                    onClick={() => { onAddProducts(Array.from(addSelected)); setAddSelected(new Set()); }}
+                  >
+                    {addingProducts ? "Adding…" : `Add ${addSelected.size || ""}`.trim()}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Mobile: stacked rows */}
         <div className="space-y-2 md:hidden max-h-[45vh] overflow-y-auto">
