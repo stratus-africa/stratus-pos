@@ -120,15 +120,16 @@ export default function ReceiptDialog({ open, onOpenChange, data, reprint = fals
     win.document.write(`
       <html><head><title>Receipt</title>
       <style>
-        @page { size: 80mm auto; margin: 0; }
+        @page { size: ${cfg.paper === "a4" ? "A4" : `${width} auto`}; margin: 0; }
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; background: #fff; color: #000; }
         body {
           font-family: ${cfg.fontFamily};
           font-size: ${cfg.fontSize}px;
           line-height: 1.45;
-          width: 80mm;
+          width: ${width};
           padding: 3mm;
+
         }
         /* utility classes mirrored from the on-screen receipt design */
         .text-center, .center { text-align: center; }
