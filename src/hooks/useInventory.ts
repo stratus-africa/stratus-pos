@@ -379,13 +379,18 @@ export function useInventory(
   const deleteAdjustmentDocument = useMutation({
     mutationFn: async (id: string) => {
       assertCanPost();
-      // Load lines to reverse inventory
-      const { data: lines, error: linesErr } = await supabase
+      // Delete the LINES first and use the returned rows to reverse inventory.
+      // Deleting first makes the operation idempotent: a repeated/concurrent delete
+      // returns zero rows and therefore reverses nothing (previously it reversed the
+      // same quantities twice and drove stock negative).
+      const { data: deletedLines, error: linesErr } = await supabase
         .from("stock_adjustments")
-        .select("id, product_id, location_id, quantity_change")
-        .eq("document_id", id);
+        .delete()
+        .eq("document_id", id)
+        .select("id, product_id, location_id, quantity_change");
       if (linesErr) throw linesErr;
-      for (const l of (lines || [])) {
+
+      for (const l of (deletedLines || [])) {
         const { data: inv } = await supabase
           .from("inventory")
           .select("id, quantity")
@@ -400,7 +405,7 @@ export function useInventory(
           if (error) throw error;
         }
       }
-      // Cascade removes stock_adjustments rows
+
       const { error: delErr } = await (supabase as unknown as {
         from: (t: string) => { delete: () => { eq: (k: string, v: unknown) => Promise<{ error: unknown }> } };
       })
@@ -409,6 +414,7 @@ export function useInventory(
         .eq("id", id);
       if (delErr) throw delErr as Error;
     },
+
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["stock_adjustments"] });
