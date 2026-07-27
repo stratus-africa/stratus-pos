@@ -166,7 +166,11 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
           <DialogTitle>Receipt</DialogTitle>
         </DialogHeader>
 
-        <div ref={receiptRef} className="text-xs font-mono space-y-2 p-2">
+        <div
+          ref={receiptRef}
+          className="space-y-2 p-2"
+          style={{ fontFamily: cfg.fontFamily, fontSize: `${cfg.fontSize}px`, lineHeight: 1.45, width: "80mm", maxWidth: "100%", margin: "0 auto" }}
+        >
           <div className="text-center">
             {showLogo && (
               <img
@@ -176,10 +180,19 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
                 crossOrigin="anonymous"
               />
             )}
-            <p className="font-bold text-sm">{data.businessName}</p>
+            <p className="font-bold" style={{ fontSize: `${cfg.headerFontSize}px` }}>
+              {cfg.header || data.businessName}
+            </p>
+            {cfg.showAddress && (business as { address?: string } | null)?.address && (
+              <p>{(business as { address?: string }).address}</p>
+            )}
+            {cfg.showPhone && (business as { phone?: string } | null)?.phone && (
+              <p>{(business as { phone?: string }).phone}</p>
+            )}
             <p>{data.locationName}</p>
             <p>{format(data.date, "PPp")}</p>
           </div>
+
 
           {cfg.qrCodePosition === "header" && qrBlock}
 
