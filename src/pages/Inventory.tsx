@@ -89,6 +89,14 @@ const Inventory = () => {
   const [search, setSearch] = useState<string>(initialStr("q", ""));
   const [adjDialogOpen, setAdjDialogOpen] = useState(false);
   const [detailProductId, setDetailProductId] = useState<string | null>(null);
+  const detailLockRef = useRef(false);
+  const openProductDetail = (id?: string | null) => {
+    if (!id || detailLockRef.current) return;
+    detailLockRef.current = true;
+    setDetailProductId(id);
+    window.setTimeout(() => { detailLockRef.current = false; }, 400);
+  };
+
 
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<AdjustmentDocument | null>(null);
