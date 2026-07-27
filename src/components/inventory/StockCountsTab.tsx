@@ -417,6 +417,29 @@ function StockCountDetailDialog({
     return p.name.toLowerCase().includes(q) || (p.sku || "").toLowerCase().includes(q);
   });
 
+  /** Match a scanned code against barcode/SKU and queue the product for adding. */
+  const handleScan = (raw: string) => {
+    const code = raw.trim();
+    if (!code) return;
+    const candidates = parseBarcode(code).candidates.map((c) => c.toLowerCase());
+    const match = allProducts.find((p) => {
+      const bc = (p.barcode || "").toLowerCase();
+      const sku = (p.sku || "").toLowerCase();
+      return (bc && candidates.includes(bc)) || (sku && candidates.includes(sku));
+    });
+    setScanValue("");
+    if (!match) {
+      toast.error(`No product matches "${code}"`);
+      return;
+    }
+    if (existingProductIds.has(match.id)) {
+      toast.info(`${match.name} is already on this sheet`);
+      return;
+    }
+    setAddSelected((prev) => new Set(prev).add(match.id));
+    toast.success(`${match.name} queued`);
+  };
+
   const varianceClass = (variance: number | null) =>
     variance === null ? "" : variance < 0 ? "text-destructive" : variance > 0 ? "text-emerald-600" : "";
 
