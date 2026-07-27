@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ClipboardCheck, ArrowLeftRight, Download, ChevronLeft, ChevronRight, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Printer } from "lucide-react";
+import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ClipboardCheck, ArrowLeftRight, Download, ChevronLeft, ChevronRight, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Printer, Upload } from "lucide-react";
 import { StockCountsTab } from "@/components/inventory/StockCountsTab";
 
 import { useInventory, classifyMovement, type MovementSource, type SortKey, type StockAdjustment, type AdjustmentDocument } from "@/hooks/useInventory";
@@ -19,6 +19,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { usePurchases } from "@/hooks/usePurchases";
 import { StockAdjustmentDialog, type AdjustStockSubmit } from "@/components/inventory/StockAdjustmentDialog";
+import { ImportAdjustmentsDialog } from "@/components/inventory/ImportAdjustmentsDialog";
 import { EditAdjustmentDocumentDialog } from "@/components/inventory/EditAdjustmentDocumentDialog";
 
 const PAGE_SIZE_OPTIONS = [25, 100, 200] as const;
@@ -85,6 +86,7 @@ const Inventory = () => {
   const [locationFilter, setLocationFilter] = useState<string>(currentLocation?.id || "all");
   const [search, setSearch] = useState<string>(initialStr("q", ""));
   const [adjDialogOpen, setAdjDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<AdjustmentDocument | null>(null);
   const [selectedAdjIds, setSelectedAdjIds] = useState<Set<string>>(new Set());
 
@@ -584,9 +586,14 @@ const Inventory = () => {
           <Card>
             <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 space-y-0">
               <CardTitle className="text-lg">Stock Adjustments</CardTitle>
-              <Button variant="outline" size="sm" onClick={() => exportAdjustments()} disabled={documentsFiltered.length === 0} className="hidden sm:inline-flex">
-                <Download className="mr-2 h-4 w-4" /> Export CSV
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
+                  <Upload className="mr-2 h-4 w-4" /> Import
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => exportAdjustments()} disabled={documentsFiltered.length === 0} className="hidden sm:inline-flex">
+                  <Download className="mr-2 h-4 w-4" /> Export CSV
+                </Button>
+              </div>
             </CardHeader>
             <div className="grid grid-cols-2 gap-2 px-6 py-3 border-b items-start sm:items-center">
               <div className="relative">
@@ -865,6 +872,13 @@ const Inventory = () => {
         onOpenChange={setAdjDialogOpen}
         onSubmit={handleAdjust}
         isLoading={adjustStock.isPending || createPurchase.isPending}
+      />
+
+      <ImportAdjustmentsDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        onSubmit={handleAdjust}
+        isLoading={adjustStock.isPending}
       />
 
       <EditAdjustmentDocumentDialog
