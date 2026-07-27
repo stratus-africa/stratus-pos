@@ -50,6 +50,38 @@ export interface CreateStockCountInput {
   product_ids: string[];
 }
 
+export interface StockCountEvent {
+  id: string;
+  count_id: string;
+  item_id: string | null;
+  product_id: string | null;
+  action: string;
+  old_value: string | null;
+  new_value: string | null;
+  note: string | null;
+  user_id: string | null;
+  user_name: string | null;
+  created_at: string;
+}
+
+/** Audit trail for a single stock count sheet. */
+export function useStockCountEvents(countId?: string | null) {
+  return useQuery({
+    queryKey: ["stock_count_events", countId],
+    queryFn: async (): Promise<StockCountEvent[]> => {
+      if (!countId) return [];
+      const { data, error } = await supabase
+        .from("stock_count_events" as never)
+        .select("*")
+        .eq("count_id", countId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data || []) as unknown as StockCountEvent[];
+    },
+    enabled: !!countId,
+  });
+}
+
 export function useStockCounts() {
   const { business } = useBusiness();
   const { user } = useAuth();
