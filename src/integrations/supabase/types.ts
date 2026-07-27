@@ -393,6 +393,7 @@ export type Database = {
           name: string
           owner_id: string | null
           phone: string | null
+          pos_auto_print_receipt: boolean
           pos_hide_zero_stock: boolean
           pos_manager_approver_id: string | null
           pos_require_manager_to_remove_item: boolean
@@ -455,6 +456,7 @@ export type Database = {
           name: string
           owner_id?: string | null
           phone?: string | null
+          pos_auto_print_receipt?: boolean
           pos_hide_zero_stock?: boolean
           pos_manager_approver_id?: string | null
           pos_require_manager_to_remove_item?: boolean
@@ -517,6 +519,7 @@ export type Database = {
           name?: string
           owner_id?: string | null
           phone?: string | null
+          pos_auto_print_receipt?: boolean
           pos_hide_zero_stock?: boolean
           pos_manager_approver_id?: string | null
           pos_require_manager_to_remove_item?: boolean
