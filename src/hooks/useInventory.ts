@@ -301,24 +301,34 @@ export function useInventory(
       if (loadErr) throw loadErr;
       if (!existing) throw new Error("Adjustment not found");
 
-      // Reverse the effect on inventory
-      const { data: inv } = await supabase
-        .from("inventory")
-        .select("id, quantity")
-        .eq("product_id", existing.product_id)
-        .eq("location_id", existing.location_id)
-        .maybeSingle();
-      if (inv) {
-        const { error } = await supabase
-          .from("inventory")
-          .update({ quantity: Number(inv.quantity) - Number(existing.quantity_change) })
-          .eq("id", inv.id);
-        if (error) throw error;
-      }
-
-      const { error: delErr } = await supabase.from("stock_adjustments").delete().eq("id", id);
+      // Delete FIRST and use the returned rows as the source of truth. If the row
+      // was already removed (double-click / concurrent delete) nothing comes back
+      // and we must NOT reverse inventory again — that is what pushed stock negative.
+      const { data: deleted, error: delErr } = await supabase
+        .from("stock_adjustments")
+        .delete()
+        .eq("id", id)
+        .select("id, product_id, location_id, quantity_change");
       if (delErr) throw delErr;
+      if (!deleted || deleted.length === 0) return;
+
+      for (const row of deleted) {
+        const { data: inv } = await supabase
+          .from("inventory")
+          .select("id, quantity")
+          .eq("product_id", row.product_id)
+          .eq("location_id", row.location_id)
+          .maybeSingle();
+        if (inv) {
+          const { error } = await supabase
+            .from("inventory")
+            .update({ quantity: Number(inv.quantity) - Number(row.quantity_change) })
+            .eq("id", inv.id);
+          if (error) throw error;
+        }
+      }
     },
+
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["stock_adjustments"] });
