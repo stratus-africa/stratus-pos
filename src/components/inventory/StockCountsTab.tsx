@@ -303,7 +303,7 @@ export function StockCountsTab() {
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                className="pl-8" placeholder="Search products…"
+                className="pl-8" placeholder="Search by name, SKU or barcode…"
                 value={productSearch} onChange={(e) => setProductSearch(e.target.value)}
               />
             </div>
@@ -511,7 +511,7 @@ function StockCountDetailDialog({
                       {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                  <Input placeholder="Search products…" value={addSearch} onChange={(e) => setAddSearch(e.target.value)} />
+                  <Input placeholder="Search by name, SKU or barcode…" value={addSearch} onChange={(e) => setAddSearch(e.target.value)} />
                 </div>
                 <div className="max-h-44 overflow-y-auto rounded-md border divide-y">
                   {addCandidates.map((p) => (
