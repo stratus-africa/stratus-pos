@@ -748,6 +748,16 @@ const POS = () => {
               </Button>
               <Button
                 variant="outline"
+                className="flex flex-col items-center gap-0.5 h-auto py-2"
+                disabled={pos.heldSales.length === 0}
+                onClick={() => setResumeOpen(true)}
+                title="Resume a suspended sale"
+              >
+                <Play className="h-4 w-4" />
+                <span className="text-[10px] font-medium">Resume Sale{pos.heldSales.length ? ` (${pos.heldSales.length})` : ""}</span>
+              </Button>
+              <Button
+                variant="outline"
                 className="flex flex-col items-center gap-0.5 h-auto py-2 border-destructive text-destructive hover:bg-destructive/10"
                 disabled={pos.cart.length === 0}
                 onClick={pos.clearCart}
@@ -759,6 +769,33 @@ const POS = () => {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={resumeOpen} onOpenChange={setResumeOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Resume a suspended sale</DialogTitle></DialogHeader>
+          <div className="space-y-2 max-h-[50vh] overflow-y-auto">
+            {pos.heldSales.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-6">No suspended sales.</p>
+            )}
+            {pos.heldSales.map((h) => (
+              <div key={h.id} className="flex items-center justify-between gap-2 rounded-md border p-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{h.label}</p>
+                  <p className="text-xs text-muted-foreground">{h.items?.length ?? 0} item(s)</p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button size="sm" onClick={() => { pos.resumeSale(h.id); setResumeOpen(false); }}>
+                    <Play className="h-3.5 w-3.5 mr-1" /> Resume
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => pos.removeHeldSale(h.id)}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <PaymentDialog
         open={paymentOpen}
