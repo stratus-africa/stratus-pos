@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, MapPin, Users, Receipt, CreditCard, ShieldCheck, Wallet, Smartphone, Palette, Hash, Plug, FileCheck2, Percent, Printer, MonitorSmartphone } from "lucide-react";
+import { Building2, MapPin, Users, Receipt, CreditCard, ShieldCheck, Wallet, Smartphone, Palette, Hash, Plug, FileCheck2, Printer, MonitorSmartphone } from "lucide-react";
 import CashDrawerTab from "@/components/settings/CashDrawerTab";
 import CustomerDisplayTab from "@/components/settings/CustomerDisplayTab";
 import { BusinessProfileTab } from "@/components/settings/BusinessProfileTab";
@@ -20,6 +20,7 @@ import { useFeatureLimit } from "@/components/FeatureGate";
 
 import { useSearchParams } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { useMemo, useState, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
