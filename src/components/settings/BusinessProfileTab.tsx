@@ -34,6 +34,8 @@ export function BusinessProfileTab() {
   const [posShowStockQty, setPosShowStockQty] = useState<boolean>((business as { pos_show_stock_qty?: boolean })?.pos_show_stock_qty ?? true);
   const [posHideZeroStock, setPosHideZeroStock] = useState<boolean>((business as { pos_hide_zero_stock?: boolean })?.pos_hide_zero_stock ?? true);
   const [lockApprovedStockCounts, setLockApprovedStockCounts] = useState<boolean>((business as { lock_approved_stock_counts?: boolean })?.lock_approved_stock_counts ?? true);
+  const [autoPrintReceipt, setAutoPrintReceipt] = useState<boolean>((business as { pos_auto_print_receipt?: boolean })?.pos_auto_print_receipt ?? false);
+
 
   const [remindUnpaidPurchases, setRemindUnpaidPurchases] = useState<boolean>((business as { reminders_unpaid_purchases?: boolean })?.reminders_unpaid_purchases ?? false);
   const [remindUnpostedExpenses, setRemindUnpostedExpenses] = useState<boolean>((business as { reminders_unposted_expenses?: boolean })?.reminders_unposted_expenses ?? false);
