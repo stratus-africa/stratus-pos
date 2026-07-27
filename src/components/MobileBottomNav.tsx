@@ -209,7 +209,7 @@ export function MobileBottomNav() {
           </SheetTrigger>
         </div>
 
-        <SheetContent side="bottom" className="h-[90vh] p-0 flex flex-col">
+        <SheetContent side="bottom" className="max-h-[90vh] p-0 flex flex-col rounded-t-2xl">
           <SheetHeader className="px-4 py-3 border-b">
             <SheetTitle className="flex items-center justify-between gap-2 text-base">
               <span className="flex items-center gap-2">
@@ -283,7 +283,7 @@ export function MobileBottomNav() {
               </div>
             </div>
           )}
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto px-4 pb-3 pt-3">
             <ul className="grid grid-cols-4 gap-2 sm:grid-cols-5">
               {items.map((it) => {
                 const k = keyOf(it);
