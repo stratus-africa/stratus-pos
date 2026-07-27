@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,12 +11,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { ClipboardCheck, Lock, Plus, Search, Trash2 } from "lucide-react";
+import { Camera, ClipboardCheck, History, Lock, Plus, ScanLine, Search, Trash2 } from "lucide-react";
+import BarcodeScanner from "@/components/BarcodeScanner";
+import { parseBarcode } from "@/lib/barcodeScan";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useProducts, useCategories } from "@/hooks/useProducts";
-import { useStockCounts, type StockCount, type StockCountStatus } from "@/hooks/useStockCounts";
+import { useStockCounts, useStockCountEvents, type StockCount, type StockCountStatus } from "@/hooks/useStockCounts";
 import { toast } from "sonner";
 
 const statusMeta: Record<StockCountStatus, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
