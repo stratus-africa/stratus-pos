@@ -736,28 +736,24 @@ const POS = () => {
               </Button>
               <Button
                 variant="outline"
-                className="flex flex-col items-center gap-0.5 h-auto py-2 bg-yellow-500 text-white border-yellow-500 hover:bg-yellow-600"
-                disabled={pos.cart.length === 0}
+                className={`flex flex-col items-center gap-0.5 h-auto py-2 ${isResume ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90" : "bg-yellow-500 text-white border-yellow-500 hover:bg-yellow-600"}`}
+                disabled={isResume ? pos.heldSales.length === 0 : pos.cart.length === 0}
                 onClick={() => {
+                  if (isResume) {
+                    setResumeOpen(true);
+                    return;
+                  }
                   const suggested = pos.customerName || `Sale ${new Date().toLocaleTimeString()}`;
                   const label = window.prompt("Name this parked sale:", suggested);
                   if (label === null) return; // cancelled
                   void pos.holdSale(label);
                 }}
-                title="Park sale (F9)"
+                title={isResume ? "Resume a suspended sale" : "Park sale (F9)"}
               >
-                <Pause className="h-4 w-4" />
-                <span className="text-[10px] font-medium">Suspend Sale</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="flex flex-col items-center gap-0.5 h-auto py-2"
-                disabled={pos.heldSales.length === 0}
-                onClick={() => setResumeOpen(true)}
-                title="Resume a suspended sale"
-              >
-                <Play className="h-4 w-4" />
-                <span className="text-[10px] font-medium">Resume Sale{pos.heldSales.length ? ` (${pos.heldSales.length})` : ""}</span>
+                {isResume ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+                <span className="text-[10px] font-medium">
+                  {isResume ? `Resume Sale${pos.heldSales.length ? ` (${pos.heldSales.length})` : ""}` : "Suspend Sale"}
+                </span>
               </Button>
               <Button
                 variant="outline"
