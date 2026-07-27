@@ -113,7 +113,7 @@ const StockReportTab = ({ from, to, locationId, initialProductId }: Props) => {
       if (ids.length === 0) return [];
       let prodQ = supabase
         .from("products")
-        .select("id, sku, name, units(name), purchase_price, selling_price, category_id, brand_id, categories(name), brands(name)")
+        .select("id, sku, barcode, name, units(name), purchase_price, selling_price, category_id, brand_id, categories(name), brands(name)")
         .eq("business_id", business.id)
         .in("id", ids)
         .order("name");
@@ -162,7 +162,7 @@ const StockReportTab = ({ from, to, locationId, initialProductId }: Props) => {
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return products.filter((p: any) =>
-      !q || p.name?.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q) || p.categories?.name?.toLowerCase().includes(q)
+      !q || p.name?.toLowerCase().includes(q) || p.barcode?.toLowerCase().includes(q) || p.categories?.name?.toLowerCase().includes(q)
     );
   }, [products, search]);
 
@@ -178,7 +178,7 @@ const StockReportTab = ({ from, to, locationId, initialProductId }: Props) => {
     downloadCSV(
       "sales_by_item.csv",
       ["Code", "Name", "Category", "Sold Qty", "Revenue", "COGS", "Profit", "Current Stock", "Unit"],
-      filtered.map((p: any) => [p.sku || "", p.name, p.categories?.name || "", p._sold.qty, p._sold.total, p._cost, p._profit, p._stock.total, p.unit || ""])
+      filtered.map((p: any) => [p.barcode || "", p.name, p.categories?.name || "", p._sold.qty, p._sold.total, p._cost, p._profit, p._stock.total, p.unit || ""])
     );
   };
 
@@ -276,7 +276,7 @@ const StockReportTab = ({ from, to, locationId, initialProductId }: Props) => {
             <TableBody>
               {pageItems.map((p: any) => (
                 <TableRow key={p.id}>
-                  <TableCell className="font-mono text-xs">{p.sku || "—"}</TableCell>
+                  <TableCell className="font-mono text-xs">{p.barcode || "—"}</TableCell>
                   <TableCell>{p.name}</TableCell>
                   <TableCell>{p.categories?.name || "—"}</TableCell>
                   <TableCell className="text-right">{p._sold.qty.toLocaleString()} {p.unit || ""}</TableCell>
@@ -400,7 +400,7 @@ const StockReportDetail = ({ product, from, to, onBack }: { product: any; from: 
           </div>
           <div className="text-right">
             <h2 className="text-xl font-semibold">{product.name}</h2>
-            <p className="text-xs text-muted-foreground">{product.sku || ""}</p>
+            <p className="text-xs text-muted-foreground">{product.barcode || ""}</p>
           </div>
         </div>
       </CardHeader>

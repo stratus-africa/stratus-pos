@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { getPaystackEnvironment } from "@/lib/paystack";
+import { moduleKeys } from "@/lib/modules";
+
 
 export type SubscriptionTier = "free" | "basic" | "pro";
 
@@ -167,19 +169,13 @@ export function useSubscription() {
     features.filter((f) => f.package_id === currentPackage?.id && f.enabled).map((f) => f.feature_key)
   );
 
-  // Some packages were seeded with legacy/alternate feature keys. Treat these as
-  // equivalent so modules aren't hidden purely because of naming drift.
-  const FEATURE_KEY_ALIASES: Record<string, string[]> = {
-    hr: ["hr", "hr_management", "payroll"],
-    chart_of_accounts: ["chart_of_accounts", "accounting"],
-    journal_entries: ["journal_entries", "manual_journals", "accounting"],
-  };
-
+  // Packages may store legacy/alternate keys for the same module (naming drift).
+  // The shared module catalog is the source of truth for equivalences.
   const hasFeatureKey = (key: string): boolean => {
     if (!currentPackage) return false;
-    const candidates = FEATURE_KEY_ALIASES[key] ?? [key];
-    return candidates.some((k) => enabledFeatureKeys.has(k));
+    return moduleKeys(key).some((k) => enabledFeatureKeys.has(k));
   };
+
 
 
   const tier: SubscriptionTier = isActive ? "pro" : "free";

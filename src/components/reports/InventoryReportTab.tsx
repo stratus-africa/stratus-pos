@@ -17,11 +17,11 @@ const InventoryReportTab = ({ inventory, loading, showBatches = true }: Inventor
     b.map(x => `${x.batch_number}${x.expiry_date ? ` (exp ${x.expiry_date})` : ""}: ${x.quantity}`).join(" | ");
 
   const downloadInventoryCSV = () => {
-    const baseHeaders = ["Product", "SKU", "Category", "Brand", "Qty", "Low Stock Threshold", "Purchase Price", "Selling Price", "Stock Value"];
+    const baseHeaders = ["Product", "Barcode", "Category", "Brand", "Qty", "Low Stock Threshold", "Purchase Price", "Selling Price", "Stock Value"];
     const headers = showBatches ? [...baseHeaders, "Batches"] : baseHeaders;
     const rows = inventory.map((i: any) => {
       const base = [
-        i.products?.name || "", i.products?.sku || "", i.products?.categories?.name || "", i.products?.brands?.name || "",
+        i.products?.name || "", i.products?.barcode || "", i.products?.categories?.name || "", i.products?.brands?.name || "",
         i.quantity, i.low_stock_threshold, i.products?.purchase_price || 0, i.products?.selling_price || 0,
         Number(i.quantity) * Number(i.products?.purchase_price || 0),
       ];
@@ -41,7 +41,7 @@ const InventoryReportTab = ({ inventory, loading, showBatches = true }: Inventor
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          <Card><CardContent className="pt-4 text-center"><p className="text-xs text-muted-foreground">Total SKUs</p><p className="text-lg font-bold">{inventory.length}</p></CardContent></Card>
+          <Card><CardContent className="pt-4 text-center"><p className="text-xs text-muted-foreground">Total Items</p><p className="text-lg font-bold">{inventory.length}</p></CardContent></Card>
           <Card><CardContent className="pt-4 text-center"><p className="text-xs text-muted-foreground">Total Units</p><p className="text-lg font-bold">{inventory.reduce((s: number, i: any) => s + Number(i.quantity), 0)}</p></CardContent></Card>
           <Card><CardContent className="pt-4 text-center"><p className="text-xs text-muted-foreground">Stock Value</p><p className="text-lg font-bold">{formatKES(inventory.reduce((s: number, i: any) => s + Number(i.quantity) * Number(i.products?.purchase_price || 0), 0))}</p></CardContent></Card>
           <Card><CardContent className="pt-4 text-center"><p className="text-xs text-muted-foreground">Low Stock Items</p><p className="text-lg font-bold text-destructive">{inventory.filter((i: any) => Number(i.quantity) <= Number(i.low_stock_threshold)).length}</p></CardContent></Card>
@@ -50,7 +50,7 @@ const InventoryReportTab = ({ inventory, loading, showBatches = true }: Inventor
         <div className="max-h-96 overflow-auto rounded border">
           <Table>
             <TableHeader><TableRow>
-              <TableHead>Product</TableHead><TableHead>SKU</TableHead><TableHead>Category</TableHead><TableHead className="text-right">Qty</TableHead>{showBatches && <TableHead>Batches</TableHead>}<TableHead className="text-right">Value</TableHead><TableHead>Status</TableHead>
+              <TableHead>Product</TableHead><TableHead>Barcode</TableHead><TableHead>Category</TableHead><TableHead className="text-right">Qty</TableHead>{showBatches && <TableHead>Batches</TableHead>}<TableHead className="text-right">Value</TableHead><TableHead>Status</TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {inventory.map((i: any) => {
@@ -59,7 +59,7 @@ const InventoryReportTab = ({ inventory, loading, showBatches = true }: Inventor
                 return (
                   <TableRow key={i.id} className={low ? "bg-destructive/5" : ""}>
                     <TableCell className="font-medium">{i.products?.name}</TableCell>
-                    <TableCell>{i.products?.sku || "-"}</TableCell>
+                    <TableCell className="font-mono text-xs">{i.products?.barcode || "-"}</TableCell>
                     <TableCell>{i.products?.categories?.name || "-"}</TableCell>
                     <TableCell className="text-right">{i.quantity}</TableCell>
                     {showBatches && (
