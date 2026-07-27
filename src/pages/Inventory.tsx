@@ -21,6 +21,8 @@ import { usePurchases } from "@/hooks/usePurchases";
 import { StockAdjustmentDialog, type AdjustStockSubmit } from "@/components/inventory/StockAdjustmentDialog";
 import { ImportAdjustmentsDialog } from "@/components/inventory/ImportAdjustmentsDialog";
 import { EditAdjustmentDocumentDialog } from "@/components/inventory/EditAdjustmentDocumentDialog";
+import ProductDetailDialog from "@/components/products/ProductDetailDialog";
+
 
 const PAGE_SIZE_OPTIONS = [25, 100, 200] as const;
 
@@ -86,6 +88,8 @@ const Inventory = () => {
   const [locationFilter, setLocationFilter] = useState<string>(currentLocation?.id || "all");
   const [search, setSearch] = useState<string>(initialStr("q", ""));
   const [adjDialogOpen, setAdjDialogOpen] = useState(false);
+  const [detailProductId, setDetailProductId] = useState<string | null>(null);
+
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<AdjustmentDocument | null>(null);
   const [selectedAdjIds, setSelectedAdjIds] = useState<Set<string>>(new Set());
@@ -538,8 +542,15 @@ const Inventory = () => {
                       const isLow = i.quantity <= i.low_stock_threshold;
                       const isOut = i.quantity <= 0;
                       return (
-                        <TableRow key={i.id} className={isLow ? "bg-destructive/5" : ""}>
-                          <TableCell className="font-medium">{i.products?.name || "—"}</TableCell>
+                        <TableRow
+                          key={i.id}
+                          className={`cursor-pointer ${isLow ? "bg-destructive/5" : ""}`}
+                          onClick={() => i.product_id && setDetailProductId(i.product_id)}
+                        >
+                          <TableCell className="font-medium">
+                            <span className="hover:text-primary hover:underline">{i.products?.name || "—"}</span>
+                          </TableCell>
+
                           <TableCell className="text-right font-medium">{i.quantity}</TableCell>
                           <TableCell className="text-right text-muted-foreground">{i.low_stock_threshold}</TableCell>
                           <TableCell className="text-right">{formatKES(i.quantity * (i.products?.selling_price || 0))}</TableCell>
@@ -866,6 +877,13 @@ const Inventory = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ProductDetailDialog
+        productId={detailProductId}
+        open={!!detailProductId}
+        onOpenChange={(o) => { if (!o) setDetailProductId(null); }}
+      />
+
 
       <StockAdjustmentDialog
         open={adjDialogOpen}

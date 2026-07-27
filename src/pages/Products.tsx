@@ -409,18 +409,18 @@ const Products = () => {
                         ? (((p.selling_price - p.purchase_price) / p.purchase_price) * 100).toFixed(0)
                         : "—";
                       return (
-                        <TableRow key={p.id} className={selectedIds.has(p.id) ? "bg-muted/50" : ""}>
-                          <TableCell>
+                        <TableRow
+                          key={p.id}
+                          className={`cursor-pointer ${selectedIds.has(p.id) ? "bg-muted/50" : ""}`}
+                          onClick={() => setDetailProduct(p)}
+                        >
+                          <TableCell onClick={(e) => e.stopPropagation()}>
                             <Checkbox checked={selectedIds.has(p.id)} onCheckedChange={() => toggleSelect(p.id)} />
                           </TableCell>
                           <TableCell className="font-medium">
-                            <button
-                              onClick={() => setDetailProduct(p)}
-                              className="text-left hover:text-primary hover:underline"
-                            >
-                              {p.name}
-                            </button>
+                            <span className="hover:text-primary hover:underline">{p.name}</span>
                           </TableCell>
+
                           <TableCell className="text-muted-foreground">{p.sku || "—"}</TableCell>
                           <TableCell>{p.categories?.name || "—"}</TableCell>
                           <TableCell className="text-right">{formatKES(p.purchase_price)}</TableCell>
@@ -431,8 +431,9 @@ const Products = () => {
                               {p.is_active ? "Active" : "Inactive"}
                             </Badge>
                           </TableCell>
-                          <TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
                             <div className="flex gap-1">
+
                               {canEdit && (
                                 <Button size="icon" variant="ghost" onClick={() => handleEdit(p)}>
                                   <Pencil className="h-4 w-4" />
