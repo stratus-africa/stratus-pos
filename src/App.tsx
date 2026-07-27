@@ -151,6 +151,7 @@ const SuperAdminTenantApprovals = lazy(() => import("./pages/super-admin/SuperAd
 const SuperAdminUsers = lazy(() => import("./pages/super-admin/SuperAdminUsers"));
 const SuperAdminActivity = lazy(() => import("./pages/super-admin/SuperAdminActivity"));
 const SuperAdminPackages = lazy(() => import("./pages/super-admin/SuperAdminPackages"));
+const SuperAdminModules = lazy(() => import("./pages/super-admin/SuperAdminModules"));
 const SuperAdminPackageEdit = lazy(() => import("./pages/super-admin/SuperAdminPackageEdit"));
 const SuperAdminLanding = lazy(() => import("./pages/super-admin/SuperAdminLanding"));
 const SuperAdminTenantDetail = lazy(() => import("./pages/super-admin/SuperAdminTenantDetail"));
@@ -216,6 +217,7 @@ const SuperAdminRoutes = () => {
             <Route path="/subscriptions" element={<SuperAdminSubscriptions />} />
             <Route path="/users" element={<SuperAdminUsers />} />
             <Route path="/packages" element={<SuperAdminPackages />} />
+            <Route path="/modules" element={<SuperAdminModules />} />
             <Route path="/packages/new" element={<SuperAdminPackageEdit />} />
             <Route path="/packages/:id/edit" element={<SuperAdminPackageEdit />} />
             <Route path="/landing" element={<SuperAdminLanding />} />
