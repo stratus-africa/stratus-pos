@@ -7,7 +7,9 @@ import { format } from "date-fns";
 import { QRCodeSVG } from "qrcode.react";
 import { CartItem, PaymentEntry } from "@/hooks/usePOS";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { loadReceiptConfig } from "@/lib/receiptTemplate";
+import { loadReceiptConfig, paperWidth } from "@/lib/receiptTemplate";
+import { saveLastReceipt } from "@/lib/lastReceipt";
+
 
 interface ReceiptData {
   saleId?: string;
