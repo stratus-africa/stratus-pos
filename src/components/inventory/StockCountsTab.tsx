@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,12 +11,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { ClipboardCheck, Lock, Plus, Search, Trash2 } from "lucide-react";
+import { Camera, ClipboardCheck, History, Lock, Plus, ScanLine, Search, Trash2 } from "lucide-react";
+import BarcodeScanner from "@/components/BarcodeScanner";
+import { parseBarcode } from "@/lib/barcodeScan";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useProducts, useCategories } from "@/hooks/useProducts";
-import { useStockCounts, type StockCount, type StockCountStatus } from "@/hooks/useStockCounts";
+import { useStockCounts, useStockCountEvents, type StockCount, type StockCountStatus } from "@/hooks/useStockCounts";
 import { toast } from "sonner";
 
 const statusMeta: Record<StockCountStatus, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
@@ -354,7 +356,7 @@ interface DetailProps {
   canEdit: boolean;
   lockApproved: boolean;
   isAssignee: boolean;
-  allProducts: { id: string; name: string; sku: string | null; category_id: string | null }[];
+  allProducts: { id: string; name: string; sku: string | null; barcode?: string | null; category_id: string | null }[];
   categories: { id: string; name: string }[];
   onAddProducts: (ids: string[]) => void;
   addingProducts: boolean;
@@ -379,6 +381,13 @@ function StockCountDetailDialog({
   const [addCategory, setAddCategory] = useState("all");
   const [addSearch, setAddSearch] = useState("");
   const [addSelected, setAddSelected] = useState<Set<string>>(new Set());
+  const [scanValue, setScanValue] = useState("");
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const scanRef = useRef<HTMLInputElement>(null);
+  const eventsQuery = useStockCountEvents(showHistory ? count.id : null);
+
+
 
   const approvedLocked = count.status === "approved" && lockApproved;
   const editable =
@@ -407,6 +416,29 @@ function StockCountDetailDialog({
     if (!q) return true;
     return p.name.toLowerCase().includes(q) || (p.sku || "").toLowerCase().includes(q);
   });
+
+  /** Match a scanned code against barcode/SKU and queue the product for adding. */
+  const handleScan = (raw: string) => {
+    const code = raw.trim();
+    if (!code) return;
+    const candidates = parseBarcode(code).candidates.map((c) => c.toLowerCase());
+    const match = allProducts.find((p) => {
+      const bc = (p.barcode || "").toLowerCase();
+      const sku = (p.sku || "").toLowerCase();
+      return (bc && candidates.includes(bc)) || (sku && candidates.includes(sku));
+    });
+    setScanValue("");
+    if (!match) {
+      toast.error(`No product matches "${code}"`);
+      return;
+    }
+    if (existingProductIds.has(match.id)) {
+      toast.info(`${match.name} is already on this sheet`);
+      return;
+    }
+    setAddSelected((prev) => new Set(prev).add(match.id));
+    toast.success(`${match.name} queued`);
+  };
 
   const varianceClass = (variance: number | null) =>
     variance === null ? "" : variance < 0 ? "text-destructive" : variance > 0 ? "text-emerald-600" : "";
@@ -437,6 +469,28 @@ function StockCountDetailDialog({
             </div>
             {addOpen && (
               <div className="space-y-2">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <ScanLine className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      ref={scanRef}
+                      autoFocus
+                      className="pl-8"
+                      placeholder="Scan barcode…"
+                      value={scanValue}
+                      onChange={(e) => setScanValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleScan(scanValue);
+                        }
+                      }}
+                    />
+                  </div>
+                  <Button type="button" variant="outline" size="icon" onClick={() => setCameraOpen(true)} aria-label="Scan with camera">
+                    <Camera className="h-4 w-4" />
+                  </Button>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <Select value={addCategory} onValueChange={setAddCategory}>
                     <SelectTrigger><SelectValue placeholder="All categories" /></SelectTrigger>
@@ -488,6 +542,14 @@ function StockCountDetailDialog({
             )}
           </div>
         )}
+
+        <BarcodeScanner
+          open={cameraOpen}
+          onOpenChange={setCameraOpen}
+          onDetected={(code) => { setCameraOpen(false); handleScan(code); }}
+        />
+
+
 
         {/* Mobile: stacked rows */}
         <div className="space-y-2 md:hidden max-h-[45vh] overflow-y-auto">
@@ -575,6 +637,51 @@ function StockCountDetailDialog({
         <p className="text-sm text-muted-foreground">
           Net variance: <span className="font-medium text-foreground">{totalVariance > 0 ? `+${totalVariance}` : totalVariance}</span>
         </p>
+
+        <div className="rounded-md border p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm flex items-center gap-2"><History className="h-4 w-4" /> Audit trail</Label>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setShowHistory((v) => !v)}>
+              {showHistory ? "Hide" : "Show history"}
+            </Button>
+          </div>
+          {showHistory && (
+            <div className="max-h-56 overflow-y-auto divide-y text-sm">
+              {eventsQuery.isLoading && <p className="py-3 text-muted-foreground text-center">Loading…</p>}
+              {!eventsQuery.isLoading && (eventsQuery.data ?? []).length === 0 && (
+                <p className="py-3 text-muted-foreground text-center">No activity recorded yet.</p>
+              )}
+              {(eventsQuery.data ?? []).map((ev) => {
+                const productName =
+                  items.find((i) => i.id === ev.item_id)?.products?.name
+                  ?? allProducts.find((p) => p.id === ev.product_id)?.name;
+                const label =
+                  ev.action === "qty_changed"
+                    ? `Counted qty for ${productName ?? "product"}: ${ev.old_value ?? "—"} → ${ev.new_value ?? "—"}`
+                    : ev.action === "status_changed"
+                      ? `Status ${ev.old_value} → ${ev.new_value}${ev.note ? ` (${ev.note})` : ""}`
+                      : ev.action === "assigned"
+                        ? "Assignment changed"
+                        : ev.action === "item_added"
+                          ? `Added ${productName ?? "product"} to the sheet`
+                          : ev.action === "item_removed"
+                            ? `Removed ${productName ?? "product"} from the sheet`
+                            : `Sheet created (${ev.new_value})`;
+                return (
+                  <div key={ev.id} className="py-2 flex items-start justify-between gap-3">
+                    <span className="min-w-0">{label}</span>
+                    <span className="text-xs text-muted-foreground shrink-0 text-right">
+                      {ev.user_name || "System"}<br />
+                      {new Date(ev.created_at).toLocaleString()}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+
 
         {count.status === "submitted" && isApprover && (
           <div className="space-y-1.5">

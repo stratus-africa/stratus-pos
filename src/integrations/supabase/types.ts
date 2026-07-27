@@ -2986,6 +2986,59 @@ export type Database = {
           },
         ]
       }
+      stock_count_events: {
+        Row: {
+          action: string
+          business_id: string
+          count_id: string
+          created_at: string
+          id: string
+          item_id: string | null
+          new_value: string | null
+          note: string | null
+          old_value: string | null
+          product_id: string | null
+          user_id: string | null
+          user_name: string | null
+        }
+        Insert: {
+          action: string
+          business_id: string
+          count_id: string
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          new_value?: string | null
+          note?: string | null
+          old_value?: string | null
+          product_id?: string | null
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Update: {
+          action?: string
+          business_id?: string
+          count_id?: string
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          new_value?: string | null
+          note?: string | null
+          old_value?: string | null
+          product_id?: string | null
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_count_events_count_id_fkey"
+            columns: ["count_id"]
+            isOneToOne: false
+            referencedRelation: "stock_counts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_count_items: {
         Row: {
           count_id: string
