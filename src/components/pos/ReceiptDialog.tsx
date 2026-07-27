@@ -103,27 +103,60 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
   const handlePrint = () => {
     const content = receiptRef.current;
     if (!content) return;
-    const win = window.open("", "_blank", "width=300,height=600");
+    const win = window.open("", "_blank", "width=380,height=700");
     if (!win) return;
     win.document.write(`
       <html><head><title>Receipt</title>
       <style>
-        body { font-family: monospace; font-size: 12px; width: 280px; margin: 0 auto; padding: 10px; }
-        .center { text-align: center; }
-        .right { text-align: right; }
-        .bold { font-weight: bold; }
+        @page { size: 80mm auto; margin: 0; }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; background: #fff; color: #000; }
+        body {
+          font-family: ${cfg.fontFamily};
+          font-size: ${cfg.fontSize}px;
+          line-height: 1.45;
+          width: 80mm;
+          padding: 3mm;
+        }
+        /* utility classes mirrored from the on-screen receipt design */
+        .text-center, .center { text-align: center; }
+        .text-right, .right { text-align: right; }
+        .font-bold, .bold { font-weight: 700; }
+        .font-semibold { font-weight: 600; }
+        .italic { font-style: italic; }
+        .capitalize { text-transform: capitalize; }
+        .break-all { word-break: break-all; }
+        .break-words { overflow-wrap: anywhere; }
+        .whitespace-nowrap { white-space: nowrap; }
+        .whitespace-pre-wrap { white-space: pre-wrap; }
         .line { border-top: 1px dashed #000; margin: 6px 0; }
-        img { max-height: 60px; display: block; margin: 0 auto 4px; }
+        .flex { display: flex; }
+        .justify-between { justify-content: space-between; }
+        .justify-center { justify-content: center; }
+        .w-full { width: 100%; }
+        .pt-2 { padding-top: 8px; }
+        .my-2 { margin-top: 6px; margin-bottom: 6px; }
+        .space-y-2 > * + * { margin-top: 6px; }
+        .space-y-1 > * + * { margin-top: 3px; }
+        .space-y-0\\.5 > * + * { margin-top: 2px; }
+        .text-sm { font-size: ${cfg.fontSize + 1}px; }
+        .text-xs { font-size: ${cfg.fontSize}px; }
+        .text-\\[10px\\] { font-size: ${Math.max(8, cfg.fontSize - 2)}px; }
+        .text-muted-foreground { color: #444; }
+        .text-red-600 { color: #000; font-weight: 700; }
+        p { margin: 0; }
+        img { max-height: 60px; max-width: 100%; display: block; margin: 0 auto 4px; object-fit: contain; }
+        svg { display: block; margin: 0 auto; }
         table { width: 100%; border-collapse: collapse; }
-        td { padding: 2px 0; }
-        @media print { body { margin: 0; } }
+        td { padding: 2px 0; vertical-align: top; }
       </style></head><body>
       ${content.innerHTML}
-      <script>setTimeout(function(){window.print();window.close();}, 250);</script>
+      <script>setTimeout(function(){window.print();window.close();}, 300);</script>
       </body></html>
     `);
     win.document.close();
   };
+
   printFnRef.current = handlePrint;
 
   return (
@@ -133,7 +166,11 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
           <DialogTitle>Receipt</DialogTitle>
         </DialogHeader>
 
-        <div ref={receiptRef} className="text-xs font-mono space-y-2 p-2">
+        <div
+          ref={receiptRef}
+          className="space-y-2 p-2"
+          style={{ fontFamily: cfg.fontFamily, fontSize: `${cfg.fontSize}px`, lineHeight: 1.45, width: "80mm", maxWidth: "100%", margin: "0 auto" }}
+        >
           <div className="text-center">
             {showLogo && (
               <img
@@ -143,10 +180,19 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
                 crossOrigin="anonymous"
               />
             )}
-            <p className="font-bold text-sm">{data.businessName}</p>
+            <p className="font-bold" style={{ fontSize: `${cfg.headerFontSize}px` }}>
+              {cfg.header || data.businessName}
+            </p>
+            {cfg.showAddress && (business as { address?: string } | null)?.address && (
+              <p>{(business as { address?: string }).address}</p>
+            )}
+            {cfg.showPhone && (business as { phone?: string } | null)?.phone && (
+              <p>{(business as { phone?: string }).phone}</p>
+            )}
             <p>{data.locationName}</p>
             <p>{format(data.date, "PPp")}</p>
           </div>
+
 
           {cfg.qrCodePosition === "header" && qrBlock}
 
@@ -240,7 +286,11 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
           )}
 
           <div className="line border-t border-dashed border-foreground/30 my-2" />
-          <p className="text-center">Thank you for shopping with us!</p>
+          {cfg.thankYouMessage && (
+            <p className="text-center whitespace-pre-wrap">{cfg.thankYouMessage}</p>
+          )}
+          {cfg.footer && <p className="text-center whitespace-pre-wrap">{cfg.footer}</p>}
+
 
           {data.fiscal?.fiscal_reference && (
             <>
