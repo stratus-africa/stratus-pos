@@ -70,7 +70,7 @@ export function useInventory(
       if (!business) return [];
       let q = supabase
         .from("inventory")
-        .select("*, products(name, sku, selling_price, purchase_price), locations(name)");
+        .select("*, products(name, sku, barcode, selling_price, purchase_price), locations(name)");
       if (locationId) q = q.eq("location_id", locationId);
       const { data, error } = await q;
       if (error) throw error;
