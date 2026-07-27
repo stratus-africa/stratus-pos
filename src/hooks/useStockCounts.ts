@@ -119,7 +119,10 @@ export function useStockCounts() {
     enabled: !!business?.id,
   });
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["stock_counts"] });
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["stock_counts"] });
+    qc.invalidateQueries({ queryKey: ["stock_count_events"] });
+  };
 
   const createCount = useMutation({
     mutationFn: async (input: CreateStockCountInput) => {
