@@ -119,7 +119,7 @@ export default function Banking() {
     const { error } = await supabase.from("bank_accounts").insert({
       business_id: business.id, name: accForm.name, account_number: accForm.account_number || null,
       bank_name: accForm.bank_name || null, account_type: accForm.account_type,
-      balance: opening,
+      balance: opening, opening_balance: opening,
     });
     if (error) { toast.error(error.message); return; }
     toast.success("Account created");
@@ -128,9 +128,6 @@ export default function Banking() {
     fetchData();
   };
 
-  // Returns +1 for inflow, -1 for outflow on a non-loan account
-  const balanceSign = (type: string) =>
-    ["payment_received", "transfer_in", "owner_deposit", "loan_disbursement_received"].includes(type) ? 1 : -1;
 
   const handleCreateTransaction = async () => {
     if (!business || !user || !txnForm.bank_account_id || !txnForm.amount) {
@@ -147,13 +144,7 @@ export default function Banking() {
     });
     if (error) { toast.error(error.message); return; }
 
-    // Update account balance
-    const acc = accounts.find((a) => a.id === txnForm.bank_account_id);
-    if (acc) {
-      const delta = balanceSign(txnForm.type) * amount;
-      const newBalance = Number(acc.balance) + delta;
-      await supabase.from("bank_accounts").update({ balance: newBalance }).eq("id", acc.id);
-    }
+    // Account balance is maintained by the database (recomputed from transactions).
 
     toast.success("Transaction recorded");
     setTxnDialogOpen(false);
@@ -196,11 +187,7 @@ export default function Banking() {
       ]);
       if (txnError) throw txnError;
 
-      // Source account decreases, loan balance also decreases (paying down debt)
-      await Promise.all([
-        supabase.from("bank_accounts").update({ balance: Number(fromAcc.balance) - amount }).eq("id", fromAcc.id),
-        supabase.from("bank_accounts").update({ balance: Number(loanAcc.balance) - amount }).eq("id", loanAcc.id),
-      ]);
+      // Balances are maintained by the database (recomputed from transactions).
 
       toast.success(`Paid KES ${amount.toLocaleString()} towards ${loanAcc.name}`);
       setLoanDialogOpen(false);
@@ -252,11 +239,7 @@ export default function Banking() {
       ]);
       if (txnError) throw txnError;
 
-      // Update both balances in parallel
-      await Promise.all([
-        supabase.from("bank_accounts").update({ balance: Number(fromAcc.balance) - amount }).eq("id", fromAcc.id),
-        supabase.from("bank_accounts").update({ balance: Number(toAcc.balance) + amount }).eq("id", toAcc.id),
-      ]);
+      // Balances are maintained by the database (recomputed from transactions).
 
       toast.success(`Transferred KES ${amount.toLocaleString()} from ${fromAcc.name} to ${toAcc.name}`);
       setTransferDialogOpen(false);

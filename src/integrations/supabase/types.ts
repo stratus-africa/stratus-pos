@@ -94,6 +94,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          opening_balance: number
           updated_at: string
         }
         Insert: {
@@ -106,6 +107,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          opening_balance?: number
           updated_at?: string
         }
         Update: {
@@ -118,6 +120,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          opening_balance?: number
           updated_at?: string
         }
         Relationships: [
@@ -3762,6 +3765,10 @@ export type Database = {
         Args: { _business_id: string; _notes?: string }
         Returns: undefined
       }
+      bank_txn_signed_amount: {
+        Args: { _amount: number; _type: string }
+        Returns: number
+      }
       clear_user_login_barcode: {
         Args: { _user_id: string }
         Returns: undefined
@@ -4011,6 +4018,10 @@ export type Database = {
         }[]
       }
       read_vault_secret: { Args: { _name: string }; Returns: string }
+      recompute_bank_account_balance: {
+        Args: { _account_id: string }
+        Returns: undefined
+      }
       record_barcode_attempt: {
         Args: { _barcode: string; _ip: string; _success: boolean }
         Returns: undefined

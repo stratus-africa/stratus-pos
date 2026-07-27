@@ -128,11 +128,7 @@ export function useExpenses() {
         });
         if (btErr) throw btErr;
 
-        // Update account balance
-        const { data: acc } = await supabase.from("bank_accounts").select("balance").eq("id", bank_account_id).single();
-        if (acc) {
-          await supabase.from("bank_accounts").update({ balance: acc.balance - e.amount }).eq("id", bank_account_id);
-        }
+        // Account balance is maintained by the database (recomputed from transactions).
       }
     },
     onSuccess: () => {
