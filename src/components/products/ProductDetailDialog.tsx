@@ -11,7 +11,8 @@ import BatchesTab from "@/components/products/BatchesTab";
 import { useFeatureLimit } from "@/components/FeatureGate";
 
 interface ProductDetailDialogProps {
-  product: Product | null;
+  product?: Product | null;
+  productId?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -21,11 +22,28 @@ const fmt = (n: number) =>
 
 const fmtDate = (d: string) => new Date(d).toLocaleString("en-KE", { dateStyle: "medium", timeStyle: "short" });
 
-export default function ProductDetailDialog({ product, open, onOpenChange }: ProductDetailDialogProps) {
+export default function ProductDetailDialog({ product: productProp, productId: productIdProp, open, onOpenChange }: ProductDetailDialogProps) {
   const { business } = useBusiness();
   const { hasFeatureKey } = useFeatureLimit();
   const showBatches = hasFeatureKey("batch_tracking") && (business as any)?.business_type === "pharmacy" && (business as any)?.track_batches === true;
-  const productId = product?.id;
+  const productId = productProp?.id ?? productIdProp ?? undefined;
+
+  const fetchedProduct = useQuery({
+    queryKey: ["product-detail", productId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*, categories(name), brands(name), units(name)")
+        .eq("id", productId as string)
+        .maybeSingle();
+      if (error) throw error;
+      return data as unknown as Product | null;
+    },
+    enabled: !!productId && !productProp && open,
+  });
+
+  const product = productProp ?? fetchedProduct.data ?? null;
+
 
   const inventoryQuery = useQuery({
     queryKey: ["product-inventory", productId],
