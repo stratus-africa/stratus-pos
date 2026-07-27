@@ -107,39 +107,17 @@ export function PrintTagsDialog({ open, onOpenChange, items }: Props) {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label>Paper</Label>
-            <Select value={paperMode} onValueChange={(v) => setPaperMode(v as PriceTagConfig["paperMode"])}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {PAPER_MODE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Layout</Label>
-            <Select value={layoutKey} onValueChange={(v) => setLayoutKey(v as PriceTagConfig["layout"])} disabled={isThermal}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {Object.entries(PRICE_TAG_LAYOUTS).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Tag width (mm)</Label>
-            <Input type="number" min={20} max={isThermal ? THERMAL_80_PRINTABLE_MM : 210} value={widthMm} onChange={(e) => setWidthMm(Number(e.target.value) || 1)} />
-          </div>
-          <div>
-            <Label>Tag height (mm)</Label>
-            <Input type="number" min={10} max={150} value={heightMm} onChange={(e) => setHeightMm(Number(e.target.value) || 1)} />
-          </div>
-          <div>
             <Label>Copies per item</Label>
             <Input type="number" min={1} max={50} value={copiesPerItem} onChange={(e) => setCopiesPerItem(Number(e.target.value) || 1)} />
           </div>
+          <div className="text-xs text-muted-foreground self-end pb-2">
+            {isThermal ? "80mm thermal roll" : PRICE_TAG_LAYOUTS[layoutKey].label} · {effWidth}×{heightMm}mm
+          </div>
         </div>
         <p className="text-xs text-muted-foreground -mt-2">
-          Design and defaults can be customized in Settings → Customization.
+          Tags print exactly as designed in Settings → Customization → Price Tag Template.
         </p>
+
 
         <div className="border rounded-md p-3 max-h-[50vh] overflow-auto bg-muted/30">
           <div id="print-tags-sheet">
