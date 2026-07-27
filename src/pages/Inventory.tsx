@@ -22,6 +22,13 @@ import { StockAdjustmentDialog, type AdjustStockSubmit } from "@/components/inve
 import { EditAdjustmentDocumentDialog } from "@/components/inventory/EditAdjustmentDocumentDialog";
 
 const PAGE_SIZE_OPTIONS = [25, 100, 200] as const;
+
+const INVENTORY_TABS = [
+  { key: "stock", label: "Stock Levels", icon: <Warehouse className="h-4 w-4" /> },
+  { key: "adjustments", label: "Adjustments", icon: <ClipboardList className="h-4 w-4" /> },
+  { key: "counts", label: "Stock Take", icon: <ClipboardCheck className="h-4 w-4" /> },
+  { key: "movements", label: "Stock Movement", icon: <ArrowLeftRight className="h-4 w-4" /> },
+] as const;
 type StockSort = "name_asc" | "name_desc" | "sku_asc" | "sku_desc" | "qty_asc" | "qty_desc";
 
 const LS_KEYS = { stock: "inv.stock.size", adj: "inv.adj.size", mv: "inv.mv.size" } as const;
@@ -423,11 +430,31 @@ const Inventory = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="stock"><Warehouse className="mr-1 h-4 w-4" /> Stock Levels</TabsTrigger>
-          <TabsTrigger value="adjustments"><ClipboardList className="mr-1 h-4 w-4" /> Adjustments</TabsTrigger>
-          <TabsTrigger value="counts"><ClipboardCheck className="mr-1 h-4 w-4" /> Stock Take</TabsTrigger>
-          <TabsTrigger value="movements"><ArrowLeftRight className="mr-1 h-4 w-4" /> Stock Movement</TabsTrigger>
+        {/* Mobile: dropdown selector */}
+        <div className="md:hidden">
+          <Select value={activeTab} onValueChange={setActiveTab}>
+            <SelectTrigger className="w-full">
+              <SelectValue>
+                <span className="flex items-center gap-2">
+                  {INVENTORY_TABS.find((t) => t.key === activeTab)?.icon}
+                  {INVENTORY_TABS.find((t) => t.key === activeTab)?.label}
+                </span>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {INVENTORY_TABS.map((t) => (
+                <SelectItem key={t.key} value={t.key}>
+                  <span className="flex items-center gap-2">{t.icon}{t.label}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <TabsList className="hidden md:inline-flex">
+          {INVENTORY_TABS.map((t) => (
+            <TabsTrigger key={t.key} value={t.key} className="gap-1">{t.icon}{t.label}</TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value="counts">
