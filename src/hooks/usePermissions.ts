@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { defaultRolePermissions, type AppRole } from "@/lib/permissions";
+import { defaultRolePermissions, moduleCatalog, type AppRole } from "@/lib/permissions";
+
 
 /**
  * Loads the granular permission set for the current user's role within the
