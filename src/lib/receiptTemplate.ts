@@ -2,6 +2,8 @@
 
 export type QRCodeType = "invoice_url" | "fiscal_url" | "custom";
 export type QRCodePosition = "header" | "middle" | "footer";
+/** Physical paper the receipt printer is loaded with. */
+export type ReceiptPaper = "80mm" | "58mm" | "a4";
 
 export interface ReceiptConfig {
   header: string;
@@ -22,6 +24,8 @@ export interface ReceiptConfig {
   qrCodeSize: number;
   qrCodeLabel: string;
   qrCodePosition: QRCodePosition;
+  /** Persisted per business — remembered for every future receipt print. */
+  paper: ReceiptPaper;
 }
 
 export const defaultReceiptConfig: ReceiptConfig = {
@@ -43,7 +47,19 @@ export const defaultReceiptConfig: ReceiptConfig = {
   qrCodeSize: 96,
   qrCodeLabel: "Scan to view",
   qrCodePosition: "footer",
+  paper: "80mm",
 };
+
+export const PAPER_OPTIONS: { label: string; value: ReceiptPaper; width: string }[] = [
+  { label: "80mm Thermal", value: "80mm", width: "80mm" },
+  { label: "58mm Thermal", value: "58mm", width: "58mm" },
+  { label: "A4 / Letter", value: "a4", width: "190mm" },
+];
+
+export function paperWidth(paper: ReceiptPaper | undefined): string {
+  return PAPER_OPTIONS.find((p) => p.value === paper)?.width ?? "80mm";
+}
+
 
 import { supabase } from "@/integrations/supabase/client";
 
