@@ -87,6 +87,7 @@ export type Database = {
         Row: {
           account_number: string | null
           account_type: string
+          allow_negative_balance: boolean
           balance: number
           bank_name: string | null
           business_id: string
@@ -100,6 +101,7 @@ export type Database = {
         Insert: {
           account_number?: string | null
           account_type?: string
+          allow_negative_balance?: boolean
           balance?: number
           bank_name?: string | null
           business_id: string
@@ -113,6 +115,7 @@ export type Database = {
         Update: {
           account_number?: string | null
           account_type?: string
+          allow_negative_balance?: boolean
           balance?: number
           bank_name?: string | null
           business_id?: string
@@ -132,6 +135,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      bank_balance_audit: {
+        Row: {
+          actor_id: string | null
+          amount: number
+          balance_after: number | null
+          balance_before: number | null
+          bank_account_id: string
+          bank_transaction_id: string | null
+          business_id: string | null
+          created_at: string
+          id: string
+          operation: string
+          sale_id: string | null
+          signed_amount: number
+        }
+        Insert: {
+          actor_id?: string | null
+          amount?: number
+          balance_after?: number | null
+          balance_before?: number | null
+          bank_account_id: string
+          bank_transaction_id?: string | null
+          business_id?: string | null
+          created_at?: string
+          id?: string
+          operation: string
+          sale_id?: string | null
+          signed_amount?: number
+        }
+        Update: {
+          actor_id?: string | null
+          amount?: number
+          balance_after?: number | null
+          balance_before?: number | null
+          bank_account_id?: string
+          bank_transaction_id?: string | null
+          business_id?: string | null
+          created_at?: string
+          id?: string
+          operation?: string
+          sale_id?: string | null
+          signed_amount?: number
+        }
+        Relationships: []
       }
       bank_transactions: {
         Row: {
@@ -198,6 +246,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "bank_accounts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_balance_reconciliation"
+            referencedColumns: ["bank_account_id"]
           },
           {
             foreignKeyName: "bank_transactions_business_id_fkey"
@@ -1966,6 +2021,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "payment_method_accounts_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_balance_reconciliation"
+            referencedColumns: ["bank_account_id"]
+          },
+          {
             foreignKeyName: "payment_method_accounts_business_id_fkey"
             columns: ["business_id"]
             isOneToOne: false
@@ -2071,6 +2133,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "bank_accounts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_runs_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_balance_reconciliation"
+            referencedColumns: ["bank_account_id"]
           },
           {
             foreignKeyName: "payroll_runs_expense_id_fkey"
@@ -2256,6 +2325,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "bank_accounts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sessions_cash_account_id_fkey"
+            columns: ["cash_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_balance_reconciliation"
+            referencedColumns: ["bank_account_id"]
           },
           {
             foreignKeyName: "pos_sessions_location_id_fkey"
@@ -3687,6 +3763,30 @@ export type Database = {
       }
     }
     Views: {
+      bank_balance_reconciliation: {
+        Row: {
+          account_name: string | null
+          allow_negative_balance: boolean | null
+          bank_account_id: string | null
+          business_id: string | null
+          derived_balance: number | null
+          difference: number | null
+          is_mismatched: boolean | null
+          is_negative: boolean | null
+          opening_balance: number | null
+          stored_balance: number | null
+          transaction_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_accounts_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_packages_safe: {
         Row: {
           created_at: string | null
