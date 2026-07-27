@@ -97,6 +97,8 @@
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 217 33% 14%;
     --sidebar-ring: 217 91% 60%;
+    --table-alt-row: 217 33% 12%;
+    --primary-glow: 217 91% 70%;
   }
 }
 
