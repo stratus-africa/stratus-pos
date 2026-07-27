@@ -12,7 +12,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Save, Loader2 } from "lucide-react";
-import { loadReceiptConfig, saveReceiptConfig, fetchReceiptConfig, defaultReceiptConfig, FONT_OPTIONS, type ReceiptConfig, type QRCodeType, type QRCodePosition } from "@/lib/receiptTemplate";
+import { loadReceiptConfig, saveReceiptConfig, fetchReceiptConfig, defaultReceiptConfig, FONT_OPTIONS, PAPER_OPTIONS, type ReceiptConfig, type ReceiptPaper, type QRCodeType, type QRCodePosition } from "@/lib/receiptTemplate";
 import { QRCodeSVG } from "qrcode.react";
 import { format } from "date-fns";
 
