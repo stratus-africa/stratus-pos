@@ -70,6 +70,22 @@ export function ReceiptSettingsTab() {
 
           <Separator />
 
+          <div className="space-y-2">
+            <Label>Printer Paper</Label>
+            <Select value={config.paper} onValueChange={(v) => update("paper", v as ReceiptPaper)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {PAPER_OPTIONS.map((p) => (
+                  <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Saved for this business and reused for every receipt print and reprint.</p>
+          </div>
+
+          <Separator />
+
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Font Family</Label>
