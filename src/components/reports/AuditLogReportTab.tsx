@@ -239,7 +239,7 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
 
       <Card>
         <CardContent className="p-0">
-          <ReportTableScroll maxHeight="max-h-[55vh]">
+          <ReportTableScroll>
             <Table>
               <TableHeader>
                 <TableRow>

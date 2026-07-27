@@ -161,7 +161,7 @@ export default function ZReportTab({ from, to, onRegisterExport }: Props) {
         <Card>
           <CardHeader><CardTitle className="text-base">By Payment Method</CardTitle></CardHeader>
           <CardContent>
-            <ReportTableScroll maxHeight="max-h-64">
+            <ReportTableScroll>
               <Table>
                 <TableHeader><TableRow><TableHead>Method</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
                 <TableBody>
@@ -179,7 +179,7 @@ export default function ZReportTab({ from, to, onRegisterExport }: Props) {
         <Card>
           <CardHeader><CardTitle className="text-base">By Cashier</CardTitle></CardHeader>
           <CardContent>
-            <ReportTableScroll maxHeight="max-h-64">
+            <ReportTableScroll>
               <Table>
                 <TableHeader><TableRow><TableHead>Cashier</TableHead><TableHead className="text-right">Sales</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
                 <TableBody>

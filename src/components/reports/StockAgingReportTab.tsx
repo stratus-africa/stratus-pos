@@ -157,7 +157,7 @@ export default function StockAgingReportTab() {
           ) : filtered.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-10">No products in this bucket.</p>
           ) : (
-            <ReportTableScroll maxHeight="max-h-64">
+            <ReportTableScroll>
               <Table>
                 <TableHeader>
                   <TableRow>

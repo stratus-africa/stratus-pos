@@ -170,7 +170,7 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ReportTableScroll maxHeight="max-h-64">
+            <ReportTableScroll>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -204,7 +204,7 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ReportTableScroll maxHeight="max-h-64">
+            <ReportTableScroll>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -239,7 +239,7 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
           <CardTitle className="text-base">Sales ({stats.count})</CardTitle>
         </CardHeader>
         <CardContent>
-          <ReportTableScroll maxHeight="max-h-64">
+          <ReportTableScroll>
             <Table>
               <TableHeader>
                 <TableRow>

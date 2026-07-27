@@ -367,7 +367,7 @@ export default function EndOfDayReportTab() {
           <Card>
             <CardHeader><CardTitle className="text-base">Payments by Method</CardTitle></CardHeader>
             <CardContent>
-              <ReportTableScroll maxHeight="max-h-64">
+              <ReportTableScroll>
                 <Table>
                   <TableHeader><TableRow><TableHead>Method</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader>
                   <TableBody>
@@ -406,7 +406,7 @@ export default function EndOfDayReportTab() {
           <Card>
             <CardHeader><CardTitle className="text-base">Sales by Cashier</CardTitle></CardHeader>
             <CardContent>
-              <ReportTableScroll maxHeight="max-h-64">
+              <ReportTableScroll>
                 <Table>
                   <TableHeader><TableRow><TableHead>Cashier</TableHead><TableHead className="text-right">Sales</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
                   <TableBody>
@@ -428,7 +428,7 @@ export default function EndOfDayReportTab() {
           <Card>
             <CardHeader><CardTitle className="text-base">Sessions</CardTitle></CardHeader>
             <CardContent>
-              <ReportTableScroll maxHeight="max-h-64">
+              <ReportTableScroll>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -480,7 +480,7 @@ export default function EndOfDayReportTab() {
         <Card>
           <CardHeader><CardTitle className="text-base">Expenses by Category</CardTitle></CardHeader>
           <CardContent>
-            <ReportTableScroll maxHeight="max-h-64">
+            <ReportTableScroll>
               <Table>
                 <TableHeader><TableRow><TableHead>Category</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader>
                 <TableBody>
@@ -498,7 +498,7 @@ export default function EndOfDayReportTab() {
         <Card>
           <CardHeader><CardTitle className="text-base">Sales ({summary.txCount})</CardTitle></CardHeader>
           <CardContent>
-            <ReportTableScroll maxHeight="max-h-64">
+            <ReportTableScroll>
               <Table>
                 <TableHeader><TableRow>
                   <TableHead>Time</TableHead><TableHead>Invoice</TableHead><TableHead>Cashier</TableHead><TableHead>Customer</TableHead>
