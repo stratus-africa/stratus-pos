@@ -17,3 +17,18 @@ export function useIsMobile() {
 
   return !!isMobile;
 }
+
+/** True on small screens held in portrait orientation. */
+export function useIsMobilePortrait() {
+  const [value, setValue] = React.useState(false);
+
+  React.useEffect(() => {
+    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px) and (orientation: portrait)`);
+    const onChange = () => setValue(mql.matches);
+    mql.addEventListener("change", onChange);
+    setValue(mql.matches);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+
+  return value;
+}

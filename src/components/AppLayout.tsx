@@ -8,6 +8,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { CommandPalette } from "@/components/CommandPalette";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
+import { useIsMobilePortrait } from "@/hooks/use-mobile";
 
 function MasqueradeBanner() {
   const { isMasquerading, business, stopMasquerade } = useBusiness();
@@ -51,6 +52,7 @@ function SubscriptionExpiredBanner() {
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const isPOS = location.pathname.startsWith("/pos");
+  const isMobilePortrait = useIsMobilePortrait();
   const [open, setOpen] = useState(!isPOS);
 
   // Auto-collapse sidebar on POS; auto-expand when returning to Dashboard.
@@ -63,7 +65,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider open={open} onOpenChange={setOpen}>
       <div className="min-h-screen flex w-full bg-[hsl(210_20%_98%)]">
-        <AppSidebar />
+        {!isMobilePortrait && <AppSidebar />}
         <div className="flex-1 flex flex-col min-w-0">
           <MasqueradeBanner />
           <SubscriptionExpiredBanner />
