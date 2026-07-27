@@ -171,7 +171,7 @@ export function MobileBottomNav() {
                 key={keyOf(it)}
                 to={it.to}
                 aria-current={active ? "page" : undefined}
-                className={`group relative flex min-w-0 flex-1 flex-col items-center justify-end gap-1 px-1 pt-1 ${NAV_TOUCH_TARGET}`}
+                className={`group relative flex min-w-0 flex-1 flex-col items-center justify-end gap-0.5 px-1 pt-1 ${NAV_TOUCH_TARGET}`}
               >
                 <span
                   className={`relative flex h-11 w-11 items-center justify-center rounded-full transition-all duration-200 ${
@@ -180,16 +180,17 @@ export function MobileBottomNav() {
                       : "text-muted-foreground group-active:bg-muted"
                   }`}
                 >
-                  <it.icon className={active ? "h-5 w-5" : NAV_ICON_CLASS} />
+                  <it.icon className={NAV_ICON_CLASS} />
                   {renderBadge(count, active)}
                 </span>
                 <span
-                  className={`w-full truncate text-center text-[11px] leading-tight transition-colors ${
+                  className={`w-full truncate text-center text-[11px] leading-none transition-colors ${
                     active ? "-mt-2 font-semibold text-primary" : "font-medium text-muted-foreground"
                   }`}
                 >
                   {it.label}
                 </span>
+
               </Link>
             );
           })}
@@ -197,14 +198,15 @@ export function MobileBottomNav() {
           <SheetTrigger asChild>
             <button
               type="button"
-              className={`group flex min-w-0 flex-1 flex-col items-center justify-end gap-1 px-1 pt-1 ${NAV_TOUCH_TARGET}`}
+              className={`group flex min-w-0 flex-1 flex-col items-center justify-end gap-0.5 px-1 pt-1 ${NAV_TOUCH_TARGET}`}
               aria-label="Open navigation menu"
             >
               <span className="relative flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors group-active:bg-muted">
                 <Menu className={NAV_ICON_CLASS} />
                 {renderBadge(moreBadge)}
               </span>
-              <span className="text-[11px] font-medium leading-tight text-muted-foreground">More</span>
+              <span className="text-[11px] font-medium leading-none text-muted-foreground">More</span>
+
             </button>
           </SheetTrigger>
         </div>
@@ -292,14 +294,14 @@ export function MobileBottomNav() {
                 const count = badgeFor(it.to);
                 const highlight = customizing ? picked : active;
                 const disabled = customizing && !picked && selected.length >= MAX_QUICK;
-                const className = `relative flex h-full w-full min-h-11 flex-col items-center justify-center gap-1.5 rounded-xl border px-1.5 py-3 text-center transition-colors ${
+                const className = `relative flex h-full w-full min-h-11 flex-col items-center justify-end gap-0.5 rounded-xl border px-1.5 pb-1.5 pt-2.5 text-center transition-colors ${
                   highlight
                     ? "bg-primary/10 border-primary text-primary font-semibold ring-1 ring-primary/40"
                     : "bg-card hover:bg-muted border-border text-foreground"
                 } ${disabled ? "opacity-40" : ""}`;
                 const inner = (
                   <>
-                    <span className="relative flex h-6 w-6 items-center justify-center">
+                    <span className="relative flex h-[18px] w-[18px] items-end justify-center leading-none">
                       <it.icon className={NAV_ICON_CLASS} />
                       {!customizing && renderBadge(count, active)}
                       {customizing && picked && (
@@ -308,9 +310,10 @@ export function MobileBottomNav() {
                         </span>
                       )}
                     </span>
-                    <span className="text-[10px] font-medium leading-tight line-clamp-2">{it.label}</span>
+                    <span className="text-[10px] font-medium leading-none line-clamp-2">{it.label}</span>
                   </>
                 );
+
                 return (
                   <li key={k}>
                     {customizing ? (

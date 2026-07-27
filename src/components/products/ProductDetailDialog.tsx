@@ -1,9 +1,13 @@
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Package, ShoppingCart, Truck, ClipboardList, Layers } from "lucide-react";
 import type { Product } from "@/hooks/useProducts";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -13,20 +17,28 @@ import { useFeatureLimit } from "@/components/FeatureGate";
 interface ProductDetailDialogProps {
   product?: Product | null;
   productId?: string | null;
+  /** Pre-select a location for the stock view (e.g. the Inventory page filter) */
+  locationId?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(n);
 
 const fmtDate = (d: string) => new Date(d).toLocaleString("en-KE", { dateStyle: "medium", timeStyle: "short" });
 
-export default function ProductDetailDialog({ product: productProp, productId: productIdProp, open, onOpenChange }: ProductDetailDialogProps) {
+export default function ProductDetailDialog({ product: productProp, productId: productIdProp, locationId, open, onOpenChange }: ProductDetailDialogProps) {
   const { business } = useBusiness();
   const { hasFeatureKey } = useFeatureLimit();
   const showBatches = hasFeatureKey("batch_tracking") && (business as any)?.business_type === "pharmacy" && (business as any)?.track_batches === true;
   const productId = productProp?.id ?? productIdProp ?? undefined;
+
+  const [selectedLocation, setSelectedLocation] = useState<string>(locationId || "all");
+  useEffect(() => {
+    if (open) setSelectedLocation(locationId || "all");
+  }, [open, locationId, productId]);
 
   const fetchedProduct = useQuery({
     queryKey: ["product-detail", productId],
@@ -44,20 +56,27 @@ export default function ProductDetailDialog({ product: productProp, productId: p
 
   const product = productProp ?? fetchedProduct.data ?? null;
 
-
   const inventoryQuery = useQuery({
     queryKey: ["product-inventory", productId],
     queryFn: async () => {
       if (!productId) return [];
       const { data, error } = await supabase
         .from("inventory")
-        .select("id, quantity, low_stock_threshold, locations(name)")
+        .select("id, quantity, low_stock_threshold, location_id, locations(name)")
         .eq("product_id", productId);
       if (error) throw error;
       return data || [];
     },
     enabled: !!productId && open,
   });
+
+  useEffect(() => {
+    if (fetchedProduct.error) toast.error("Couldn't load item details. Please try again.");
+  }, [fetchedProduct.error]);
+  useEffect(() => {
+    if (inventoryQuery.error) toast.error("Couldn't load stock levels for this item.");
+  }, [inventoryQuery.error]);
+
 
   const purchasesQuery = useQuery({
     queryKey: ["product-purchases", productId],
@@ -107,9 +126,33 @@ export default function ProductDetailDialog({ product: productProp, productId: p
     enabled: !!productId && open,
   });
 
-  if (!product) return null;
+  const invRows = (inventoryQuery.data || []) as any[];
+  const filteredInv = selectedLocation === "all" ? invRows : invRows.filter((r) => r.location_id === selectedLocation);
+  const totalQty = invRows.reduce((s, r: any) => s + Number(r.quantity || 0), 0);
+  const selectedQty = filteredInv.reduce((s, r: any) => s + Number(r.quantity || 0), 0);
+  const selectedLocationName =
+    selectedLocation === "all"
+      ? "All locations"
+      : invRows.find((r) => r.location_id === selectedLocation)?.locations?.name || "Selected location";
 
-  const totalQty = (inventoryQuery.data || []).reduce((s, r: any) => s + Number(r.quantity || 0), 0);
+  if (!product) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Loading item…</DialogTitle>
+            <DialogDescription>Fetching item details</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+            </div>
+            <Skeleton className="h-40 w-full rounded-lg" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -145,11 +188,29 @@ export default function ProductDetailDialog({ product: productProp, productId: p
               <Info label="Purchase Price" value={fmt(product.purchase_price)} />
               <Info label="Selling Price" value={fmt(product.selling_price)} />
               <Info label="Tax Rate" value={`${product.tax_rate ?? 0}%`} />
-              <Info label="Total Stock" value={<span className="font-semibold">{totalQty}</span>} />
+              <Info
+                label={selectedLocation === "all" ? "Total Stock" : `Stock · ${selectedLocationName}`}
+                value={
+                  inventoryQuery.isLoading
+                    ? <Skeleton className="h-4 w-10" />
+                    : <span className="font-semibold">{selectedLocation === "all" ? totalQty : selectedQty}</span>
+                }
+              />
             </div>
 
             <div>
-              <h4 className="text-sm font-semibold mb-2">Stock by Location</h4>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <h4 className="text-sm font-semibold">Stock by Location</h4>
+                <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                  <SelectTrigger className="h-8 w-[200px]"><SelectValue placeholder="Location" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Locations</SelectItem>
+                    {invRows.map((r) => (
+                      <SelectItem key={r.location_id || r.id} value={r.location_id}>{r.locations?.name || "—"}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -161,11 +222,17 @@ export default function ProductDetailDialog({ product: productProp, productId: p
                 </TableHeader>
                 <TableBody>
                   {inventoryQuery.isLoading ? (
-                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>
-                  ) : (inventoryQuery.data || []).length === 0 ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                      <TableRow key={i}>
+                        {Array.from({ length: 4 }).map((__, j) => (
+                          <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : filteredInv.length === 0 ? (
                     <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">No inventory records</TableCell></TableRow>
                   ) : (
-                    (inventoryQuery.data as any[]).map((row) => {
+                    filteredInv.map((row) => {
                       const low = Number(row.quantity) <= Number(row.low_stock_threshold);
                       return (
                         <TableRow key={row.id}>
@@ -179,6 +246,7 @@ export default function ProductDetailDialog({ product: productProp, productId: p
                       );
                     })
                   )}
+
                 </TableBody>
               </Table>
             </div>

@@ -60,6 +60,14 @@ const Products = () => {
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  const detailLockRef = useRef(false);
+  const openProductDetail = (p: Product) => {
+    if (detailLockRef.current) return;
+    detailLockRef.current = true;
+    setDetailProduct(p);
+    window.setTimeout(() => { detailLockRef.current = false; }, 400);
+  };
+
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [printTagsOpen, setPrintTagsOpen] = useState(false);
@@ -411,9 +419,19 @@ const Products = () => {
                       return (
                         <TableRow
                           key={p.id}
-                          className={`cursor-pointer ${selectedIds.has(p.id) ? "bg-muted/50" : ""}`}
-                          onClick={() => setDetailProduct(p)}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`View details for ${p.name}`}
+                          className={`cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selectedIds.has(p.id) ? "bg-muted/50" : ""}`}
+                          onClick={() => openProductDetail(p)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              openProductDetail(p);
+                            }
+                          }}
                         >
+
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <Checkbox checked={selectedIds.has(p.id)} onCheckedChange={() => toggleSelect(p.id)} />
                           </TableCell>

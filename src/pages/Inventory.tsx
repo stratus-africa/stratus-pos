@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -89,6 +89,14 @@ const Inventory = () => {
   const [search, setSearch] = useState<string>(initialStr("q", ""));
   const [adjDialogOpen, setAdjDialogOpen] = useState(false);
   const [detailProductId, setDetailProductId] = useState<string | null>(null);
+  const detailLockRef = useRef(false);
+  const openProductDetail = (id?: string | null) => {
+    if (!id || detailLockRef.current) return;
+    detailLockRef.current = true;
+    setDetailProductId(id);
+    window.setTimeout(() => { detailLockRef.current = false; }, 400);
+  };
+
 
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<AdjustmentDocument | null>(null);
@@ -544,9 +552,19 @@ const Inventory = () => {
                       return (
                         <TableRow
                           key={i.id}
-                          className={`cursor-pointer ${isLow ? "bg-destructive/5" : ""}`}
-                          onClick={() => i.product_id && setDetailProductId(i.product_id)}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`View details for ${i.products?.name || "item"}`}
+                          className={`cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${isLow ? "bg-destructive/5" : ""}`}
+                          onClick={() => openProductDetail(i.product_id)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              openProductDetail(i.product_id);
+                            }
+                          }}
                         >
+
                           <TableCell className="font-medium">
                             <span className="hover:text-primary hover:underline">{i.products?.name || "—"}</span>
                           </TableCell>
@@ -880,9 +898,11 @@ const Inventory = () => {
 
       <ProductDetailDialog
         productId={detailProductId}
+        locationId={effectiveLocationId ?? null}
         open={!!detailProductId}
         onOpenChange={(o) => { if (!o) setDetailProductId(null); }}
       />
+
 
 
       <StockAdjustmentDialog
