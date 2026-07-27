@@ -11,7 +11,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { format } from "date-fns";
 import { Printer, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { loadReceiptConfig } from "@/lib/receiptTemplate";
+import ReceiptDialog from "@/components/pos/ReceiptDialog";
 
 interface Props {
   open: boolean;
