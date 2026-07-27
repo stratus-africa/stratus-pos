@@ -171,7 +171,7 @@ export function MobileBottomNav() {
                 key={keyOf(it)}
                 to={it.to}
                 aria-current={active ? "page" : undefined}
-                className={`group relative flex min-w-0 flex-1 flex-col items-center justify-end gap-1 px-1 pt-1 ${NAV_TOUCH_TARGET}`}
+                className={`group relative flex min-w-0 flex-1 flex-col items-center justify-end gap-0.5 px-1 pt-1 ${NAV_TOUCH_TARGET}`}
               >
                 <span
                   className={`relative flex h-11 w-11 items-center justify-center rounded-full transition-all duration-200 ${
@@ -180,16 +180,17 @@ export function MobileBottomNav() {
                       : "text-muted-foreground group-active:bg-muted"
                   }`}
                 >
-                  <it.icon className={active ? "h-5 w-5" : NAV_ICON_CLASS} />
+                  <it.icon className={NAV_ICON_CLASS} />
                   {renderBadge(count, active)}
                 </span>
                 <span
-                  className={`w-full truncate text-center text-[11px] leading-tight transition-colors ${
+                  className={`w-full truncate text-center text-[11px] leading-none transition-colors ${
                     active ? "-mt-2 font-semibold text-primary" : "font-medium text-muted-foreground"
                   }`}
                 >
                   {it.label}
                 </span>
+
               </Link>
             );
           })}
