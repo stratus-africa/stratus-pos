@@ -36,6 +36,8 @@ import {
   displayLineItem, displayPaid, displayThankYou, displayTotal, displayWelcome,
   loadCustomerDisplayConfig,
 } from "@/lib/customerDisplay";
+import { loadLastReceipt } from "@/lib/lastReceipt";
+
 
 
 
