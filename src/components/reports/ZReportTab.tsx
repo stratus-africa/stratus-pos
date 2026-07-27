@@ -9,6 +9,7 @@ import { FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { formatKES, downloadCSV } from "./reportUtils";
+import ReportTableScroll from "./ReportTableScroll";
 
 interface Props {
   from: string;
@@ -160,32 +161,36 @@ export default function ZReportTab({ from, to, onRegisterExport }: Props) {
         <Card>
           <CardHeader><CardTitle className="text-base">By Payment Method</CardTitle></CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader><TableRow><TableHead>Method</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
-              <TableBody>
-                {summary.byPay.length === 0 ? (
-                  <TableRow><TableCell colSpan={2} className="text-muted-foreground text-sm">No payments</TableCell></TableRow>
-                ) : summary.byPay.map(([m, t]) => (
-                  <TableRow key={m}><TableCell className="capitalize">{m}</TableCell><TableCell className="text-right">{formatKES(t)}</TableCell></TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <ReportTableScroll maxHeight="max-h-64">
+              <Table>
+                <TableHeader><TableRow><TableHead>Method</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {summary.byPay.length === 0 ? (
+                    <TableRow><TableCell colSpan={2} className="text-muted-foreground text-sm">No payments</TableCell></TableRow>
+                  ) : summary.byPay.map(([m, t]) => (
+                    <TableRow key={m}><TableCell className="capitalize">{m}</TableCell><TableCell className="text-right">{formatKES(t)}</TableCell></TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ReportTableScroll>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader><CardTitle className="text-base">By Cashier</CardTitle></CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader><TableRow><TableHead>Cashier</TableHead><TableHead className="text-right">Sales</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
-              <TableBody>
-                {summary.byCashier.length === 0 ? (
-                  <TableRow><TableCell colSpan={3} className="text-muted-foreground text-sm">No data</TableCell></TableRow>
-                ) : summary.byCashier.map((c) => (
-                  <TableRow key={c.name}><TableCell>{c.name}</TableCell><TableCell className="text-right">{c.count}</TableCell><TableCell className="text-right">{formatKES(c.total)}</TableCell></TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <ReportTableScroll maxHeight="max-h-64">
+              <Table>
+                <TableHeader><TableRow><TableHead>Cashier</TableHead><TableHead className="text-right">Sales</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {summary.byCashier.length === 0 ? (
+                    <TableRow><TableCell colSpan={3} className="text-muted-foreground text-sm">No data</TableCell></TableRow>
+                  ) : summary.byCashier.map((c) => (
+                    <TableRow key={c.name}><TableCell>{c.name}</TableCell><TableCell className="text-right">{c.count}</TableCell><TableCell className="text-right">{formatKES(c.total)}</TableCell></TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ReportTableScroll>
           </CardContent>
         </Card>
       </div>

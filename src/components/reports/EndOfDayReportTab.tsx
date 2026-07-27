@@ -12,6 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { formatKES, downloadCSV } from "./reportUtils";
+import ReportTableScroll from "./ReportTableScroll";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const ALL = "__all__";
@@ -366,16 +367,18 @@ export default function EndOfDayReportTab() {
           <Card>
             <CardHeader><CardTitle className="text-base">Payments by Method</CardTitle></CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader><TableRow><TableHead>Method</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {summary.byMethod.length === 0 ? (
-                    <TableRow><TableCell colSpan={2} className="text-sm text-muted-foreground">No payments.</TableCell></TableRow>
-                  ) : summary.byMethod.map(([m, t]) => (
-                    <TableRow key={m}><TableCell className="capitalize">{m}</TableCell><TableCell className="text-right">{formatKES(t)}</TableCell></TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <ReportTableScroll maxHeight="max-h-64">
+                <Table>
+                  <TableHeader><TableRow><TableHead>Method</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {summary.byMethod.length === 0 ? (
+                      <TableRow><TableCell colSpan={2} className="text-sm text-muted-foreground">No payments.</TableCell></TableRow>
+                    ) : summary.byMethod.map(([m, t]) => (
+                      <TableRow key={m}><TableCell className="capitalize">{m}</TableCell><TableCell className="text-right">{formatKES(t)}</TableCell></TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ReportTableScroll>
             </CardContent>
           </Card>
 
@@ -403,53 +406,57 @@ export default function EndOfDayReportTab() {
           <Card>
             <CardHeader><CardTitle className="text-base">Sales by Cashier</CardTitle></CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader><TableRow><TableHead>Cashier</TableHead><TableHead className="text-right">Sales</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {summary.byCashier.length === 0 ? (
-                    <TableRow><TableCell colSpan={3} className="text-sm text-muted-foreground">No data.</TableCell></TableRow>
-                  ) : summary.byCashier.map((c, i) => (
-                    <TableRow key={i}>
-                      <TableCell>{c.name}</TableCell>
-                      <TableCell className="text-right">{c.count}</TableCell>
-                      <TableCell className="text-right">{formatKES(c.total)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <ReportTableScroll maxHeight="max-h-64">
+                <Table>
+                  <TableHeader><TableRow><TableHead>Cashier</TableHead><TableHead className="text-right">Sales</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {summary.byCashier.length === 0 ? (
+                      <TableRow><TableCell colSpan={3} className="text-sm text-muted-foreground">No data.</TableCell></TableRow>
+                    ) : summary.byCashier.map((c, i) => (
+                      <TableRow key={i}>
+                        <TableCell>{c.name}</TableCell>
+                        <TableCell className="text-right">{c.count}</TableCell>
+                        <TableCell className="text-right">{formatKES(c.total)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ReportTableScroll>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader><CardTitle className="text-base">Sessions</CardTitle></CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Cashier</TableHead><TableHead>Drawer</TableHead>
-                    <TableHead className="text-right">Float</TableHead><TableHead className="text-right">Counted</TableHead>
-                    <TableHead className="text-right">Variance</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {summary.sessions.length === 0 ? (
-                    <TableRow><TableCell colSpan={5} className="text-sm text-muted-foreground">No sessions for the selected filters.</TableCell></TableRow>
-                  ) : summary.sessions.map((s: any) => {
-                    const diff = Number(s.cash_difference || 0);
-                    return (
-                      <TableRow key={s.id}>
-                        <TableCell>{cashierMap.get(s.opened_by) || "—"}</TableCell>
-                        <TableCell>{s.cash_account?.name || "—"}</TableCell>
-                        <TableCell className="text-right">{formatKES(Number(s.opening_float || 0))}</TableCell>
-                        <TableCell className="text-right">{formatKES(Number(s.closing_cash || 0))}</TableCell>
-                        <TableCell className={`text-right ${diff >= 0 ? "text-emerald-600" : "text-destructive"}`}>
-                          {diff >= 0 ? "+" : ""}{formatKES(diff)}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              <ReportTableScroll maxHeight="max-h-64">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Cashier</TableHead><TableHead>Drawer</TableHead>
+                      <TableHead className="text-right">Float</TableHead><TableHead className="text-right">Counted</TableHead>
+                      <TableHead className="text-right">Variance</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {summary.sessions.length === 0 ? (
+                      <TableRow><TableCell colSpan={5} className="text-sm text-muted-foreground">No sessions for the selected filters.</TableCell></TableRow>
+                    ) : summary.sessions.map((s: any) => {
+                      const diff = Number(s.cash_difference || 0);
+                      return (
+                        <TableRow key={s.id}>
+                          <TableCell>{cashierMap.get(s.opened_by) || "—"}</TableCell>
+                          <TableCell>{s.cash_account?.name || "—"}</TableCell>
+                          <TableCell className="text-right">{formatKES(Number(s.opening_float || 0))}</TableCell>
+                          <TableCell className="text-right">{formatKES(Number(s.closing_cash || 0))}</TableCell>
+                          <TableCell className={`text-right ${diff >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                            {diff >= 0 ? "+" : ""}{formatKES(diff)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </ReportTableScroll>
             </CardContent>
           </Card>
         </div>
@@ -473,42 +480,46 @@ export default function EndOfDayReportTab() {
         <Card>
           <CardHeader><CardTitle className="text-base">Expenses by Category</CardTitle></CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader><TableRow><TableHead>Category</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader>
-              <TableBody>
-                {Object.keys(summary.expByCat).length === 0 ? (
-                  <TableRow><TableCell colSpan={2} className="text-sm text-muted-foreground">No expenses.</TableCell></TableRow>
-                ) : Object.entries(summary.expByCat).map(([c, t]) => (
-                  <TableRow key={c}><TableCell>{c}</TableCell><TableCell className="text-right">{formatKES(t)}</TableCell></TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <ReportTableScroll maxHeight="max-h-64">
+              <Table>
+                <TableHeader><TableRow><TableHead>Category</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {Object.keys(summary.expByCat).length === 0 ? (
+                    <TableRow><TableCell colSpan={2} className="text-sm text-muted-foreground">No expenses.</TableCell></TableRow>
+                  ) : Object.entries(summary.expByCat).map(([c, t]) => (
+                    <TableRow key={c}><TableCell>{c}</TableCell><TableCell className="text-right">{formatKES(t)}</TableCell></TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ReportTableScroll>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader><CardTitle className="text-base">Sales ({summary.txCount})</CardTitle></CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader><TableRow>
-                <TableHead>Time</TableHead><TableHead>Invoice</TableHead><TableHead>Cashier</TableHead><TableHead>Customer</TableHead>
-                <TableHead className="text-right">Total</TableHead><TableHead>Status</TableHead>
-              </TableRow></TableHeader>
-              <TableBody>
-                {summary.sales.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-sm text-muted-foreground">No sales for this day.</TableCell></TableRow>
-                ) : summary.sales.map((s: any) => (
-                  <TableRow key={s.id}>
-                    <TableCell>{new Date(s.created_at).toLocaleTimeString()}</TableCell>
-                    <TableCell>{s.invoice_number || "—"}</TableCell>
-                    <TableCell>{cashierMap.get(s.created_by) || "—"}</TableCell>
-                    <TableCell>{s.customers?.name || "Walk-in"}</TableCell>
-                    <TableCell className="text-right">{formatKES(Number(s.total))}</TableCell>
-                    <TableCell><Badge variant="outline" className="capitalize">{s.status}</Badge></TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <ReportTableScroll maxHeight="max-h-64">
+              <Table>
+                <TableHeader><TableRow>
+                  <TableHead>Time</TableHead><TableHead>Invoice</TableHead><TableHead>Cashier</TableHead><TableHead>Customer</TableHead>
+                  <TableHead className="text-right">Total</TableHead><TableHead>Status</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {summary.sales.length === 0 ? (
+                    <TableRow><TableCell colSpan={6} className="text-sm text-muted-foreground">No sales for this day.</TableCell></TableRow>
+                  ) : summary.sales.map((s: any) => (
+                    <TableRow key={s.id}>
+                      <TableCell>{new Date(s.created_at).toLocaleTimeString()}</TableCell>
+                      <TableCell>{s.invoice_number || "—"}</TableCell>
+                      <TableCell>{cashierMap.get(s.created_by) || "—"}</TableCell>
+                      <TableCell>{s.customers?.name || "Walk-in"}</TableCell>
+                      <TableCell className="text-right">{formatKES(Number(s.total))}</TableCell>
+                      <TableCell><Badge variant="outline" className="capitalize">{s.status}</Badge></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ReportTableScroll>
           </CardContent>
         </Card>
       </div>

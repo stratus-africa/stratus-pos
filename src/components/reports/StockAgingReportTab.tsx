@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import ReportTableScroll from "./ReportTableScroll";
 
 type AgeBucket = "fresh" | "slow" | "dead" | "never";
 
@@ -156,34 +157,36 @@ export default function StockAgingReportTab() {
           ) : filtered.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-10">No products in this bucket.</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Barcode</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Stock Value</TableHead>
-                  <TableHead>Last Sold</TableHead>
-                  <TableHead>Days Idle</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paged.map((r) => (
-                  <TableRow key={r.product_id} className="odd:bg-muted/30">
-                    <TableCell className="font-medium">{r.name}</TableCell>
-                    <TableCell className="font-mono text-xs">{r.barcode || "—"}</TableCell>
-                    <TableCell className="text-right">{r.quantity}</TableCell>
-                    <TableCell className="text-right">{fmt(r.value)}</TableCell>
-                    <TableCell>{r.lastSoldAt ? new Date(r.lastSoldAt).toLocaleDateString() : "—"}</TableCell>
-                    <TableCell>{r.daysSince ?? "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant={bucketMeta[r.bucket].variant}>{bucketMeta[r.bucket].label}</Badge>
-                    </TableCell>
+            <ReportTableScroll maxHeight="max-h-64">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Product</TableHead>
+                    <TableHead>Barcode</TableHead>
+                    <TableHead className="text-right">Qty</TableHead>
+                    <TableHead className="text-right">Stock Value</TableHead>
+                    <TableHead>Last Sold</TableHead>
+                    <TableHead>Days Idle</TableHead>
+                    <TableHead>Status</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {paged.map((r) => (
+                    <TableRow key={r.product_id} className="odd:bg-muted/30">
+                      <TableCell className="font-medium">{r.name}</TableCell>
+                      <TableCell className="font-mono text-xs">{r.barcode || "—"}</TableCell>
+                      <TableCell className="text-right">{r.quantity}</TableCell>
+                      <TableCell className="text-right">{fmt(r.value)}</TableCell>
+                      <TableCell>{r.lastSoldAt ? new Date(r.lastSoldAt).toLocaleDateString() : "—"}</TableCell>
+                      <TableCell>{r.daysSince ?? "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant={bucketMeta[r.bucket].variant}>{bucketMeta[r.bucket].label}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ReportTableScroll>
           )}
           {!loading && filtered.length > 0 && (
             <div className="flex items-center justify-between gap-2 px-4 py-3 border-t flex-wrap">
