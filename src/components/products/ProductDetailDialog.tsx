@@ -276,19 +276,77 @@ export default function ProductDetailDialog({ product: productProp, productId: p
           </DialogDescription>
         </DialogHeader>
 
+        <QuickStockActions productId={product.id} productName={product.name} locationId={selectedLocation} />
+
         <Tabs defaultValue="details" className="space-y-3">
-          <TabsList className={`grid w-full ${showBatches ? "grid-cols-5" : "grid-cols-4"}`}>
+          <TabsList className={`grid w-full ${showBatches ? "grid-cols-6" : "grid-cols-5"}`}>
             <TabsTrigger value="details"><Package className="mr-1 h-4 w-4" /> Details</TabsTrigger>
             {showBatches && (
               <TabsTrigger value="batches"><Layers className="mr-1 h-4 w-4" /> Batches</TabsTrigger>
             )}
+            <TabsTrigger value="timeline"><History className="mr-1 h-4 w-4" /> Timeline</TabsTrigger>
             <TabsTrigger value="purchases"><Truck className="mr-1 h-4 w-4" /> Purchases</TabsTrigger>
             <TabsTrigger value="sales"><ShoppingCart className="mr-1 h-4 w-4" /> Sales</TabsTrigger>
             <TabsTrigger value="adjustments"><ClipboardList className="mr-1 h-4 w-4" /> Adjustments</TabsTrigger>
           </TabsList>
 
+          {/* TIMELINE */}
+          <TabsContent value="timeline">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <h4 className="text-sm font-semibold">Recent stock movements · {selectedLocationName}</h4>
+              <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                <SelectTrigger className="h-8 w-[200px]"><SelectValue placeholder="Location" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Locations</SelectItem>
+                  {invRows.map((r) => (
+                    <SelectItem key={`tl-${r.location_id || r.id}`} value={r.location_id}>{r.locations?.name || "—"}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Reference</TableHead>
+                  <TableHead>Details</TableHead>
+                  <TableHead className="text-right">Change</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {purchasesQuery.isLoading || salesQuery.isLoading || adjustmentsQuery.isLoading ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: 5 }).map((__, j) => (
+                        <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : timeline.length === 0 ? (
+                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No stock movements yet</TableCell></TableRow>
+                ) : (
+                  timeline.map((e) => (
+                    <TableRow key={e.id}>
+                      <TableCell className="whitespace-nowrap">{fmtDate(e.date)}</TableCell>
+                      <TableCell>
+                        <Badge variant={e.kind === "Sale" ? "secondary" : e.kind === "Purchase" ? "default" : "outline"}>{e.kind}</Badge>
+                      </TableCell>
+                      <TableCell className="capitalize">{e.reference}</TableCell>
+                      <TableCell className="text-muted-foreground">{e.locationName ? `${e.locationName} · ` : ""}{e.detail}</TableCell>
+                      <TableCell className={`text-right font-semibold ${e.change >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                        {e.change > 0 ? "+" : ""}{e.change}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TabsContent>
+
           {/* DETAILS */}
           <TabsContent value="details" className="space-y-4">
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
               <Info label="Category" value={product.categories?.name || "—"} />
               <Info label="Brand" value={product.brands?.name || "—"} />
