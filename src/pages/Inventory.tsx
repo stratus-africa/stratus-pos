@@ -21,6 +21,8 @@ import { usePurchases } from "@/hooks/usePurchases";
 import { StockAdjustmentDialog, type AdjustStockSubmit } from "@/components/inventory/StockAdjustmentDialog";
 import { ImportAdjustmentsDialog } from "@/components/inventory/ImportAdjustmentsDialog";
 import { EditAdjustmentDocumentDialog } from "@/components/inventory/EditAdjustmentDocumentDialog";
+import ProductDetailDialog from "@/components/products/ProductDetailDialog";
+
 
 const PAGE_SIZE_OPTIONS = [25, 100, 200] as const;
 
