@@ -292,14 +292,14 @@ export function MobileBottomNav() {
                 const count = badgeFor(it.to);
                 const highlight = customizing ? picked : active;
                 const disabled = customizing && !picked && selected.length >= MAX_QUICK;
-                const className = `relative flex h-full w-full min-h-11 flex-col items-center justify-center gap-1.5 rounded-xl border px-1.5 py-3 text-center transition-colors ${
+                const className = `relative flex h-full w-full min-h-11 flex-col items-center justify-end gap-0.5 rounded-xl border px-1.5 pb-1.5 pt-2.5 text-center transition-colors ${
                   highlight
                     ? "bg-primary/10 border-primary text-primary font-semibold ring-1 ring-primary/40"
                     : "bg-card hover:bg-muted border-border text-foreground"
                 } ${disabled ? "opacity-40" : ""}`;
                 const inner = (
                   <>
-                    <span className="relative flex h-6 w-6 items-center justify-center">
+                    <span className="relative flex h-[18px] w-[18px] items-end justify-center leading-none">
                       <it.icon className={NAV_ICON_CLASS} />
                       {!customizing && renderBadge(count, active)}
                       {customizing && picked && (
@@ -308,9 +308,10 @@ export function MobileBottomNav() {
                         </span>
                       )}
                     </span>
-                    <span className="text-[10px] font-medium leading-tight line-clamp-2">{it.label}</span>
+                    <span className="text-[10px] font-medium leading-none line-clamp-2">{it.label}</span>
                   </>
                 );
+
                 return (
                   <li key={k}>
                     {customizing ? (
