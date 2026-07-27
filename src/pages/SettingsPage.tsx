@@ -42,6 +42,9 @@ const SettingsPage = () => {
   const [searchParams] = useSearchParams();
   const { hasPermission } = usePermissions();
   const { hasFeatureKey } = useFeatureLimit();
+  const { business } = useBusiness();
+  const vatEnabled = (business as { vat_enabled?: boolean } | null)?.vat_enabled ?? false;
+
 
   const tabs: TabDef[] = useMemo(() => [
     { key: "business", label: "Business", icon: <Building2 className="h-4 w-4" />, permission: "settings.view", render: () => <BusinessProfileTab /> },
