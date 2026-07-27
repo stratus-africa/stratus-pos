@@ -241,7 +241,10 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
             <Printer className="h-4 w-4 mr-1" /> Reprint Receipt
           </Button>
         </DialogFooter>
+
+        <ReceiptDialog open={reprintOpen} onOpenChange={setReprintOpen} data={receiptPayload} reprint />
       </DialogContent>
     </Dialog>
+
   );
 }
