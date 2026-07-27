@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -8,11 +8,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, ShoppingCart, Truck, ClipboardList, Layers } from "lucide-react";
+import { Package, ShoppingCart, Truck, ClipboardList, Layers, History } from "lucide-react";
 import type { Product } from "@/hooks/useProducts";
 import { useBusiness } from "@/contexts/BusinessContext";
 import BatchesTab from "@/components/products/BatchesTab";
+import QuickStockActions from "@/components/products/QuickStockActions";
 import { useFeatureLimit } from "@/components/FeatureGate";
+
 
 interface ProductDetailDialogProps {
   product?: Product | null;
