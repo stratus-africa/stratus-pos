@@ -286,7 +286,11 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
           )}
 
           <div className="line border-t border-dashed border-foreground/30 my-2" />
-          <p className="text-center">Thank you for shopping with us!</p>
+          {cfg.thankYouMessage && (
+            <p className="text-center whitespace-pre-wrap">{cfg.thankYouMessage}</p>
+          )}
+          {cfg.footer && <p className="text-center whitespace-pre-wrap">{cfg.footer}</p>}
+
 
           {data.fiscal?.fiscal_reference && (
             <>
