@@ -190,11 +190,7 @@ export default function Banking() {
       ]);
       if (txnError) throw txnError;
 
-      // Source account decreases, loan balance also decreases (paying down debt)
-      await Promise.all([
-        supabase.from("bank_accounts").update({ balance: Number(fromAcc.balance) - amount }).eq("id", fromAcc.id),
-        supabase.from("bank_accounts").update({ balance: Number(loanAcc.balance) - amount }).eq("id", loanAcc.id),
-      ]);
+      // Balances are maintained by the database (recomputed from transactions).
 
       toast.success(`Paid KES ${amount.toLocaleString()} towards ${loanAcc.name}`);
       setLoanDialogOpen(false);
