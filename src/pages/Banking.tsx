@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BankReconciliationCard } from "@/components/banking/BankReconciliationCard";
 import { Plus, Building2, Wallet, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Landmark, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -623,6 +624,8 @@ export default function Banking() {
           </Card>
         ))}
       </div>
+
+      <BankReconciliationCard />
 
       {/* Transactions */}
       <Card>
