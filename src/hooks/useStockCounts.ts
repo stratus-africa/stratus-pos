@@ -241,6 +241,7 @@ export function useStockCounts() {
     countsQuery,
     assigneesQuery,
     createCount,
+    addItems,
     saveCounts,
     submitCount,
     approveCount,
