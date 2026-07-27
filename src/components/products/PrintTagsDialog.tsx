@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { Printer } from "lucide-react";
-import { loadPriceTagConfig, PRICE_TAG_LAYOUTS, PAPER_MODE_OPTIONS, THERMAL_80_PRINTABLE_MM, type PriceTagConfig } from "@/lib/priceTagTemplate";
+import { loadPriceTagConfig, fetchPriceTagConfig, PRICE_TAG_LAYOUTS, THERMAL_80_PRINTABLE_MM, type PriceTagConfig } from "@/lib/priceTagTemplate";
 
 export interface PrintTagItem {
   id: string;
