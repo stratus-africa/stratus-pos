@@ -419,9 +419,19 @@ const Products = () => {
                       return (
                         <TableRow
                           key={p.id}
-                          className={`cursor-pointer ${selectedIds.has(p.id) ? "bg-muted/50" : ""}`}
-                          onClick={() => setDetailProduct(p)}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`View details for ${p.name}`}
+                          className={`cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selectedIds.has(p.id) ? "bg-muted/50" : ""}`}
+                          onClick={() => openProductDetail(p)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              openProductDetail(p);
+                            }
+                          }}
                         >
+
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <Checkbox checked={selectedIds.has(p.id)} onCheckedChange={() => toggleSelect(p.id)} />
                           </TableCell>
