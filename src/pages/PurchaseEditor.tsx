@@ -450,6 +450,7 @@ export default function PurchaseEditor() {
                         addItemById(target.id);
                         setProductSearch("");
                         setHighlightIdx(0);
+                        setSearchFocused(false);
                       } else if (q) {
                         // No match → open create-product dialog prefilled
                         setPendingBarcode(q);
