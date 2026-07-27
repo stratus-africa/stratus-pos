@@ -65,6 +65,7 @@ const POS = () => {
   const scanSettings = useScanSettings();
 
   const [mobileCartExpanded, setMobileCartExpanded] = useState(false);
+  const isResume = pos.cart.length === 0 && pos.heldSales.length > 0;
   const [approvalOpen, setApprovalOpen] = useState(false);
   const pendingRemoveResolver = useRef<((approved: boolean) => void) | null>(null);
   const pendingRemoveItem = useRef<CartItem | null>(null);
