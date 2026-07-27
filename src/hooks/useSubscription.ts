@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { getPaystackEnvironment } from "@/lib/paystack";
+import { moduleKeys } from "@/lib/modules";
+
 
 export type SubscriptionTier = "free" | "basic" | "pro";
 
