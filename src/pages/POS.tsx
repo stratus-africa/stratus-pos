@@ -783,7 +783,7 @@ const POS = () => {
               <div key={h.id} className="flex items-center justify-between gap-2 rounded-md border p-3">
                 <div className="min-w-0">
                   <p className="text-sm font-medium truncate">{h.label}</p>
-                  <p className="text-xs text-muted-foreground">{h.items?.length ?? 0} item(s)</p>
+                  <p className="text-xs text-muted-foreground">{h.cart?.length ?? 0} item(s)</p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <Button size="sm" onClick={() => { pos.resumeSale(h.id); setResumeOpen(false); }}>
