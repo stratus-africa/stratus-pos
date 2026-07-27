@@ -437,13 +437,15 @@ export function useInventory(
       assertCanPost();
       if (!business) throw new Error("No business context");
 
-      // 1) Reverse & delete existing lines
-      const { data: lines, error: linesErr } = await supabase
+      // 1) Delete existing lines first, then reverse using the rows actually deleted
+      //    so a repeated save can never reverse the same quantities twice.
+      const { data: deletedLines, error: linesErr } = await supabase
         .from("stock_adjustments")
-        .select("id, product_id, location_id, quantity_change")
-        .eq("document_id", input.id);
+        .delete()
+        .eq("document_id", input.id)
+        .select("id, product_id, location_id, quantity_change");
       if (linesErr) throw linesErr;
-      for (const l of (lines || [])) {
+      for (const l of (deletedLines || [])) {
         const { data: inv } = await supabase
           .from("inventory")
           .select("id, quantity")
@@ -458,11 +460,7 @@ export function useInventory(
           if (error) throw error;
         }
       }
-      const { error: delLinesErr } = await supabase
-        .from("stock_adjustments")
-        .delete()
-        .eq("document_id", input.id);
-      if (delLinesErr) throw delLinesErr;
+
 
       // 2) Update document header
       const { error: updErr } = await (supabase as unknown as {
