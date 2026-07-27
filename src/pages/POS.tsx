@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   ShoppingCart, Search, Plus, Minus, Trash2, Pause, Play, X,
@@ -54,6 +55,7 @@ const POS = () => {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [resumeOpen, setResumeOpen] = useState(false);
   const [initialPaymentMethod, setInitialPaymentMethod] = useState<"cash" | "mpesa" | "card">("cash");
   const [receiptData, setReceiptData] = useState<any>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
