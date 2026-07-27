@@ -86,6 +86,8 @@ const Inventory = () => {
   const [locationFilter, setLocationFilter] = useState<string>(currentLocation?.id || "all");
   const [search, setSearch] = useState<string>(initialStr("q", ""));
   const [adjDialogOpen, setAdjDialogOpen] = useState(false);
+  const [detailProductId, setDetailProductId] = useState<string | null>(null);
+
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<AdjustmentDocument | null>(null);
   const [selectedAdjIds, setSelectedAdjIds] = useState<Set<string>>(new Set());
