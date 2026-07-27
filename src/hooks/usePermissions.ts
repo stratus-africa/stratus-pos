@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { defaultRolePermissions, type AppRole } from "@/lib/permissions";
+import { defaultRolePermissions, moduleCatalog, type AppRole } from "@/lib/permissions";
+
 
 /**
  * Loads the granular permission set for the current user's role within the
@@ -40,8 +41,22 @@ export function usePermissions() {
   }
 
   const stored = data ?? [];
-  const effective = stored.length > 0 ? stored : (role ? defaultRolePermissions[role] : []);
+  const defaults = role ? defaultRolePermissions[role] : [];
+  let effective = stored.length > 0 ? [...stored] : [...defaults];
+
+  // Newly-introduced modules (e.g. HR) won't exist in role_permissions rows saved
+  // before the module shipped. When a module has no stored entry at all, fall back
+  // to the role's default grants for that module so the feature isn't invisible.
+  if (stored.length > 0) {
+    for (const mod of moduleCatalog) {
+      const prefix = `${mod.key}.`;
+      if (!stored.some((p) => p.startsWith(prefix))) {
+        effective.push(...defaults.filter((p) => p.startsWith(prefix)));
+      }
+    }
+  }
   const set = new Set(effective);
+
 
   return {
     isLoading,
