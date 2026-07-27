@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   ShoppingCart, Search, Plus, Minus, Trash2, Pause, Play, X,
   User, List, LayoutGrid, Sunrise, Banknote, Smartphone, CreditCard, ScanLine,
-  ChevronUp, ChevronDown, Settings2,
+  ChevronUp, ChevronDown, Settings2, Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useProducts, useCategories } from "@/hooks/useProducts";
@@ -36,6 +36,8 @@ import {
   displayLineItem, displayPaid, displayThankYou, displayTotal, displayWelcome,
   loadCustomerDisplayConfig,
 } from "@/lib/customerDisplay";
+import { loadLastReceipt } from "@/lib/lastReceipt";
+
 
 
 
@@ -59,6 +61,9 @@ const POS = () => {
   const [initialPaymentMethod, setInitialPaymentMethod] = useState<"cash" | "mpesa" | "card">("cash");
   const [receiptData, setReceiptData] = useState<any>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
+  const [reprintData, setReprintData] = useState<any>(null);
+  const [reprintOpen, setReprintOpen] = useState(false);
+
   const [startDayOpen, setStartDayOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanSettingsOpen, setScanSettingsOpen] = useState(false);
@@ -765,6 +770,23 @@ const POS = () => {
                 <span className="text-[10px] font-medium">Clear</span>
               </Button>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-xs"
+              onClick={() => {
+                const last = loadLastReceipt(business?.id);
+                if (!last) {
+                  toast.error("No previous receipt found on this device.");
+                  return;
+                }
+                setReprintData(last);
+                setReprintOpen(true);
+              }}
+            >
+              <Printer className="h-3.5 w-3.5 mr-1" /> Reprint Last Receipt
+            </Button>
+
           </div>
         </CardContent>
       </Card>
@@ -810,6 +832,14 @@ const POS = () => {
         onOpenChange={setReceiptOpen}
         data={receiptData}
       />
+
+      <ReceiptDialog
+        open={reprintOpen}
+        onOpenChange={setReprintOpen}
+        data={reprintData}
+        reprint
+      />
+
 
       <BarcodeScanner open={scannerOpen} onOpenChange={setScannerOpen} onDetected={handleScanned} />
 

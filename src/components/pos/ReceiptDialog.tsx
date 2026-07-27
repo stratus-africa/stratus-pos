@@ -7,7 +7,9 @@ import { format } from "date-fns";
 import { QRCodeSVG } from "qrcode.react";
 import { CartItem, PaymentEntry } from "@/hooks/usePOS";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { loadReceiptConfig } from "@/lib/receiptTemplate";
+import { loadReceiptConfig, paperWidth } from "@/lib/receiptTemplate";
+import { saveLastReceipt } from "@/lib/lastReceipt";
+
 
 interface ReceiptData {
   saleId?: string;
@@ -51,14 +53,17 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   data: ReceiptData | null;
+  /** Marks the printout as a reprint and disables auto-print. */
+  reprint?: boolean;
 }
 
-export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
+export default function ReceiptDialog({ open, onOpenChange, data, reprint = false }: Props) {
   const receiptRef = useRef<HTMLDivElement>(null);
   const { business } = useBusiness();
   const cfg = loadReceiptConfig(business?.id);
+  const width = paperWidth(cfg.paper);
   const showLogo = cfg.showLogo && !!business?.logo_url;
-  const autoPrint = (business as { pos_auto_print_receipt?: boolean } | null)?.pos_auto_print_receipt ?? false;
+  const autoPrint = ((business as { pos_auto_print_receipt?: boolean } | null)?.pos_auto_print_receipt ?? false) && !reprint;
   const printFnRef = useRef<() => void>(() => {});
   const autoPrintedFor = useRef<string | null>(null);
 
@@ -71,7 +76,14 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
     return () => clearTimeout(t);
   }, [open, autoPrint, data?.saleId, data?.invoiceNumber]);
 
+  // Remember the most recent receipt so it can be reprinted later.
+  useEffect(() => {
+    if (!open || reprint || !data || !business?.id) return;
+    saveLastReceipt(business.id, data);
+  }, [open, reprint, data, business?.id]);
+
   if (!data) return null;
+
 
   const qrValue = (() => {
     if (!cfg.showQRCode) return "";
@@ -108,15 +120,16 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
     win.document.write(`
       <html><head><title>Receipt</title>
       <style>
-        @page { size: 80mm auto; margin: 0; }
+        @page { size: ${cfg.paper === "a4" ? "A4" : `${width} auto`}; margin: 0; }
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; background: #fff; color: #000; }
         body {
           font-family: ${cfg.fontFamily};
           font-size: ${cfg.fontSize}px;
           line-height: 1.45;
-          width: 80mm;
+          width: ${width};
           padding: 3mm;
+
         }
         /* utility classes mirrored from the on-screen receipt design */
         .text-center, .center { text-align: center; }
@@ -163,14 +176,15 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Receipt</DialogTitle>
+          <DialogTitle>{reprint ? "Reprint Receipt" : "Receipt"}</DialogTitle>
         </DialogHeader>
 
         <div
           ref={receiptRef}
           className="space-y-2 p-2"
-          style={{ fontFamily: cfg.fontFamily, fontSize: `${cfg.fontSize}px`, lineHeight: 1.45, width: "80mm", maxWidth: "100%", margin: "0 auto" }}
+          style={{ fontFamily: cfg.fontFamily, fontSize: `${cfg.fontSize}px`, lineHeight: 1.45, width, maxWidth: "100%", margin: "0 auto" }}
         >
+
           <div className="text-center">
             {showLogo && (
               <img
@@ -329,13 +343,18 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
               {cfg.showPrintedAt && <p>Printed: {format(new Date(), "PPp")}</p>}
             </div>
           )}
+
+          {reprint && <p className="text-center font-bold pt-2">*** REPRINT ***</p>}
         </div>
 
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-          <Button onClick={handlePrint}><Printer className="h-4 w-4 mr-1" /> Print</Button>
+          <Button onClick={handlePrint}>
+            <Printer className="h-4 w-4 mr-1" /> {reprint ? "Reprint" : "Print"}
+          </Button>
         </DialogFooter>
+
       </DialogContent>
     </Dialog>
   );
