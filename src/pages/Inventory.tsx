@@ -22,6 +22,13 @@ import { StockAdjustmentDialog, type AdjustStockSubmit } from "@/components/inve
 import { EditAdjustmentDocumentDialog } from "@/components/inventory/EditAdjustmentDocumentDialog";
 
 const PAGE_SIZE_OPTIONS = [25, 100, 200] as const;
+
+const INVENTORY_TABS = [
+  { key: "stock", label: "Stock Levels", icon: <Warehouse className="h-4 w-4" /> },
+  { key: "adjustments", label: "Adjustments", icon: <ClipboardList className="h-4 w-4" /> },
+  { key: "counts", label: "Stock Take", icon: <ClipboardCheck className="h-4 w-4" /> },
+  { key: "movements", label: "Stock Movement", icon: <ArrowLeftRight className="h-4 w-4" /> },
+] as const;
 type StockSort = "name_asc" | "name_desc" | "sku_asc" | "sku_desc" | "qty_asc" | "qty_desc";
 
 const LS_KEYS = { stock: "inv.stock.size", adj: "inv.adj.size", mv: "inv.mv.size" } as const;
