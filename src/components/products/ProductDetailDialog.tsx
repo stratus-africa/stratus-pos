@@ -1,9 +1,13 @@
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Package, ShoppingCart, Truck, ClipboardList, Layers } from "lucide-react";
 import type { Product } from "@/hooks/useProducts";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -13,9 +17,12 @@ import { useFeatureLimit } from "@/components/FeatureGate";
 interface ProductDetailDialogProps {
   product?: Product | null;
   productId?: string | null;
+  /** Pre-select a location for the stock view (e.g. the Inventory page filter) */
+  locationId?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(n);
