@@ -167,10 +167,20 @@ export function useSubscription() {
     features.filter((f) => f.package_id === currentPackage?.id && f.enabled).map((f) => f.feature_key)
   );
 
+  // Some packages were seeded with legacy/alternate feature keys. Treat these as
+  // equivalent so modules aren't hidden purely because of naming drift.
+  const FEATURE_KEY_ALIASES: Record<string, string[]> = {
+    hr: ["hr", "hr_management", "payroll"],
+    chart_of_accounts: ["chart_of_accounts", "accounting"],
+    journal_entries: ["journal_entries", "manual_journals", "accounting"],
+  };
+
   const hasFeatureKey = (key: string): boolean => {
     if (!currentPackage) return false;
-    return enabledFeatureKeys.has(key);
+    const candidates = FEATURE_KEY_ALIASES[key] ?? [key];
+    return candidates.some((k) => enabledFeatureKeys.has(k));
   };
+
 
   const tier: SubscriptionTier = isActive ? "pro" : "free";
   const hasFeature = (_requiredTier: SubscriptionTier): boolean => isActive;
