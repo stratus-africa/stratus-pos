@@ -469,6 +469,28 @@ function StockCountDetailDialog({
             </div>
             {addOpen && (
               <div className="space-y-2">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <ScanLine className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      ref={scanRef}
+                      autoFocus
+                      className="pl-8"
+                      placeholder="Scan barcode…"
+                      value={scanValue}
+                      onChange={(e) => setScanValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleScan(scanValue);
+                        }
+                      }}
+                    />
+                  </div>
+                  <Button type="button" variant="outline" size="icon" onClick={() => setCameraOpen(true)} aria-label="Scan with camera">
+                    <Camera className="h-4 w-4" />
+                  </Button>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <Select value={addCategory} onValueChange={setAddCategory}>
                     <SelectTrigger><SelectValue placeholder="All categories" /></SelectTrigger>
