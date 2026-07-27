@@ -169,18 +169,7 @@ export function usePurchases() {
     } as any);
     if (btErr) throw btErr;
 
-    // Decrement bank account balance
-    const { data: acc } = await supabase
-      .from("bank_accounts")
-      .select("id, balance")
-      .eq("id", bankAccountId)
-      .maybeSingle();
-    if (acc) {
-      await supabase
-        .from("bank_accounts")
-        .update({ balance: Number(acc.balance) - amount })
-        .eq("id", acc.id);
-    }
+    // Bank account balance is maintained by the database (recomputed from transactions).
   };
 
   const createPurchase = useMutation({
