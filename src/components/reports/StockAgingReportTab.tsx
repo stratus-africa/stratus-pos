@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
 type AgeBucket = "fresh" | "slow" | "dead" | "never";
@@ -22,6 +23,8 @@ export default function StockAgingReportTab() {
   const { business, currentLocation } = useBusiness();
   const [filter, setFilter] = useState<"all" | AgeBucket>("all");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const inv = useQuery({
     queryKey: ["stock-aging-inventory", business?.id, currentLocation?.id],
@@ -29,7 +32,7 @@ export default function StockAgingReportTab() {
       if (!business || !currentLocation) return [];
       const { data, error } = await supabase
         .from("inventory")
-        .select("product_id, quantity, products(name, sku, purchase_price)")
+        .select("product_id, quantity, products(name, sku, barcode, purchase_price)")
         .eq("location_id", currentLocation.id)
         .gt("quantity", 0);
       if (error) throw error;
@@ -79,7 +82,7 @@ export default function StockAgingReportTab() {
       return {
         product_id: i.product_id,
         name: i.products?.name || "—",
-        sku: i.products?.sku || "",
+        barcode: i.products?.barcode || "",
         quantity: Number(i.quantity),
         purchase_price: Number(i.products?.purchase_price || 0),
         value,
@@ -93,10 +96,17 @@ export default function StockAgingReportTab() {
   const filtered = useMemo(() => {
     return rows.filter((r) => {
       if (filter !== "all" && r.bucket !== filter) return false;
-      if (search && !`${r.name} ${r.sku}`.toLowerCase().includes(search.toLowerCase())) return false;
+      if (search && !`${r.name} ${r.barcode}`.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
   }, [rows, filter, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paged = useMemo(
+    () => filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filtered, currentPage, pageSize]
+  );
 
   const summary = useMemo(() => {
     const s = { fresh: { count: 0, value: 0 }, slow: { count: 0, value: 0 }, dead: { count: 0, value: 0 }, never: { count: 0, value: 0 } };
@@ -111,7 +121,7 @@ export default function StockAgingReportTab() {
     <div className="space-y-4">
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         {(["fresh", "slow", "dead", "never"] as AgeBucket[]).map((b) => (
-          <Card key={b} className={filter === b ? "ring-2 ring-primary cursor-pointer" : "cursor-pointer"} onClick={() => setFilter(filter === b ? "all" : b)}>
+          <Card key={b} className={filter === b ? "ring-2 ring-primary cursor-pointer" : "cursor-pointer"} onClick={() => (setFilter(filter === b ? "all" : b), setPage(1))}>
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground">{bucketMeta[b].label}</p>
               <p className="text-xl font-bold mt-1">{summary[b].count}</p>
@@ -125,8 +135,8 @@ export default function StockAgingReportTab() {
         <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 space-y-0">
           <CardTitle className="text-lg">Stock Aging</CardTitle>
           <div className="flex gap-2 w-full sm:w-auto">
-            <Input placeholder="Search product / SKU" value={search} onChange={(e) => setSearch(e.target.value)} className="sm:w-56" />
-            <Select value={filter} onValueChange={(v) => setFilter(v as any)}>
+            <Input placeholder="Search product / barcode" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="sm:w-56" />
+            <Select value={filter} onValueChange={(v) => { setFilter(v as any); setPage(1); }}>
               <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All buckets</SelectItem>
@@ -150,7 +160,7 @@ export default function StockAgingReportTab() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Product</TableHead>
-                  <TableHead>SKU</TableHead>
+                  <TableHead>Barcode</TableHead>
                   <TableHead className="text-right">Qty</TableHead>
                   <TableHead className="text-right">Stock Value</TableHead>
                   <TableHead>Last Sold</TableHead>
@@ -159,10 +169,10 @@ export default function StockAgingReportTab() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((r) => (
+                {paged.map((r) => (
                   <TableRow key={r.product_id} className="odd:bg-muted/30">
                     <TableCell className="font-medium">{r.name}</TableCell>
-                    <TableCell>{r.sku}</TableCell>
+                    <TableCell className="font-mono text-xs">{r.barcode || "—"}</TableCell>
                     <TableCell className="text-right">{r.quantity}</TableCell>
                     <TableCell className="text-right">{fmt(r.value)}</TableCell>
                     <TableCell>{r.lastSoldAt ? new Date(r.lastSoldAt).toLocaleDateString() : "—"}</TableCell>
@@ -174,6 +184,25 @@ export default function StockAgingReportTab() {
                 ))}
               </TableBody>
             </Table>
+          )}
+          {!loading && filtered.length > 0 && (
+            <div className="flex items-center justify-between gap-2 px-4 py-3 border-t flex-wrap">
+              <div className="text-sm text-muted-foreground">
+                Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filtered.length)} of {filtered.length}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Rows per page</span>
+                <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+                  <SelectTrigger className="h-8 w-[80px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {[25, 50, 100, 200].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Button size="sm" variant="outline" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>Prev</Button>
+                <span className="text-sm">Page {currentPage} / {totalPages}</span>
+                <Button size="sm" variant="outline" disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)}>Next</Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
