@@ -431,8 +431,9 @@ const Products = () => {
                               {p.is_active ? "Active" : "Inactive"}
                             </Badge>
                           </TableCell>
-                          <TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
                             <div className="flex gap-1">
+
                               {canEdit && (
                                 <Button size="icon" variant="ghost" onClick={() => handleEdit(p)}>
                                   <Pencil className="h-4 w-4" />
