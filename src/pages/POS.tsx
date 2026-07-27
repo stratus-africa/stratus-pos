@@ -59,6 +59,9 @@ const POS = () => {
   const [initialPaymentMethod, setInitialPaymentMethod] = useState<"cash" | "mpesa" | "card">("cash");
   const [receiptData, setReceiptData] = useState<any>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
+  const [reprintData, setReprintData] = useState<any>(null);
+  const [reprintOpen, setReprintOpen] = useState(false);
+
   const [startDayOpen, setStartDayOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanSettingsOpen, setScanSettingsOpen] = useState(false);
