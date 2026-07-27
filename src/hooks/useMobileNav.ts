@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
+import {
+  NavBadgePrefs,
+  fetchNavBadgePrefs,
+  isBadgeEnabled,
+  loadNavBadgePrefs,
+  saveNavBadgePrefs,
+} from "@/lib/navBadgePrefs";
 
 /**
  * Unread notification counts bucketed by the top-level route they link to,
@@ -109,4 +117,55 @@ export function useQuickTabPrefs(maxTabs = 4) {
   const reset = () => persist([]);
 
   return { selected, toggle, reset, maxTabs, isCustomized: selected.length > 0 };
+}
+
+/* ------------------------------------------------------------------ */
+/* Shared icon size scale (bottom nav pill + menu tiles)               */
+/* ------------------------------------------------------------------ */
+
+/** One scale for every mobile nav surface so icons never drift apart. */
+export const NAV_ICON_CLASS = "h-[18px] w-[18px]";
+/** Minimum 44x44 touch target wrapper for nav icons. */
+export const NAV_TOUCH_TARGET = "min-h-11 min-w-11";
+
+/* ------------------------------------------------------------------ */
+/* Per-tenant badge preferences                                        */
+/* ------------------------------------------------------------------ */
+
+/** Tenant-wide control over which nav badges render. */
+export function useNavBadgePrefs() {
+  const { business } = useBusiness();
+  const businessId = business?.id ?? null;
+  const [prefs, setPrefs] = useState<NavBadgePrefs>(() => loadNavBadgePrefs(businessId));
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setPrefs(loadNavBadgePrefs(businessId));
+    if (!businessId) return;
+    let cancelled = false;
+    fetchNavBadgePrefs(businessId).then((p) => {
+      if (!cancelled) setPrefs(p);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId]);
+
+  const update = async (patch: Partial<NavBadgePrefs>) => {
+    const next = { ...prefs, ...patch };
+    setPrefs(next);
+    setSaving(true);
+    try {
+      await saveNavBadgePrefs(next, businessId);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleRoute = (target: string, on: boolean) => {
+    const root = "/" + (target.split("/").filter(Boolean)[0] ?? "");
+    return update({ routes: { ...prefs.routes, [root]: on } });
+  };
+
+  return { prefs, update, toggleRoute, saving, isBadgeEnabled };
 }
