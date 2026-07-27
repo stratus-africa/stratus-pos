@@ -876,6 +876,13 @@ const Inventory = () => {
         </TabsContent>
       </Tabs>
 
+      <ProductDetailDialog
+        productId={detailProductId}
+        open={!!detailProductId}
+        onOpenChange={(o) => { if (!o) setDetailProductId(null); }}
+      />
+
+
       <StockAdjustmentDialog
         open={adjDialogOpen}
         onOpenChange={setAdjDialogOpen}
