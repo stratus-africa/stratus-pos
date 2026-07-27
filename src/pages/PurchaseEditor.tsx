@@ -478,6 +478,7 @@ export default function PurchaseEditor() {
                         addItemById(p.id);
                         setProductSearch("");
                         setHighlightIdx(0);
+                        setSearchFocused(false);
                       }}
                       className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between gap-3 ${
                         idx === highlightIdx ? "bg-accent" : "hover:bg-accent"
