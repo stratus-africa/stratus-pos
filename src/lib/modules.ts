@@ -1,3 +1,4 @@
+import type { ElementType } from "react";
 import {
   LayoutDashboard, Store, Package, Boxes, Receipt, ShoppingBag, Wallet, BarChart3,
   Calculator, BookOpen, ShoppingCart, Briefcase, ArrowLeftRight, Wrench, Sparkles,
@@ -12,7 +13,7 @@ export interface AppModule {
   label: string;
   description: string;
   group: ModuleGroup;
-  Icon: React.ElementType;
+  Icon: ElementType;
   /** Alternate keys treated as equivalent (naming drift across older packages) */
   aliases?: string[];
   /** In-app route the module unlocks, when it has a dedicated screen */
