@@ -242,11 +242,7 @@ export default function Banking() {
       ]);
       if (txnError) throw txnError;
 
-      // Update both balances in parallel
-      await Promise.all([
-        supabase.from("bank_accounts").update({ balance: Number(fromAcc.balance) - amount }).eq("id", fromAcc.id),
-        supabase.from("bank_accounts").update({ balance: Number(toAcc.balance) + amount }).eq("id", toAcc.id),
-      ]);
+      // Balances are maintained by the database (recomputed from transactions).
 
       toast.success(`Transferred KES ${amount.toLocaleString()} from ${fromAcc.name} to ${toAcc.name}`);
       setTransferDialogOpen(false);
