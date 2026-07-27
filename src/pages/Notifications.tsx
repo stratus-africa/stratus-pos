@@ -17,7 +17,7 @@ const FILTERS = [
 
 export default function Notifications() {
   const navigate = useNavigate();
-  const { items, unread, markRead, markAllRead, clearAll, remove } = useNotifications();
+  const { items, unread, markRead, markAllRead, clearAll, clearRead, remove } = useNotifications();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["key"]>("all");
 
   const filtered = items.filter((n) => {
@@ -54,6 +54,15 @@ export default function Notifications() {
             className="gap-1.5"
           >
             <CheckCheck className="h-4 w-4" /> Mark all read
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={clearRead}
+            disabled={!items.some((n) => n.read_at)}
+            className="gap-1.5"
+          >
+            <Trash2 className="h-4 w-4" /> Clear read
           </Button>
           <Button
             variant="outline"
