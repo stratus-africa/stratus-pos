@@ -7,9 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Package, Plus, Search, Pencil, Trash2, Tag, Layers, Ruler, Download, Upload, FileDown, Lock, ScanLine, Printer } from "lucide-react";
+import { Package, Plus, Search, Pencil, Trash2, Tag, Layers, Ruler, Download, Upload, FileDown, Lock, ScanLine, Printer, MoreHorizontal, FileSpreadsheet } from "lucide-react";
 import { PrintTagsDialog, type PrintTagItem } from "@/components/products/PrintTagsDialog";
 import { useProducts, useCategories, useBrands, useUnits, type ProductFormData, type Product } from "@/hooks/useProducts";
 import { ProductFormDialog } from "@/components/products/ProductFormDialog";
@@ -38,6 +38,7 @@ const Products = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [search, setSearch] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [productDialogOpen, setProductDialogOpen] = useState(false);
@@ -285,19 +286,28 @@ const Products = () => {
           <Button variant="outline" onClick={() => setScannerOpen(true)}>
             <ScanLine className="mr-2 h-4 w-4" /> Scan
           </Button>
-          <Button variant="outline" size="sm" onClick={downloadTemplate}>
-            <FileDown className="mr-2 h-4 w-4" /> Template
-          </Button>
-          <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importing}>
-            <Upload className="mr-2 h-4 w-4" /> {importing ? "Importing..." : "Import"}
-          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline"><Download className="mr-2 h-4 w-4" /> Export</Button>
+              <Button variant="outline">
+                <FileSpreadsheet className="mr-2 h-4 w-4" /> {importing ? "Importing..." : "Data"}
+              </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => exportProducts("csv")}>Export as CSV</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => exportProducts("xlsx")}>Export as Excel (.xlsx)</DropdownMenuItem>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuLabel>Import</DropdownMenuLabel>
+              <DropdownMenuItem onClick={downloadTemplate}>
+                <FileDown className="mr-2 h-4 w-4" /> Download template
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={importing} onClick={() => fileInputRef.current?.click()}>
+                <Upload className="mr-2 h-4 w-4" /> Import file
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Export</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => exportProducts("csv")}>
+                <Download className="mr-2 h-4 w-4" /> Export as CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportProducts("xlsx")}>
+                <Download className="mr-2 h-4 w-4" /> Export as Excel (.xlsx)
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <Button 
@@ -310,6 +320,24 @@ const Products = () => {
           </Button>
         </div>
       </div>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete "{deleteTarget?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>This action cannot be undone. This product will be permanently removed.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { if (deleteTarget) deleteProduct.mutate(deleteTarget.id); setDeleteTarget(null); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Tabs defaultValue="products" className="space-y-4">
         <TabsList>
@@ -325,7 +353,7 @@ const Products = () => {
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Search by name, SKU, or barcode..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+                  <Input placeholder="Search by name or barcode..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
                 </div>
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                   <SelectTrigger className="w-[160px]"><SelectValue placeholder="Category" /></SelectTrigger>
@@ -395,7 +423,7 @@ const Products = () => {
                       <Checkbox checked={allFilteredSelected} onCheckedChange={toggleSelectAll} />
                     </TableHead>
                     <TableHead>Name</TableHead>
-                    <TableHead>SKU</TableHead>
+                    <TableHead>Barcode</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead className="text-right">Buy Price</TableHead>
                     <TableHead className="text-right">Sell Price</TableHead>
@@ -439,7 +467,7 @@ const Products = () => {
                             <span className="hover:text-primary hover:underline">{p.name}</span>
                           </TableCell>
 
-                          <TableCell className="text-muted-foreground">{p.sku || "—"}</TableCell>
+                          <TableCell className="font-mono text-xs text-muted-foreground">{(p as any).barcode || "—"}</TableCell>
                           <TableCell>{p.categories?.name || "—"}</TableCell>
                           <TableCell className="text-right">{formatKES(p.purchase_price)}</TableCell>
                           <TableCell className="text-right font-medium">{formatKES(p.selling_price)}</TableCell>
@@ -450,39 +478,34 @@ const Products = () => {
                             </Badge>
                           </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()}>
-                            <div className="flex gap-1">
-
-                              {canEdit && (
-                                <Button size="icon" variant="ghost" onClick={() => handleEdit(p)}>
-                                  <Pencil className="h-4 w-4" />
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button size="icon" variant="ghost" aria-label={`Actions for ${p.name}`}>
+                                  <MoreHorizontal className="h-4 w-4" />
                                 </Button>
-                              )}
-                              <Button size="icon" variant="ghost" title="Print tag" onClick={() => {
-                                setPrintTagItems([{ id: p.id, name: p.name, sku: p.sku, barcode: (p as any).barcode, selling_price: Number(p.selling_price) }]);
-                                setPrintTagsOpen(true);
-                              }}>
-                                <Printer className="h-4 w-4" />
-                              </Button>
-                              {canDelete && (
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button size="icon" variant="ghost">
-                                      <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete "{p.name}"?</AlertDialogTitle>
-                                    <AlertDialogDescription>This action cannot be undone. This product will be permanently removed.</AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => deleteProduct.mutate(p.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                              )}
-                            </div>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-44">
+                                {canEdit && (
+                                  <DropdownMenuItem onClick={() => handleEdit(p)}>
+                                    <Pencil className="mr-2 h-4 w-4" /> Edit
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem onClick={() => {
+                                  setPrintTagItems([{ id: p.id, name: p.name, sku: p.sku, barcode: (p as any).barcode, selling_price: Number(p.selling_price) }]);
+                                  setPrintTagsOpen(true);
+                                }}>
+                                  <Printer className="mr-2 h-4 w-4" /> Print label
+                                </DropdownMenuItem>
+                                {canDelete && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteTarget(p)}>
+                                      <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       );
