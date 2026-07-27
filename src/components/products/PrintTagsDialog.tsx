@@ -39,24 +39,28 @@ function BarcodeSvg({ value }: { value: string }) {
 export function PrintTagsDialog({ open, onOpenChange, items }: Props) {
   const { business } = useBusiness();
   const [cfg, setCfg] = useState<PriceTagConfig>(() => loadPriceTagConfig(business?.id));
-  useEffect(() => { setCfg(loadPriceTagConfig(business?.id)); }, [business?.id, open]);
+  // Always print exactly what was designed in Settings → Customization.
+  useEffect(() => {
+    if (!business?.id) return;
+    setCfg(loadPriceTagConfig(business.id));
+    void fetchPriceTagConfig(business.id).then(setCfg).catch(() => {});
+  }, [business?.id, open]);
 
-  const [layoutKey, setLayoutKey] = useState<PriceTagConfig["layout"]>(cfg.layout);
-  useEffect(() => { setLayoutKey(cfg.layout); }, [cfg.layout]);
-  const [paperMode, setPaperMode] = useState<PriceTagConfig["paperMode"]>(cfg.paperMode);
-  useEffect(() => { setPaperMode(cfg.paperMode); }, [cfg.paperMode]);
-  const [widthMm, setWidthMm] = useState(cfg.tagWidthMm);
-  const [heightMm, setHeightMm] = useState(cfg.tagHeightMm);
-  useEffect(() => { setWidthMm(cfg.tagWidthMm); setHeightMm(cfg.tagHeightMm); }, [cfg.tagWidthMm, cfg.tagHeightMm]);
   const [copiesPerItem, setCopiesPerItem] = useState(1);
   const currency = business?.currency || "KES";
 
+  const layoutKey = cfg.layout;
+  const paperMode = cfg.paperMode;
   const isThermal = paperMode === "thermal80";
   const layout = PRICE_TAG_LAYOUTS[layoutKey];
+  const widthMm = cfg.tagWidthMm;
+  const heightMm = cfg.tagHeightMm;
   const effWidth = isThermal ? Math.min(widthMm, THERMAL_80_PRINTABLE_MM) : widthMm;
   const cols = isThermal ? 1 : layout.cols;
   const gap = cfg.gapMm;
   const pad = cfg.paddingMm;
+
+
 
   const expanded = useMemo(() => {
     const arr: PrintTagItem[] = [];
