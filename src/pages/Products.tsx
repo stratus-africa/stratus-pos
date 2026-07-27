@@ -115,7 +115,7 @@ const Products = () => {
   const filtered = products.filter((p) => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
       (p.sku && p.sku.toLowerCase().includes(search.toLowerCase())) ||
-      (p.barcode && p.barcode.includes(search));
+      (p.barcode && p.barcode.toLowerCase().includes(search.toLowerCase()));
     const matchCategory = categoryFilter === "all" || p.category_id === categoryFilter;
     const matchStatus = statusFilter === "all" ||
       (statusFilter === "active" && p.is_active) ||

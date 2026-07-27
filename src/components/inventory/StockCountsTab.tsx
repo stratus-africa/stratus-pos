@@ -74,7 +74,13 @@ export function StockCountsTab() {
     return products.filter((p) => {
       if (categoryId !== "all" && p.category_id !== categoryId) return false;
       if (!q) return true;
-      return p.name.toLowerCase().includes(q) || (p.sku || "").toLowerCase().includes(q);
+      const codes = parseBarcode(q).candidates.map((c) => c.toLowerCase());
+      const bc = (p.barcode || "").toLowerCase();
+      return (
+        p.name.toLowerCase().includes(q) ||
+        (p.sku || "").toLowerCase().includes(q) ||
+        (!!bc && (bc.includes(q) || codes.includes(bc)))
+      );
     });
   }, [products, productSearch, categoryId]);
 
@@ -414,7 +420,13 @@ function StockCountDetailDialog({
     if (addCategory !== "all" && p.category_id !== addCategory) return false;
     const q = addSearch.trim().toLowerCase();
     if (!q) return true;
-    return p.name.toLowerCase().includes(q) || (p.sku || "").toLowerCase().includes(q);
+    const codes = parseBarcode(q).candidates.map((c) => c.toLowerCase());
+    const bc = (p.barcode || "").toLowerCase();
+    return (
+      p.name.toLowerCase().includes(q) ||
+      (p.sku || "").toLowerCase().includes(q) ||
+      (!!bc && (bc.includes(q) || codes.includes(bc)))
+    );
   });
 
   /** Match a scanned code against barcode/SKU and queue the product for adding. */
