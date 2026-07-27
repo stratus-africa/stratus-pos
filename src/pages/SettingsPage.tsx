@@ -65,10 +65,19 @@ const SettingsPage = () => {
     { key: "cash-drawer", label: "Cash Drawer", icon: <Printer className="h-4 w-4" />, permission: "settings.edit", render: () => <CashDrawerTab /> },
     { key: "customer-display", label: "Customer Display", icon: <MonitorSmartphone className="h-4 w-4" />, permission: "settings.edit", render: () => <CustomerDisplayTab /> },
     { key: "integrations", label: "Integrations", icon: <Plug className="h-4 w-4" />, permission: "settings.edit", render: () => <IntegrationsTab /> },
-    { key: "digitax", label: "Tax Compliance", icon: <FileCheck2 className="h-4 w-4" />, permission: "settings.edit", featureKey: "digitax", render: () => <DigitaxSettingsTab /> },
-    { key: "tax-rates", label: "Tax Rates", icon: <Percent className="h-4 w-4" />, permission: "settings.edit", render: () => <TaxRatesTab /> },
+    { key: "digitax", label: "Tax Compliance", icon: <FileCheck2 className="h-4 w-4" />, permission: "settings.edit", featureKey: "digitax", render: () => (
+      <Tabs defaultValue="digitax-settings" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="digitax-settings">eTIMS / DigiTax</TabsTrigger>
+          {vatEnabled && <TabsTrigger value="tax-rates">Tax Rates</TabsTrigger>}
+        </TabsList>
+        <TabsContent value="digitax-settings" className="mt-0"><DigitaxSettingsTab /></TabsContent>
+        {vatEnabled && <TabsContent value="tax-rates" className="mt-0"><TaxRatesTab /></TabsContent>}
+      </Tabs>
+    ) },
     { key: "subscription", label: "Plan", icon: <CreditCard className="h-4 w-4" />, permission: "settings.view", render: () => <SubscriptionTab /> },
-  ], []);
+  ], [vatEnabled]);
+
 
   const allowed = tabs.filter((t) => hasPermission(t.permission) && (!t.featureKey || hasFeatureKey(t.featureKey)));
   const requested = searchParams.get("tab");
