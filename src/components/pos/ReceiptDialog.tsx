@@ -342,13 +342,18 @@ export default function ReceiptDialog({ open, onOpenChange, data, reprint = fals
               {cfg.showPrintedAt && <p>Printed: {format(new Date(), "PPp")}</p>}
             </div>
           )}
+
+          {reprint && <p className="text-center font-bold pt-2">*** REPRINT ***</p>}
         </div>
 
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-          <Button onClick={handlePrint}><Printer className="h-4 w-4 mr-1" /> Print</Button>
+          <Button onClick={handlePrint}>
+            <Printer className="h-4 w-4 mr-1" /> {reprint ? "Reprint" : "Print"}
+          </Button>
         </DialogFooter>
+
       </DialogContent>
     </Dialog>
   );
