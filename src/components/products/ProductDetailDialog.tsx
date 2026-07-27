@@ -131,7 +131,7 @@ export default function ProductDetailDialog({ product: productProp, productId: p
       if (!productId) return [];
       const { data, error } = await supabase
         .from("purchase_items")
-        .select("id, quantity, unit_cost, total, created_at, purchases(invoice_number, created_at, suppliers(name))")
+        .select("id, quantity, unit_cost, total, created_at, purchases(invoice_number, created_at, location_id, suppliers(name))")
         .eq("product_id", productId)
         .order("created_at", { ascending: false })
         .limit(50);
@@ -147,7 +147,7 @@ export default function ProductDetailDialog({ product: productProp, productId: p
       if (!productId) return [];
       const { data, error } = await supabase
         .from("sale_items")
-        .select("id, quantity, unit_price, discount, total, created_at, sales(invoice_number, created_at, customers(name))")
+        .select("id, quantity, unit_price, discount, total, created_at, sales(invoice_number, created_at, location_id, customers(name))")
         .eq("product_id", productId)
         .order("created_at", { ascending: false })
         .limit(50);
@@ -163,7 +163,7 @@ export default function ProductDetailDialog({ product: productProp, productId: p
       if (!productId) return [];
       const { data, error } = await supabase
         .from("stock_adjustments")
-        .select("id, quantity_change, reason, notes, created_at, locations(name)")
+        .select("id, quantity_change, reason, notes, created_at, location_id, locations(name)")
         .eq("product_id", productId)
         .order("created_at", { ascending: false })
         .limit(50);
