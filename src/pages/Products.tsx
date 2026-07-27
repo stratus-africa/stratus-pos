@@ -60,6 +60,14 @@ const Products = () => {
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  const detailLockRef = useRef(false);
+  const openProductDetail = (p: Product) => {
+    if (detailLockRef.current) return;
+    detailLockRef.current = true;
+    setDetailProduct(p);
+    window.setTimeout(() => { detailLockRef.current = false; }, 400);
+  };
+
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [printTagsOpen, setPrintTagsOpen] = useState(false);
