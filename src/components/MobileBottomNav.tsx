@@ -11,7 +11,16 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { useFeatureLimit } from "@/components/FeatureGate";
 import { useDigitaxEnabled } from "@/hooks/useDigitax";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavBadges, useQuickTabPrefs, matchesRoute, bestMatch } from "@/hooks/useMobileNav";
+import {
+  useNavBadges,
+  useQuickTabPrefs,
+  useNavBadgePrefs,
+  matchesRoute,
+  bestMatch,
+  NAV_ICON_CLASS,
+  NAV_TOUCH_TARGET,
+} from "@/hooks/useMobileNav";
+import { Switch } from "@/components/ui/switch";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 
@@ -65,6 +74,7 @@ export function MobileBottomNav() {
   const { signOut } = useAuth();
   const badges = useNavBadges();
   const { selected, toggle, reset, isCustomized } = useQuickTabPrefs(MAX_QUICK);
+  const { prefs, update, toggleRoute, isBadgeEnabled } = useNavBadgePrefs();
   const [open, setOpen] = useState(false);
   const [customizing, setCustomizing] = useState(false);
   const touch = useRef<{ x: number; y: number } | null>(null);
@@ -101,11 +111,15 @@ export function MobileBottomNav() {
   })();
 
   const badgeFor = (to: string) => {
+    if (to === "/" || !isBadgeEnabled(prefs, to)) return 0;
     const root = "/" + (to.split("/").filter(Boolean)[0] ?? "");
-    return to === "/" ? 0 : badges[root] ?? 0;
+    return badges[root] ?? 0;
   };
   const quickBadged = quick.reduce((sum, i) => sum + badgeFor(i.to), 0);
-  const moreBadge = Math.max(0, (badges.__total ?? 0) - quickBadged);
+  const moreBadge =
+    prefs.enabled && prefs.rollUpHidden
+      ? Math.max(0, (badges.__total ?? 0) - quickBadged)
+      : 0;
 
   const onTouchStart = (e: React.TouchEvent) => {
     const t = e.touches[0];
@@ -127,9 +141,13 @@ export function MobileBottomNav() {
     navigate(quick[next].to);
   };
 
-  const renderBadge = (count: number) =>
+  const renderBadge = (count: number, active = false) =>
     count > 0 ? (
-      <span className="absolute -right-1 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold leading-none text-destructive-foreground ring-2 ring-card">
+      <span
+        className={`absolute -right-1 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold leading-none text-destructive-foreground ${
+          active ? "ring-2 ring-background scale-110" : "ring-2 ring-card"
+        } transition-transform`}
+      >
         {count > 99 ? "99+" : count}
       </span>
     ) : null;
@@ -153,17 +171,17 @@ export function MobileBottomNav() {
                 key={keyOf(it)}
                 to={it.to}
                 aria-current={active ? "page" : undefined}
-                className="group relative flex min-w-0 flex-1 flex-col items-center justify-end gap-1 px-1 pt-1"
+                className={`group relative flex min-w-0 flex-1 flex-col items-center justify-end gap-1 px-1 pt-1 ${NAV_TOUCH_TARGET}`}
               >
                 <span
-                  className={`relative flex h-10 w-10 items-center justify-center rounded-full transition-all duration-200 ${
+                  className={`relative flex h-11 w-11 items-center justify-center rounded-full transition-all duration-200 ${
                     active
-                      ? "-translate-y-3 bg-primary/10 text-primary ring-4 ring-background"
+                      ? "-translate-y-3 bg-primary text-primary-foreground shadow-lg shadow-primary/30 ring-4 ring-background"
                       : "text-muted-foreground group-active:bg-muted"
                   }`}
                 >
-                  <it.icon className="h-5 w-5" />
-                  {renderBadge(count)}
+                  <it.icon className={active ? "h-5 w-5" : NAV_ICON_CLASS} />
+                  {renderBadge(count, active)}
                 </span>
                 <span
                   className={`w-full truncate text-center text-[11px] leading-tight transition-colors ${
@@ -179,11 +197,11 @@ export function MobileBottomNav() {
           <SheetTrigger asChild>
             <button
               type="button"
-              className="group flex min-w-0 flex-1 flex-col items-center justify-end gap-1 px-1 pt-1"
+              className={`group flex min-w-0 flex-1 flex-col items-center justify-end gap-1 px-1 pt-1 ${NAV_TOUCH_TARGET}`}
               aria-label="Open navigation menu"
             >
-              <span className="relative flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors group-active:bg-muted">
-                <Menu className="h-5 w-5" />
+              <span className="relative flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors group-active:bg-muted">
+                <Menu className={NAV_ICON_CLASS} />
                 {renderBadge(moreBadge)}
               </span>
               <span className="text-[11px] font-medium leading-tight text-muted-foreground">More</span>
@@ -211,9 +229,59 @@ export function MobileBottomNav() {
             </SheetTitle>
           </SheetHeader>
           {customizing && (
-            <p className="px-4 pt-3 text-xs text-muted-foreground">
-              Pick up to {MAX_QUICK} modules to pin to the bottom bar ({selected.length}/{MAX_QUICK} selected).
-            </p>
+            <div className="space-y-3 px-4 pt-3">
+              <p className="text-xs text-muted-foreground">
+                Pick up to {MAX_QUICK} modules to pin to the bottom bar ({selected.length}/{MAX_QUICK} selected).
+              </p>
+              <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2.5">
+                <div className="flex items-center justify-between gap-3">
+                  <label htmlFor="nav-badges-enabled" className="text-xs font-medium">
+                    Show alert badges
+                    <span className="block text-[11px] font-normal text-muted-foreground">
+                      Applies to everyone in this business
+                    </span>
+                  </label>
+                  <Switch
+                    id="nav-badges-enabled"
+                    checked={prefs.enabled}
+                    onCheckedChange={(v) => update({ enabled: v })}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <label htmlFor="nav-badges-rollup" className="text-xs font-medium">
+                    Roll hidden alerts into “More”
+                  </label>
+                  <Switch
+                    id="nav-badges-rollup"
+                    checked={prefs.rollUpHidden}
+                    disabled={!prefs.enabled}
+                    onCheckedChange={(v) => update({ rollUpHidden: v })}
+                  />
+                </div>
+                {prefs.enabled && (
+                  <div className="space-y-1.5 border-t border-border/60 pt-2">
+                    <p className="text-[11px] text-muted-foreground">Badges per module</p>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                      {items
+                        .filter((i) => i.to !== "/")
+                        .map((i) => {
+                          const root = "/" + (i.to.split("/").filter(Boolean)[0] ?? "");
+                          return (
+                            <div key={keyOf(i)} className="flex items-center justify-between gap-2">
+                              <span className="truncate text-[11px]">{i.label}</span>
+                              <Switch
+                                aria-label={`Show alerts for ${i.label}`}
+                                checked={prefs.routes[root] !== false}
+                                onCheckedChange={(v) => toggleRoute(i.to, v)}
+                              />
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
           <div className="flex-1 overflow-y-auto p-4">
             <ul className="grid grid-cols-4 gap-2 sm:grid-cols-5">
@@ -224,16 +292,16 @@ export function MobileBottomNav() {
                 const count = badgeFor(it.to);
                 const highlight = customizing ? picked : active;
                 const disabled = customizing && !picked && selected.length >= MAX_QUICK;
-                const className = `relative flex h-full w-full flex-col items-center justify-center gap-1.5 rounded-xl border px-1.5 py-3 text-center transition-colors ${
+                const className = `relative flex h-full w-full min-h-11 flex-col items-center justify-center gap-1.5 rounded-xl border px-1.5 py-3 text-center transition-colors ${
                   highlight
-                    ? "bg-primary/10 border-primary text-primary"
+                    ? "bg-primary/10 border-primary text-primary font-semibold ring-1 ring-primary/40"
                     : "bg-card hover:bg-muted border-border text-foreground"
                 } ${disabled ? "opacity-40" : ""}`;
                 const inner = (
                   <>
-                    <span className="relative">
-                      <it.icon className="h-5 w-5" />
-                      {!customizing && renderBadge(count)}
+                    <span className="relative flex h-6 w-6 items-center justify-center">
+                      <it.icon className={NAV_ICON_CLASS} />
+                      {!customizing && renderBadge(count, active)}
                       {customizing && picked && (
                         <span className="absolute -right-2 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
                           <Check className="h-3 w-3" />
