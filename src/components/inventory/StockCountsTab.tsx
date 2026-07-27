@@ -15,7 +15,7 @@ import { ClipboardCheck, Lock, Plus, Search, Trash2 } from "lucide-react";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useProducts } from "@/hooks/useProducts";
+import { useProducts, useCategories } from "@/hooks/useProducts";
 import { useStockCounts, type StockCount, type StockCountStatus } from "@/hooks/useStockCounts";
 import { toast } from "sonner";
 
@@ -33,6 +33,7 @@ export function StockCountsTab() {
   const { user } = useAuth();
   const { hasPermission } = usePermissions();
   const { productsQuery } = useProducts();
+  const { query: categoriesQuery } = useCategories();
   const {
     countsQuery, assigneesQuery, createCount, saveCounts,
     submitCount, approveCount, rejectCount, deleteCount,
@@ -61,14 +62,18 @@ export function StockCountsTab() {
   const [notes, setNotes] = useState("");
   const [productSearch, setProductSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [categoryId, setCategoryId] = useState<string>("all");
+
+  const categories = (categoriesQuery.data ?? []) as { id: string; name: string }[];
 
   const filteredProducts = useMemo(() => {
     const q = productSearch.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter(
-      (p) => p.name.toLowerCase().includes(q) || (p.sku || "").toLowerCase().includes(q),
-    );
-  }, [products, productSearch]);
+    return products.filter((p) => {
+      if (categoryId !== "all" && p.category_id !== categoryId) return false;
+      if (!q) return true;
+      return p.name.toLowerCase().includes(q) || (p.sku || "").toLowerCase().includes(q);
+    });
+  }, [products, productSearch, categoryId]);
 
   const resetForm = () => {
     setLocationId(currentLocation?.id ?? "");
@@ -76,6 +81,7 @@ export function StockCountsTab() {
     setAssignedTo("none");
     setNotes("");
     setProductSearch("");
+    setCategoryId("all");
     setSelected(new Set());
   };
 
@@ -264,9 +270,27 @@ export function StockCountsTab() {
                 >
                   Select all shown
                 </Button>
+                <Button
+                  type="button" size="sm" variant="outline" className="flex-1 sm:flex-none"
+                  disabled={categoryId === "all"}
+                  onClick={() => setSelected((prev) => {
+                    const next = new Set(prev);
+                    products.filter((p) => p.category_id === categoryId).forEach((p) => next.add(p.id));
+                    return next;
+                  })}
+                >
+                  Add category
+                </Button>
                 <Button type="button" size="sm" variant="ghost" className="flex-1 sm:flex-none" onClick={() => setSelected(new Set())}>Clear</Button>
               </div>
             </div>
+            <Select value={categoryId} onValueChange={setCategoryId}>
+              <SelectTrigger><SelectValue placeholder="All categories" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All categories</SelectItem>
+                {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
