@@ -119,7 +119,7 @@ export default function Banking() {
     const { error } = await supabase.from("bank_accounts").insert({
       business_id: business.id, name: accForm.name, account_number: accForm.account_number || null,
       bank_name: accForm.bank_name || null, account_type: accForm.account_type,
-      balance: opening,
+      balance: opening, opening_balance: opening,
     });
     if (error) { toast.error(error.message); return; }
     toast.success("Account created");
