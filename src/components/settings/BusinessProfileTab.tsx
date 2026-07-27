@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Save, Loader2, Building2, Phone, Mail, MapPin, PackageOpen, Briefcase, ShoppingCart, Bell, Percent } from "lucide-react";
+import { Save, Loader2, Building2, Phone, Mail, MapPin, PackageOpen, Briefcase, ShoppingCart, Bell, Percent, Printer } from "lucide-react";
 import { THEMES, DEFAULT_THEME, applyTheme, type ThemeKey, BUSINESS_TYPE_OPTIONS, type BusinessType } from "@/lib/themes";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useDigitaxSettings } from "@/hooks/useDigitax";
@@ -99,6 +99,7 @@ export function BusinessProfileTab() {
         pos_show_stock_qty: posShowStockQty,
         pos_hide_zero_stock: posHideZeroStock,
         lock_approved_stock_counts: lockApprovedStockCounts,
+        pos_auto_print_receipt: autoPrintReceipt,
 
         reminders_unpaid_purchases: remindUnpaidPurchases,
         reminders_unposted_expenses: remindUnpostedExpenses,
@@ -282,6 +283,18 @@ export function BusinessProfileTab() {
               </p>
             </div>
             <Switch checked={posHideZeroStock} onCheckedChange={setPosHideZeroStock} />
+          </div>
+
+          <Separator />
+
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base flex items-center gap-2"><Printer className="h-4 w-4" /> Automatically print receipt on completed sale</Label>
+              <p className="text-sm text-muted-foreground">
+                Send the receipt straight to the printer as soon as a sale is completed, without clicking Print.
+              </p>
+            </div>
+            <Switch checked={autoPrintReceipt} onCheckedChange={setAutoPrintReceipt} />
           </div>
 
           <Separator />
