@@ -584,9 +584,14 @@ const Inventory = () => {
           <Card>
             <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 space-y-0">
               <CardTitle className="text-lg">Stock Adjustments</CardTitle>
-              <Button variant="outline" size="sm" onClick={() => exportAdjustments()} disabled={documentsFiltered.length === 0} className="hidden sm:inline-flex">
-                <Download className="mr-2 h-4 w-4" /> Export CSV
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
+                  <Upload className="mr-2 h-4 w-4" /> Import
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => exportAdjustments()} disabled={documentsFiltered.length === 0} className="hidden sm:inline-flex">
+                  <Download className="mr-2 h-4 w-4" /> Export CSV
+                </Button>
+              </div>
             </CardHeader>
             <div className="grid grid-cols-2 gap-2 px-6 py-3 border-b items-start sm:items-center">
               <div className="relative">
