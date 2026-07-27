@@ -32,7 +32,7 @@ const INVENTORY_TABS = [
   { key: "counts", label: "Stock Take", icon: <ClipboardCheck className="h-4 w-4" /> },
   { key: "movements", label: "Stock Movement", icon: <ArrowLeftRight className="h-4 w-4" /> },
 ] as const;
-type StockSort = "name_asc" | "name_desc" | "sku_asc" | "sku_desc" | "qty_asc" | "qty_desc";
+type StockSort = "name_asc" | "name_desc" | "barcode_asc" | "barcode_desc" | "qty_asc" | "qty_desc";
 
 const LS_KEYS = { stock: "inv.stock.size", adj: "inv.adj.size", mv: "inv.mv.size" } as const;
 const readStoredSize = (key: string, fallback = 25): number => {
@@ -186,26 +186,26 @@ const Inventory = () => {
 
   const filtered = inventory.filter((i) =>
     i.products?.name?.toLowerCase().includes(search.toLowerCase()) ||
-    i.products?.sku?.toLowerCase().includes(search.toLowerCase())
+    i.products?.barcode?.toLowerCase().includes(search.toLowerCase())
   );
 
   const sortedStock = [...filtered].sort((a, b) => {
     const an = a.products?.name || "";
     const bn = b.products?.name || "";
-    const as = a.products?.sku || "";
-    const bs = b.products?.sku || "";
+    const as = a.products?.barcode || "";
+    const bs = b.products?.barcode || "";
     switch (stockSort) {
       case "name_asc": return an.localeCompare(bn);
       case "name_desc": return bn.localeCompare(an);
-      case "sku_asc": return as.localeCompare(bs);
-      case "sku_desc": return bs.localeCompare(as);
+      case "barcode_asc": return as.localeCompare(bs);
+      case "barcode_desc": return bs.localeCompare(as);
       case "qty_asc": return a.quantity - b.quantity;
       case "qty_desc": return b.quantity - a.quantity;
       default: return 0;
     }
   });
 
-  const toggleStockSort = (key: "name" | "sku" | "qty") => {
+  const toggleStockSort = (key: "name" | "barcode" | "qty") => {
     setStockSort((prev) => {
       if (prev === `${key}_asc`) return `${key}_desc` as StockSort;
       return `${key}_asc` as StockSort;
@@ -213,7 +213,7 @@ const Inventory = () => {
     setStockPage(1);
   };
 
-  const sortIcon = (key: "name" | "sku" | "qty") => {
+  const sortIcon = (key: "name" | "barcode" | "qty") => {
     if (stockSort === `${key}_asc`) return <ArrowUp className="ml-1 h-3.5 w-3.5" />;
     if (stockSort === `${key}_desc`) return <ArrowDown className="ml-1 h-3.5 w-3.5" />;
     return <ArrowUpDown className="ml-1 h-3.5 w-3.5 text-muted-foreground/60" />;
@@ -483,7 +483,7 @@ const Inventory = () => {
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search by product name or SKU..."
+                    placeholder="Search by product name or barcode..."
                     value={search}
                     onChange={(e) => { setSearch(e.target.value); setStockPage(1); }}
                     className="pl-9"
@@ -495,8 +495,8 @@ const Inventory = () => {
                     <SelectContent>
                       <SelectItem value="name_asc">Product (A–Z)</SelectItem>
                       <SelectItem value="name_desc">Product (Z–A)</SelectItem>
-                      <SelectItem value="sku_asc">SKU (A–Z)</SelectItem>
-                      <SelectItem value="sku_desc">SKU (Z–A)</SelectItem>
+                      <SelectItem value="barcode_asc">Barcode (A–Z)</SelectItem>
+                      <SelectItem value="barcode_desc">Barcode (Z–A)</SelectItem>
                       <SelectItem value="qty_desc">Quantity (high → low)</SelectItem>
                       <SelectItem value="qty_asc">Quantity (low → high)</SelectItem>
                     </SelectContent>
