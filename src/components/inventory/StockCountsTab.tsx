@@ -35,7 +35,8 @@ export function StockCountsTab() {
   const { productsQuery } = useProducts();
   const { query: categoriesQuery } = useCategories();
   const {
-    countsQuery, assigneesQuery, createCount, saveCounts,
+    countsQuery, assigneesQuery, createCount,
+    addItems, saveCounts,
     submitCount, approveCount, rejectCount, deleteCount,
   } = useStockCounts();
 
@@ -330,6 +331,10 @@ export function StockCountsTab() {
           canEdit={canEdit}
           lockApproved={lockApproved}
           isAssignee={openCount.assigned_to === user?.id}
+          allProducts={products}
+          categories={categories}
+          onAddProducts={(ids) => addItems.mutate({ countId: openCount.id, locationId: openCount.location_id, productIds: ids })}
+          addingProducts={addItems.isPending}
           onSave={(items) => saveCounts.mutate({ countId: openCount.id, items })}
           onSubmit={() => submitCount.mutate(openCount.id, { onSuccess: () => setOpenCount(null) })}
           onApprove={() => approveCount.mutate(openCount.id, { onSuccess: () => setOpenCount(null) })}
@@ -349,6 +354,10 @@ interface DetailProps {
   canEdit: boolean;
   lockApproved: boolean;
   isAssignee: boolean;
+  allProducts: { id: string; name: string; sku: string | null; category_id: string | null }[];
+  categories: { id: string; name: string }[];
+  onAddProducts: (ids: string[]) => void;
+  addingProducts: boolean;
   onSave: (items: { id: string; counted_qty: number | null; notes?: string | null }[]) => void;
   onSubmit: () => void;
   onApprove: () => void;
@@ -358,6 +367,7 @@ interface DetailProps {
 
 function StockCountDetailDialog({
   count, open, onOpenChange, isApprover, canEdit, lockApproved, isAssignee,
+  allProducts, categories, onAddProducts, addingProducts,
   onSave, onSubmit, onApprove, onReject, saving,
 }: DetailProps) {
   const items = count.stock_count_items ?? [];
