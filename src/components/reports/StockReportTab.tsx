@@ -258,7 +258,7 @@ const StockReportTab = ({ from, to, locationId, initialProductId }: Props) => {
       </CardHeader>
       <CardContent>
 
-        <div className="rounded border overflow-auto">
+        <div className="rounded border overflow-auto max-h-[55vh] [&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10 [&_thead_th]:bg-muted">
           <Table>
             <TableHeader>
               <TableRow>
@@ -432,7 +432,7 @@ const StockReportDetail = ({ product, from, to, onBack }: { product: any; from: 
           </TabsList>
 
           <TabsContent value="sales" className="mt-4">
-            <div className="rounded border overflow-auto">
+            <div className="rounded border overflow-auto max-h-[55vh] [&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10 [&_thead_th]:bg-muted">
               <Table>
                 <TableHeader><TableRow>
                   <TableHead>Date</TableHead><TableHead>Reference</TableHead><TableHead>Customer</TableHead>
@@ -462,7 +462,7 @@ const StockReportDetail = ({ product, from, to, onBack }: { product: any; from: 
           </TabsContent>
 
           <TabsContent value="purchases" className="mt-4">
-            <div className="rounded border overflow-auto">
+            <div className="rounded border overflow-auto max-h-[55vh] [&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10 [&_thead_th]:bg-muted">
               <Table>
                 <TableHeader><TableRow>
                   <TableHead>Date</TableHead><TableHead>Reference</TableHead><TableHead>Supplier</TableHead>
@@ -502,7 +502,7 @@ const StockReportDetail = ({ product, from, to, onBack }: { product: any; from: 
           </TabsContent>
 
           <TabsContent value="adjustment" className="mt-4">
-            <div className="rounded border overflow-auto">
+            <div className="rounded border overflow-auto max-h-[55vh] [&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10 [&_thead_th]:bg-muted">
               <Table>
                 <TableHeader><TableRow>
                   <TableHead>Date</TableHead><TableHead>Warehouse</TableHead>
