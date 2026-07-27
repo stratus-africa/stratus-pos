@@ -638,6 +638,51 @@ function StockCountDetailDialog({
           Net variance: <span className="font-medium text-foreground">{totalVariance > 0 ? `+${totalVariance}` : totalVariance}</span>
         </p>
 
+        <div className="rounded-md border p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm flex items-center gap-2"><History className="h-4 w-4" /> Audit trail</Label>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setShowHistory((v) => !v)}>
+              {showHistory ? "Hide" : "Show history"}
+            </Button>
+          </div>
+          {showHistory && (
+            <div className="max-h-56 overflow-y-auto divide-y text-sm">
+              {eventsQuery.isLoading && <p className="py-3 text-muted-foreground text-center">Loading…</p>}
+              {!eventsQuery.isLoading && (eventsQuery.data ?? []).length === 0 && (
+                <p className="py-3 text-muted-foreground text-center">No activity recorded yet.</p>
+              )}
+              {(eventsQuery.data ?? []).map((ev) => {
+                const productName =
+                  items.find((i) => i.id === ev.item_id)?.products?.name
+                  ?? allProducts.find((p) => p.id === ev.product_id)?.name;
+                const label =
+                  ev.action === "qty_changed"
+                    ? `Counted qty for ${productName ?? "product"}: ${ev.old_value ?? "—"} → ${ev.new_value ?? "—"}`
+                    : ev.action === "status_changed"
+                      ? `Status ${ev.old_value} → ${ev.new_value}${ev.note ? ` (${ev.note})` : ""}`
+                      : ev.action === "assigned"
+                        ? "Assignment changed"
+                        : ev.action === "item_added"
+                          ? `Added ${productName ?? "product"} to the sheet`
+                          : ev.action === "item_removed"
+                            ? `Removed ${productName ?? "product"} from the sheet`
+                            : `Sheet created (${ev.new_value})`;
+                return (
+                  <div key={ev.id} className="py-2 flex items-start justify-between gap-3">
+                    <span className="min-w-0">{label}</span>
+                    <span className="text-xs text-muted-foreground shrink-0 text-right">
+                      {ev.user_name || "System"}<br />
+                      {new Date(ev.created_at).toLocaleString()}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+
+
         {count.status === "submitted" && isApprover && (
           <div className="space-y-1.5">
             <Label htmlFor="reason">Reason (required to send back)</Label>
