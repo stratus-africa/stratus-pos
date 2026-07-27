@@ -37,10 +37,55 @@ export default function ProductDetailDialog({ product: productProp, productId: p
   const showBatches = hasFeatureKey("batch_tracking") && (business as any)?.business_type === "pharmacy" && (business as any)?.track_batches === true;
   const productId = productProp?.id ?? productIdProp ?? undefined;
 
+  const queryClient = useQueryClient();
+
   const [selectedLocation, setSelectedLocation] = useState<string>(locationId || "all");
   useEffect(() => {
     if (open) setSelectedLocation(locationId || "all");
   }, [open, locationId, productId]);
+
+  // Remember the element that opened the modal (e.g. a table row) and restore
+  // focus to it on close so keyboard users don't lose their place.
+  const openerRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (open) {
+      openerRef.current = (document.activeElement as HTMLElement) ?? null;
+    } else if (openerRef.current) {
+      const el = openerRef.current;
+      openerRef.current = null;
+      window.setTimeout(() => {
+        if (document.body.contains(el)) el.focus();
+      }, 0);
+    }
+  }, [open]);
+
+  // Realtime: keep stock levels & movement history fresh while the modal is open.
+  useEffect(() => {
+    if (!open || !productId) return;
+    const channel = supabase
+      .channel(`product-detail-${productId}-${crypto.randomUUID()}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "inventory", filter: `product_id=eq.${productId}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["product-inventory", productId] });
+          queryClient.invalidateQueries({ queryKey: ["inventory"] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "stock_adjustments", filter: `product_id=eq.${productId}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["product-adjustments", productId] });
+          queryClient.invalidateQueries({ queryKey: ["product-inventory", productId] });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [open, productId, queryClient]);
+
 
   const fetchedProduct = useQuery({
     queryKey: ["product-detail", productId],
