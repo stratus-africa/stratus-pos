@@ -72,22 +72,67 @@ export function MobileBottomNav() {
 
   const items = NAV.filter(isVisible);
 
+  const isActive = (to: string) =>
+    to === "/" ? location.pathname === "/" : location.pathname === to || location.pathname.startsWith(to + "/");
+
+  // Primary quick-access tabs: the active item is always kept visible in the bar.
+  const quick = (() => {
+    const first = items.slice(0, 4);
+    if (first.some((i) => isActive(i.to))) return first;
+    const current = items.find((i) => isActive(i.to));
+    return current ? [current, ...first.slice(0, 3)] : first;
+  })();
+
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 pb-[env(safe-area-inset-bottom)] lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 lg:hidden"
       aria-label="Primary"
     >
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger asChild>
-          <button
-            type="button"
-            className="w-full flex items-center justify-center gap-2 py-3 text-sm font-semibold text-foreground"
-            aria-label="Open navigation menu"
-          >
-            <Menu className="h-5 w-5" />
-            <span>Menu</span>
-          </button>
-        </SheetTrigger>
+        <div className="mx-auto flex max-w-md items-stretch justify-around rounded-[1.75rem] border border-border/60 bg-card/95 px-2 py-2 shadow-[0_10px_30px_-10px_hsl(var(--foreground)/0.25)] backdrop-blur supports-[backdrop-filter]:bg-card/80">
+          {quick.map((it) => {
+            const active = isActive(it.to);
+            return (
+              <Link
+                key={`${it.to}-${it.label}`}
+                to={it.to}
+                aria-current={active ? "page" : undefined}
+                className="group relative flex min-w-0 flex-1 flex-col items-center justify-end gap-1 px-1 pt-1"
+              >
+                <span
+                  className={`flex h-10 w-10 items-center justify-center rounded-full transition-all duration-200 ${
+                    active
+                      ? "-translate-y-3 bg-primary/10 text-primary ring-4 ring-background"
+                      : "text-muted-foreground group-active:bg-muted"
+                  }`}
+                >
+                  <it.icon className="h-5 w-5" />
+                </span>
+                <span
+                  className={`w-full truncate text-center text-[11px] leading-tight transition-colors ${
+                    active ? "-mt-2 font-semibold text-primary" : "font-medium text-muted-foreground"
+                  }`}
+                >
+                  {it.label}
+                </span>
+              </Link>
+            );
+          })}
+
+          <SheetTrigger asChild>
+            <button
+              type="button"
+              className="group flex min-w-0 flex-1 flex-col items-center justify-end gap-1 px-1 pt-1"
+              aria-label="Open navigation menu"
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors group-active:bg-muted">
+                <Menu className="h-5 w-5" />
+              </span>
+              <span className="text-[11px] font-medium leading-tight text-muted-foreground">More</span>
+            </button>
+          </SheetTrigger>
+        </div>
+
         <SheetContent side="bottom" className="h-[90vh] p-0 flex flex-col">
           <SheetHeader className="px-4 py-3 border-b">
             <SheetTitle className="flex items-center gap-2 text-base">
@@ -97,9 +142,7 @@ export function MobileBottomNav() {
           <div className="flex-1 overflow-y-auto p-4">
             <ul className="grid grid-cols-3 sm:grid-cols-4 gap-3">
               {items.map((it) => {
-                const active = it.to === "/"
-                  ? location.pathname === "/"
-                  : location.pathname === it.to || location.pathname.startsWith(it.to + "/");
+                const active = isActive(it.to);
                 return (
                   <li key={`${it.to}-${it.label}`}>
                     <Link
@@ -136,3 +179,4 @@ export function MobileBottomNav() {
     </nav>
   );
 }
+
