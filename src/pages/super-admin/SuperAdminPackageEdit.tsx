@@ -11,6 +11,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { APP_MODULES } from "@/lib/modules";
 import {
   ArrowLeft, Tag, Save, Loader2, AlertTriangle, Trash2, Check,
   Package, Users, Warehouse, Contact, Truck, Info, ShoppingCart, Briefcase,
@@ -19,29 +20,7 @@ import {
   FileCheck,
 } from "lucide-react";
 
-const ALL_FEATURES: { key: string; label: string; description: string; Icon: React.ElementType }[] = [
-  // Standard modules — enabled by default on every plan
-  { key: "dashboard",           label: "Dashboard",             description: "Business overview & KPIs",               Icon: LayoutDashboard },
-  { key: "pos",                 label: "Point of Sale",         description: "In-store POS terminal",                  Icon: Store },
-  { key: "products",            label: "Products",              description: "Product catalog management",             Icon: Package },
-  { key: "inventory",           label: "Inventory",             description: "Stock levels & adjustments",             Icon: Boxes },
-  { key: "sales",               label: "Sales",                 description: "Sales records & invoices",               Icon: Receipt },
-  { key: "purchases",           label: "Purchases",             description: "Purchase orders & supplier bills",       Icon: ShoppingBag },
-  { key: "expenses",            label: "Expenses",              description: "Track & categorize expenses",            Icon: Wallet },
-  { key: "banking",             label: "Banking",               description: "Bank accounts & transactions",           Icon: Wallet },
-  { key: "reports",             label: "Reports",               description: "Sales, P&L, inventory reports",          Icon: BarChart3 },
-  // Accounting suite — Banking, Manual Journals & Accountant grouped under Accounting
-  { key: "accounting",          label: "Accounting",            description: "Banking, manual journals & accountant tools", Icon: Calculator },
-  { key: "manual_journals",     label: "Manual Journals",       description: "Post manual journal entries (Accounting)", Icon: BookOpen },
-  // Premium / optional modules
-  { key: "online_orders",       label: "Online Orders",         description: "E-commerce order management",            Icon: ShoppingCart },
-  { key: "hr_management",       label: "HR Management",         description: "Employees, attendance, payroll",         Icon: Briefcase },
-  { key: "woocommerce",         label: "WooCommerce",           description: "WooCommerce store integration",          Icon: ShoppingCart },
-  { key: "transfers",           label: "Transfers",             description: "Stock transfers between warehouses",     Icon: ArrowLeftRight },
-  { key: "service_maintenance", label: "Service & Maintenance", description: "Service & maintenance management",       Icon: Wrench },
-  { key: "ai_reports",          label: "AI Reports",            description: "AI-powered analytics & reports",         Icon: Sparkles },
-  { key: "digitax",             label: "DigiTax (KRA eTIMS)",   description: "Kenya KRA eTIMS fiscalization",          Icon: FileCheck },
-];
+const ALL_FEATURES = APP_MODULES;
 
 interface Form {
   name: string;
