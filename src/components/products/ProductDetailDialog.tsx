@@ -29,11 +29,16 @@ const fmt = (n: number) =>
 
 const fmtDate = (d: string) => new Date(d).toLocaleString("en-KE", { dateStyle: "medium", timeStyle: "short" });
 
-export default function ProductDetailDialog({ product: productProp, productId: productIdProp, open, onOpenChange }: ProductDetailDialogProps) {
+export default function ProductDetailDialog({ product: productProp, productId: productIdProp, locationId, open, onOpenChange }: ProductDetailDialogProps) {
   const { business } = useBusiness();
   const { hasFeatureKey } = useFeatureLimit();
   const showBatches = hasFeatureKey("batch_tracking") && (business as any)?.business_type === "pharmacy" && (business as any)?.track_batches === true;
   const productId = productProp?.id ?? productIdProp ?? undefined;
+
+  const [selectedLocation, setSelectedLocation] = useState<string>(locationId || "all");
+  useEffect(() => {
+    if (open) setSelectedLocation(locationId || "all");
+  }, [open, locationId, productId]);
 
   const fetchedProduct = useQuery({
     queryKey: ["product-detail", productId],
@@ -51,20 +56,27 @@ export default function ProductDetailDialog({ product: productProp, productId: p
 
   const product = productProp ?? fetchedProduct.data ?? null;
 
-
   const inventoryQuery = useQuery({
     queryKey: ["product-inventory", productId],
     queryFn: async () => {
       if (!productId) return [];
       const { data, error } = await supabase
         .from("inventory")
-        .select("id, quantity, low_stock_threshold, locations(name)")
+        .select("id, quantity, low_stock_threshold, location_id, locations(name)")
         .eq("product_id", productId);
       if (error) throw error;
       return data || [];
     },
     enabled: !!productId && open,
   });
+
+  useEffect(() => {
+    if (fetchedProduct.error) toast.error("Couldn't load item details. Please try again.");
+  }, [fetchedProduct.error]);
+  useEffect(() => {
+    if (inventoryQuery.error) toast.error("Couldn't load stock levels for this item.");
+  }, [inventoryQuery.error]);
+
 
   const purchasesQuery = useQuery({
     queryKey: ["product-purchases", productId],
