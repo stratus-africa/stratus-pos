@@ -1,9 +1,9 @@
-import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, ShoppingCart, Package, Warehouse, TruckIcon, Receipt,
   Users, Truck, CreditCard, BarChart3, Settings, Store, BookOpen, Landmark,
-  ShieldCheck, UserCircle, UserCog, Menu, LogOut,
+  ShieldCheck, UserCircle, UserCog, Menu, LogOut, Check, RotateCcw, SlidersHorizontal,
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -11,8 +11,10 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { useFeatureLimit } from "@/components/FeatureGate";
 import { useDigitaxEnabled } from "@/hooks/useDigitax";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNavBadges, useQuickTabPrefs, matchesRoute, bestMatch } from "@/hooks/useMobileNav";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+
 
 type AppRole = "admin" | "manager" | "cashier" | "stores_manager";
 
