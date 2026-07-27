@@ -198,14 +198,15 @@ export function MobileBottomNav() {
           <SheetTrigger asChild>
             <button
               type="button"
-              className={`group flex min-w-0 flex-1 flex-col items-center justify-end gap-1 px-1 pt-1 ${NAV_TOUCH_TARGET}`}
+              className={`group flex min-w-0 flex-1 flex-col items-center justify-end gap-0.5 px-1 pt-1 ${NAV_TOUCH_TARGET}`}
               aria-label="Open navigation menu"
             >
               <span className="relative flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors group-active:bg-muted">
                 <Menu className={NAV_ICON_CLASS} />
                 {renderBadge(moreBadge)}
               </span>
-              <span className="text-[11px] font-medium leading-tight text-muted-foreground">More</span>
+              <span className="text-[11px] font-medium leading-none text-muted-foreground">More</span>
+
             </button>
           </SheetTrigger>
         </div>
