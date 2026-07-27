@@ -29,6 +29,8 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
   const [fiscalError, setFiscalError] = useState<string | null>(null);
+  const [reprintOpen, setReprintOpen] = useState(false);
+
 
   useEffect(() => {
     if (sale && open) {
