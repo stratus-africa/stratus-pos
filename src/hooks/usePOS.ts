@@ -432,11 +432,7 @@ export function usePOS() {
           created_by: user.id,
         });
         if (btErr) console.error("Bank txn error:", btErr);
-
-        const { data: acc } = await supabase.from("bank_accounts").select("balance").eq("id", bankAccountId).single();
-        if (acc) {
-          await supabase.from("bank_accounts").update({ balance: acc.balance + Math.min(totalPaid, effectiveTotal) }).eq("id", bankAccountId);
-        }
+        // Account balance is maintained by the database (recomputed from transactions).
       }
 
       queryClient.invalidateQueries({ queryKey: ["sales"] });
