@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Printer } from "lucide-react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { QRCodeSVG } from "qrcode.react";
 import { CartItem, PaymentEntry } from "@/hooks/usePOS";
@@ -58,6 +58,18 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
   const { business } = useBusiness();
   const cfg = loadReceiptConfig(business?.id);
   const showLogo = cfg.showLogo && !!business?.logo_url;
+  const autoPrint = (business as { pos_auto_print_receipt?: boolean } | null)?.pos_auto_print_receipt ?? false;
+  const printFnRef = useRef<() => void>(() => {});
+  const autoPrintedFor = useRef<string | null>(null);
+
+  // Automatically print once per sale when the business rule is enabled.
+  useEffect(() => {
+    const key = data?.saleId || data?.invoiceNumber || null;
+    if (!open || !autoPrint || !key || autoPrintedFor.current === key) return;
+    autoPrintedFor.current = key;
+    const t = setTimeout(() => printFnRef.current(), 300);
+    return () => clearTimeout(t);
+  }, [open, autoPrint, data?.saleId, data?.invoiceNumber]);
 
   if (!data) return null;
 
@@ -112,6 +124,7 @@ export default function ReceiptDialog({ open, onOpenChange, data }: Props) {
     `);
     win.document.close();
   };
+  printFnRef.current = handlePrint;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
