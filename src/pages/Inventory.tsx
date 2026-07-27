@@ -538,8 +538,15 @@ const Inventory = () => {
                       const isLow = i.quantity <= i.low_stock_threshold;
                       const isOut = i.quantity <= 0;
                       return (
-                        <TableRow key={i.id} className={isLow ? "bg-destructive/5" : ""}>
-                          <TableCell className="font-medium">{i.products?.name || "—"}</TableCell>
+                        <TableRow
+                          key={i.id}
+                          className={`cursor-pointer ${isLow ? "bg-destructive/5" : ""}`}
+                          onClick={() => i.product_id && setDetailProductId(i.product_id)}
+                        >
+                          <TableCell className="font-medium">
+                            <span className="hover:text-primary hover:underline">{i.products?.name || "—"}</span>
+                          </TableCell>
+
                           <TableCell className="text-right font-medium">{i.quantity}</TableCell>
                           <TableCell className="text-right text-muted-foreground">{i.low_stock_threshold}</TableCell>
                           <TableCell className="text-right">{formatKES(i.quantity * (i.products?.selling_price || 0))}</TableCell>
