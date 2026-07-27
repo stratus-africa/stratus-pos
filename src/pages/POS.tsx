@@ -211,7 +211,7 @@ const POS = () => {
         const matchSearch =
           p.name.toLowerCase().includes(search.toLowerCase()) ||
           (p.sku || "").toLowerCase().includes(search.toLowerCase()) ||
-          (p.barcode || "").includes(search);
+          (p.barcode || "").toLowerCase().includes(search.toLowerCase());
         const matchCat = categoryFilter === "all" || p.category_id === categoryFilter;
         return matchSearch && matchCat;
       }),
