@@ -20,6 +20,7 @@ import { Route as RefundPolicyRouteImport } from './routes/refund-policy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppBankingRouteImport } from './routes/_app.banking'
 import { Route as AppChartOfAccountsRouteImport } from './routes/_app.chart-of-accounts'
 import { Route as AppCustomersRouteImport } from './routes/_app.customers'
@@ -120,6 +121,11 @@ const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppBankingRoute = AppBankingRouteImport.update({
   id: '/banking',
@@ -374,7 +380,7 @@ const SuperSuperAdminSettingsPaymentsPaystackRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof SuperRouteWithChildren
+  '/': typeof AppIndexRoute
   '/auth': typeof AuthRoute
   '/landing': typeof LandingRoute
   '/onboarding': typeof OnboardingRoute
@@ -433,7 +439,7 @@ export interface FileRoutesByFullPath {
   '/super-admin/businesses/$id/': typeof SuperSuperAdminBusinessesIdIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof SuperRouteWithChildren
+  '/': typeof AppIndexRoute
   '/auth': typeof AuthRoute
   '/landing': typeof LandingRoute
   '/onboarding': typeof OnboardingRoute
@@ -522,6 +528,7 @@ export interface FileRoutesById {
   '/_app/tax-compliance': typeof AppTaxComplianceRoute
   '/invoice/$id': typeof InvoiceIdRoute
   '/super-admin/login': typeof SuperAdminLoginRoute
+  '/_app/': typeof AppIndexRoute
   '/_app/purchases/new': typeof AppPurchasesNewRoute
   '/_super/super-admin/activity': typeof SuperSuperAdminActivityRoute
   '/_super/super-admin/landing': typeof SuperSuperAdminLandingRoute
@@ -702,6 +709,7 @@ export interface FileRouteTypes {
     | '/_app/tax-compliance'
     | '/invoice/$id'
     | '/super-admin/login'
+    | '/_app/'
     | '/_app/purchases/new'
     | '/_super/super-admin/activity'
     | '/_super/super-admin/landing'
@@ -827,6 +835,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/': {
+      id: '/_app/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/banking': {
       id: '/_app/banking'
@@ -1177,6 +1192,7 @@ interface AppRouteChildren {
   AppSettingsRoute: typeof AppSettingsRoute
   AppSuppliersRoute: typeof AppSuppliersRoute
   AppTaxComplianceRoute: typeof AppTaxComplianceRoute
+  AppIndexRoute: typeof AppIndexRoute
   AppPurchasesNewRoute: typeof AppPurchasesNewRoute
   AppPurchasesIndexRoute: typeof AppPurchasesIndexRoute
   AppPurchasesIdEditRoute: typeof AppPurchasesIdEditRoute
@@ -1199,6 +1215,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSettingsRoute: AppSettingsRoute,
   AppSuppliersRoute: AppSuppliersRoute,
   AppTaxComplianceRoute: AppTaxComplianceRoute,
+  AppIndexRoute: AppIndexRoute,
   AppPurchasesNewRoute: AppPurchasesNewRoute,
   AppPurchasesIndexRoute: AppPurchasesIndexRoute,
   AppPurchasesIdEditRoute: AppPurchasesIdEditRoute,
