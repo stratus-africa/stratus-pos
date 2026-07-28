@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -92,11 +92,16 @@ export default function SuperAdminTenantApprovals() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Tabs value={status} onValueChange={setStatus}>
-            <TabsList>
-              {STATUSES.map(s => <TabsTrigger key={s} value={s} className="capitalize">{s.replace("_", " ")}</TabsTrigger>)}
-            </TabsList>
-          </Tabs>
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger className="w-full sm:w-56 capitalize">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUSES.map(s => (
+                <SelectItem key={s} value={s} className="capitalize">{s.replace("_", " ")}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
           {loading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
