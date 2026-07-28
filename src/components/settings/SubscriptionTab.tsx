@@ -134,6 +134,30 @@ export function SubscriptionTab() {
     openCheckout({ packageId, interval: billingInterval });
   };
 
+  // Trials are one-off per account and only for the business owner.
+  const isOwner = !!user && business?.owner_id === user.id;
+  const trialEligible = isOwner && !subscription;
+
+  const handleStartTrial = async (pkg: PkgDisplay) => {
+    if (!confirm(`Start your ${pkg.trial_days}-day free trial of ${pkg.name}?`)) return;
+    setTrialLoading(pkg.id);
+    try {
+      const { error } = await (supabase as any).rpc("start_trial", {
+        _package_id: pkg.id,
+        _environment: getPaystackEnvironment(),
+      });
+      if (error) throw error;
+      toast.success(`Your ${pkg.trial_days}-day free trial has started`);
+      setShowPlans(false);
+      await refetchSubscription();
+    } catch (e: any) {
+      toast.error(e?.message || "Could not start trial");
+    } finally {
+      setTrialLoading(null);
+    }
+  };
+
+
   const handleManageBilling = async () => {
     setPortalLoading(true);
     try {
