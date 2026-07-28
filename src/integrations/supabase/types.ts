@@ -3878,6 +3878,13 @@ export type Database = {
         Args: { _amount: number; _type: string }
         Returns: number
       }
+      business_barcode_flags: {
+        Args: never
+        Returns: {
+          has_barcode: boolean
+          user_id: string
+        }[]
+      }
       clear_user_login_barcode: {
         Args: { _user_id: string }
         Returns: undefined
