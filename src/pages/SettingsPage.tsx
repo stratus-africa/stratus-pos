@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, MapPin, Users, Receipt, CreditCard, ShieldCheck, Wallet, Smartphone, Palette, Hash, Plug, FileCheck2, Printer, MonitorSmartphone } from "lucide-react";
+import { Building2, MapPin, Users, Receipt, CreditCard, ShieldCheck, Wallet, Smartphone, Palette, Hash, Plug, FileCheck2, Printer, MonitorSmartphone, Calculator } from "lucide-react";
 import CashDrawerTab from "@/components/settings/CashDrawerTab";
 import CustomerDisplayTab from "@/components/settings/CustomerDisplayTab";
 import { BusinessProfileTab } from "@/components/settings/BusinessProfileTab";
@@ -16,6 +16,7 @@ import { NumberSeriesTab } from "@/components/settings/NumberSeriesTab";
 import { IntegrationsTab } from "@/components/settings/IntegrationsTab";
 import { DigitaxSettingsTab } from "@/components/settings/DigitaxSettingsTab";
 import { TaxRatesTab } from "@/components/settings/TaxRatesTab";
+import { AccountingTab } from "@/components/settings/AccountingTab";
 import { useFeatureLimit } from "@/components/FeatureGate";
 
 import { useSearchParams } from "@/lib/router-compat";
@@ -65,6 +66,7 @@ const SettingsPage = () => {
         <TabsContent value="price-tag-template" className="mt-0"><PriceTagSettingsTab /></TabsContent>
       </Tabs>
     ) },
+    { key: "accounting", label: "Accounting", icon: <Calculator className="h-4 w-4" />, permission: "settings.edit", render: () => <AccountingTab /> },
     { key: "numbering", label: "Numbering", icon: <Hash className="h-4 w-4" />, permission: "settings.edit", render: () => <NumberSeriesTab /> },
     { key: "cash-drawer", label: "Cash Drawer", icon: <Printer className="h-4 w-4" />, permission: "settings.edit", render: () => <CashDrawerTab /> },
     { key: "customer-display", label: "Customer Display", icon: <MonitorSmartphone className="h-4 w-4" />, permission: "settings.edit", render: () => <CustomerDisplayTab /> },
