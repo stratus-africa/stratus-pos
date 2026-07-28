@@ -38,6 +38,34 @@ export function AccountingTab() {
   const set = <K extends keyof AccountingSettings>(k: K, v: AccountingSettings[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
+  const errors = useMemo(() => {
+    const e: Partial<Record<"financial_year_start_month" | "migration_date" | "inventory_start_date", string>> = {};
+    const m = form.financial_year_start_month;
+    if (!Number.isInteger(m) || m < 1 || m > 12) {
+      e.financial_year_start_month =
+        "Invalid financial year range. Pick a start month between January and December — the range always spans 12 months.";
+    }
+    const parse = (v: string | null) => (v ? new Date(v) : null);
+    const mig = parse(form.migration_date);
+    const inv = parse(form.inventory_start_date);
+    if (form.migration_date && Number.isNaN(mig?.getTime())) e.migration_date = "Enter a valid migration date.";
+    if (form.inventory_start_date && Number.isNaN(inv?.getTime())) e.inventory_start_date = "Enter a valid inventory start date.";
+    if (mig && inv && !Number.isNaN(mig.getTime()) && !Number.isNaN(inv.getTime()) && inv < mig) {
+      e.inventory_start_date = "Inventory start date cannot be before the migration date.";
+    }
+    if (mig && !Number.isNaN(mig.getTime()) && !e.financial_year_start_month) {
+      const { start, end } = financialYearRange(m, mig);
+      if (mig < start || mig > end) {
+        e.migration_date = "Migration date falls outside the financial year range it should belong to.";
+      }
+    }
+    return e;
+  }, [form]);
+
+  const hasErrors = Object.keys(errors).length > 0;
+
+
+
 
   return (
     <div className="space-y-4">
