@@ -290,7 +290,7 @@ export default function Landing() {
                     }`}
                   >
                     {featured && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-rust text-rust-foreground px-3 py-1 rounded-full text-xs font-bold tracking-wider shadow">
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-rust text-rust-foreground px-3 py-1 rounded-full text-xs font-bold tracking-wider shadow-sm">
                         MOST POPULAR
                       </div>
                     )}
