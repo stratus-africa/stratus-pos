@@ -148,9 +148,8 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
   const exportCSV = () => {
     downloadCSV(
       `stock_ledger_${from || "all"}_${to || "all"}.csv`,
-      ["Date", "Product", "Barcode", "Location", "Type", "Reason", "Qty change", "Reference", "Notes"],
+      ["Product", "Barcode", "Location", "Type", "Reason", "Qty change", "Reference", "Notes"],
       rows.map((r) => [
-        new Date(r.created_at).toLocaleString(),
         r.products?.name || "",
         r.products?.barcode || "",
         r.locations?.name || "",
@@ -226,7 +225,6 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
             <Table>
               <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
-                  <TableHead className="py-2">Date &amp; time</TableHead>
                   <TableHead className="py-2">Product</TableHead>
                   <TableHead className="py-2 hidden md:table-cell">Location</TableHead>
                   <TableHead className="py-2">Type</TableHead>
@@ -238,14 +236,13 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
               <TableBody>
                 {query.isLoading ? (
                   Array.from({ length: 6 }).map((_, i) => (
-                    <TableRow key={i}><TableCell colSpan={7}><Skeleton className="h-5 w-full" /></TableCell></TableRow>
+                    <TableRow key={i}><TableCell colSpan={6}><Skeleton className="h-5 w-full" /></TableCell></TableRow>
                   ))
                 ) : rows.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No stock transactions for this filter.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No stock transactions for this filter.</TableCell></TableRow>
                 ) : (
                   rows.map((r, i) => (
                     <TableRow key={r.id} className={i % 2 ? "bg-muted/40" : undefined}>
-                      <TableCell className="py-1.5 whitespace-nowrap text-xs">{new Date(r.created_at).toLocaleString()}</TableCell>
                       <TableCell className="py-1.5 text-sm">
                         <span className="font-medium">{r.products?.name || "—"}</span>
                         {r.products?.barcode && <span className="block text-[11px] text-muted-foreground">{r.products.barcode}</span>}
