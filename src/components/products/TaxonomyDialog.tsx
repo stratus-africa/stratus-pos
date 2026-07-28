@@ -22,7 +22,7 @@ interface Props {
   isLoading?: boolean;
 }
 
-const PRESET_COLORS = ["#0a6d4e", "#2563eb", "#dc2626", "#ea580c", "#ca8a04", "#7c3aed", "#0891b2", "#4b5563"];
+const PRESET_COLORS = ["#0a6d4e", "#2563eb", "#dc2626", "#ea580c", "#ca8a04", "#7c3aed", "#0891b2", "#023047", "#4b5563"];
 
 export function TaxonomyDialog({ open, onOpenChange, onSubmit, title, label, initial, withAbbreviation, withColor, isLoading }: Props) {
   const [name, setName] = useState("");
