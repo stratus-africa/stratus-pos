@@ -10,11 +10,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ClipboardCheck, ArrowLeftRight, Download, ChevronLeft, ChevronRight, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Printer, Upload, ScrollText } from "lucide-react";
+import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ClipboardCheck, Download, ChevronLeft, ChevronRight, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Printer, Upload, ScrollText } from "lucide-react";
 import { StockCountsTab } from "@/components/inventory/StockCountsTab";
 import StockLedgerTab from "@/components/inventory/StockLedgerTab";
 
-import { useInventory, classifyMovement, type MovementSource, type SortKey, type StockAdjustment, type AdjustmentDocument } from "@/hooks/useInventory";
+import { useInventory, type SortKey, type AdjustmentDocument } from "@/hooks/useInventory";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -31,7 +31,6 @@ const INVENTORY_TABS = [
   { key: "stock", label: "Stock Levels", icon: <Warehouse className="h-4 w-4" /> },
   { key: "adjustments", label: "Adjustments", icon: <ClipboardList className="h-4 w-4" /> },
   { key: "counts", label: "Stock Take", icon: <ClipboardCheck className="h-4 w-4" /> },
-  { key: "movements", label: "Stock Movement", icon: <ArrowLeftRight className="h-4 w-4" /> },
   { key: "ledger", label: "Ledger", icon: <ScrollText className="h-4 w-4" /> },
 ] as const;
 type StockSort = "name_asc" | "name_desc" | "barcode_asc" | "barcode_desc" | "qty_asc" | "qty_desc";
@@ -44,13 +43,6 @@ const readStoredSize = (key: string, fallback = 25): number => {
 };
 const writeStoredSize = (key: string, v: number) => {
   try { window.localStorage.setItem(key, String(v)); } catch { /* ignore */ }
-};
-
-const sourceMeta: Record<"sale" | "return" | "purchase" | "other", { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  sale: { label: "Sale", variant: "default" },
-  return: { label: "Return", variant: "destructive" },
-  purchase: { label: "Purchase", variant: "secondary" },
-  other: { label: "Other", variant: "outline" },
 };
 
 const downloadCsv = (filename: string, headers: string[], rows: (string | number)[][]) => {
@@ -113,14 +105,6 @@ const Inventory = () => {
   const [adjSearch, setAdjSearch] = useState<string>(initialStr("aQ", ""));
   const [adjSort, setAdjSort] = useState<SortKey>(initialStr<SortKey>("aSort", "date_desc"));
 
-  const [mvPage, setMvPage] = useState(initialNum("mPage", 1));
-  const [mvPageSize, setMvPageSize] = useState<number>(initialSize("mSize", LS_KEYS.mv));
-  const [mvFrom, setMvFrom] = useState<string>(initialStr("mFrom", ""));
-  const [mvTo, setMvTo] = useState<string>(initialStr("mTo", ""));
-  const [mvSource, setMvSource] = useState<MovementSource>(initialStr<MovementSource>("mSrc", "all"));
-  const [mvSearch, setMvSearch] = useState<string>(initialStr("mQ", ""));
-  const [mvSort, setMvSort] = useState<SortKey>(initialStr<SortKey>("mSort", "date_desc"));
-
   // Sync state -> URL
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
@@ -137,35 +121,23 @@ const Inventory = () => {
     setOrDel("aSize", adjPageSize, 25);
     setOrDel("aQ", adjSearch, "");
     setOrDel("aSort", adjSort, "date_desc");
-    setOrDel("mPage", mvPage, 1);
-    setOrDel("mSize", mvPageSize, 25);
-    setOrDel("mQ", mvSearch, "");
-    setOrDel("mFrom", mvFrom, "");
-    setOrDel("mTo", mvTo, "");
-    setOrDel("mSrc", mvSource, "all");
-    setOrDel("mSort", mvSort, "date_desc");
     setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, search, stockPage, stockPageSize, stockSort,
-      adjPage, adjPageSize, adjSearch, adjSort,
-      mvPage, mvPageSize, mvSearch, mvFrom, mvTo, mvSource, mvSort]);
+      adjPage, adjPageSize, adjSearch, adjSort]);
 
   // Persist page size selections
   const updateStockSize = (n: number) => { setStockPageSize(n); writeStoredSize(LS_KEYS.stock, n); setStockPage(1); };
   const updateAdjSize = (n: number) => { setAdjPageSize(n); writeStoredSize(LS_KEYS.adj, n); setAdjPage(1); };
-  const updateMvSize = (n: number) => { setMvPageSize(n); writeStoredSize(LS_KEYS.mv, n); setMvPage(1); };
 
   const effectiveLocationId = locationFilter === "all" ? undefined : locationFilter;
-  const { inventoryQuery, adjustStock, deleteAdjustment, adjustmentsQuery, movementsQuery, adjustmentDocumentsQuery, deleteAdjustmentDocument, updateAdjustmentDocument } = useInventory(effectiveLocationId, {
+  const { inventoryQuery, adjustStock, deleteAdjustment, adjustmentsQuery, adjustmentDocumentsQuery, deleteAdjustmentDocument, updateAdjustmentDocument } = useInventory(effectiveLocationId, {
     adjustmentsPage: { page: adjPage, pageSize: adjPageSize, sort: adjSort },
-    movements: { page: mvPage, pageSize: mvPageSize, from: mvFrom || undefined, to: mvTo || undefined, source: mvSource, sort: mvSort },
   });
 
   const inventory = inventoryQuery.data || [];
   const documents = adjustmentDocumentsQuery.data?.rows ?? [];
   const adjCount = adjustmentDocumentsQuery.data?.count ?? 0;
-  const movements = movementsQuery.data?.rows ?? [];
-  const mvCount = movementsQuery.data?.count ?? 0;
 
   const documentsFiltered = adjSearch
     ? documents.filter((d) => {
@@ -179,12 +151,8 @@ const Inventory = () => {
         );
       })
     : documents;
-  const movementsFiltered = mvSearch
-    ? movements.filter((m) => (m.products?.name || "").toLowerCase().includes(mvSearch.toLowerCase()))
-    : movements;
 
   const adjPages = Math.max(1, Math.ceil(adjCount / adjPageSize));
-  const mvPages = Math.max(1, Math.ceil(mvCount / mvPageSize));
 
   const filtered = inventory.filter((i) =>
     i.products?.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -381,13 +349,6 @@ const Inventory = () => {
 
 
 
-  const exportMovements = () => {
-    downloadCsv(
-      `stock-movement-${new Date().toISOString().slice(0, 10)}.csv`,
-      ["Date", "Product", "Location", "Source", "Change"],
-      movementsFiltered.map((m: StockAdjustment) => [fmtDate(m.created_at), m.products?.name || "", m.locations?.name || "", sourceMeta[classifyMovement(m)].label, m.quantity_change]),
-    );
-  };
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -763,136 +724,6 @@ const Inventory = () => {
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => setAdjPage((p) => Math.min(adjPages, p + 1))} disabled={adjPage >= adjPages}>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="movements">
-          <Card>
-            <CardHeader className="space-y-3">
-              <div className="flex flex-row items-center justify-between gap-2">
-                <div>
-                  <CardTitle className="text-lg">Stock Movement</CardTitle>
-                  <p className="text-xs text-muted-foreground">Inventory changes from sales, returns and purchases.</p>
-                </div>
-                <Button variant="outline" size="sm" onClick={exportMovements} disabled={movementsFiltered.length === 0}>
-                  <Download className="mr-2 h-4 w-4" /> Export CSV
-                </Button>
-              </div>
-              <div className="flex flex-col gap-2">
-                <div className="flex flex-col">
-                  <label className="text-xs text-muted-foreground mb-1">Product</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search product..."
-                      value={mvSearch}
-                      onChange={(e) => { setMvSearch(e.target.value); setMvPage(1); }}
-                      className="pl-9 h-9 w-full"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex flex-col">
-                    <label className="text-xs text-muted-foreground mb-1">From</label>
-                    <Input type="date" value={mvFrom} onChange={(e) => { setMvFrom(e.target.value); setMvPage(1); }} className="h-9 w-full" />
-                  </div>
-                  <div className="flex flex-col">
-                    <label className="text-xs text-muted-foreground mb-1">To</label>
-                    <Input type="date" value={mvTo} onChange={(e) => { setMvTo(e.target.value); setMvPage(1); }} className="h-9 w-full" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex flex-col">
-                    <label className="text-xs text-muted-foreground mb-1">Source</label>
-                    <Select value={mvSource} onValueChange={(v) => { setMvSource(v as MovementSource); setMvPage(1); }}>
-                      <SelectTrigger className="h-9 w-full"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All sources</SelectItem>
-                        <SelectItem value="sale">Sale</SelectItem>
-                        <SelectItem value="return">Return</SelectItem>
-                        <SelectItem value="purchase">Purchase</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex flex-col">
-                    <label className="text-xs text-muted-foreground mb-1">Sort</label>
-                    <Select value={mvSort} onValueChange={(v) => { setMvSort(v as SortKey); setMvPage(1); }}>
-                      <SelectTrigger className="h-9 w-full"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="date_desc">Date (newest)</SelectItem>
-                        <SelectItem value="date_asc">Date (oldest)</SelectItem>
-                        <SelectItem value="product_asc">Product (A–Z)</SelectItem>
-                        <SelectItem value="product_desc">Product (Z–A)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                {(mvFrom || mvTo || mvSource !== "all" || mvSearch) && (
-                  <div className="flex items-end justify-end">
-                    <Button variant="ghost" size="sm" onClick={() => { setMvFrom(""); setMvTo(""); setMvSource("all"); setMvSearch(""); setMvPage(1); }}>
-                      Clear
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead className="text-right">Change</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {movementsFiltered.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                        No stock movement matching the current filters.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    movementsFiltered.map((m) => {
-                      const src = sourceMeta[classifyMovement(m)];
-                      return (
-                        <TableRow key={m.id}>
-                          <TableCell className="text-muted-foreground">{fmtDate(m.created_at)}</TableCell>
-                          <TableCell className="font-medium">{m.products?.name || "—"}</TableCell>
-                          <TableCell>{m.locations?.name || "—"}</TableCell>
-                          <TableCell><Badge variant={src.variant}>{src.label}</Badge></TableCell>
-                          <TableCell className={`text-right font-medium ${m.quantity_change > 0 ? "text-green-600" : "text-destructive"}`}>
-                            {m.quantity_change > 0 ? "+" : ""}{m.quantity_change}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-              <div className="flex items-center justify-between border-t px-4 py-2 text-sm text-muted-foreground gap-3 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <span>Rows per page</span>
-                  <Select value={String(mvPageSize)} onValueChange={(v) => updateMvSize(Number(v))}>
-                    <SelectTrigger className="h-8 w-[80px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <span>{mvCount === 0 ? "0 records" : `Page ${mvPage} of ${mvPages} • ${mvCount} record${mvCount === 1 ? "" : "s"}`}</span>
-                <div className="flex gap-1">
-                  <Button variant="outline" size="sm" onClick={() => setMvPage((p) => Math.max(1, p - 1))} disabled={mvPage <= 1}>
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => setMvPage((p) => Math.min(mvPages, p + 1))} disabled={mvPage >= mvPages}>
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
