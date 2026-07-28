@@ -237,9 +237,53 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
       <Card>
         <CardContent className="pt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="space-y-1.5 sm:col-span-2">
-            <Label className="text-xs">Search product, reference or note</Label>
-            <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Search ledger" />
+            <Label className="text-xs">Product</Label>
+            <Popover open={productOpen} onOpenChange={setProductOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" role="combobox" aria-expanded={productOpen} className="w-full justify-between font-normal">
+                  <span className="truncate">{selectedProductLabel}</span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command shouldFilter={false}>
+                  <CommandInput
+                    placeholder="Search by name, barcode or SKU"
+                    value={productSearch}
+                    onValueChange={setProductSearch}
+                  />
+                  <CommandList>
+                    <CommandEmpty>{productsQuery.isLoading ? "Searching…" : "No products found."}</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem
+                        value="all"
+                        onSelect={() => { setProductId("all"); setPage(1); setProductOpen(false); }}
+                      >
+                        <Check className={cn("mr-2 h-4 w-4", productId === "all" ? "opacity-100" : "opacity-0")} />
+                        All products
+                      </CommandItem>
+                      {(productsQuery.data || []).map((p) => (
+                        <CommandItem
+                          key={p.id}
+                          value={p.id}
+                          onSelect={() => { setProductId(p.id); setPage(1); setProductOpen(false); }}
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", productId === p.id ? "opacity-100" : "opacity-0")} />
+                          <span className="truncate">
+                            {p.name}
+                            {(p.barcode || p.sku) && (
+                              <span className="block text-[11px] text-muted-foreground">{p.barcode || p.sku}</span>
+                            )}
+                          </span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
+
           <div className="sm:col-span-2">
             <DateRangeFilter
               from={from}
