@@ -6,6 +6,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useSubscription } from "@/hooks/useSubscription";
 import { usePaystackCheckout } from "@/hooks/usePaystackCheckout";
+import { getPaystackEnvironment } from "@/lib/paystack";
+import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { paystackManageSubscription } from "@/lib/paystack.functions";
 
@@ -25,6 +27,7 @@ interface PkgDisplay {
   max_users: number;
   max_customers: number;
   max_suppliers: number;
+  trial_days: number;
   features: string[];
 }
 
@@ -47,6 +50,8 @@ export function SubscriptionTab() {
   const [offlineEnabled, setOfflineEnabled] = useState<boolean>(false);
   const [showPlans, setShowPlans] = useState(false);
   const [currentFeatures, setCurrentFeatures] = useState<string[]>([]);
+  const [trialLoading, setTrialLoading] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!currentPackage?.id) { setCurrentFeatures([]); return; }
@@ -98,6 +103,7 @@ export function SubscriptionTab() {
         max_users: p.max_users,
         max_customers: p.max_customers ?? -1,
         max_suppliers: p.max_suppliers ?? -1,
+        trial_days: Number(p.trial_days ?? 0),
         features: (feats as any[] || []).filter((f) => f.package_id === p.id).map((f) => f.feature_label),
       }));
       setPackages(result);
@@ -131,6 +137,30 @@ export function SubscriptionTab() {
     if (!user) return;
     openCheckout({ packageId, interval: billingInterval });
   };
+
+  // Trials are one-off per account and only for the business owner.
+  const isOwner = !!user && business?.owner_id === user.id;
+  const trialEligible = isOwner && !subscription;
+
+  const handleStartTrial = async (pkg: PkgDisplay) => {
+    if (!confirm(`Start your ${pkg.trial_days}-day free trial of ${pkg.name}?`)) return;
+    setTrialLoading(pkg.id);
+    try {
+      const { error } = await (supabase as any).rpc("start_trial", {
+        _package_id: pkg.id,
+        _environment: getPaystackEnvironment(),
+      });
+      if (error) throw error;
+      toast.success(`Your ${pkg.trial_days}-day free trial has started`);
+      setShowPlans(false);
+      await queryClient.invalidateQueries({ queryKey: ["subscription"] });
+    } catch (e: any) {
+      toast.error(e?.message || "Could not start trial");
+    } finally {
+      setTrialLoading(null);
+    }
+  };
+
 
   const handleManageBilling = async () => {
     setPortalLoading(true);
@@ -222,6 +252,12 @@ export function SubscriptionTab() {
                       ))}
                     </ul>
                     <div className="space-y-2">
+                      {trialEligible && pkg.trial_days > 0 && (
+                        <Button className="w-full" variant={isPopular ? "default" : "outline"} disabled={trialLoading === pkg.id} onClick={() => handleStartTrial(pkg)}>
+                          {trialLoading === pkg.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Clock className="mr-2 h-4 w-4" />}
+                          Start {pkg.trial_days}-day free trial
+                        </Button>
+                      )}
                       {paystackEnabled && (
                         <Button className="w-full" variant={isPopular ? "default" : "outline"} disabled={checkoutLoading || noPrice} onClick={() => handleSubscribe(pkg.id)} title={noPrice ? "Price not yet configured" : undefined}>
                           {checkoutLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -287,7 +323,9 @@ export function SubscriptionTab() {
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-xl">{isActive ? currentPackage?.name || "Active" : "Free"}</CardTitle>
-            {isActive ? (
+            {subscription?.status === "trialing" && isActive ? (
+              <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-0 rounded-full px-3">Trial</Badge>
+            ) : isActive ? (
               <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-0 rounded-full px-3">Active</Badge>
             ) : (
               <Badge variant="secondary" className="rounded-full px-3">Inactive</Badge>

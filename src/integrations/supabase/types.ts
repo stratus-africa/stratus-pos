@@ -4159,6 +4159,10 @@ export type Database = {
         Args: { _barcode: string; _pin: string; _user_id: string }
         Returns: undefined
       }
+      start_trial: {
+        Args: { _environment?: string; _package_id: string }
+        Returns: Json
+      }
       tax_rate_usage: {
         Args: { _business_id: string }
         Returns: {

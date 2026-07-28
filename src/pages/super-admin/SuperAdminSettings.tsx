@@ -138,27 +138,20 @@ export default function SuperAdminSettings() {
         </p>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-[240px_1fr]">
-        {/* Tabs */}
-        <Card className="p-2 h-fit">
-          <nav className="flex flex-col gap-0.5">
+      <div className="space-y-5">
+        {/* Section selector */}
+        <Select value={tab} onValueChange={(v) => setTab(v as TabKey)}>
+          <SelectTrigger className="w-full sm:w-72">
+            <SelectValue placeholder="Select a section" />
+          </SelectTrigger>
+          <SelectContent>
             {TABS.map(({ key, label, icon: Icon }) => (
-              <button
-                key={key}
-                onClick={() => setTab(key)}
-                className={cn(
-                  "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors text-left",
-                  tab === key
-                    ? "bg-emerald-50 text-emerald-700 font-medium"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                {label}
-              </button>
+              <SelectItem key={key} value={key}>
+                <span className="flex items-center gap-2"><Icon className="h-4 w-4" />{label}</span>
+              </SelectItem>
             ))}
-          </nav>
-        </Card>
+          </SelectContent>
+        </Select>
 
         {/* Panel */}
         <Card className="p-6">
