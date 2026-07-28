@@ -1,0 +1,22 @@
+{
+  "functions": [
+    { "name": "admin-manage-user", "classification": "internal-only", "signal": "invoked from 3 src/ files; uses service-role admin APIs", "outcome": "left" },
+    { "name": "barcode-login", "classification": "custom response", "signal": "issues auth session tokens; also referenced from SQL", "outcome": "left" },
+    { "name": "business-mpesa-credentials", "classification": "internal-only", "signal": "invoked from 1 src/ file; reads vault secrets", "outcome": "left" },
+    { "name": "digitax-process-queue", "classification": "cron target", "signal": "referenced from supabase/migrations SQL (scheduled queue processing)", "outcome": "left" },
+    { "name": "digitax-submit", "classification": "internal-only", "signal": "invoked from 1 src/ file", "outcome": "left" },
+    { "name": "digitax-test-connection", "classification": "internal-only", "signal": "invoked from 1 src/ file", "outcome": "left" },
+    { "name": "digitax-webhook", "classification": "webhook receiver", "signal": "no src/ call sites; external KRA eTIMS callback URL", "outcome": "left" },
+    { "name": "mpesa-callback", "classification": "webhook receiver", "signal": "no src/ call sites; Safaricom Daraja callback URL registered externally", "outcome": "left" },
+    { "name": "mpesa", "classification": "internal-only", "signal": "invoked widely from src/; but shares URL contract with mpesa-callback", "outcome": "left" },
+    { "name": "paystack-initialize", "classification": "internal-only", "signal": "invoked from 1 src/ file", "outcome": "left" },
+    { "name": "paystack-manage-subscription", "classification": "internal-only", "signal": "invoked from 2 src/ files", "outcome": "left" },
+    { "name": "paystack-test-connection", "classification": "internal-only", "signal": "invoked from 1 src/ file", "outcome": "left" },
+    { "name": "paystack-webhook", "classification": "webhook receiver", "signal": "no src/ call sites; Paystack-registered callback URL", "outcome": "left" },
+    { "name": "process-email-queue", "classification": "cron target", "signal": "referenced from supabase/migrations SQL scheduled job", "outcome": "left" },
+    { "name": "public-invoice", "classification": "custom response", "signal": "public invoice URL embedded in printed receipt QR codes; URL is load-bearing", "outcome": "left" },
+    { "name": "super-admin-create-business", "classification": "internal-only", "signal": "invoked from 1 src/ file; service-role provisioning", "outcome": "left" },
+    { "name": "super-admin-delete-tenant", "classification": "internal-only", "signal": "invoked from 1 src/ file; service-role destructive op", "outcome": "left" },
+    { "name": "super-admin-reset-tenant", "classification": "internal-only", "signal": "invoked from 1 src/ file; service-role destructive op", "outcome": "left" }
+  ]
+}
