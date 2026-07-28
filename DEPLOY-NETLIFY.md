@@ -11,9 +11,9 @@ Netlify reads `netlify.toml`, so build command and publish directory are already
 configured:
 
 - Build command: `bun install --frozen-lockfile && bun run build`
-- Publish directory: `dist/client`
+- Publish directory: `dist` (Nitro `netlify` preset output)
 - Node version: 22 (Bun 1.2.23)
-- Nitro preset: `netlify`
+- Nitro preset: `netlify` (configured in `vite.config.ts`)
 
 > The lockfile of record is `bun.lock`. Do not commit a `package-lock.json` —
 > an npm lockfile resolves an older Vite and the build fails with a peer
