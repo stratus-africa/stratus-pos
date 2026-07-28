@@ -97,7 +97,11 @@ export function AccountingTab() {
                 type="date"
                 value={form.migration_date || ""}
                 onChange={(e) => set("migration_date", e.target.value || null)}
+                aria-invalid={!!errors.migration_date}
               />
+              {errors.migration_date && (
+                <p className="text-xs text-destructive">{errors.migration_date}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Financial Year Start</Label>
@@ -145,9 +149,13 @@ export function AccountingTab() {
                   </Command>
                 </PopoverContent>
               </Popover>
-              <p className="text-xs text-muted-foreground">
-                Current year: {fyRange.start.toLocaleDateString()} – {fyRange.end.toLocaleDateString()}
-              </p>
+              {errors.financial_year_start_month ? (
+                <p className="text-xs text-destructive">{errors.financial_year_start_month}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Current year: {fyRange.start.toLocaleDateString()} – {fyRange.end.toLocaleDateString()}
+                </p>
+              )}
             </div>
 
           </div>
@@ -182,7 +190,11 @@ export function AccountingTab() {
                 type="date"
                 value={form.inventory_start_date || ""}
                 onChange={(e) => set("inventory_start_date", e.target.value || null)}
+                aria-invalid={!!errors.inventory_start_date}
               />
+              {errors.inventory_start_date && (
+                <p className="text-xs text-destructive">{errors.inventory_start_date}</p>
+              )}
             </div>
           </div>
           <div className="flex items-center justify-between gap-4 rounded-md border bg-muted/30 px-3 py-2.5">
@@ -198,8 +210,11 @@ export function AccountingTab() {
         </CardContent>
       </Card>
 
-      <div className="flex justify-end">
-        <Button onClick={() => save.mutate(form)} disabled={save.isPending}>
+      <div className="flex items-center justify-end gap-3">
+        {hasErrors && (
+          <p className="text-xs text-destructive">Fix the highlighted settings before saving.</p>
+        )}
+        <Button onClick={() => save.mutate(form)} disabled={save.isPending || hasErrors}>
           <Save className="mr-2 h-4 w-4" /> Save Accounting Settings
         </Button>
       </div>
