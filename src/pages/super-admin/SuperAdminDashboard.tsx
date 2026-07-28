@@ -241,7 +241,7 @@ export default function SuperAdminDashboard() {
       {/* Stat Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {statCards.map((card) => (
-          <Card key={card.label} className="p-5 bg-white border-border shadow-none hover:shadow-sm transition-shadow">
+          <Card key={card.label} className="p-5 bg-white border-border shadow-none hover:shadow-xs transition-shadow">
             <div className={`h-10 w-10 rounded-lg ${card.iconBg} flex items-center justify-center mb-4`}>
               <card.icon className={`h-5 w-5 ${card.iconColor}`} />
             </div>

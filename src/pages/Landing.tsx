@@ -148,7 +148,7 @@ export default function Landing() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {STATS.map(s => (
-              <div key={s.label} className="bg-card border border-border/70 rounded-2xl py-8 px-4 text-center shadow-sm hover:shadow-md transition-shadow">
+              <div key={s.label} className="bg-card border border-border/70 rounded-2xl py-8 px-4 text-center shadow-xs hover:shadow-md transition-shadow">
                 <div className="font-serif text-4xl font-medium text-foreground mb-1">{s.value}</div>
                 <div className="text-xs font-medium tracking-wider text-muted-foreground uppercase">{s.label}</div>
               </div>
@@ -260,7 +260,7 @@ export default function Landing() {
               <button
                 onClick={() => setBillingCycle("monthly")}
                 className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
-                  billingCycle === "monthly" ? "bg-teal text-teal-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  billingCycle === "monthly" ? "bg-teal text-teal-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 Monthly
@@ -268,7 +268,7 @@ export default function Landing() {
               <button
                 onClick={() => setBillingCycle("yearly")}
                 className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
-                  billingCycle === "yearly" ? "bg-teal text-teal-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  billingCycle === "yearly" ? "bg-teal text-teal-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 Yearly <span className="text-xs opacity-80">(save 20%)</span>
@@ -286,7 +286,7 @@ export default function Landing() {
                   <div
                     key={pkg.id}
                     className={`relative rounded-2xl p-8 bg-card transition-all ${
-                      featured ? "border-2 border-teal shadow-xl lg:scale-105" : "border border-border/70 shadow-sm"
+                      featured ? "border-2 border-teal shadow-xl lg:scale-105" : "border border-border/70 shadow-xs"
                     }`}
                   >
                     {featured && (

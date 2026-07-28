@@ -43,7 +43,7 @@ export default function PublicInvoice() {
 
   return (
     <div className="min-h-screen bg-muted/30 py-8 px-4 print:bg-white print:py-0">
-      <div className="max-w-2xl mx-auto bg-card shadow-sm rounded-lg p-6 md:p-10 print:shadow-none print:rounded-none">
+      <div className="max-w-2xl mx-auto bg-card shadow-xs rounded-lg p-6 md:p-10 print:shadow-none print:rounded-none">
         <div className="flex items-start justify-between gap-4 pb-6 border-b">
           <div>
             {business?.logo_url && (

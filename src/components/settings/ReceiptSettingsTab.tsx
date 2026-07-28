@@ -243,7 +243,7 @@ export function ReceiptSettingsTab() {
         </CardHeader>
         <CardContent>
           <div
-            className="border rounded-md p-4 bg-white text-black max-w-[320px] mx-auto shadow-sm"
+            className="border rounded-md p-4 bg-white text-black max-w-[320px] mx-auto shadow-xs"
             style={{ fontFamily: config.fontFamily, fontSize: `${config.fontSize}px`, lineHeight: 1.45 }}
           >
             <div className="text-center space-y-1">

@@ -79,13 +79,13 @@ export default function Pricing() {
               <button
                 onClick={() => setBillingCycle("monthly")}
                 className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
-                  billingCycle === "monthly" ? "bg-teal text-teal-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  billingCycle === "monthly" ? "bg-teal text-teal-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
                 }`}
               >Monthly</button>
               <button
                 onClick={() => setBillingCycle("yearly")}
                 className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
-                  billingCycle === "yearly" ? "bg-teal text-teal-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  billingCycle === "yearly" ? "bg-teal text-teal-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
                 }`}
               >Yearly <span className="text-xs opacity-80">(save 20%)</span></button>
             </div>
