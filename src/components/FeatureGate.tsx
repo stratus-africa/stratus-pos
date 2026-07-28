@@ -2,7 +2,7 @@ import React from "react";
 import { useSubscription, type SubscriptionTier } from "@/hooks/useSubscription";
 import { Button } from "@/components/ui/button";
 import { Lock } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/router-compat";
 
 interface FeatureGateProps {
   /** Backwards-compat tier prop (rarely used now) */

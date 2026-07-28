@@ -3,7 +3,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { XAxis, YAxis, CartesianGrid, BarChart, Bar } from "recharts";
 import { format, parseISO } from "date-fns";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/router-compat";
 
 
 const chartConfig = {

@@ -18,7 +18,7 @@ import { DigitaxSettingsTab } from "@/components/settings/DigitaxSettingsTab";
 import { TaxRatesTab } from "@/components/settings/TaxRatesTab";
 import { useFeatureLimit } from "@/components/FeatureGate";
 
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "@/lib/router-compat";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useMemo, useState, useEffect } from "react";
@@ -30,7 +30,7 @@ interface TabDef {
   icon: React.ReactNode;
   permission: string;
   featureKey?: string;
-  render: () => JSX.Element;
+  render: () => React.JSX.Element;
 }
 
 const NotAuthorized = () => (

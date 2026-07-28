@@ -15,7 +15,7 @@ import {
 import { format } from "date-fns";
 import { Search, Ban, CheckCircle2, Pencil, Eye, Loader2, Plus, Trash2, CreditCard } from "lucide-react";
 import { toast } from "sonner";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "@/lib/router-compat";
 import { cn } from "@/lib/utils";
 import { AddBusinessDialog } from "@/components/super-admin/AddBusinessDialog";
 

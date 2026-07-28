@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router-compat";
 import { Card, CardContent } from "@/components/ui/card";
 import { Sparkles, BarChart3, LayoutGrid, Lightbulb, MessageSquare, DollarSign, HelpCircle, Megaphone, ChevronRight } from "lucide-react";
 import { SECTION_META, SectionKey } from "@/lib/landing-cms";

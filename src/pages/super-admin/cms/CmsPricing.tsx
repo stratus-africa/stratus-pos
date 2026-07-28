@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { CmsPageShell } from "@/components/super-admin/cms/CmsPageShell";
 import { CmsSectionHeaderForm } from "@/components/super-admin/cms/CmsSectionHeaderForm";
 import { fetchSection, upsertSection, DEFAULT_CONTENT, SECTION_META } from "@/lib/landing-cms";
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router-compat";
 
 interface PricingContent {
   show_monthly: boolean;

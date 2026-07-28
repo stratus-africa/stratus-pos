@@ -24,7 +24,7 @@ import { useFeatureLimit } from "@/components/FeatureGate";
 import { useDigitaxEnabled } from "@/hooks/useDigitax";
 import { usePermissions } from "@/hooks/usePermissions";
 import { NavLink } from "@/components/NavLink";
-import { useLocation, Link } from "react-router-dom";
+import { useLocation, Link } from "@/lib/router-compat";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";

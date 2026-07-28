@@ -15,7 +15,7 @@ import SaleDetailDialog from "@/components/sales/SaleDetailDialog";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "@/lib/router-compat";
 
 const Sales = () => {
   const { salesQuery, deleteSale, cancelSale, retryFiscalisation } = useSales();
