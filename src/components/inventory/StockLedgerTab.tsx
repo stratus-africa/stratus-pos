@@ -162,19 +162,9 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
 
   // Range-wide summary (all matching rows, not just the current page).
   const summaryQuery = useQuery({
-    queryKey: ["stock_ledger_summary", business?.id, loc, from, to, debouncedSearch],
+    queryKey: ["stock_ledger_summary", business?.id, loc, from, to, productId],
     queryFn: async () => {
       if (!business) return [] as LedgerRow[];
-      let productIds: string[] | null = null;
-      if (debouncedSearch) {
-        const term = debouncedSearch.replace(/[%,]/g, "");
-        const { data: matched } = await supabase
-          .from("products")
-          .select("id")
-          .or(`name.ilike.%${term}%,barcode.ilike.%${term}%,sku.ilike.%${term}%`)
-          .limit(1000);
-        productIds = (matched || []).map((p) => p.id);
-      }
       const all: LedgerRow[] = [];
       const chunk = 1000;
       for (let offset = 0; offset < 20000; offset += chunk) {
@@ -185,12 +175,8 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
         if (loc !== "all") q = q.eq("location_id", loc);
         if (from) q = q.gte("created_at", `${from}T00:00:00`);
         if (to) q = q.lte("created_at", `${to}T23:59:59`);
-        if (debouncedSearch) {
-          const term = debouncedSearch.replace(/[%,]/g, "");
-          const filters = [`notes.ilike.%${term}%`, `reason.ilike.%${term}%`];
-          if (productIds && productIds.length) filters.push(`product_id.in.(${productIds.join(",")})`);
-          q = q.or(filters.join(","));
-        }
+        if (productId !== "all") q = q.eq("product_id", productId);
+
         const { data, error } = await q.range(offset, offset + chunk - 1);
         if (error) throw error;
         const batch = (data || []) as unknown as LedgerRow[];
