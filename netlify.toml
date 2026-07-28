@@ -1,0 +1,13 @@
+[build]
+  command = "npm run build"
+  publish = "dist/client"
+
+[build.environment]
+  NODE_VERSION = "22"
+  NITRO_PRESET = "netlify"
+
+# TanStack Start (Nitro) emits the SSR handler as a Netlify function.
+# Everything not matched by a static asset is served by it.
+[functions]
+  directory = ".netlify/functions-internal"
+  node_bundler = "esbuild"
