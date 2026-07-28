@@ -53,12 +53,15 @@ export function AccountingTab() {
     if (mig && inv && !Number.isNaN(mig.getTime()) && !Number.isNaN(inv.getTime()) && inv < mig) {
       e.inventory_start_date = "Inventory start date cannot be before the migration date.";
     }
-    if (mig && !Number.isNaN(mig.getTime()) && !e.financial_year_start_month) {
-      const { start, end } = financialYearRange(m, mig);
-      if (mig < start || mig > end) {
-        e.migration_date = "Migration date falls outside the financial year range it should belong to.";
-      }
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    if (mig && !Number.isNaN(mig.getTime()) && mig > today) {
+      e.migration_date = "Migration date cannot be in the future.";
     }
+    if (inv && !Number.isNaN(inv.getTime()) && inv > today) {
+      e.inventory_start_date = "Inventory start date cannot be in the future.";
+    }
+
     return e;
   }, [form]);
 
