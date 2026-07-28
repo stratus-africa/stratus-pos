@@ -30,7 +30,7 @@ interface TabDef {
   icon: React.ReactNode;
   permission: string;
   featureKey?: string;
-  render: () => JSX.Element;
+  render: () => React.JSX.Element;
 }
 
 const NotAuthorized = () => (

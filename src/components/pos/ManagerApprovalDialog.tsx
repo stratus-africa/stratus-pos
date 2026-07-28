@@ -53,7 +53,7 @@ export default function ManagerApprovalDialog({ open, onOpenChange, onApproved, 
         .map((p: any) => ({ user_id: p.id, email: p.email, full_name: p.full_name }));
       setManagers(list);
       const approver = (business as any)?.pos_manager_approver_id as string | null | undefined;
-      const preferred = approver && list.find((m) => m.user_id === approver);
+      const preferred = approver ? list.find((m) => m.user_id === approver) : undefined;
       setSelected(preferred?.user_id || list[0]?.user_id || "");
       setLoading(false);
     })();

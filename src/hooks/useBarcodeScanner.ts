@@ -42,7 +42,7 @@ interface Options {
   /** Disable the global listener (e.g. while the camera scanner modal is open). */
   disabled?: boolean;
   /** Element that is allowed to keep the keystrokes (the POS search input). */
-  searchInputRef?: React.RefObject<HTMLInputElement>;
+  searchInputRef?: React.RefObject<HTMLInputElement | null>;
   settings: BarcodeScanSettings;
 }
 
