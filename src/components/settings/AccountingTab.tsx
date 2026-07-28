@@ -49,12 +49,55 @@ export function AccountingTab() {
             </div>
             <div className="space-y-2">
               <Label>Financial Year Start</Label>
-              <Input
-                type="date"
-                value={form.financial_year_start || ""}
-                onChange={(e) => set("financial_year_start", e.target.value || null)}
-              />
+              <Popover open={fyOpen} onOpenChange={setFyOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={fyOpen}
+                    className="w-full justify-between font-normal"
+                  >
+                    {financialYearLabel(form.financial_year_start_month || 1)}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search" />
+                    <CommandList>
+                      <CommandEmpty>No match.</CommandEmpty>
+                      <CommandGroup>
+                        {MONTH_NAMES.map((_, i) => {
+                          const m = i + 1;
+                          const label = financialYearLabel(m);
+                          return (
+                            <CommandItem
+                              key={m}
+                              value={label}
+                              onSelect={() => {
+                                set("financial_year_start_month", m);
+                                setFyOpen(false);
+                              }}
+                            >
+                              {label}
+                              <Check
+                                className={`ml-auto h-4 w-4 ${
+                                  (form.financial_year_start_month || 1) === m ? "opacity-100" : "opacity-0"
+                                }`}
+                              />
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              <p className="text-xs text-muted-foreground">
+                Current year: {fyRange.start.toLocaleDateString()} – {fyRange.end.toLocaleDateString()}
+              </p>
             </div>
+
           </div>
           <div className="flex items-center justify-between gap-4 rounded-md border bg-muted/30 px-3 py-2.5">
             <div>
