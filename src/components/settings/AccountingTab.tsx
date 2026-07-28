@@ -1,15 +1,35 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Save, CalendarClock, Boxes } from "lucide-react";
-import { useAccountingSettings, type AccountingSettings } from "@/hooks/useAccountingSettings";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Save, CalendarClock, Boxes, Check, ChevronsUpDown } from "lucide-react";
+import {
+  useAccountingSettings,
+  financialYearLabel,
+  financialYearRange,
+  MONTH_NAMES,
+  type AccountingSettings,
+} from "@/hooks/useAccountingSettings";
 
 export function AccountingTab() {
   const { query, save, settings } = useAccountingSettings();
   const [form, setForm] = useState<AccountingSettings>(settings);
+  const [fyOpen, setFyOpen] = useState(false);
+  const fyRange = useMemo(
+    () => financialYearRange(form.financial_year_start_month || 1),
+    [form.financial_year_start_month],
+  );
 
   useEffect(() => {
     if (query.data) setForm(query.data);
@@ -17,6 +37,7 @@ export function AccountingTab() {
 
   const set = <K extends keyof AccountingSettings>(k: K, v: AccountingSettings[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
+
 
   return (
     <div className="space-y-4">
@@ -49,12 +70,55 @@ export function AccountingTab() {
             </div>
             <div className="space-y-2">
               <Label>Financial Year Start</Label>
-              <Input
-                type="date"
-                value={form.financial_year_start || ""}
-                onChange={(e) => set("financial_year_start", e.target.value || null)}
-              />
+              <Popover open={fyOpen} onOpenChange={setFyOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={fyOpen}
+                    className="w-full justify-between font-normal"
+                  >
+                    {financialYearLabel(form.financial_year_start_month || 1)}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search" />
+                    <CommandList>
+                      <CommandEmpty>No match.</CommandEmpty>
+                      <CommandGroup>
+                        {MONTH_NAMES.map((_, i) => {
+                          const m = i + 1;
+                          const label = financialYearLabel(m);
+                          return (
+                            <CommandItem
+                              key={m}
+                              value={label}
+                              onSelect={() => {
+                                set("financial_year_start_month", m);
+                                setFyOpen(false);
+                              }}
+                            >
+                              {label}
+                              <Check
+                                className={`ml-auto h-4 w-4 ${
+                                  (form.financial_year_start_month || 1) === m ? "opacity-100" : "opacity-0"
+                                }`}
+                              />
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              <p className="text-xs text-muted-foreground">
+                Current year: {fyRange.start.toLocaleDateString()} – {fyRange.end.toLocaleDateString()}
+              </p>
             </div>
+
           </div>
           <div className="flex items-center justify-between gap-4 rounded-md border bg-muted/30 px-3 py-2.5">
             <div>

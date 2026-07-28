@@ -6,8 +6,10 @@ import { toast } from "sonner";
 export interface AccountingSettings {
   /** Start of the financial year / migration date the books begin from */
   migration_date: string | null;
-  /** Financial year start (month-day driven, stored as a date) */
+  /** Financial year start (month-day driven, stored as a date) — legacy */
   financial_year_start: string | null;
+  /** Financial year start month (1-12). January = 1 means Jan - Dec */
+  financial_year_start_month: number;
   /** Date from which inventory quantities are considered live */
   inventory_start_date: string | null;
   /** Block posting documents dated before the migration date */
@@ -16,13 +18,35 @@ export interface AccountingSettings {
   lock_before_inventory_start: boolean;
 }
 
+export const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+] as const;
+
+/** "January - December" style label for a financial year starting in `month` (1-12) */
+export function financialYearLabel(month: number): string {
+  const start = MONTH_NAMES[(month - 1 + 12) % 12];
+  const end = MONTH_NAMES[(month + 10) % 12];
+  return `${start} - ${end}`;
+}
+
+/** Resolved start/end dates of the financial year containing `ref` */
+export function financialYearRange(month: number, ref: Date = new Date()) {
+  const y = ref.getMonth() + 1 >= month ? ref.getFullYear() : ref.getFullYear() - 1;
+  const start = new Date(y, month - 1, 1);
+  const end = new Date(y + 1, month - 1, 0);
+  return { start, end };
+}
+
 export const DEFAULT_ACCOUNTING_SETTINGS: AccountingSettings = {
   migration_date: null,
   financial_year_start: null,
+  financial_year_start_month: 1,
   inventory_start_date: null,
   lock_before_migration_date: false,
   lock_before_inventory_start: false,
 };
+
 
 const KEY = "accounting";
 
