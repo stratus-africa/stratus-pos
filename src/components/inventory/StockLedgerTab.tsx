@@ -57,16 +57,15 @@ function classify(row: LedgerRow): SourceKind {
 }
 
 function referenceOf(row: LedgerRow): string {
-  return (
+  const named =
     row.purchases?.invoice_number ||
     row.sales?.invoice_number ||
-    row.stock_adjustment_documents?.reference ||
-    row.purchase_id ||
-    row.sale_id ||
-    row.document_id ||
-    row.id
-  ).slice(0, 24);
+    row.stock_adjustment_documents?.reference;
+  if (named) return named;
+  const id = row.purchase_id || row.sale_id || row.document_id || row.id;
+  return `#${id.slice(0, 8)}`;
 }
+
 
 export default function StockLedgerTab({ locationId }: { locationId?: string }) {
   const { business, locations } = useBusiness();
