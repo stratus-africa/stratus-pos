@@ -169,7 +169,7 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
         <CardContent className="pt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="space-y-1.5 sm:col-span-2">
             <Label className="text-xs">Search product, reference or note</Label>
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search ledger" />
+            <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Search ledger" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">From</Label>
