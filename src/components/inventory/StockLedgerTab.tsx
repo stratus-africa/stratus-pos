@@ -86,7 +86,7 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
       let q = supabase
         .from("stock_adjustments")
         .select(
-          "id, created_at, quantity_change, reason, notes, purchase_id, sale_id, document_id, product_id, location_id, products(name, barcode), locations(name), purchases(invoice_number), sales(invoice_number), stock_adjustment_documents(reference)",
+          "id, created_at, quantity_change, reason, notes, purchase_id, sale_id, document_id, product_id, location_id, products(name, barcode), locations(name), stock_adjustment_documents(reference)",
           { count: "exact" },
         )
         .order("created_at", { ascending: false });
@@ -95,7 +95,27 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
       if (to) q = q.lte("created_at", `${to}T23:59:59`);
       const { data, error, count } = await q.range(start, start + pageSize - 1);
       if (error) throw error;
-      return { rows: (data || []) as unknown as LedgerRow[], count: count ?? 0 };
+      const rows = (data || []) as unknown as LedgerRow[];
+
+      // stock_adjustments has no FK to purchases/sales, so resolve references separately.
+      const purchaseIds = [...new Set(rows.map((r) => r.purchase_id).filter(Boolean))] as string[];
+      const saleIds = [...new Set(rows.map((r) => r.sale_id).filter(Boolean))] as string[];
+      const [purchaseRes, saleRes] = await Promise.all([
+        purchaseIds.length
+          ? supabase.from("purchases").select("id, invoice_number").in("id", purchaseIds)
+          : Promise.resolve({ data: [] as { id: string; invoice_number: string | null }[] }),
+        saleIds.length
+          ? supabase.from("sales").select("id, invoice_number").in("id", saleIds)
+          : Promise.resolve({ data: [] as { id: string; invoice_number: string | null }[] }),
+      ]);
+      const pMap = new Map((purchaseRes.data || []).map((p) => [p.id, p.invoice_number]));
+      const sMap = new Map((saleRes.data || []).map((s) => [s.id, s.invoice_number]));
+      for (const r of rows) {
+        if (r.purchase_id) r.purchases = { invoice_number: pMap.get(r.purchase_id) ?? null };
+        if (r.sale_id) r.sales = { invoice_number: sMap.get(r.sale_id) ?? null };
+      }
+      return { rows, count: count ?? 0 };
+
     },
     enabled: !!business,
   });
