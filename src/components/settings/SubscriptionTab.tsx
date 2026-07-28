@@ -99,6 +99,7 @@ export function SubscriptionTab() {
         max_users: p.max_users,
         max_customers: p.max_customers ?? -1,
         max_suppliers: p.max_suppliers ?? -1,
+        trial_days: Number(p.trial_days ?? 0),
         features: (feats as any[] || []).filter((f) => f.package_id === p.id).map((f) => f.feature_label),
       }));
       setPackages(result);
