@@ -20,7 +20,6 @@ import AuditLogReportTab from "@/components/reports/AuditLogReportTab";
 import EndOfDayReportTab from "@/components/reports/EndOfDayReportTab";
 import DailySalesReportTab from "@/components/reports/DailySalesReportTab";
 import ZReportTab from "@/components/reports/ZReportTab";
-import StockReportTab from "@/components/reports/StockReportTab";
 import StockAgingReportTab from "@/components/reports/StockAgingReportTab";
 import StockLedgerTab from "@/components/inventory/StockLedgerTab";
 import { DateRangeFilter } from "@/components/reports/DateRangeFilter";
@@ -50,7 +49,6 @@ const Reports = () => {
   const firstTab = canSales ? "sales" : canPurchases ? "purchases" : canExpenses ? "expenses" : canInventory ? "inventory" : canPnL ? "pnl" : canEOD ? "eod" : canZ ? "zreport" : canAudit ? "audit" : "sales";
   const [searchParams, setSearchParams] = useSearchParams();
   const urlTab = searchParams.get("tab");
-  const urlProduct = searchParams.get("product") || undefined;
   const [activeTab, setActiveTab] = useState<string>(urlTab || firstTab);
   useEffect(() => { if (urlTab) setActiveTab(urlTab); }, [urlTab]);
   const [from, setFrom] = useState(thirtyDaysAgo);
@@ -257,7 +255,6 @@ const Reports = () => {
             { value: "purchases", label: "Purchases", icon: ShoppingCart, show: canPurchases },
             { value: "expenses", label: "Expenses", icon: Receipt, show: canExpenses },
             { value: "inventory", label: "Inventory", icon: Package, show: canInventory },
-            { value: "stock", label: "Product Sales Report", icon: Package, show: canInventory },
             { value: "aging", label: "Stock Aging", icon: Clock, show: canInventory },
             { value: "movement", label: "Inventory Movement", icon: ScrollText, show: canMovement },
             { value: "pnl", label: "P&L", icon: TrendingUp, show: canPnL },
@@ -310,11 +307,6 @@ const Reports = () => {
           {canInventory && (
             <TabsContent value="inventory" className="mt-0">
               <InventoryReportTab inventory={inventory} loading={loading} showBatches={hasFeatureKey("batch_tracking")} />
-            </TabsContent>
-          )}
-          {canInventory && (
-            <TabsContent value="stock" className="mt-0">
-              <StockReportTab from={from} to={to} locationId={currentLocation?.id} initialProductId={urlProduct} />
             </TabsContent>
           )}
           {canInventory && (

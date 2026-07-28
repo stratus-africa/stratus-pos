@@ -26,7 +26,7 @@ export function DashboardCharts({ salesTrend, topProducts }: DashboardChartsProp
   };
   const onProductBarClick = (data: any) => {
     const productId = data?.activePayload?.[0]?.payload?.product_id;
-    if (productId) navigate(`/reports?tab=stock&product=${productId}`);
+    if (productId) navigate(`/reports?tab=movement&product=${productId}`);
   };
 
   const tickFontSize = isMobile ? 10 : 11;
