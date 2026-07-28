@@ -32,6 +32,7 @@ import { Route as AppNotificationsRouteImport } from './routes/_app.notification
 import { Route as AppPosRouteImport } from './routes/_app.pos'
 import { Route as AppProductsRouteImport } from './routes/_app.products'
 import { Route as AppProfileRouteImport } from './routes/_app.profile'
+import { Route as AppReportsRouteImport } from './routes/_app.reports'
 import { Route as AppRolesRouteImport } from './routes/_app.roles'
 import { Route as AppSalesRouteImport } from './routes/_app.sales'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
@@ -180,6 +181,11 @@ const AppProductsRoute = AppProductsRouteImport.update({
 const AppProfileRoute = AppProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppReportsRoute = AppReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
   getParentRoute: () => AppRoute,
 } as any)
 const AppRolesRoute = AppRolesRouteImport.update({
@@ -401,6 +407,7 @@ export interface FileRoutesByFullPath {
   '/pos': typeof AppPosRoute
   '/products': typeof AppProductsRoute
   '/profile': typeof AppProfileRoute
+  '/reports': typeof AppReportsRoute
   '/roles': typeof AppRolesRoute
   '/sales': typeof AppSalesRoute
   '/settings': typeof AppSettingsRoute
@@ -460,6 +467,7 @@ export interface FileRoutesByTo {
   '/pos': typeof AppPosRoute
   '/products': typeof AppProductsRoute
   '/profile': typeof AppProfileRoute
+  '/reports': typeof AppReportsRoute
   '/roles': typeof AppRolesRoute
   '/sales': typeof AppSalesRoute
   '/settings': typeof AppSettingsRoute
@@ -521,6 +529,7 @@ export interface FileRoutesById {
   '/_app/pos': typeof AppPosRoute
   '/_app/products': typeof AppProductsRoute
   '/_app/profile': typeof AppProfileRoute
+  '/_app/reports': typeof AppReportsRoute
   '/_app/roles': typeof AppRolesRoute
   '/_app/sales': typeof AppSalesRoute
   '/_app/settings': typeof AppSettingsRoute
@@ -583,6 +592,7 @@ export interface FileRouteTypes {
     | '/pos'
     | '/products'
     | '/profile'
+    | '/reports'
     | '/roles'
     | '/sales'
     | '/settings'
@@ -642,6 +652,7 @@ export interface FileRouteTypes {
     | '/pos'
     | '/products'
     | '/profile'
+    | '/reports'
     | '/roles'
     | '/sales'
     | '/settings'
@@ -702,6 +713,7 @@ export interface FileRouteTypes {
     | '/_app/pos'
     | '/_app/products'
     | '/_app/profile'
+    | '/_app/reports'
     | '/_app/roles'
     | '/_app/sales'
     | '/_app/settings'
@@ -918,6 +930,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof AppProfileRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/reports': {
+      id: '/_app/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AppReportsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/roles': {
@@ -1187,6 +1206,7 @@ interface AppRouteChildren {
   AppPosRoute: typeof AppPosRoute
   AppProductsRoute: typeof AppProductsRoute
   AppProfileRoute: typeof AppProfileRoute
+  AppReportsRoute: typeof AppReportsRoute
   AppRolesRoute: typeof AppRolesRoute
   AppSalesRoute: typeof AppSalesRoute
   AppSettingsRoute: typeof AppSettingsRoute
@@ -1210,6 +1230,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppPosRoute: AppPosRoute,
   AppProductsRoute: AppProductsRoute,
   AppProfileRoute: AppProfileRoute,
+  AppReportsRoute: AppReportsRoute,
   AppRolesRoute: AppRolesRoute,
   AppSalesRoute: AppSalesRoute,
   AppSettingsRoute: AppSettingsRoute,
@@ -1303,3 +1324,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
