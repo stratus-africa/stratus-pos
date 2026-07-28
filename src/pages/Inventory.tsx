@@ -32,6 +32,7 @@ const INVENTORY_TABS = [
   { key: "adjustments", label: "Adjustments", icon: <ClipboardList className="h-4 w-4" /> },
   { key: "counts", label: "Stock Take", icon: <ClipboardCheck className="h-4 w-4" /> },
   { key: "movements", label: "Stock Movement", icon: <ArrowLeftRight className="h-4 w-4" /> },
+  { key: "ledger", label: "Ledger", icon: <ScrollText className="h-4 w-4" /> },
 ] as const;
 type StockSort = "name_asc" | "name_desc" | "barcode_asc" | "barcode_desc" | "qty_asc" | "qty_desc";
 
@@ -471,6 +472,10 @@ const Inventory = () => {
             <TabsTrigger key={t.key} value={t.key} className="gap-1">{t.icon}{t.label}</TabsTrigger>
           ))}
         </TabsList>
+
+        <TabsContent value="ledger">
+          <StockLedgerTab locationId={effectiveLocationId} />
+        </TabsContent>
 
         <TabsContent value="counts">
           <StockCountsTab />
