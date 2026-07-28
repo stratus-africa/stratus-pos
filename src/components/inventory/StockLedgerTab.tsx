@@ -12,6 +12,7 @@ import { Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { downloadCSV } from "@/components/reports/reportUtils";
+import { DateRangeFilter } from "@/components/reports/DateRangeFilter";
 
 const PAGE_SIZES = [25, 50, 100, 200] as const;
 
@@ -234,13 +235,13 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
             <Label className="text-xs">Search product, reference or note</Label>
             <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Search ledger" />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">From</Label>
-            <Input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">To</Label>
-            <Input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(1); }} />
+          <div className="sm:col-span-2">
+            <DateRangeFilter
+              from={from}
+              to={to}
+              defaultPreset="this_month"
+              onChange={({ from: f, to: t }) => { setFrom(f); setTo(t); setPage(1); }}
+            />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Location</Label>
