@@ -21,7 +21,7 @@ interface TeamMember {
   phone: string | null;
   is_active: boolean;
   assigned_location_id: string | null;
-  login_barcode: string | null;
+  has_barcode: boolean;
 }
 
 interface LocationLite { id: string; name: string; }
@@ -75,8 +75,11 @@ export function UserManagementTab() {
     const userIds = roles.map((r) => r.user_id);
     const { data: profiles } = await (supabase as any)
       .from("profiles")
-      .select("id, full_name, email, phone, is_active, assigned_location_id, login_barcode")
+      .select("id, full_name, email, phone, is_active, assigned_location_id")
       .in("id", userIds);
+
+    const { data: bcFlags } = await (supabase as any).rpc("business_barcode_flags");
+    const barcodeMap = new Map(((bcFlags || []) as any[]).map((f) => [f.user_id, !!f.has_barcode]));
 
     const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
     setMembers(
@@ -91,7 +94,7 @@ export function UserManagementTab() {
           phone: p?.phone || null,
           is_active: p?.is_active ?? true,
           assigned_location_id: p?.assigned_location_id || null,
-          login_barcode: p?.login_barcode || null,
+          has_barcode: barcodeMap.get(r.user_id) ?? false,
         };
       })
     );
@@ -182,7 +185,7 @@ export function UserManagementTab() {
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => setBcUser(m)} title="Barcode login">
                           <ScanLine className="h-3.5 w-3.5 mr-1" />
-                          {m.login_barcode ? "Barcode ✓" : "Barcode"}
+                          {m.has_barcode ? "Barcode ✓" : "Barcode"}
                         </Button>
                       </div>
                     </TableCell>
@@ -236,7 +239,7 @@ export function UserManagementTab() {
               onOpenChange={(o) => { if (!o) { setBcUser(null); fetchAll(); } }}
               userId={bcUser.user_id}
               userLabel={bcUser.full_name || bcUser.email || "user"}
-              existingBarcode={bcUser.login_barcode}
+              hasBarcode={bcUser.has_barcode}
             />
           )}
         </>
