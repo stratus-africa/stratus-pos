@@ -23,6 +23,7 @@ import ZReportTab from "@/components/reports/ZReportTab";
 import StockReportTab from "@/components/reports/StockReportTab";
 import StockAgingReportTab from "@/components/reports/StockAgingReportTab";
 import { useFeatureLimit, RequireFeature } from "@/components/FeatureGate";
+import { useAccountingSettings, financialYearRange, financialYearLabel } from "@/hooks/useAccountingSettings";
 
 const today = new Date().toISOString().split("T")[0];
 const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
@@ -207,6 +208,18 @@ const Reports = () => {
   });
   const topProducts = Object.values(productRevenue).sort((a, b) => b.revenue - a.revenue).slice(0, 10);
 
+  const { settings: accounting } = useAccountingSettings();
+  const fyMonth = accounting.financial_year_start_month || 1;
+  const applyFY = (offsetYears: number) => {
+    const ref = new Date();
+    ref.setFullYear(ref.getFullYear() + offsetYears);
+    const { start, end } = financialYearRange(fyMonth, ref);
+    const iso = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    setFrom(iso(start));
+    setTo(iso(end));
+  };
+
   const loading = salesReport.isLoading || inventoryReport.isLoading || expensesReport.isLoading || purchasesReport.isLoading;
 
   return (
@@ -223,7 +236,13 @@ const Reports = () => {
             <Label>To</Label>
             <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-40" />
           </div>
-          <Badge variant="outline" className="h-8">{sales.length} sales in period</Badge>
+          <div className="flex items-end gap-2">
+            <Button size="sm" variant="outline" onClick={() => applyFY(0)}>This financial year</Button>
+            <Button size="sm" variant="outline" onClick={() => applyFY(-1)}>Last financial year</Button>
+          </div>
+          <Badge variant="outline" className="h-8" title={`Financial year: ${financialYearLabel(fyMonth)}`}>
+            {sales.length} sales in period
+          </Badge>
           <div className="flex-1" />
           {exporter && (
             <Button size="sm" variant="outline" onClick={() => exporter()}>
