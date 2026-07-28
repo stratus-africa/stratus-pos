@@ -31,7 +31,6 @@ const INVENTORY_TABS = [
   { key: "stock", label: "Stock Levels", icon: <Warehouse className="h-4 w-4" /> },
   { key: "adjustments", label: "Adjustments", icon: <ClipboardList className="h-4 w-4" /> },
   { key: "counts", label: "Stock Take", icon: <ClipboardCheck className="h-4 w-4" /> },
-  { key: "movements", label: "Stock Movement", icon: <ArrowLeftRight className="h-4 w-4" /> },
   { key: "ledger", label: "Ledger", icon: <ScrollText className="h-4 w-4" /> },
 ] as const;
 type StockSort = "name_asc" | "name_desc" | "barcode_asc" | "barcode_desc" | "qty_asc" | "qty_desc";
@@ -113,14 +112,6 @@ const Inventory = () => {
   const [adjSearch, setAdjSearch] = useState<string>(initialStr("aQ", ""));
   const [adjSort, setAdjSort] = useState<SortKey>(initialStr<SortKey>("aSort", "date_desc"));
 
-  const [mvPage, setMvPage] = useState(initialNum("mPage", 1));
-  const [mvPageSize, setMvPageSize] = useState<number>(initialSize("mSize", LS_KEYS.mv));
-  const [mvFrom, setMvFrom] = useState<string>(initialStr("mFrom", ""));
-  const [mvTo, setMvTo] = useState<string>(initialStr("mTo", ""));
-  const [mvSource, setMvSource] = useState<MovementSource>(initialStr<MovementSource>("mSrc", "all"));
-  const [mvSearch, setMvSearch] = useState<string>(initialStr("mQ", ""));
-  const [mvSort, setMvSort] = useState<SortKey>(initialStr<SortKey>("mSort", "date_desc"));
-
   // Sync state -> URL
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
@@ -137,35 +128,23 @@ const Inventory = () => {
     setOrDel("aSize", adjPageSize, 25);
     setOrDel("aQ", adjSearch, "");
     setOrDel("aSort", adjSort, "date_desc");
-    setOrDel("mPage", mvPage, 1);
-    setOrDel("mSize", mvPageSize, 25);
-    setOrDel("mQ", mvSearch, "");
-    setOrDel("mFrom", mvFrom, "");
-    setOrDel("mTo", mvTo, "");
-    setOrDel("mSrc", mvSource, "all");
-    setOrDel("mSort", mvSort, "date_desc");
     setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, search, stockPage, stockPageSize, stockSort,
-      adjPage, adjPageSize, adjSearch, adjSort,
-      mvPage, mvPageSize, mvSearch, mvFrom, mvTo, mvSource, mvSort]);
+      adjPage, adjPageSize, adjSearch, adjSort]);
 
   // Persist page size selections
   const updateStockSize = (n: number) => { setStockPageSize(n); writeStoredSize(LS_KEYS.stock, n); setStockPage(1); };
   const updateAdjSize = (n: number) => { setAdjPageSize(n); writeStoredSize(LS_KEYS.adj, n); setAdjPage(1); };
-  const updateMvSize = (n: number) => { setMvPageSize(n); writeStoredSize(LS_KEYS.mv, n); setMvPage(1); };
 
   const effectiveLocationId = locationFilter === "all" ? undefined : locationFilter;
-  const { inventoryQuery, adjustStock, deleteAdjustment, adjustmentsQuery, movementsQuery, adjustmentDocumentsQuery, deleteAdjustmentDocument, updateAdjustmentDocument } = useInventory(effectiveLocationId, {
+  const { inventoryQuery, adjustStock, deleteAdjustment, adjustmentsQuery, adjustmentDocumentsQuery, deleteAdjustmentDocument, updateAdjustmentDocument } = useInventory(effectiveLocationId, {
     adjustmentsPage: { page: adjPage, pageSize: adjPageSize, sort: adjSort },
-    movements: { page: mvPage, pageSize: mvPageSize, from: mvFrom || undefined, to: mvTo || undefined, source: mvSource, sort: mvSort },
   });
 
   const inventory = inventoryQuery.data || [];
   const documents = adjustmentDocumentsQuery.data?.rows ?? [];
   const adjCount = adjustmentDocumentsQuery.data?.count ?? 0;
-  const movements = movementsQuery.data?.rows ?? [];
-  const mvCount = movementsQuery.data?.count ?? 0;
 
   const documentsFiltered = adjSearch
     ? documents.filter((d) => {
@@ -179,12 +158,8 @@ const Inventory = () => {
         );
       })
     : documents;
-  const movementsFiltered = mvSearch
-    ? movements.filter((m) => (m.products?.name || "").toLowerCase().includes(mvSearch.toLowerCase()))
-    : movements;
 
   const adjPages = Math.max(1, Math.ceil(adjCount / adjPageSize));
-  const mvPages = Math.max(1, Math.ceil(mvCount / mvPageSize));
 
   const filtered = inventory.filter((i) =>
     i.products?.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -381,13 +356,6 @@ const Inventory = () => {
 
 
 
-  const exportMovements = () => {
-    downloadCsv(
-      `stock-movement-${new Date().toISOString().slice(0, 10)}.csv`,
-      ["Date", "Product", "Location", "Source", "Change"],
-      movementsFiltered.map((m: StockAdjustment) => [fmtDate(m.created_at), m.products?.name || "", m.locations?.name || "", sourceMeta[classifyMovement(m)].label, m.quantity_change]),
-    );
-  };
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
