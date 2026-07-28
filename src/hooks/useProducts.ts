@@ -27,6 +27,9 @@ export interface Product {
   hs_code?: string | null;
   country_of_origin?: string | null;
   tax_category?: string | null;
+  opening_stock_quantity?: number;
+  opening_stock_value?: number;
+  opening_stock_date?: string | null;
   categories?: { name: string } | null;
   brands?: { name: string } | null;
   units?: { name: string; abbreviation: string | null } | null;
@@ -73,6 +76,11 @@ export interface ProductFormData {
   hs_code?: string | null;
   country_of_origin?: string | null;
   tax_category?: string | null;
+  opening_stock_quantity?: number;
+  opening_stock_value?: number;
+  opening_stock_date?: string | null;
+  /** Location the opening stock quantity is booked to (create only, not a product column) */
+  opening_stock_location_id?: string | null;
   initial_batches?: ProductInitialBatch[];
   variants?: ProductVariantInput[];
 }
@@ -111,13 +119,32 @@ export function useProducts() {
   const createProduct = useMutation({
     mutationFn: async (form: ProductFormData) => {
       if (!business) throw new Error("No business");
-      const { initial_batches, variants, ...productData } = form;
+      const { initial_batches, variants, opening_stock_location_id, ...productData } = form;
       const { data: created, error } = await supabase
         .from("products")
         .insert({ ...productData, business_id: business.id })
         .select("id")
         .single();
       if (error) throw error;
+      // Seed opening stock into inventory at the chosen location
+      const openingQty = Number(productData.opening_stock_quantity || 0);
+      const openingLocation = opening_stock_location_id || null;
+      if (created?.id && openingQty > 0 && openingLocation) {
+        const { error: invErr } = await supabase
+          .from("inventory")
+          .insert({ product_id: created.id, location_id: openingLocation, quantity: openingQty });
+        if (invErr) throw invErr;
+        const { data: auth } = await supabase.auth.getUser();
+        await supabase.from("stock_adjustments").insert({
+          product_id: created.id,
+          location_id: openingLocation,
+          quantity_change: openingQty,
+          reason: "Opening stock",
+          notes: productData.opening_stock_date ? `Opening stock as at ${productData.opening_stock_date}` : "Opening stock",
+          created_by: auth.user?.id as string,
+        });
+      }
+
       if (initial_batches && initial_batches.length > 0 && created?.id) {
         const rows = initial_batches
           .filter((b) => b.batch_number.trim().length > 0)
@@ -162,13 +189,15 @@ export function useProducts() {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["product_batches"] });
       queryClient.invalidateQueries({ queryKey: ["product_variants"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["stock_adjustments"] });
       toast.success("Product created");
     },
     onError: (e) => { if (!handlePlanLimitError(e, "products")) toast.error(e.message); },
   });
 
   const updateProduct = useMutation({
-    mutationFn: async ({ id, initial_batches: _ib, variants, ...form }: ProductFormData & { id: string }) => {
+    mutationFn: async ({ id, initial_batches: _ib, variants, opening_stock_location_id: _ol, ...form }: ProductFormData & { id: string }) => {
       if (!business) throw new Error("No business");
       const { error } = await supabase.from("products").update(form).eq("id", id);
       if (error) throw error;

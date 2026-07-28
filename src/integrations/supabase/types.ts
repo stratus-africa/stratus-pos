@@ -2457,6 +2457,9 @@ export type Database = {
           item_classification: string | null
           kra_item_code: string | null
           name: string
+          opening_stock_date: string | null
+          opening_stock_quantity: number
+          opening_stock_value: number
           packaging_unit: string | null
           purchase_price: number
           quantity_unit: string | null
@@ -2482,6 +2485,9 @@ export type Database = {
           item_classification?: string | null
           kra_item_code?: string | null
           name: string
+          opening_stock_date?: string | null
+          opening_stock_quantity?: number
+          opening_stock_value?: number
           packaging_unit?: string | null
           purchase_price?: number
           quantity_unit?: string | null
@@ -2507,6 +2513,9 @@ export type Database = {
           item_classification?: string | null
           kra_item_code?: string | null
           name?: string
+          opening_stock_date?: string | null
+          opening_stock_quantity?: number
+          opening_stock_value?: number
           packaging_unit?: string | null
           purchase_price?: number
           quantity_unit?: string | null
