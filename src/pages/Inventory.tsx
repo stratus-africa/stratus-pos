@@ -10,11 +10,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ClipboardCheck, ArrowLeftRight, Download, ChevronLeft, ChevronRight, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Printer, Upload, ScrollText } from "lucide-react";
+import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ClipboardCheck, Download, ChevronLeft, ChevronRight, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Printer, Upload, ScrollText } from "lucide-react";
 import { StockCountsTab } from "@/components/inventory/StockCountsTab";
 import StockLedgerTab from "@/components/inventory/StockLedgerTab";
 
-import { useInventory, classifyMovement, type MovementSource, type SortKey, type StockAdjustment, type AdjustmentDocument } from "@/hooks/useInventory";
+import { useInventory, type SortKey, type AdjustmentDocument } from "@/hooks/useInventory";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -43,13 +43,6 @@ const readStoredSize = (key: string, fallback = 25): number => {
 };
 const writeStoredSize = (key: string, v: number) => {
   try { window.localStorage.setItem(key, String(v)); } catch { /* ignore */ }
-};
-
-const sourceMeta: Record<"sale" | "return" | "purchase" | "other", { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  sale: { label: "Sale", variant: "default" },
-  return: { label: "Return", variant: "destructive" },
-  purchase: { label: "Purchase", variant: "secondary" },
-  other: { label: "Other", variant: "outline" },
 };
 
 const downloadCsv = (filename: string, headers: string[], rows: (string | number)[][]) => {
