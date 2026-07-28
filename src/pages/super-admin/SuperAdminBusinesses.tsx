@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { superAdminDeleteTenant } from "@/lib/superAdmin.functions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +55,7 @@ const SUB_BADGES: Record<string, { variant: "default" | "secondary" | "destructi
 };
 
 export default function SuperAdminBusinesses() {
+  const callDeleteTenant = useServerFn(superAdminDeleteTenant);
   const [businesses, setBusinesses] = useState<BusinessRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -188,10 +191,9 @@ export default function SuperAdminBusinesses() {
     setDeleting(true);
     try {
       const bizId = deleteBiz.id;
-      const { data, error } = await supabase.functions.invoke("super-admin-delete-tenant", {
-        body: { business_id: bizId, confirm_text: "DELETE" },
+      const data = await callDeleteTenant({
+        data: { business_id: bizId, confirm_text: "DELETE" },
       });
-      if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
 
       toast.success(`Deleted "${deleteBiz.name}" completely`);

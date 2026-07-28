@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
 import { loadPaystackScript } from "@/lib/paystack";
+import { paystackInitialize } from "@/lib/paystack.functions";
 import { toast } from "sonner";
 
 interface CheckoutOptions {
@@ -11,12 +12,13 @@ interface CheckoutOptions {
 
 export function usePaystackCheckout() {
   const [loading, setLoading] = useState(false);
+  const paystackInitializeFn = useServerFn(paystackInitialize);
 
   const openCheckout = async (opts: CheckoutOptions) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("paystack-initialize", {
-        body: {
+      const data = await paystackInitializeFn({
+        data: {
           packageId: opts.packageId,
           interval: opts.interval,
           callbackUrl:
@@ -25,8 +27,8 @@ export function usePaystackCheckout() {
         },
       });
 
-      if (error || !data?.access_code) {
-        throw new Error(error?.message || data?.error || "Could not start checkout");
+      if (!data?.access_code) {
+        throw new Error("Could not start checkout");
       }
 
       // Try inline popup first

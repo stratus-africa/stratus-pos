@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { adminManageUser, } from "@/lib/adminUsers.functions";
+import { superAdminResetTenant } from "@/lib/superAdmin.functions";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -64,6 +67,8 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 export default function SuperAdminTenantDetail() {
+  const callResetTenant = useServerFn(superAdminResetTenant);
+  const callAdminManageUser = useServerFn(adminManageUser);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -212,14 +217,20 @@ export default function SuperAdminTenantDetail() {
       return;
     }
     setResetting(true);
-    const { data, error } = await supabase.functions.invoke("super-admin-reset-tenant", {
-      body: {
-        business_id: biz.id,
-        mode: resetMode,
-        confirm_text: resetConfirm.trim(),
-        ...(resetMode === "transactional" ? { scopes: resetScopes } : {}),
-      },
-    });
+    let data: any;
+    let error: Error | null = null;
+    try {
+      data = await callResetTenant({
+        data: {
+          business_id: biz.id,
+          mode: resetMode,
+          confirm_text: resetConfirm.trim(),
+          ...(resetMode === "transactional" ? { scopes: resetScopes as any } : {}),
+        },
+      });
+    } catch (e) {
+      error = e as Error;
+    }
     setResetting(false);
     if (error || (data as { error?: string })?.error) {
       toast.error((data as { error?: string })?.error || error?.message || "Reset failed");
@@ -261,15 +272,21 @@ export default function SuperAdminTenantDetail() {
 
   const changeUserRole = async (userId: string, nextRole: AssignableRole) => {
     if (!id) return;
-    const { error } = await supabase.functions.invoke("admin-manage-user", {
-      body: {
-        action: "update_user",
-        business_id: id,
-        user_id: userId,
-        role: nextRole,
-      },
-    });
-    if (error) { toast.error(error.message); return; }
+    let data: any;
+    let error: Error | null = null;
+    try {
+      data = await callAdminManageUser({
+        data: {
+          action: "update_user",
+          business_id: id,
+          user_id: userId,
+          role: nextRole,
+        },
+      });
+    } catch (e) {
+      error = e as Error;
+    }
+    if (error || data?.error) { toast.error(data?.error || error?.message); return; }
     setTenantUsers((prev) => prev.map((u) => u.id === userId ? { ...u, role: nextRole } : u));
     toast.success("Role updated");
   };

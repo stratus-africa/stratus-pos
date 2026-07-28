@@ -16,6 +16,8 @@ import {
   Eye, Ban, Loader2, Banknote, Check, X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import { paystackManageSubscription } from "@/lib/paystack.functions";
 
 type SubRow = {
   id: string;
@@ -53,6 +55,7 @@ const STAT_TILES = [
 
 export default function SuperAdminSubscriptions() {
   const navigate = useNavigate();
+  const paystackManageSubscriptionFn = useServerFn(paystackManageSubscription);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [rows, setRows] = useState<SubRow[]>([]);
@@ -234,10 +237,14 @@ export default function SuperAdminSubscriptions() {
       // Try server-side cancel via Paystack edge function. If the row has no
       // Paystack subscription (e.g. comp / free plan), fall back to a direct
       // status update so the super admin can still revoke access.
-      const { error: fnError } = await supabase.functions.invoke(
-        "paystack-manage-subscription",
-        { body: { action: "cancel", subscriptionId: cancelTarget.id } }
-      );
+      let fnError: any = null;
+      try {
+        await paystackManageSubscriptionFn({
+          data: { action: "cancel", subscriptionId: cancelTarget.id },
+        });
+      } catch (e) {
+        fnError = e;
+      }
 
       if (fnError) {
         const { error: dbError } = await supabase

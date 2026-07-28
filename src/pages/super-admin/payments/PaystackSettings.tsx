@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { useServerFn } from "@tanstack/react-start";
+import { paystackTestConnection } from "@/lib/paystack.functions";
 
 type Mode = "test" | "live";
 
@@ -51,6 +53,7 @@ export default function PaystackSettings() {
   const [cfg, setCfg] = useState<PaystackCfg>(DEFAULT_CFG);
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
   const [showSecret, setShowSecret] = useState(false);
+  const paystackTestConnectionFn = useServerFn(paystackTestConnection);
 
   useEffect(() => {
     (async () => {
@@ -61,7 +64,7 @@ export default function PaystackSettings() {
       setLoading(false);
       // status check
       try {
-        const { data: s } = await supabase.functions.invoke("paystack-test-connection", { body: {} });
+        const s = await paystackTestConnectionFn({ data: {} });
         if (s) setStatus(s as ConnectionStatus);
       } catch { /* ignore */ }
     })();

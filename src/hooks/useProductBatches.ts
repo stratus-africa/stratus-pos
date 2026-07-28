@@ -50,7 +50,7 @@ export function useExpiringBatches(daysAhead = 60) {
       cutoff.setDate(cutoff.getDate() + daysAhead);
       let q = supabase
         .from("product_batches" as any)
-        .select("*, products(name), locations(name)")
+        .select("*")
         .eq("business_id", business.id)
         .eq("is_active", true)
         .gt("quantity", 0)
@@ -59,7 +59,26 @@ export function useExpiringBatches(daysAhead = 60) {
       if (currentLocation?.id) q = q.eq("location_id", currentLocation.id);
       const { data, error } = await q;
       if (error) throw error;
-      return (data || []) as any[];
+      const rows = (data || []) as any[];
+      // product_batches has no FK to products/locations, so resolve names separately.
+      const productIds = [...new Set(rows.map((r) => r.product_id).filter(Boolean))];
+      const locationIds = [...new Set(rows.map((r) => r.location_id).filter(Boolean))];
+      const [pRes, lRes] = await Promise.all([
+        productIds.length
+          ? supabase.from("products").select("id, name").in("id", productIds)
+          : Promise.resolve({ data: [] as any[] }),
+        locationIds.length
+          ? supabase.from("locations").select("id, name").in("id", locationIds)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+      const pMap = new Map((pRes.data || []).map((p: any) => [p.id, p.name]));
+      const lMap = new Map((lRes.data || []).map((l: any) => [l.id, l.name]));
+      return rows.map((r) => ({
+        ...r,
+        products: { name: pMap.get(r.product_id) ?? null },
+        locations: { name: lMap.get(r.location_id) ?? null },
+      }));
+
     },
     enabled: !!business?.id,
   });

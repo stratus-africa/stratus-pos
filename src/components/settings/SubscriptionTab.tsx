@@ -6,6 +6,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useSubscription } from "@/hooks/useSubscription";
 import { usePaystackCheckout } from "@/hooks/usePaystackCheckout";
+import { useServerFn } from "@tanstack/react-start";
+import { paystackManageSubscription } from "@/lib/paystack.functions";
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -31,6 +33,7 @@ export function SubscriptionTab() {
   const { business } = useBusiness();
   const { subscription, isActive, isCanceling, isLoading, currentPackage } = useSubscription();
   const { openCheckout, loading: checkoutLoading } = usePaystackCheckout();
+  const paystackManageSubscriptionFn = useServerFn(paystackManageSubscription);
 
   const [billingInterval, setBillingInterval] = useState<"monthly" | "yearly">("monthly");
   const [portalLoading, setPortalLoading] = useState(false);
@@ -132,8 +135,8 @@ export function SubscriptionTab() {
   const handleManageBilling = async () => {
     setPortalLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("paystack-manage-subscription", { body: {} });
-      if (error || !data?.url) throw new Error(error?.message || data?.error || "Could not open portal");
+      const data = await paystackManageSubscriptionFn({ data: {} });
+      if (!data?.url) throw new Error("Could not open portal");
       window.open(data.url, "_blank");
     } catch (e: any) {
       toast.error(e.message || "Failed to open billing portal");
@@ -146,8 +149,8 @@ export function SubscriptionTab() {
     if (!confirm("Cancel your subscription? You'll keep access until the end of the current period.")) return;
     setCancelLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("paystack-manage-subscription", { body: { action: "cancel" } });
-      if (error || !data?.ok) throw new Error(error?.message || data?.error || "Could not cancel");
+      const data = await paystackManageSubscriptionFn({ data: { action: "cancel" } });
+      if (!data?.ok) throw new Error("Could not cancel");
       toast.success("Subscription set to cancel at period end");
     } catch (e: any) {
       toast.error(e.message || "Failed to cancel");

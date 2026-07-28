@@ -10,8 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ClipboardCheck, ArrowLeftRight, Download, ChevronLeft, ChevronRight, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Printer, Upload } from "lucide-react";
+import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ClipboardCheck, ArrowLeftRight, Download, ChevronLeft, ChevronRight, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Printer, Upload, ScrollText } from "lucide-react";
 import { StockCountsTab } from "@/components/inventory/StockCountsTab";
+import StockLedgerTab from "@/components/inventory/StockLedgerTab";
 
 import { useInventory, classifyMovement, type MovementSource, type SortKey, type StockAdjustment, type AdjustmentDocument } from "@/hooks/useInventory";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -31,6 +32,7 @@ const INVENTORY_TABS = [
   { key: "adjustments", label: "Adjustments", icon: <ClipboardList className="h-4 w-4" /> },
   { key: "counts", label: "Stock Take", icon: <ClipboardCheck className="h-4 w-4" /> },
   { key: "movements", label: "Stock Movement", icon: <ArrowLeftRight className="h-4 w-4" /> },
+  { key: "ledger", label: "Ledger", icon: <ScrollText className="h-4 w-4" /> },
 ] as const;
 type StockSort = "name_asc" | "name_desc" | "barcode_asc" | "barcode_desc" | "qty_asc" | "qty_desc";
 
@@ -470,6 +472,10 @@ const Inventory = () => {
             <TabsTrigger key={t.key} value={t.key} className="gap-1">{t.icon}{t.label}</TabsTrigger>
           ))}
         </TabsList>
+
+        <TabsContent value="ledger">
+          <StockLedgerTab locationId={effectiveLocationId} />
+        </TabsContent>
 
         <TabsContent value="counts">
           <StockCountsTab />
