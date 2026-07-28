@@ -252,6 +252,12 @@ export function SubscriptionTab() {
                       ))}
                     </ul>
                     <div className="space-y-2">
+                      {trialEligible && pkg.trial_days > 0 && (
+                        <Button className="w-full" variant={isPopular ? "default" : "outline"} disabled={trialLoading === pkg.id} onClick={() => handleStartTrial(pkg)}>
+                          {trialLoading === pkg.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Clock className="mr-2 h-4 w-4" />}
+                          Start {pkg.trial_days}-day free trial
+                        </Button>
+                      )}
                       {paystackEnabled && (
                         <Button className="w-full" variant={isPopular ? "default" : "outline"} disabled={checkoutLoading || noPrice} onClick={() => handleSubscribe(pkg.id)} title={noPrice ? "Price not yet configured" : undefined}>
                           {checkoutLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -317,7 +323,9 @@ export function SubscriptionTab() {
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-xl">{isActive ? currentPackage?.name || "Active" : "Free"}</CardTitle>
-            {isActive ? (
+            {subscription?.status === "trialing" && isActive ? (
+              <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-0 rounded-full px-3">Trial</Badge>
+            ) : isActive ? (
               <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-0 rounded-full px-3">Active</Badge>
             ) : (
               <Badge variant="secondary" className="rounded-full px-3">Inactive</Badge>
