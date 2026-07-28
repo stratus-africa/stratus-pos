@@ -74,7 +74,9 @@ function referenceOf(row: LedgerRow): string {
 
 export default function StockLedgerTab({ locationId }: { locationId?: string }) {
   const { business, locations } = useBusiness();
-  const [search, setSearch] = useState("");
+  const [productId, setProductId] = useState<string>("all");
+  const [productSearch, setProductSearch] = useState("");
+  const [productOpen, setProductOpen] = useState(false);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [source, setSource] = useState<"all" | SourceKind>("all");
@@ -83,10 +85,38 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
   const [pageSize, setPageSize] = useState<number>(50);
   const [showAllProducts, setShowAllProducts] = useState(false);
 
-  const debouncedSearch = search.trim();
+  // Product options for the picker — searchable by name, barcode or SKU.
+  const productsQuery = useQuery({
+    queryKey: ["stock_ledger_products", business?.id, productSearch.trim()],
+    queryFn: async () => {
+      const term = productSearch.trim().replace(/[%,]/g, "");
+      let q = supabase.from("products").select("id, name, barcode, sku").order("name").limit(50);
+      if (term) q = q.or(`name.ilike.%${term}%,barcode.ilike.%${term}%,sku.ilike.%${term}%`);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data || []) as { id: string; name: string | null; barcode: string | null; sku: string | null }[];
+    },
+    enabled: !!business,
+  });
+
+  const selectedProductQuery = useQuery({
+    queryKey: ["stock_ledger_product", productId],
+    queryFn: async () => {
+      const { data } = await supabase.from("products").select("id, name, barcode, sku").eq("id", productId).maybeSingle();
+      return data as { id: string; name: string | null; barcode: string | null; sku: string | null } | null;
+    },
+    enabled: productId !== "all",
+  });
+
+  const selectedProductLabel =
+    productId === "all"
+      ? "All products"
+      : productsQuery.data?.find((p) => p.id === productId)?.name ||
+        selectedProductQuery.data?.name ||
+        "Selected product";
 
   const query = useQuery({
-    queryKey: ["stock_ledger", business?.id, loc, from, to, page, pageSize, debouncedSearch],
+    queryKey: ["stock_ledger", business?.id, loc, from, to, page, pageSize, productId],
     queryFn: async () => {
       if (!business) return { rows: [] as LedgerRow[], count: 0 };
       const start = (page - 1) * pageSize;
@@ -100,21 +130,8 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
       if (loc !== "all") q = q.eq("location_id", loc);
       if (from) q = q.gte("created_at", `${from}T00:00:00`);
       if (to) q = q.lte("created_at", `${to}T23:59:59`);
+      if (productId !== "all") q = q.eq("product_id", productId);
 
-      // Search across ALL products (not just the current page) by resolving
-      // matching product ids server-side first.
-      if (debouncedSearch) {
-        const term = debouncedSearch.replace(/[%,]/g, "");
-        const { data: matched } = await supabase
-          .from("products")
-          .select("id")
-          .or(`name.ilike.%${term}%,barcode.ilike.%${term}%,sku.ilike.%${term}%`)
-          .limit(1000);
-        const ids = (matched || []).map((p) => p.id);
-        const filters = [`notes.ilike.%${term}%`, `reason.ilike.%${term}%`];
-        if (ids.length) filters.push(`product_id.in.(${ids.join(",")})`);
-        q = q.or(filters.join(","));
-      }
 
       const { data, error, count } = await q.range(start, start + pageSize - 1);
       if (error) throw error;
