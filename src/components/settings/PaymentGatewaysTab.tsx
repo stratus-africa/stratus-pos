@@ -11,9 +11,20 @@ import { Smartphone, Save, Loader2, KeyRound, Trash2, ShieldCheck, PlugZap } fro
 import { useBusiness } from "@/contexts/BusinessContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  checkMpesaCredentials,
+  deleteMpesaCredentials,
+  setMpesaCredentials,
+  testMpesaCredentials,
+} from "@/lib/mpesaCredentials.functions";
 
 export function PaymentGatewaysTab() {
   const { business, refreshBusiness } = useBusiness();
+  const checkMpesaCredentialsFn = useServerFn(checkMpesaCredentials);
+  const setMpesaCredentialsFn = useServerFn(setMpesaCredentials);
+  const deleteMpesaCredentialsFn = useServerFn(deleteMpesaCredentials);
+  const testMpesaCredentialsFn = useServerFn(testMpesaCredentials);
 
   // Public M-Pesa config (lives on businesses)
   const [enabled, setEnabled] = useState((business as any)?.mpesa_enabled ?? false);
@@ -37,12 +48,12 @@ export function PaymentGatewaysTab() {
   useEffect(() => {
     if (!business) return;
     (async () => {
-      const { data, error } = await supabase.functions.invoke("business-mpesa-credentials", {
-        body: { action: "check", business_id: business.id },
-      });
-      if (!error && data) {
+      try {
+        const data = await checkMpesaCredentialsFn({ data: { business_id: business.id } });
         setHasCreds(!!data.has_credentials);
         setCredsUpdatedAt(data.updated_at ?? null);
+      } catch {
+        // ignore
       }
     })();
   }, [business]);
@@ -76,38 +87,38 @@ export function PaymentGatewaysTab() {
       return;
     }
     setSavingSecrets(true);
-    const { error } = await supabase.functions.invoke("business-mpesa-credentials", {
-      body: {
-        action: "set",
-        business_id: business.id,
-        consumer_key: consumerKey,
-        consumer_secret: consumerSecret,
-        passkey,
-      },
-    });
-    setSavingSecrets(false);
-    if (error) {
-      toast.error("Failed to save credentials: " + error.message);
-    } else {
+    try {
+      await setMpesaCredentialsFn({
+        data: {
+          business_id: business.id,
+          consumer_key: consumerKey,
+          consumer_secret: consumerSecret,
+          passkey,
+        },
+      });
       toast.success("Credentials encrypted & stored");
       setHasCreds(true);
       setCredsUpdatedAt(new Date().toISOString());
       setConsumerKey(""); setConsumerSecret(""); setPasskey("");
+    } catch (e: any) {
+      toast.error("Failed to save credentials: " + (e?.message || "Unknown error"));
+    } finally {
+      setSavingSecrets(false);
     }
   };
 
   const removeSecrets = async () => {
     if (!business) return;
     setRemoving(true);
-    const { error } = await supabase.functions.invoke("business-mpesa-credentials", {
-      body: { action: "delete", business_id: business.id },
-    });
-    setRemoving(false);
-    if (error) toast.error(error.message);
-    else {
+    try {
+      await deleteMpesaCredentialsFn({ data: { business_id: business.id } });
       toast.success("Credentials removed");
       setHasCreds(false);
       setCredsUpdatedAt(null);
+    } catch (e: any) {
+      toast.error(e?.message || "Unknown error");
+    } finally {
+      setRemoving(false);
     }
   };
 
@@ -118,20 +129,22 @@ export function PaymentGatewaysTab() {
       return;
     }
     setTesting(true);
-    const { data, error } = await supabase.functions.invoke("business-mpesa-credentials", {
-      body: {
-        action: "test",
-        business_id: business.id,
-        environment,
-        consumer_key: consumerKey || undefined,
-        consumer_secret: consumerSecret || undefined,
-      },
-    });
-    setTesting(false);
-    if (error) {
-      toast.error("Test failed: " + error.message);
+    let data: Awaited<ReturnType<typeof testMpesaCredentialsFn>> | undefined;
+    try {
+      data = await testMpesaCredentialsFn({
+        data: {
+          business_id: business.id,
+          environment,
+          consumer_key: consumerKey || undefined,
+          consumer_secret: consumerSecret || undefined,
+        },
+      });
+    } catch (e: any) {
+      setTesting(false);
+      toast.error("Test failed: " + (e?.message || "Unknown error"));
       return;
     }
+    setTesting(false);
     if (data?.ok) {
       toast.success(`Daraja ${data.environment} OK`, {
         description: `Access token received in ${data.took_ms}ms${data.expires_in ? ` (expires in ${data.expires_in}s)` : ""}`,

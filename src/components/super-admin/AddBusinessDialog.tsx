@@ -5,6 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { superAdminCreateBusiness } from "@/lib/superAdmin.functions";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
@@ -20,6 +22,7 @@ interface PackageOption {
 }
 
 export function AddBusinessDialog({ open, onOpenChange, onCreated }: Props) {
+  const callCreateBusiness = useServerFn(superAdminCreateBusiness);
   const [businessName, setBusinessName] = useState("");
   const [currency, setCurrency] = useState("KES");
   const [timezone, setTimezone] = useState("Africa/Nairobi");
@@ -63,8 +66,8 @@ export function AddBusinessDialog({ open, onOpenChange, onCreated }: Props) {
     }
     setSubmitting(true);
     try {
-      const { data, error } = await supabase.functions.invoke("super-admin-create-business", {
-        body: {
+      const data = await callCreateBusiness({
+        data: {
           businessName: businessName.trim(),
           currency,
           timezone,
@@ -76,8 +79,8 @@ export function AddBusinessDialog({ open, onOpenChange, onCreated }: Props) {
           packageId: packageId === "none" ? null : packageId,
         },
       });
-      if (error || !data?.ok) {
-        throw new Error(error?.message || data?.error || "Failed to create business");
+      if (!data?.ok) {
+        throw new Error((data as any)?.error || "Failed to create business");
       }
       toast.success(`Created ${data.business.name} with owner ${data.owner.email}`);
       reset();

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { adminManageUser } from "@/lib/adminUsers.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,6 +67,7 @@ const STATUS_META: Record<Status, { label: string; className: string }> = {
 const ROLES: AppRole[] = ["admin", "manager", "stores_manager", "cashier"];
 
 export default function SuperAdminBusinessEdit() {
+  const callAdminManageUser = useServerFn(adminManageUser);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -186,10 +189,16 @@ export default function SuperAdminBusinessEdit() {
 
   const changeRole = async (u: TenantUser, nextRole: AppRole) => {
     if (!id) return;
-    const { error } = await supabase.functions.invoke("admin-manage-user", {
-      body: { action: "update_user", business_id: id, user_id: u.user_id, role: nextRole },
-    });
-    if (error) { toast.error(error.message); return; }
+    let data: any;
+    let error: Error | null = null;
+    try {
+      data = await callAdminManageUser({
+        data: { action: "update_user", business_id: id, user_id: u.user_id, role: nextRole },
+      });
+    } catch (e) {
+      error = e as Error;
+    }
+    if (error || data?.error) { toast.error(data?.error || error?.message); return; }
     setUsers((prev) => prev.map((x) => x.user_id === u.user_id ? { ...x, role: nextRole } : x));
     toast.success("Role updated");
   };

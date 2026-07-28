@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import { barcodeLogin } from "@/lib/barcodeLogin.functions";
 import { ScanLine, Camera } from "lucide-react";
 import BarcodeScanner from "@/components/BarcodeScanner";
 
@@ -15,6 +17,7 @@ interface Props {
 }
 
 export default function BarcodeSignInDialog({ open, onOpenChange, onSuccess }: Props) {
+  const callBarcodeLogin = useServerFn(barcodeLogin);
   const [barcode, setBarcode] = useState("");
   const [pin, setPin] = useState("");
   const [scanning, setScanning] = useState(false);
@@ -36,12 +39,16 @@ export default function BarcodeSignInDialog({ open, onOpenChange, onSuccess }: P
       return;
     }
     setSubmitting(true);
-    const { data, error } = await supabase.functions.invoke("barcode-login", {
-      body: { barcode: barcode.trim(), pin },
-    });
+    let data: { email: string; token_hash: string } | null = null;
+    let error: Error | null = null;
+    try {
+      data = await callBarcodeLogin({ data: { barcode: barcode.trim(), pin } });
+    } catch (e) {
+      error = e as Error;
+    }
     if (error || !data?.token_hash) {
       setSubmitting(false);
-      toast.error(data?.error || error?.message || "Invalid barcode or PIN");
+      toast.error(error?.message || "Invalid barcode or PIN");
       return;
     }
     const { error: otpErr } = await supabase.auth.verifyOtp({

@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import { digitaxSubmit, digitaxTestConnection } from "@/lib/digitax.functions";
 
 export interface DigitaxSettings {
   id: string;
@@ -65,12 +67,10 @@ export function useDigitaxSettings() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const callDigitaxTestConnection = useServerFn(digitaxTestConnection);
   const testConnection = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("digitax-test-connection", {
-        body: { provider: query.data?.provider ?? "mock" },
-      });
-      if (error) throw error;
+      const data = await callDigitaxTestConnection({ data: { provider: query.data?.provider ?? "mock" } });
       return data as { ok: boolean; message: string };
     },
     onSuccess: async (r) => {
@@ -153,11 +153,10 @@ export function useDigitaxLogs() {
   });
 }
 
+// Not called via useServerFn: this is a plain helper invoked outside component
+// render scope, so it calls the server function reference directly.
 export async function submitSaleToDigitax(sale_id: string, opts: { wait?: boolean; invoice_type?: "invoice" | "credit_note"; original_sale_id?: string } = {}) {
-  const { data, error } = await supabase.functions.invoke("digitax-submit", {
-    body: { sale_id, ...opts },
-  });
-  if (error) throw error;
+  const data = await digitaxSubmit({ data: { sale_id, ...opts } });
   return data as { queued_id?: string; skipped?: boolean; sale?: Record<string, unknown> };
 }
 

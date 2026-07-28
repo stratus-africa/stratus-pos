@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { adminManageUser } from "@/lib/adminUsers.functions";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
@@ -36,6 +37,7 @@ interface Props {
 export default function ManageUserDialog({
   open, onOpenChange, mode, businessId, initial, locations = [], onSaved,
 }: Props) {
+  const callAdminManageUser = useServerFn(adminManageUser);
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -65,20 +67,26 @@ export default function ManageUserDialog({
       if (password !== confirm) { toast.error("Passwords do not match"); return; }
     }
     setSaving(true);
-    const { data, error } = await supabase.functions.invoke("admin-manage-user", {
-      body: {
-        action: mode === "create" ? "create_user" : "update_user",
-        business_id: businessId,
-        user_id: initial?.user_id,
-        email: email.trim(),
-        password: mode === "create" ? password : undefined,
-        full_name: fullName.trim(),
-        phone: phone.trim(),
-        role,
-        is_active: active,
-        assigned_location_id: locationId === "none" ? null : locationId,
-      },
-    });
+    let data: any;
+    let error: Error | null = null;
+    try {
+      data = await callAdminManageUser({
+        data: {
+          action: mode === "create" ? "create_user" : "update_user",
+          business_id: businessId,
+          user_id: initial?.user_id,
+          email: email.trim(),
+          password: mode === "create" ? password : undefined,
+          full_name: fullName.trim(),
+          phone: phone.trim(),
+          role,
+          is_active: active,
+          assigned_location_id: locationId === "none" ? null : locationId,
+        },
+      });
+    } catch (e) {
+      error = e as Error;
+    }
     setSaving(false);
     if (error || (data as any)?.error) {
       toast.error((data as any)?.error || error?.message || "Failed");
@@ -184,13 +192,20 @@ export function SetPasswordDialog({ open, onOpenChange, businessId, userId, user
 
   useEffect(() => { if (open) { setPassword(""); setConfirm(""); } }, [open]);
 
+  const callAdminManageUser = useServerFn(adminManageUser);
   const handleSave = async () => {
     if (password.length < 8) { toast.error("Password must be at least 8 characters"); return; }
     if (password !== confirm) { toast.error("Passwords do not match"); return; }
     setSaving(true);
-    const { data, error } = await supabase.functions.invoke("admin-manage-user", {
-      body: { action: "set_password", business_id: businessId, user_id: userId, password },
-    });
+    let data: any;
+    let error: Error | null = null;
+    try {
+      data = await callAdminManageUser({
+        data: { action: "set_password", business_id: businessId, user_id: userId, password },
+      });
+    } catch (e) {
+      error = e as Error;
+    }
     setSaving(false);
     if (error || (data as any)?.error) {
       toast.error((data as any)?.error || error?.message || "Failed");
