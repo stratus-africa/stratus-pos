@@ -450,7 +450,7 @@ const Products = () => {
                           role="button"
                           tabIndex={0}
                           aria-label={`View details for ${p.name}`}
-                          className={`cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selectedIds.has(p.id) ? "bg-muted/50" : ""}`}
+                          className={`cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring ${selectedIds.has(p.id) ? "bg-muted/50" : ""}`}
                           onClick={() => openProductDetail(p)}
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") {

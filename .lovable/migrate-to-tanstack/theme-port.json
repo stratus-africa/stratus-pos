@@ -1,0 +1,22 @@
+{
+  "customizations": [
+    { "token": "--font-sans Inter + Google Fonts import", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--font-serif Playfair Display", "source": "tailwind.config.ts", "reappliedIn": "src/styles.css" },
+    { "token": "--background/--foreground custom light+dark values", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--primary (Nexus blue) light+dark", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--primary-glow light+dark", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--teal / --teal-foreground / --teal-soft / --teal-deep", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--rust / --rust-foreground", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--success / --success-foreground light+dark", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--warning / --warning-foreground light+dark", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--sidebar-* full set light+dark", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--table-alt-row light+dark", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--radius 0.625rem", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "accordion-down/accordion-up keyframes + animations", "source": "tailwind.config.ts", "reappliedIn": "src/styles.css" },
+    { "token": ".pos-layout utility", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": ".dense-table utility", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": ".theme-alt-rows utility", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "custom ::-webkit-scrollbar styling", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "body font-family/bg/fg base layer", "source": "src/index.css", "reappliedIn": "src/styles.css" }
+  ]
+}

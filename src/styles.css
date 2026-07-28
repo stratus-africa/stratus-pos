@@ -1,0 +1,235 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design system definition — ported from the pre-migration src/index.css +
+ * tailwind.config.ts (Nexus ERP-style theme).
+ *
+ * Tokens are kept as raw HSL triplets (e.g. `226 84% 54%`) and mapped through
+ * hsl(var(--x)) in @theme inline so every existing `hsl(var(--token))` usage
+ * in components, charts and inline styles keeps working unchanged.
+ */
+
+@theme inline {
+  --font-sans: "Inter", sans-serif;
+  --font-serif: "Playfair Display", serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-primary-glow: hsl(var(--primary-glow));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+  --color-teal: hsl(var(--teal));
+  --color-teal-foreground: hsl(var(--teal-foreground));
+  --color-teal-soft: hsl(var(--teal-soft));
+  --color-teal-deep: hsl(var(--teal-deep));
+  --color-rust: hsl(var(--rust));
+  --color-rust-foreground: hsl(var(--rust-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-ring-offset-background: hsl(var(--background));
+  --color-table-alt-row: hsl(var(--table-alt-row));
+  --color-sidebar: hsl(var(--sidebar-background));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-accordion-content-height);
+    }
+  }
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
+}
+
+:root {
+  --background: 210 33% 97%;
+  --foreground: 222 47% 11%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+
+  /* Nexus blue primary — matches enterprise ERP aesthetic */
+  --primary: 226 84% 54%;
+  --primary-foreground: 0 0% 100%;
+
+  --teal: 199 89% 48%;
+  --teal-foreground: 0 0% 100%;
+  --teal-soft: 210 100% 96%;
+  --teal-deep: 217 91% 35%;
+  --rust: 14 80% 48%;
+  --rust-foreground: 0 0% 100%;
+
+  --secondary: 215 25% 95%;
+  --secondary-foreground: 220 20% 20%;
+
+  --muted: 215 25% 95%;
+  --muted-foreground: 215 15% 47%;
+
+  --accent: 215 25% 93%;
+  --accent-foreground: 220 20% 10%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+
+  --success: 142 71% 45%;
+  --success-foreground: 0 0% 100%;
+
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 100%;
+
+  --border: 214 25% 91%;
+  --input: 214 25% 91%;
+  --ring: 226 84% 54%;
+
+  --radius: 0.625rem;
+
+  /* Sidebar — white surface with blue active state, matches Nexus ERP */
+  --sidebar-background: 0 0% 100%;
+  --sidebar-foreground: 222 25% 30%;
+  --sidebar-primary: 226 84% 54%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 217 100% 97%;
+  --sidebar-accent-foreground: 226 84% 40%;
+  --sidebar-border: 214 25% 92%;
+  --sidebar-ring: 226 84% 54%;
+
+  /* Themed alternating row tint */
+  --table-alt-row: 217 100% 98%;
+  --primary-glow: 226 84% 65%;
+}
+
+.dark {
+  --background: 222 47% 6%;
+  --foreground: 210 40% 98%;
+  --card: 222 47% 8%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222 47% 8%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 217 91% 60%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 217 33% 17%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217 33% 17%;
+  --muted-foreground: 215 20% 65%;
+  --accent: 217 33% 17%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 63% 31%;
+  --destructive-foreground: 210 40% 98%;
+  --success: 142 71% 45%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 100%;
+  --border: 217 33% 17%;
+  --input: 217 33% 17%;
+  --ring: 212 27% 84%;
+  --sidebar-background: 222 47% 8%;
+  --sidebar-foreground: 210 40% 98%;
+  --sidebar-primary: 217 91% 60%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 217 33% 14%;
+  --sidebar-accent-foreground: 210 40% 98%;
+  --sidebar-border: 217 33% 14%;
+  --sidebar-ring: 217 91% 60%;
+  --table-alt-row: 217 33% 12%;
+  --primary-glow: 217 91% 70%;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: "Inter", sans-serif;
+  }
+}
+
+/* POS-specific styles */
+.pos-layout {
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Dense table styling for dashboard */
+.dense-table td,
+.dense-table th {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+/* Themed alternating rows — pair with class="theme-alt-rows" on a <tbody> or any list container */
+.theme-alt-rows > *:nth-child(even) {
+  background-color: hsl(var(--table-alt-row));
+}
+.theme-alt-rows tr:nth-child(even) {
+  background-color: hsl(var(--table-alt-row));
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background-color: color-mix(in oklab, hsl(var(--muted)) 30%, transparent);
+}
+::-webkit-scrollbar-thumb {
+  background-color: color-mix(in oklab, hsl(var(--muted-foreground)) 20%, transparent);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in oklab, hsl(var(--muted-foreground)) 40%, transparent);
+}

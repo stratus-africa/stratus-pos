@@ -555,7 +555,7 @@ const Inventory = () => {
                           role="button"
                           tabIndex={0}
                           aria-label={`View details for ${i.products?.name || "item"}`}
-                          className={`cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${isLow ? "bg-destructive/5" : ""}`}
+                          className={`cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring ${isLow ? "bg-destructive/5" : ""}`}
                           onClick={() => openProductDetail(i.product_id)}
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") {

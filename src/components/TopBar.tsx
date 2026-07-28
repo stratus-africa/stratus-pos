@@ -108,7 +108,7 @@ export function TopBar() {
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="rounded-full focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label="Open user menu"
               >
                 <Avatar className="h-7 w-7">
