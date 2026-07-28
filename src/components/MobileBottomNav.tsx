@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "@/lib/router-compat";
 import {
   LayoutDashboard, ShoppingCart, Package, Warehouse, TruckIcon, Receipt,
   Users, Truck, CreditCard, BarChart3, Settings, Store, BookOpen, Landmark,

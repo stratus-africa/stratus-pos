@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MapPin, FileText, Sunset, Receipt, ShoppingCart, LayoutDashboard, User as UserIcon, LogOut, KeyRound, Building2 } from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "@/lib/router-compat";
 import { usePOSSession } from "@/hooks/usePOSSession";
 import { useState } from "react";
 import ZReportDialog from "@/components/pos/ZReportDialog";

@@ -9,7 +9,7 @@ import {
   RotateCcw,
   Receipt,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router-compat";
 
 interface StatCardProps {
   title: string;

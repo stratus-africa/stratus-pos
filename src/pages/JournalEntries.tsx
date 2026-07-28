@@ -9,7 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Plus, Trash2, BookOpen, ChevronDown, ChevronRight } from "lucide-react";
 import { useJournalEntries, JournalEntryLine } from "@/hooks/useJournalEntries";
 import { JournalEntryDialog } from "@/components/accounting/JournalEntryDialog";
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router-compat";
 
 export default function JournalEntries() {
   const { business } = useBusiness();
