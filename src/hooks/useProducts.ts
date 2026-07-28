@@ -27,6 +27,9 @@ export interface Product {
   hs_code?: string | null;
   country_of_origin?: string | null;
   tax_category?: string | null;
+  opening_stock_quantity?: number;
+  opening_stock_value?: number;
+  opening_stock_date?: string | null;
   categories?: { name: string } | null;
   brands?: { name: string } | null;
   units?: { name: string; abbreviation: string | null } | null;

@@ -11,7 +11,8 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { useFeatureLimit } from "@/components/FeatureGate";
 import { useDigitaxSettings } from "@/hooks/useDigitax";
 import { useIsProductFiscalised } from "@/hooks/useIsFiscalised";
-import { Plus, Trash2, FlaskConical, Shirt, ImageIcon, Loader2, Lock } from "lucide-react";
+import { useAccountingSettings } from "@/hooks/useAccountingSettings";
+import { Plus, Trash2, FlaskConical, Shirt, ImageIcon, Loader2, Lock, Boxes } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -38,6 +39,8 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
   const digitaxEnabled = !!digitaxQ.data?.enabled;
   const vatEnabled = business?.vat_enabled !== false;
   const fiscalised = useIsProductFiscalised(product?.id);
+  const { settings: accounting } = useAccountingSettings();
+  const inventoryStartDate = accounting.inventory_start_date;
 
   const businessType = (business as any)?.business_type;
   const isClothing = businessType === "clothing";
@@ -67,6 +70,10 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
     hs_code: null,
     country_of_origin: null,
     tax_category: null,
+    opening_stock_quantity: 0,
+    opening_stock_value: 0,
+    opening_stock_date: null,
+    opening_stock_location_id: null,
   });
 
 
@@ -97,6 +104,10 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
         hs_code: product.hs_code ?? null,
         country_of_origin: product.country_of_origin ?? null,
         tax_category: product.tax_category ?? null,
+        opening_stock_quantity: product.opening_stock_quantity ?? 0,
+        opening_stock_value: product.opening_stock_value ?? 0,
+        opening_stock_date: product.opening_stock_date ?? null,
+        opening_stock_location_id: null,
       });
 
       const matched = taxRatesQuery.data?.find((tr) => tr.rate === (product.tax_rate ?? 16));
@@ -118,6 +129,8 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
       setForm({
         name: initialName || "", sku: initialSku || "", barcode: initialBarcode || "", category_id: null, brand_id: null, unit_id: null,
         purchase_price: 0, selling_price: 0, tax_rate: 16, is_active: true, allow_decimal_quantity: false, image_url: null,
+        opening_stock_quantity: 0, opening_stock_value: 0, opening_stock_date: null,
+        opening_stock_location_id: currentLocation?.id || locations[0]?.id || null,
       });
       const defaultRate = taxRatesQuery.data?.find((tr) => tr.type === "standard");
       setSelectedTaxRateId(defaultRate?.id || "manual");
@@ -307,6 +320,52 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
               <div className="flex items-center h-10 px-3 rounded-md border bg-muted text-sm font-medium">
                 {margin}%
               </div>
+            </div>
+
+            <div className="md:col-span-2 rounded-lg border p-4 space-y-3">
+              <div>
+                <h4 className="text-sm font-semibold flex items-center gap-2"><Boxes className="h-4 w-4" /> Opening Stock</h4>
+                <p className="text-xs text-muted-foreground">
+                  {product
+                    ? "Recorded opening quantity and purchase value carried over at your inventory start date."
+                    : "Quantity and purchase value on hand at your inventory start date. The quantity is booked into the selected location."}
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="space-y-2">
+                  <Label>Opening Quantity</Label>
+                  <Input type="number" min={0} step={0.01} value={form.opening_stock_quantity ?? 0}
+                    onChange={(e) => {
+                      const qty = parseFloat(e.target.value) || 0;
+                      setForm((f) => ({ ...f, opening_stock_quantity: qty, opening_stock_value: (f.purchase_price || 0) > 0 && !f.opening_stock_value ? qty * (f.purchase_price || 0) : f.opening_stock_value }));
+                    }} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Purchase Value (KES)</Label>
+                  <Input type="number" min={0} step={0.01} value={form.opening_stock_value ?? 0}
+                    onChange={(e) => setForm({ ...form, opening_stock_value: parseFloat(e.target.value) || 0 })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>As At Date</Label>
+                  <Input type="date" value={form.opening_stock_date || inventoryStartDate || ""}
+                    onChange={(e) => setForm({ ...form, opening_stock_date: e.target.value || null })} />
+                </div>
+                {!product && (
+                  <div className="space-y-2">
+                    <Label>Location</Label>
+                    <Select value={form.opening_stock_location_id || ""} onValueChange={(v) => setForm({ ...form, opening_stock_location_id: v })}>
+                      <SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger>
+                      <SelectContent>
+                        {locations.map((l) => (<SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Unit cost from opening stock: KES {((form.opening_stock_quantity ?? 0) > 0 ? (form.opening_stock_value ?? 0) / (form.opening_stock_quantity ?? 1) : 0).toFixed(2)}
+                {product ? " — edit quantities from Inventory to avoid double-counting stock." : ""}
+              </p>
             </div>
 
             <div className="space-y-2 md:col-span-2">
