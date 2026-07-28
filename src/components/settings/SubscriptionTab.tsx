@@ -25,6 +25,7 @@ interface PkgDisplay {
   max_users: number;
   max_customers: number;
   max_suppliers: number;
+  trial_days: number;
   features: string[];
 }
 
