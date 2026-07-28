@@ -77,8 +77,10 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(50);
 
+  const debouncedSearch = search.trim();
+
   const query = useQuery({
-    queryKey: ["stock_ledger", business?.id, loc, from, to, page, pageSize],
+    queryKey: ["stock_ledger", business?.id, loc, from, to, page, pageSize, debouncedSearch],
     queryFn: async () => {
       if (!business) return { rows: [] as LedgerRow[], count: 0 };
       const start = (page - 1) * pageSize;
@@ -92,6 +94,22 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
       if (loc !== "all") q = q.eq("location_id", loc);
       if (from) q = q.gte("created_at", `${from}T00:00:00`);
       if (to) q = q.lte("created_at", `${to}T23:59:59`);
+
+      // Search across ALL products (not just the current page) by resolving
+      // matching product ids server-side first.
+      if (debouncedSearch) {
+        const term = debouncedSearch.replace(/[%,]/g, "");
+        const { data: matched } = await supabase
+          .from("products")
+          .select("id")
+          .or(`name.ilike.%${term}%,barcode.ilike.%${term}%,sku.ilike.%${term}%`)
+          .limit(1000);
+        const ids = (matched || []).map((p) => p.id);
+        const filters = [`notes.ilike.%${term}%`, `reason.ilike.%${term}%`];
+        if (ids.length) filters.push(`product_id.in.(${ids.join(",")})`);
+        q = q.or(filters.join(","));
+      }
+
       const { data, error, count } = await q.range(start, start + pageSize - 1);
       if (error) throw error;
       const rows = (data || []) as unknown as LedgerRow[];
@@ -121,18 +139,8 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
 
   const rows = useMemo(() => {
     const all = query.data?.rows ?? [];
-    const q = search.trim().toLowerCase();
-    return all.filter((r) => {
-      if (source !== "all" && classify(r) !== source) return false;
-      if (!q) return true;
-      return (
-        (r.products?.name || "").toLowerCase().includes(q) ||
-        (r.products?.barcode || "").toLowerCase().includes(q) ||
-        referenceOf(r).toLowerCase().includes(q) ||
-        (r.notes || "").toLowerCase().includes(q)
-      );
-    });
-  }, [query.data, search, source]);
+    return all.filter((r) => source === "all" || classify(r) === source);
+  }, [query.data, source]);
 
   const total = query.data?.count ?? 0;
   const pages = Math.max(1, Math.ceil(total / pageSize));
