@@ -2,15 +2,10 @@
   # This project's lockfile is bun.lock — install with bun so the dependency
   # tree matches local/preview builds (npm would resolve a different Vite).
   command = "bun install --frozen-lockfile && bun run build"
-  publish = "dist/client"
+  # The Nitro `netlify` preset (set in vite.config.ts) writes static assets to
+  # `dist/` and the SSR handler to `.netlify/functions-internal/`.
+  publish = "dist"
 
 [build.environment]
   NODE_VERSION = "22"
   BUN_VERSION = "1.2.23"
-  NITRO_PRESET = "netlify"
-
-# TanStack Start (Nitro) emits the SSR handler as a Netlify function.
-# Everything not matched by a static asset is served by it.
-[functions]
-  directory = ".netlify/functions-internal"
-  node_bundler = "esbuild"
