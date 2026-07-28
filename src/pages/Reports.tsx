@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, Package, TrendingUp, ShoppingCart, Receipt, ClipboardList, Sun, Download, FileText, Clock } from "lucide-react";
+import { BarChart3, Package, TrendingUp, ShoppingCart, Receipt, ClipboardList, Sun, Download, FileText, Clock, ScrollText } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -22,6 +22,7 @@ import DailySalesReportTab from "@/components/reports/DailySalesReportTab";
 import ZReportTab from "@/components/reports/ZReportTab";
 import StockReportTab from "@/components/reports/StockReportTab";
 import StockAgingReportTab from "@/components/reports/StockAgingReportTab";
+import StockLedgerTab from "@/components/inventory/StockLedgerTab";
 import { useFeatureLimit, RequireFeature } from "@/components/FeatureGate";
 import { useAccountingSettings, financialYearRange, financialYearLabel } from "@/hooks/useAccountingSettings";
 
@@ -261,6 +262,7 @@ const Reports = () => {
             { value: "inventory", label: "Inventory", icon: Package, show: canInventory },
             { value: "stock", label: "Product Sales Report", icon: Package, show: canInventory },
             { value: "aging", label: "Stock Aging", icon: Clock, show: canInventory },
+            { value: "movement", label: "Inventory Movement", icon: ScrollText, show: canInventory },
             { value: "pnl", label: "P&L", icon: TrendingUp, show: canPnL },
             { value: "eod", label: "End of Day", icon: Sun, show: canEOD },
             { value: "zreport", label: "Z Report", icon: FileText, show: canZ },
@@ -321,6 +323,11 @@ const Reports = () => {
           {canInventory && (
             <TabsContent value="aging" className="mt-0">
               <StockAgingReportTab />
+            </TabsContent>
+          )}
+          {canInventory && (
+            <TabsContent value="movement" className="mt-0">
+              <StockLedgerTab locationId={currentLocation?.id} />
             </TabsContent>
           )}
           {canPnL && (
