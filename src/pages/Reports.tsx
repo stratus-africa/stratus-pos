@@ -23,6 +23,7 @@ import ZReportTab from "@/components/reports/ZReportTab";
 import StockReportTab from "@/components/reports/StockReportTab";
 import StockAgingReportTab from "@/components/reports/StockAgingReportTab";
 import StockLedgerTab from "@/components/inventory/StockLedgerTab";
+import { DateRangeFilter } from "@/components/reports/DateRangeFilter";
 import { useFeatureLimit, RequireFeature } from "@/components/FeatureGate";
 import { useAccountingSettings, financialYearRange, financialYearLabel } from "@/hooks/useAccountingSettings";
 
@@ -230,18 +231,13 @@ const Reports = () => {
 
       <Card>
         <CardContent className="flex flex-wrap items-end gap-4 pt-4">
-          <div>
-            <Label>From</Label>
-            <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-40" />
-          </div>
-          <div>
-            <Label>To</Label>
-            <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-40" />
-          </div>
-          <div className="flex items-end gap-2">
-            <Button size="sm" variant="outline" onClick={() => applyFY(0)}>This financial year</Button>
-            <Button size="sm" variant="outline" onClick={() => applyFY(-1)}>Last financial year</Button>
-          </div>
+          <DateRangeFilter
+            from={from}
+            to={to}
+            fyStartMonth={fyMonth}
+            defaultPreset="this_month"
+            onChange={({ from: f, to: t }) => { setFrom(f); setTo(t); }}
+          />
           <Badge variant="outline" className="h-8" title={`Financial year: ${financialYearLabel(fyMonth)}`}>
             {sales.length} sales in period
           </Badge>
