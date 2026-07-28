@@ -10,10 +10,14 @@ In Netlify: **Add new site → Import an existing project**, pick this repo.
 Netlify reads `netlify.toml`, so build command and publish directory are already
 configured:
 
-- Build command: `npm run build`
+- Build command: `bun install --frozen-lockfile && bun run build`
 - Publish directory: `dist/client`
-- Node version: 22
+- Node version: 22 (Bun 1.2.23)
 - Nitro preset: `netlify`
+
+> The lockfile of record is `bun.lock`. Do not commit a `package-lock.json` —
+> an npm lockfile resolves an older Vite and the build fails with a peer
+> dependency conflict against `@lovable.dev/vite-tanstack-config`.
 
 ## 2. Environment variables
 
