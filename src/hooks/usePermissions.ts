@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { defaultRolePermissions, moduleCatalog, type AppRole } from "@/lib/permissions";
+import { cashierDeniedPermissions, defaultRolePermissions, moduleCatalog, type AppRole } from "@/lib/permissions";
 
 
 /**
@@ -56,6 +56,11 @@ export function usePermissions() {
     }
   }
   const set = new Set(effective);
+
+  // Hard role-level denial: cashiers never get accounting or stock movement access.
+  if (role === "cashier") {
+    for (const key of cashierDeniedPermissions) set.delete(key);
+  }
 
 
   return {
