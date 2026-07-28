@@ -41,6 +41,7 @@ const Reports = () => {
   const canInventory = hasPermission("report.inventory");
   const canPnL = hasPermission("report.pnl") && hasFeatureKey("accounting");
   const canAudit = hasPermission("report.audit");
+  const canMovement = hasPermission("report.stock_movement");
   // EOD & Z report ride on sales report permission
   const canEOD = canSales;
   const canZ = canSales;
@@ -262,7 +263,7 @@ const Reports = () => {
             { value: "inventory", label: "Inventory", icon: Package, show: canInventory },
             { value: "stock", label: "Product Sales Report", icon: Package, show: canInventory },
             { value: "aging", label: "Stock Aging", icon: Clock, show: canInventory },
-            { value: "movement", label: "Inventory Movement", icon: ScrollText, show: canInventory },
+            { value: "movement", label: "Inventory Movement", icon: ScrollText, show: canMovement },
             { value: "pnl", label: "P&L", icon: TrendingUp, show: canPnL },
             { value: "eod", label: "End of Day", icon: Sun, show: canEOD },
             { value: "zreport", label: "Z Report", icon: FileText, show: canZ },
@@ -325,7 +326,7 @@ const Reports = () => {
               <StockAgingReportTab />
             </TabsContent>
           )}
-          {canInventory && (
+          {canMovement && (
             <TabsContent value="movement" className="mt-0">
               <StockLedgerTab locationId={currentLocation?.id} />
             </TabsContent>

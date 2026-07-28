@@ -38,6 +38,7 @@ export const reportsCatalog = [
   { key: "report.expenses", label: "Expenses Report" },
   { key: "report.inventory", label: "Inventory Report" },
   { key: "report.pnl", label: "Profit & Loss Report" },
+  { key: "report.stock_movement", label: "Stock Movement Report" },
   { key: "report.audit", label: "Audit Trail Report" },
 ];
 
@@ -59,7 +60,7 @@ export const defaultRolePermissions: Record<AppRole, string[]> = {
     "purchases.view", "purchases.create", "purchases.edit",
     "suppliers.view", "suppliers.create", "suppliers.edit",
     "hr.view", "hr.create", "hr.edit",
-    "report.sales", "report.purchases", "report.inventory",
+    "report.sales", "report.purchases", "report.inventory", "report.stock_movement",
   ],
   cashier: [
     "pos.view", "pos.create",
@@ -74,7 +75,7 @@ export const defaultRolePermissions: Record<AppRole, string[]> = {
     "stock_take.view", "stock_take.create", "stock_take.edit",
     "purchases.view", "purchases.create", "purchases.edit",
     "suppliers.view", "suppliers.create", "suppliers.edit",
-    "report.inventory", "report.purchases",
+    "report.inventory", "report.purchases", "report.stock_movement",
   ],
 };
 
@@ -84,3 +85,16 @@ export const roleDescriptions: Record<AppRole, { label: string; description: str
   cashier: { label: "Cashier", description: "POS-only access for processing sales." },
   stores_manager: { label: "Stores Manager", description: "Manages stock, purchases and inventory operations." },
 };
+
+/**
+ * Permissions a Cashier can never hold, regardless of what is stored in
+ * role_permissions. Cashiers are POS-only and must not reach accounting
+ * surfaces or the stock movement ledger.
+ */
+export const cashierDeniedPermissions: string[] = [
+  "chart_of_accounts.view", "chart_of_accounts.create", "chart_of_accounts.edit", "chart_of_accounts.delete",
+  "banking.view", "banking.create", "banking.edit", "banking.delete",
+  "settings.view", "settings.edit",
+  "report.pnl",
+  "report.stock_movement",
+];

@@ -56,6 +56,8 @@ function classify(row: LedgerRow): SourceKind {
   return "adjustment";
 }
 
+const fmtQty = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2));
+
 function referenceOf(row: LedgerRow): string {
   const named =
     row.purchases?.invoice_number ||
@@ -76,6 +78,7 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
   const [loc, setLoc] = useState<string>(locationId || "all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(50);
+  const [showAllProducts, setShowAllProducts] = useState(false);
 
   const debouncedSearch = search.trim();
 
@@ -136,6 +139,67 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
     },
     enabled: !!business,
   });
+
+  // Range-wide summary (all matching rows, not just the current page).
+  const summaryQuery = useQuery({
+    queryKey: ["stock_ledger_summary", business?.id, loc, from, to, debouncedSearch],
+    queryFn: async () => {
+      if (!business) return [] as LedgerRow[];
+      let productIds: string[] | null = null;
+      if (debouncedSearch) {
+        const term = debouncedSearch.replace(/[%,]/g, "");
+        const { data: matched } = await supabase
+          .from("products")
+          .select("id")
+          .or(`name.ilike.%${term}%,barcode.ilike.%${term}%,sku.ilike.%${term}%`)
+          .limit(1000);
+        productIds = (matched || []).map((p) => p.id);
+      }
+      const all: LedgerRow[] = [];
+      const chunk = 1000;
+      for (let offset = 0; offset < 20000; offset += chunk) {
+        let q = supabase
+          .from("stock_adjustments")
+          .select("id, created_at, quantity_change, reason, notes, purchase_id, sale_id, document_id, product_id, location_id, products(name, barcode)")
+          .order("created_at", { ascending: false });
+        if (loc !== "all") q = q.eq("location_id", loc);
+        if (from) q = q.gte("created_at", `${from}T00:00:00`);
+        if (to) q = q.lte("created_at", `${to}T23:59:59`);
+        if (debouncedSearch) {
+          const term = debouncedSearch.replace(/[%,]/g, "");
+          const filters = [`notes.ilike.%${term}%`, `reason.ilike.%${term}%`];
+          if (productIds && productIds.length) filters.push(`product_id.in.(${productIds.join(",")})`);
+          q = q.or(filters.join(","));
+        }
+        const { data, error } = await q.range(offset, offset + chunk - 1);
+        if (error) throw error;
+        const batch = (data || []) as unknown as LedgerRow[];
+        all.push(...batch);
+        if (batch.length < chunk) break;
+      }
+      return all;
+    },
+    enabled: !!business,
+  });
+
+  const summary = useMemo(() => {
+    const all = (summaryQuery.data ?? []).filter((r) => source === "all" || classify(r) === source);
+    let increases = 0;
+    let decreases = 0;
+    const byProduct = new Map<string, { name: string; barcode: string | null; in: number; out: number; net: number; count: number }>();
+    for (const r of all) {
+      const qty = Number(r.quantity_change) || 0;
+      if (qty >= 0) increases += qty; else decreases += qty;
+      const key = r.product_id;
+      const entry = byProduct.get(key) || { name: r.products?.name || "Unknown product", barcode: r.products?.barcode ?? null, in: 0, out: 0, net: 0, count: 0 };
+      if (qty >= 0) entry.in += qty; else entry.out += qty;
+      entry.net += qty;
+      entry.count += 1;
+      byProduct.set(key, entry);
+    }
+    const products = [...byProduct.values()].sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
+    return { increases, decreases, net: increases + decreases, movements: all.length, products };
+  }, [summaryQuery.data, source]);
 
   const rows = useMemo(() => {
     const all = query.data?.rows ?? [];
@@ -215,6 +279,70 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
             <Button variant="outline" size="sm" onClick={exportCSV} disabled={!rows.length} className="hidden md:inline-flex">
               <Download className="mr-2 h-4 w-4" /> Export CSV
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-4 space-y-4">
+          <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+            {[
+              { label: "Stock in", value: summaryQuery.isLoading ? null : `+${fmtQty(summary.increases)}`, cls: "text-success" },
+              { label: "Stock out", value: summaryQuery.isLoading ? null : fmtQty(summary.decreases), cls: "text-destructive" },
+              { label: "Net quantity moved", value: summaryQuery.isLoading ? null : `${summary.net > 0 ? "+" : ""}${fmtQty(summary.net)}`, cls: summary.net < 0 ? "text-destructive" : "text-success" },
+              { label: "Products affected", value: summaryQuery.isLoading ? null : String(summary.products.length), cls: "" },
+            ].map((c) => (
+              <div key={c.label} className="rounded-lg border p-3">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{c.label}</p>
+                {c.value === null ? <Skeleton className="h-6 w-20 mt-1" /> : <p className={`text-xl font-semibold ${c.cls}`}>{c.value}</p>}
+              </div>
+            ))}
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium">Net quantity moved by product</p>
+              {summary.products.length > 5 && (
+                <Button variant="ghost" size="sm" onClick={() => setShowAllProducts((v) => !v)}>
+                  {showAllProducts ? "Show top 5" : `Show all ${summary.products.length}`}
+                </Button>
+              )}
+            </div>
+            <div className="max-h-64 overflow-auto rounded-lg border">
+              <Table>
+                <TableHeader className="sticky top-0 bg-background z-10">
+                  <TableRow>
+                    <TableHead className="py-2">Product</TableHead>
+                    <TableHead className="py-2 text-right">In</TableHead>
+                    <TableHead className="py-2 text-right">Out</TableHead>
+                    <TableHead className="py-2 text-right">Net</TableHead>
+                    <TableHead className="py-2 text-right hidden sm:table-cell">Movements</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {summaryQuery.isLoading ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                      <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-5 w-full" /></TableCell></TableRow>
+                    ))
+                  ) : summary.products.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="text-center py-6 text-muted-foreground">No movement in this range.</TableCell></TableRow>
+                  ) : (
+                    (showAllProducts ? summary.products : summary.products.slice(0, 5)).map((p, i) => (
+                      <TableRow key={p.name + i} className={i % 2 ? "bg-muted/40" : undefined}>
+                        <TableCell className="py-1.5 text-sm">
+                          <span className="font-medium">{p.name}</span>
+                          {p.barcode && <span className="block text-[11px] text-muted-foreground">{p.barcode}</span>}
+                        </TableCell>
+                        <TableCell className="py-1.5 text-right text-sm text-success">+{fmtQty(p.in)}</TableCell>
+                        <TableCell className="py-1.5 text-right text-sm text-destructive">{fmtQty(p.out)}</TableCell>
+                        <TableCell className={`py-1.5 text-right text-sm font-medium ${p.net < 0 ? "text-destructive" : "text-success"}`}>{p.net > 0 ? "+" : ""}{fmtQty(p.net)}</TableCell>
+                        <TableCell className="py-1.5 text-right text-sm hidden sm:table-cell">{p.count}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         </CardContent>
       </Card>
