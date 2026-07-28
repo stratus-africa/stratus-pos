@@ -6,6 +6,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useSubscription } from "@/hooks/useSubscription";
 import { usePaystackCheckout } from "@/hooks/usePaystackCheckout";
+import { getPaystackEnvironment } from "@/lib/paystack";
+import { useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { paystackManageSubscription } from "@/lib/paystack.functions";
 
@@ -48,6 +50,8 @@ export function SubscriptionTab() {
   const [offlineEnabled, setOfflineEnabled] = useState<boolean>(false);
   const [showPlans, setShowPlans] = useState(false);
   const [currentFeatures, setCurrentFeatures] = useState<string[]>([]);
+  const [trialLoading, setTrialLoading] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!currentPackage?.id) { setCurrentFeatures([]); return; }
@@ -149,7 +153,7 @@ export function SubscriptionTab() {
       if (error) throw error;
       toast.success(`Your ${pkg.trial_days}-day free trial has started`);
       setShowPlans(false);
-      await refetchSubscription();
+      await queryClient.invalidateQueries({ queryKey: ["subscription"] });
     } catch (e: any) {
       toast.error(e?.message || "Could not start trial");
     } finally {
