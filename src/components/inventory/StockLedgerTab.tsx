@@ -1,14 +1,16 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Download } from "lucide-react";
+import { Check, ChevronsUpDown, Download } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { downloadCSV } from "@/components/reports/reportUtils";
