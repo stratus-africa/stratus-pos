@@ -13,7 +13,7 @@ interface Props {
   onOpenChange: (o: boolean) => void;
   userId: string;
   userLabel: string;
-  existingBarcode?: string | null;
+  hasBarcode?: boolean;
 }
 
 const genBarcode = () => {
@@ -23,7 +23,7 @@ const genBarcode = () => {
   return `U${s}`;
 };
 
-export default function BarcodeLoginDialog({ open, onOpenChange, userId, userLabel, existingBarcode }: Props) {
+export default function BarcodeLoginDialog({ open, onOpenChange, userId, userLabel, hasBarcode }: Props) {
   const [barcode, setBarcode] = useState("");
   const [pin, setPin] = useState("");
   const [pin2, setPin2] = useState("");
@@ -32,9 +32,9 @@ export default function BarcodeLoginDialog({ open, onOpenChange, userId, userLab
 
   useEffect(() => {
     if (!open) return;
-    setBarcode(existingBarcode || genBarcode());
+    setBarcode(genBarcode());
     setPin(""); setPin2("");
-  }, [open, existingBarcode]);
+  }, [open]);
 
   useEffect(() => {
     if (!svgRef.current || !barcode) return;
@@ -118,7 +118,7 @@ export default function BarcodeLoginDialog({ open, onOpenChange, userId, userLab
 
         <DialogFooter className="gap-2 sm:justify-between">
           <div className="flex flex-wrap gap-2">
-            {existingBarcode && (
+            {hasBarcode && (
               <Button type="button" variant="outline" onClick={clear}>
                 <Trash2 className="h-4 w-4 mr-1" /> Remove
               </Button>

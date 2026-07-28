@@ -1,14 +1,16 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Download } from "lucide-react";
+import { Check, ChevronsUpDown, Download } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { downloadCSV } from "@/components/reports/reportUtils";
@@ -72,7 +74,9 @@ function referenceOf(row: LedgerRow): string {
 
 export default function StockLedgerTab({ locationId }: { locationId?: string }) {
   const { business, locations } = useBusiness();
-  const [search, setSearch] = useState("");
+  const [productId, setProductId] = useState<string>("all");
+  const [productSearch, setProductSearch] = useState("");
+  const [productOpen, setProductOpen] = useState(false);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [source, setSource] = useState<"all" | SourceKind>("all");
@@ -81,10 +85,38 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
   const [pageSize, setPageSize] = useState<number>(50);
   const [showAllProducts, setShowAllProducts] = useState(false);
 
-  const debouncedSearch = search.trim();
+  // Product options for the picker — searchable by name, barcode or SKU.
+  const productsQuery = useQuery({
+    queryKey: ["stock_ledger_products", business?.id, productSearch.trim()],
+    queryFn: async () => {
+      const term = productSearch.trim().replace(/[%,]/g, "");
+      let q = supabase.from("products").select("id, name, barcode, sku").order("name").limit(50);
+      if (term) q = q.or(`name.ilike.%${term}%,barcode.ilike.%${term}%,sku.ilike.%${term}%`);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data || []) as { id: string; name: string | null; barcode: string | null; sku: string | null }[];
+    },
+    enabled: !!business,
+  });
+
+  const selectedProductQuery = useQuery({
+    queryKey: ["stock_ledger_product", productId],
+    queryFn: async () => {
+      const { data } = await supabase.from("products").select("id, name, barcode, sku").eq("id", productId).maybeSingle();
+      return data as { id: string; name: string | null; barcode: string | null; sku: string | null } | null;
+    },
+    enabled: productId !== "all",
+  });
+
+  const selectedProductLabel =
+    productId === "all"
+      ? "All products"
+      : productsQuery.data?.find((p) => p.id === productId)?.name ||
+        selectedProductQuery.data?.name ||
+        "Selected product";
 
   const query = useQuery({
-    queryKey: ["stock_ledger", business?.id, loc, from, to, page, pageSize, debouncedSearch],
+    queryKey: ["stock_ledger", business?.id, loc, from, to, page, pageSize, productId],
     queryFn: async () => {
       if (!business) return { rows: [] as LedgerRow[], count: 0 };
       const start = (page - 1) * pageSize;
@@ -98,21 +130,8 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
       if (loc !== "all") q = q.eq("location_id", loc);
       if (from) q = q.gte("created_at", `${from}T00:00:00`);
       if (to) q = q.lte("created_at", `${to}T23:59:59`);
+      if (productId !== "all") q = q.eq("product_id", productId);
 
-      // Search across ALL products (not just the current page) by resolving
-      // matching product ids server-side first.
-      if (debouncedSearch) {
-        const term = debouncedSearch.replace(/[%,]/g, "");
-        const { data: matched } = await supabase
-          .from("products")
-          .select("id")
-          .or(`name.ilike.%${term}%,barcode.ilike.%${term}%,sku.ilike.%${term}%`)
-          .limit(1000);
-        const ids = (matched || []).map((p) => p.id);
-        const filters = [`notes.ilike.%${term}%`, `reason.ilike.%${term}%`];
-        if (ids.length) filters.push(`product_id.in.(${ids.join(",")})`);
-        q = q.or(filters.join(","));
-      }
 
       const { data, error, count } = await q.range(start, start + pageSize - 1);
       if (error) throw error;
@@ -143,19 +162,9 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
 
   // Range-wide summary (all matching rows, not just the current page).
   const summaryQuery = useQuery({
-    queryKey: ["stock_ledger_summary", business?.id, loc, from, to, debouncedSearch],
+    queryKey: ["stock_ledger_summary", business?.id, loc, from, to, productId],
     queryFn: async () => {
       if (!business) return [] as LedgerRow[];
-      let productIds: string[] | null = null;
-      if (debouncedSearch) {
-        const term = debouncedSearch.replace(/[%,]/g, "");
-        const { data: matched } = await supabase
-          .from("products")
-          .select("id")
-          .or(`name.ilike.%${term}%,barcode.ilike.%${term}%,sku.ilike.%${term}%`)
-          .limit(1000);
-        productIds = (matched || []).map((p) => p.id);
-      }
       const all: LedgerRow[] = [];
       const chunk = 1000;
       for (let offset = 0; offset < 20000; offset += chunk) {
@@ -166,12 +175,8 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
         if (loc !== "all") q = q.eq("location_id", loc);
         if (from) q = q.gte("created_at", `${from}T00:00:00`);
         if (to) q = q.lte("created_at", `${to}T23:59:59`);
-        if (debouncedSearch) {
-          const term = debouncedSearch.replace(/[%,]/g, "");
-          const filters = [`notes.ilike.%${term}%`, `reason.ilike.%${term}%`];
-          if (productIds && productIds.length) filters.push(`product_id.in.(${productIds.join(",")})`);
-          q = q.or(filters.join(","));
-        }
+        if (productId !== "all") q = q.eq("product_id", productId);
+
         const { data, error } = await q.range(offset, offset + chunk - 1);
         if (error) throw error;
         const batch = (data || []) as unknown as LedgerRow[];
@@ -232,9 +237,53 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
       <Card>
         <CardContent className="pt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="space-y-1.5 sm:col-span-2">
-            <Label className="text-xs">Search product, reference or note</Label>
-            <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Search ledger" />
+            <Label className="text-xs">Product</Label>
+            <Popover open={productOpen} onOpenChange={setProductOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" role="combobox" aria-expanded={productOpen} className="w-full justify-between font-normal">
+                  <span className="truncate">{selectedProductLabel}</span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command shouldFilter={false}>
+                  <CommandInput
+                    placeholder="Search by name, barcode or SKU"
+                    value={productSearch}
+                    onValueChange={setProductSearch}
+                  />
+                  <CommandList>
+                    <CommandEmpty>{productsQuery.isLoading ? "Searching…" : "No products found."}</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem
+                        value="all"
+                        onSelect={() => { setProductId("all"); setPage(1); setProductOpen(false); }}
+                      >
+                        <Check className={cn("mr-2 h-4 w-4", productId === "all" ? "opacity-100" : "opacity-0")} />
+                        All products
+                      </CommandItem>
+                      {(productsQuery.data || []).map((p) => (
+                        <CommandItem
+                          key={p.id}
+                          value={p.id}
+                          onSelect={() => { setProductId(p.id); setPage(1); setProductOpen(false); }}
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", productId === p.id ? "opacity-100" : "opacity-0")} />
+                          <span className="truncate">
+                            {p.name}
+                            {(p.barcode || p.sku) && (
+                              <span className="block text-[11px] text-muted-foreground">{p.barcode || p.sku}</span>
+                            )}
+                          </span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
+
           <div className="sm:col-span-2">
             <DateRangeFilter
               from={from}
