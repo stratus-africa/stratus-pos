@@ -209,6 +209,7 @@ const Purchases = () => {
                       <TableCell>{statusBadge(p.status)}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => setViewing(p)}><Eye className="h-4 w-4" /></Button>
                           {canEdit && (
                             <Button size="icon" variant="ghost" onClick={() => navigate(`/purchases/${p.id}/edit`)}><Pencil className="h-4 w-4" /></Button>
                           )}
