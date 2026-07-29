@@ -280,6 +280,9 @@ const Purchases = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[40px]">
+                    <Checkbox checked={allSelected} onCheckedChange={(c) => toggleAll(!!c)} aria-label="Select all purchases" />
+                  </TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Invoice #</TableHead>
                   <TableHead>Supplier</TableHead>
@@ -292,11 +295,15 @@ const Purchases = () => {
               </TableHeader>
               <TableBody>
                 {filteredPurchases.length === 0 ? (
-                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No purchases yet. Create your first purchase order!</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No purchases yet. Create your first purchase order!</TableCell></TableRow>
                 ) : (
                   filteredPurchases.map((p) => (
-                    <TableRow key={p.id}>
+                    <TableRow key={p.id} data-state={selected.includes(p.id) ? "selected" : undefined}>
+                      <TableCell>
+                        <Checkbox checked={selected.includes(p.id)} onCheckedChange={(c) => toggleOne(p.id, !!c)} aria-label="Select purchase" />
+                      </TableCell>
                       <TableCell className="text-muted-foreground">{new Date(p.created_at).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })}</TableCell>
+
                       <TableCell className="font-medium">{p.invoice_number || p.id.slice(0, 8)}</TableCell>
                       <TableCell>{p.suppliers?.name || "—"}</TableCell>
                       <TableCell>{p.locations?.name || "—"}</TableCell>
