@@ -119,6 +119,7 @@ export function useInventory(
 
       for (const item of batch.items) {
         const { data: existing } = await supabase
+          .from("inventory")
           .select("id, quantity")
           .eq("product_id", item.product_id)
           .eq("location_id", batch.location_id)
