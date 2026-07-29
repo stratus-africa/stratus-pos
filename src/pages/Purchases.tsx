@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "@/lib/router-compat";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Pencil, Trash2, Eye, Download, FileSpreadsheet, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Eye, Download, FileSpreadsheet, CheckCircle2, XCircle, RotateCcw, MoreVertical } from "lucide-react";
 import { usePurchases, type Purchase } from "@/hooks/usePurchases";
 import { useSupplierPayments } from "@/hooks/useSupplierPayments";
 import { SupplierPaymentDialog } from "@/components/purchases/SupplierPaymentDialog";
