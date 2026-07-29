@@ -66,9 +66,14 @@ export function ImportAdjustmentsDialog({ open, onOpenChange, onSubmit, isLoadin
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Clear the progress bar if the import ends (e.g. fails) without completing
+  const wasLoading = useRef(false);
   useEffect(() => {
-    if (!isLoading && progress && progress.done < progress.total) setProgress(null);
-  }, [isLoading, progress]);
+    if (isLoading) wasLoading.current = true;
+    else if (wasLoading.current) {
+      wasLoading.current = false;
+      setProgress((p) => (p && p.done < p.total ? null : p));
+    }
+  }, [isLoading]);
 
 
   const products = useMemo(() => productsQuery.data?.filter((p) => p.is_active) || [], [productsQuery.data]);
