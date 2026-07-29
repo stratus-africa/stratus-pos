@@ -215,16 +215,20 @@ export function PurchaseDetailDialog({
           <p className="text-sm text-muted-foreground"><span className="font-medium text-foreground">Notes: </span>{purchase.notes}</p>
         )}
 
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           {onEdit && (
             <Button variant="outline" onClick={() => onEdit(purchase)}>
               <Pencil className="h-4 w-4 mr-2" /> Edit
             </Button>
           )}
+          <Button variant="outline" onClick={() => exportPurchaseDocumentToExcel(purchase, items, business?.name)}>
+            <FileSpreadsheet className="h-4 w-4 mr-2" /> Export Excel
+          </Button>
           <Button onClick={handlePrint}>
             <Printer className="h-4 w-4 mr-2" /> Print
           </Button>
         </div>
+
       </DialogContent>
     </Dialog>
   );
