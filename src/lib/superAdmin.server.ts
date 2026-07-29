@@ -213,8 +213,19 @@ export async function handleDeleteTenant(admin: any, body: DeleteTenantInput) {
     await wipe('product_variants', () => admin.from('product_variants').delete({ count: 'exact' }).in('product_id', productIds));
   }
 
+  // stock_adjustments has no business_id: it is scoped by location.
+  if (locIds.length) {
+    try {
+      await wipe('stock_adjustments', () =>
+        admin.from('stock_adjustments').delete({ count: 'exact' }).in('location_id', locIds));
+    } catch (e) {
+      console.warn(`skip stock_adjustments: ${(e as Error).message}`);
+    }
+  }
+
   const scoped = [
-    'bank_transactions', 'mpesa_transactions', 'stock_adjustments', 'expenses',
+    'stock_adjustment_documents',
+    'bank_transactions', 'mpesa_transactions', 'expenses',
     'sales', 'purchases', 'journal_entries', 'pos_sessions', 'audit_logs',
     'product_batches', 'payment_method_accounts', 'bank_accounts', 'tax_rates',
     'expense_categories', 'chart_of_accounts', 'suspended_sales', 'tills',
@@ -357,8 +368,13 @@ export async function handleResetTenant(admin: any, body: ResetTenantInput) {
       admin.from('mpesa_transactions').delete({ count: 'exact' }).eq('business_id', businessId));
   }
   if (scopeSet.has('stock_adjustments')) {
-    await wipe('stock_adjustments', () =>
-      admin.from('stock_adjustments').delete({ count: 'exact' }).eq('business_id', businessId));
+    // stock_adjustments is scoped by location, not business_id.
+    if (locationIds.length) {
+      await wipe('stock_adjustments', () =>
+        admin.from('stock_adjustments').delete({ count: 'exact' }).in('location_id', locationIds));
+    }
+    await wipe('stock_adjustment_documents', () =>
+      admin.from('stock_adjustment_documents').delete({ count: 'exact' }).eq('business_id', businessId));
   }
   if (scopeSet.has('expenses')) {
     await wipe('expenses', () =>
