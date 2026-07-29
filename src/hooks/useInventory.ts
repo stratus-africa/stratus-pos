@@ -87,6 +87,7 @@ export function useInventory(
       notes?: string;
       created_by: string;
       reference?: string;
+      onProgress?: (done: number, total: number) => void;
     }) => {
       assertCanPost();
       if (!business) throw new Error("No business context");
@@ -112,6 +113,9 @@ export function useInventory(
         .single();
       if (docErr) throw docErr as Error;
       const documentId = doc!.id;
+      const total = batch.items.length;
+      let done = 0;
+      batch.onProgress?.(0, total);
 
       for (const item of batch.items) {
         const { data: existing } = await supabase
@@ -158,6 +162,8 @@ export function useInventory(
             });
           if (error) throw error;
         }
+        done++;
+        batch.onProgress?.(done, total);
       }
       return { document_id: documentId };
     },

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useProducts } from "@/hooks/useProducts";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { Upload, Download, FileText } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Upload, Download, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { AdjustStockSubmit } from "./StockAdjustmentDialog";
 
@@ -61,7 +62,19 @@ export function ImportAdjustmentsDialog({ open, onOpenChange, onSubmit, isLoadin
   const [reference, setReference] = useState("");
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [fileName, setFileName] = useState("");
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Clear the progress bar if the import ends (e.g. fails) without completing
+  const wasLoading = useRef(false);
+  useEffect(() => {
+    if (isLoading) wasLoading.current = true;
+    else if (wasLoading.current) {
+      wasLoading.current = false;
+      setProgress((p) => (p && p.done < p.total ? null : p));
+    }
+  }, [isLoading]);
+
 
   const products = useMemo(() => productsQuery.data?.filter((p) => p.is_active) || [], [productsQuery.data]);
 
@@ -144,6 +157,7 @@ export function ImportAdjustmentsDialog({ open, onOpenChange, onSubmit, isLoadin
 
   const reset = () => {
     setRows([]); setFileName(""); setNotes(""); setReference("");
+    setProgress(null);
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -153,14 +167,20 @@ export function ImportAdjustmentsDialog({ open, onOpenChange, onSubmit, isLoadin
     // Merge duplicates on the same product
     const merged = new Map<string, number>();
     valid.forEach((r) => merged.set(r.product_id!, (merged.get(r.product_id!) || 0) + r.quantity));
+    const items = Array.from(merged.entries()).map(([product_id, quantity_change]) => ({ product_id, quantity_change }));
+    setProgress({ done: 0, total: items.length });
     onSubmit({
-      items: Array.from(merged.entries()).map(([product_id, quantity_change]) => ({ product_id, quantity_change })),
+      items,
       location_id: locationId,
       reason,
       notes: [reference ? `Ref: ${reference}` : "", notes].filter(Boolean).join(" — ") || undefined,
+      onProgress: (done, total) => {
+        setProgress({ done, total });
+        if (done >= total) {
+          setTimeout(() => { reset(); onOpenChange(false); }, 400);
+        }
+      },
     });
-    reset();
-    onOpenChange(false);
   };
 
   return (
@@ -239,7 +259,7 @@ export function ImportAdjustmentsDialog({ open, onOpenChange, onSubmit, isLoadin
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((r, i) => (
+                    {rows.slice(0, 500).map((r, i) => (
                       <TableRow key={i} className={r.error ? "opacity-60" : undefined}>
                         <TableCell className="font-mono text-xs">{r.identifier || "—"}</TableCell>
                         <TableCell>{r.product_name || <span className="text-destructive text-xs">{r.error}</span>}</TableCell>
@@ -250,13 +270,33 @@ export function ImportAdjustmentsDialog({ open, onOpenChange, onSubmit, isLoadin
                   </TableBody>
                 </Table>
               </div>
+              {rows.length > 500 && (
+                <p className="text-xs text-muted-foreground">
+                  Showing first 500 of {rows.length} rows — all {valid.length} matched rows will be imported.
+                </p>
+              )}
+            </div>
+          )}
+
+          {progress && (
+            <div className="space-y-1.5 rounded-md border bg-muted/30 p-3">
+              <div className="flex items-center justify-between text-xs font-medium">
+                <span className="flex items-center gap-1.5">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Importing adjustments…
+                </span>
+                <span className="tabular-nums">
+                  {progress.done} / {progress.total} ({Math.round((progress.done / Math.max(progress.total, 1)) * 100)}%)
+                </span>
+              </div>
+              <Progress value={(progress.done / Math.max(progress.total, 1)) * 100} className="h-2" />
             </div>
           )}
 
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={isLoading || !valid.length}>
-              Import {valid.length ? `${valid.length} line${valid.length === 1 ? "" : "s"}` : ""}
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={!!progress}>Cancel</Button>
+            <Button onClick={handleSubmit} disabled={isLoading || !valid.length || !!progress}>
+              {progress ? "Importing…" : `Import ${valid.length ? `${valid.length} line${valid.length === 1 ? "" : "s"}` : ""}`}
             </Button>
           </div>
         </div>
