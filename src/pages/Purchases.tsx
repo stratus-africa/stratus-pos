@@ -306,6 +306,13 @@ const Purchases = () => {
       </Tabs>
 
       <SupplierPaymentDialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen} />
+
+      <PurchaseDetailDialog
+        purchase={viewing}
+        open={!!viewing}
+        onOpenChange={(o) => { if (!o) setViewing(null); }}
+        onEdit={canEdit ? (p) => { setViewing(null); navigate(`/purchases/${p.id}/edit`); } : undefined}
+      />
     </div>
   );
 };
