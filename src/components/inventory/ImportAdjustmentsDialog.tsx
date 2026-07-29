@@ -61,6 +61,7 @@ export function ImportAdjustmentsDialog({ open, onOpenChange, onSubmit, isLoadin
   const [reference, setReference] = useState("");
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [fileName, setFileName] = useState("");
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const products = useMemo(() => productsQuery.data?.filter((p) => p.is_active) || [], [productsQuery.data]);
