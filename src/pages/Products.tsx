@@ -78,21 +78,37 @@ const Products = () => {
 
   const handleBulkUpdate = async () => {
     if (selectedIds.size === 0) return;
-    if (!bulkCategoryId && !bulkUnitId) {
-      toast.error("Pick a category or unit to apply");
+    const thresholdValue = bulkThreshold.trim() === "" ? null : Number(bulkThreshold);
+    if (thresholdValue !== null && (!Number.isFinite(thresholdValue) || thresholdValue < 0)) {
+      toast.error("Enter a valid low stock threshold");
+      return;
+    }
+    if (!bulkCategoryId && !bulkUnitId && thresholdValue === null) {
+      toast.error("Pick a category, unit or threshold to apply");
       return;
     }
     setBulkUpdating(true);
     try {
+      const ids = Array.from(selectedIds);
       const update: { category_id?: string; unit_id?: string } = {};
       if (bulkCategoryId) update.category_id = bulkCategoryId;
       if (bulkUnitId) update.unit_id = bulkUnitId;
-      const { error } = await supabase.from("products").update(update).in("id", Array.from(selectedIds));
-      if (error) throw error;
+      if (Object.keys(update).length > 0) {
+        const { error } = await supabase.from("products").update(update).in("id", ids);
+        if (error) throw error;
+      }
+      if (thresholdValue !== null) {
+        const { error: invErr } = await supabase
+          .from("inventory")
+          .update({ low_stock_threshold: thresholdValue })
+          .in("product_id", ids);
+        if (invErr) throw invErr;
+      }
       toast.success(`Updated ${selectedIds.size} products`);
       setBulkUpdateOpen(false);
       setBulkCategoryId("");
       setBulkUnitId("");
+      setBulkThreshold("");
       setSelectedIds(new Set());
       productsQuery.refetch();
     } catch (err: any) {
@@ -101,6 +117,7 @@ const Products = () => {
       setBulkUpdating(false);
     }
   };
+
 
   const handleScanned = (code: string) => {
     setSearch(code);
