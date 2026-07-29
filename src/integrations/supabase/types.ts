@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_mappings: {
+        Row: {
+          account_id: string
+          business_id: string
+          created_at: string
+          id: string
+          key: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          business_id: string
+          created_at?: string
+          id?: string
+          key: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          business_id?: string
+          created_at?: string
+          id?: string
+          key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_mappings_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_mappings_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           created_at: string
@@ -3910,6 +3952,25 @@ export type Database = {
       }
     }
     Functions: {
+      acct_account: {
+        Args: { _business_id: string; _key: string }
+        Returns: string
+      }
+      acct_post: {
+        Args: {
+          _business_id: string
+          _created_by: string
+          _date: string
+          _description: string
+          _lines: Json
+          _reference: string
+        }
+        Returns: string
+      }
+      acct_unpost: {
+        Args: { _business_id: string; _reference: string }
+        Returns: undefined
+      }
       add_tenant_internal_note: {
         Args: { _business_id: string; _note: string }
         Returns: undefined
@@ -4212,6 +4273,7 @@ export type Database = {
         Returns: undefined
       }
       resolve_login_email: { Args: { _identifier: string }; Returns: string }
+      seed_default_accounts: { Args: never; Returns: undefined }
       set_user_login_barcode: {
         Args: { _barcode: string; _pin: string; _user_id: string }
         Returns: undefined
