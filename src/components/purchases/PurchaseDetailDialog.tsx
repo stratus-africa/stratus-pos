@@ -3,9 +3,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Printer, Pencil } from "lucide-react";
+import { Printer, Pencil, FileSpreadsheet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { exportPurchaseDocumentToExcel } from "@/lib/purchaseExport";
 import type { Purchase } from "@/hooks/usePurchases";
 
 interface Line {
@@ -214,16 +215,20 @@ export function PurchaseDetailDialog({
           <p className="text-sm text-muted-foreground"><span className="font-medium text-foreground">Notes: </span>{purchase.notes}</p>
         )}
 
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           {onEdit && (
             <Button variant="outline" onClick={() => onEdit(purchase)}>
               <Pencil className="h-4 w-4 mr-2" /> Edit
             </Button>
           )}
+          <Button variant="outline" onClick={() => exportPurchaseDocumentToExcel(purchase, items, business?.name)}>
+            <FileSpreadsheet className="h-4 w-4 mr-2" /> Export Excel
+          </Button>
           <Button onClick={handlePrint}>
             <Printer className="h-4 w-4 mr-2" /> Print
           </Button>
         </div>
+
       </DialogContent>
     </Dialog>
   );

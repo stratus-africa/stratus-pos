@@ -5,15 +5,20 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Pencil, Trash2, Eye, Download } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Eye, Download, FileSpreadsheet, CheckCircle2, XCircle } from "lucide-react";
 import { usePurchases, type Purchase } from "@/hooks/usePurchases";
 import { useSupplierPayments } from "@/hooks/useSupplierPayments";
 import { SupplierPaymentDialog } from "@/components/purchases/SupplierPaymentDialog";
 import { PurchaseDetailDialog } from "@/components/purchases/PurchaseDetailDialog";
 import { usePermissions } from "@/hooks/usePermissions";
+import { exportPurchasesToExcel } from "@/lib/purchaseExport";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { format } from "date-fns";
 
 const Purchases = () => {
@@ -82,6 +87,47 @@ const Purchases = () => {
     URL.revokeObjectURL(url);
   };
 
+  // ---- Bulk selection ----
+  const qc = useQueryClient();
+  const [selected, setSelected] = useState<string[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const selectedPurchases = filteredPurchases.filter((p) => selected.includes(p.id));
+  const allSelected = filteredPurchases.length > 0 && selectedPurchases.length === filteredPurchases.length;
+
+  const toggleOne = (id: string, checked: boolean) =>
+    setSelected((s) => (checked ? [...new Set([...s, id])] : s.filter((x) => x !== id)));
+  const toggleAll = (checked: boolean) => setSelected(checked ? filteredPurchases.map((p) => p.id) : []);
+
+  const bulkSetStatus = async (status: "received" | "cancelled" | "draft") => {
+    setBulkBusy(true);
+    try {
+      for (const p of selectedPurchases) {
+        if (p.status === status) continue;
+        const { error } = await supabase.from("purchases").update({ status }).eq("id", p.id);
+        if (error) throw error;
+      }
+      qc.invalidateQueries({ queryKey: ["purchases"] });
+      qc.invalidateQueries({ queryKey: ["inventory"] });
+      toast.success(`${selectedPurchases.length} purchase(s) marked ${status}`);
+      setSelected([]);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Bulk update failed");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const bulkDelete = async () => {
+    setBulkBusy(true);
+    try {
+      for (const p of selectedPurchases) {
+        await deletePurchase.mutateAsync(p.id);
+      }
+      setSelected([]);
+    } finally {
+      setBulkBusy(false);
+    }
+  };
 
   return (
     <div className="space-y-3 sm:space-y-4">
@@ -96,9 +142,12 @@ const Purchases = () => {
         </TabsList>
 
         <TabsContent value="orders" className="space-y-3">
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <Button size="sm" variant="outline" onClick={exportCsv} disabled={filteredPurchases.length === 0}>
               <Download className="mr-2 h-4 w-4" /> Export CSV
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => exportPurchasesToExcel(filteredPurchases)} disabled={filteredPurchases.length === 0}>
+              <FileSpreadsheet className="mr-2 h-4 w-4" /> Export Excel
             </Button>
             {canCreate && (
               <Button size="sm" onClick={() => navigate("/purchases/new")}>
@@ -106,6 +155,49 @@ const Purchases = () => {
               </Button>
             )}
           </div>
+
+          {selected.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2">
+              <span className="text-sm font-medium">{selected.length} selected</span>
+              <div className="flex-1" />
+              <Button size="sm" variant="outline" disabled={bulkBusy} onClick={() => exportPurchasesToExcel(selectedPurchases, `purchases-selected-${format(new Date(), "yyyy-MM-dd")}.xlsx`)}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" /> Export Excel
+              </Button>
+              {canEdit && (
+                <>
+                  <Button size="sm" variant="outline" disabled={bulkBusy} onClick={() => bulkSetStatus("received")}>
+                    <CheckCircle2 className="mr-2 h-4 w-4" /> Mark Received
+                  </Button>
+                  <Button size="sm" variant="outline" disabled={bulkBusy} onClick={() => bulkSetStatus("cancelled")}>
+                    <XCircle className="mr-2 h-4 w-4" /> Cancel
+                  </Button>
+                </>
+              )}
+              {canDelete && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button size="sm" variant="destructive" disabled={bulkBusy}>
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete {selected.length} purchase(s)?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This is irreversible. Stock added by received purchases will be removed from inventory and any linked supplier payments will be deleted.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={bulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+              <Button size="sm" variant="ghost" onClick={() => setSelected([])}>Clear</Button>
+            </div>
+          )}
+
 
       <Card>
         <CardHeader className="pb-3">
@@ -134,11 +226,15 @@ const Purchases = () => {
               filteredPurchases.map((p) => (
                 <div key={p.id} className="p-3 space-y-2">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="font-medium text-sm truncate">{p.invoice_number || p.id.slice(0, 8)}</div>
-                      <div className="text-xs text-muted-foreground truncate">{p.suppliers?.name || "—"} · {p.locations?.name || "—"}</div>
-                      <div className="text-[11px] text-muted-foreground">{new Date(p.created_at).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })}</div>
+                    <div className="flex min-w-0 gap-2">
+                      <Checkbox className="mt-1" checked={selected.includes(p.id)} onCheckedChange={(c) => toggleOne(p.id, !!c)} aria-label="Select purchase" />
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm truncate">{p.invoice_number || p.id.slice(0, 8)}</div>
+                        <div className="text-xs text-muted-foreground truncate">{p.suppliers?.name || "—"} · {p.locations?.name || "—"}</div>
+                        <div className="text-[11px] text-muted-foreground">{new Date(p.created_at).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })}</div>
+                      </div>
                     </div>
+
                     <div className="text-right shrink-0">
                       <div className="font-semibold text-sm">{formatKES(p.total)}</div>
                       <div className="flex gap-1 justify-end mt-1">{paymentBadge(p.payment_status)}</div>
@@ -184,6 +280,9 @@ const Purchases = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[40px]">
+                    <Checkbox checked={allSelected} onCheckedChange={(c) => toggleAll(!!c)} aria-label="Select all purchases" />
+                  </TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Invoice #</TableHead>
                   <TableHead>Supplier</TableHead>
@@ -196,11 +295,15 @@ const Purchases = () => {
               </TableHeader>
               <TableBody>
                 {filteredPurchases.length === 0 ? (
-                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No purchases yet. Create your first purchase order!</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No purchases yet. Create your first purchase order!</TableCell></TableRow>
                 ) : (
                   filteredPurchases.map((p) => (
-                    <TableRow key={p.id}>
+                    <TableRow key={p.id} data-state={selected.includes(p.id) ? "selected" : undefined}>
+                      <TableCell>
+                        <Checkbox checked={selected.includes(p.id)} onCheckedChange={(c) => toggleOne(p.id, !!c)} aria-label="Select purchase" />
+                      </TableCell>
                       <TableCell className="text-muted-foreground">{new Date(p.created_at).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })}</TableCell>
+
                       <TableCell className="font-medium">{p.invoice_number || p.id.slice(0, 8)}</TableCell>
                       <TableCell>{p.suppliers?.name || "—"}</TableCell>
                       <TableCell>{p.locations?.name || "—"}</TableCell>
