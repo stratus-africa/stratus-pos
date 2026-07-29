@@ -319,33 +319,34 @@ const Purchases = () => {
                       <TableCell>{paymentBadge(p.payment_status)}</TableCell>
                       <TableCell>{statusBadge(p.status)}</TableCell>
                       <TableCell>
-                        <div className="flex gap-1">
-                          <Button size="icon" variant="ghost" onClick={() => setViewing(p)}><Eye className="h-4 w-4" /></Button>
-                          {canEdit && (
-                            <Button size="icon" variant="ghost" onClick={() => navigate(`/purchases/${p.id}/edit`)}><Pencil className="h-4 w-4" /></Button>
-                          )}
-                          {canDelete && (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button size="icon" variant="ghost"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete purchase {p.invoice_number || p.id.slice(0, 8)}?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    {p.status === "received" ? "Stock added by this purchase will be removed from inventory. " : ""}
-                                    Any linked supplier payments will be deleted and the bank balance restored.
-                                    {p.status !== "cancelled" && " If you only want to undo the stock effect, use Cancel Purchase from the edit page instead."}
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => deletePurchase.mutate(p.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          )}
-                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="icon" variant="ghost">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setViewing(p)}>
+                              <Eye className="mr-2 h-4 w-4" /> View
+                            </DropdownMenuItem>
+                            {canEdit && (
+                              <DropdownMenuItem onClick={() => navigate(`/purchases/${p.id}/edit`)}>
+                                <Pencil className="mr-2 h-4 w-4" /> Edit
+                              </DropdownMenuItem>
+                            )}
+                            {canDelete && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => setPurchaseToDelete(p)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))
