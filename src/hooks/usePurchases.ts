@@ -545,6 +545,7 @@ export function usePurchases() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["purchases_deleted"] });
       qc.invalidateQueries({ queryKey: ["inventory"] });
+      qc.invalidateQueries({ queryKey: ["stock_adjustments"] });
       toast.success("Purchase permanently deleted");
     },
     onError: (e) => toast.error(e.message),
