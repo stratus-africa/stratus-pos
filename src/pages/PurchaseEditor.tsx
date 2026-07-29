@@ -522,12 +522,12 @@ export default function PurchaseEditor() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Product</TableHead>
-                    <TableHead className="w-[90px]">Qty</TableHead>
-                    {postsStock && <TableHead className="w-[100px]">Received</TableHead>}
-                    <TableHead className="w-[110px]">Unit Cost</TableHead>
-                    <TableHead className="w-[110px]">Total</TableHead>
+                    <TableHead className="w-[110px]">Qty</TableHead>
+                    {postsStock && <TableHead className="w-[110px]">Received</TableHead>}
+                    <TableHead className="w-[130px]">Unit Cost</TableHead>
+                    <TableHead className="w-[130px]">Total</TableHead>
                     {vatEnabled && <TableHead className="w-[160px]">VAT</TableHead>}
-                    <TableHead className="w-[130px]">New Sell Price</TableHead>
+                    <TableHead className="w-[150px]">New Sell Price</TableHead>
                     <TableHead className="w-[40px]"></TableHead>
                   </TableRow>
                 </TableHeader>
