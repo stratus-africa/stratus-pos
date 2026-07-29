@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, AlertCircle, UserPlus, ArrowLeft, ScanLine, Ban } from "lucide-react";
 import { toast } from "sonner";
-import { useSuppliers, usePurchases, type PurchaseItem } from "@/hooks/usePurchases";
+import { useSuppliers, usePurchases, MAX_LINE_QTY, type PurchaseItem } from "@/hooks/usePurchases";
 import { useProducts } from "@/hooks/useProducts";
 import { useTaxRates } from "@/hooks/useTaxRates";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
