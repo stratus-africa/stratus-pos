@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Save, Loader2, Palette, Image as ImageIcon, Upload, Trash2 } from "lucide-react";
+import { Save, Loader2, Palette, Image as ImageIcon, Upload, Trash2, Check } from "lucide-react";
 import { THEMES, DEFAULT_THEME, applyTheme, type ThemeKey } from "@/lib/themes";
 
 export function BrandingTab() {
