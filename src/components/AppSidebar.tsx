@@ -276,7 +276,7 @@ export function AppSidebar() {
         )}
         {!collapsed && userRole && (
           <div className="px-2 pb-1">
-            <Badge variant="outline" className="text-xs capitalize w-full justify-center">
+            <Badge variant="outline" className="text-xs capitalize w-full justify-center bg-white rounded-sm border-sidebar-border hover:bg-white/90">
               {userRole}
             </Badge>
           </div>
