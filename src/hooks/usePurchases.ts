@@ -484,11 +484,33 @@ export function usePurchases() {
   const restorePurchase = useMutation({
     mutationFn: async (id: string) => {
       if (!business) throw new Error("No business");
+      const { data: purchaseSnap } = await supabase
+        .from("purchases")
+        .select("status, invoice_number, location_id, created_by")
+        .eq("id", id)
+        .maybeSingle();
+      const { data: items } = await supabase
+        .from("purchase_items")
+        .select("product_id, quantity, quantity_received, unit_cost, total, tax_rate_id")
+        .eq("purchase_id", id);
       const { error } = await supabase
         .from("purchases")
         .update({ deleted_at: null, deleted_by: null })
         .eq("id", id);
       if (error) throw error;
+
+      // Re-create the stock movement log entries so the movement report shows them again.
+      if (purchaseSnap && purchaseSnap.status !== "draft" && purchaseSnap.status !== "cancelled" && items && items.length > 0) {
+        await logStockMovements(
+          items,
+          purchaseSnap.location_id,
+          purchaseSnap.created_by,
+          purchaseSnap.invoice_number || id.slice(0, 8),
+          id,
+          purchaseSnap.status,
+        );
+      }
+
       await logAudit({
         business_id: business.id,
         action: "purchase_restored",
