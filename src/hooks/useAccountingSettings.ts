@@ -16,7 +16,20 @@ export interface AccountingSettings {
   lock_before_migration_date: boolean;
   /** Block stock movements dated before the inventory start date */
   lock_before_inventory_start: boolean;
+  /** VAT posting per journal — enabled by default, switch off per journal */
+  vat_posting: VatPostingSettings;
 }
+
+/** Journals that can post a separate VAT line. Missing/undefined = enabled. */
+export interface VatPostingSettings {
+  sales: boolean;
+  purchases: boolean;
+}
+
+export const VAT_JOURNALS: { key: keyof VatPostingSettings; label: string; help: string }[] = [
+  { key: "sales", label: "Sales journal", help: "Splits VAT charged on sales into the VAT Payable account." },
+  { key: "purchases", label: "Purchases journal", help: "Splits input VAT on received purchases out of cost of goods sold." },
+];
 
 export const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -45,6 +58,7 @@ export const DEFAULT_ACCOUNTING_SETTINGS: AccountingSettings = {
   inventory_start_date: null,
   lock_before_migration_date: false,
   lock_before_inventory_start: false,
+  vat_posting: { sales: true, purchases: true },
 };
 
 
@@ -65,7 +79,12 @@ export function useAccountingSettings() {
         .eq("key", KEY)
         .maybeSingle();
       if (error) throw error;
-      return { ...DEFAULT_ACCOUNTING_SETTINGS, ...((data?.value as Partial<AccountingSettings>) || {}) };
+      const value = (data?.value as Partial<AccountingSettings>) || {};
+      return {
+        ...DEFAULT_ACCOUNTING_SETTINGS,
+        ...value,
+        vat_posting: { ...DEFAULT_ACCOUNTING_SETTINGS.vat_posting, ...(value.vat_posting || {}) },
+      };
     },
     enabled: !!business?.id,
   });
