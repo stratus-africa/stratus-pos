@@ -478,6 +478,31 @@ const Purchases = () => {
 
       </Tabs>
 
+      <AlertDialog open={!!purchaseToDelete} onOpenChange={(o) => { if (!o) setPurchaseToDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete purchase {purchaseToDelete?.invoice_number || purchaseToDelete?.id.slice(0, 8)}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {purchaseToDelete?.status === "received" ? "Stock added by this purchase will be removed from inventory. " : ""}
+              Any linked supplier payments will be deleted and the bank balance restored.
+              {purchaseToDelete?.status !== "cancelled" && " If you only want to undo the stock effect, use Cancel Purchase from the edit page instead."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPurchaseToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (purchaseToDelete) deletePurchase.mutate(purchaseToDelete.id);
+                setPurchaseToDelete(null);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <SupplierPaymentDialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen} />
 
       <PurchaseDetailDialog
