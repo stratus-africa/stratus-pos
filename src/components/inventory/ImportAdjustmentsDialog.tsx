@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useProducts } from "@/hooks/useProducts";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { Upload, Download, FileText } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Upload, Download, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { AdjustStockSubmit } from "./StockAdjustmentDialog";
 
