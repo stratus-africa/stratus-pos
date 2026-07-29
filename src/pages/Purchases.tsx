@@ -8,10 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Eye, Download } from "lucide-react";
 import { usePurchases, type Purchase } from "@/hooks/usePurchases";
 import { useSupplierPayments } from "@/hooks/useSupplierPayments";
 import { SupplierPaymentDialog } from "@/components/purchases/SupplierPaymentDialog";
+import { PurchaseDetailDialog } from "@/components/purchases/PurchaseDetailDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { format } from "date-fns";
 
