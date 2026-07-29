@@ -59,6 +59,7 @@ const Products = () => {
   const [bulkUpdateOpen, setBulkUpdateOpen] = useState(false);
   const [bulkCategoryId, setBulkCategoryId] = useState<string>("");
   const [bulkUnitId, setBulkUnitId] = useState<string>("");
+  const [bulkThreshold, setBulkThreshold] = useState<string>("");
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
@@ -77,21 +78,37 @@ const Products = () => {
 
   const handleBulkUpdate = async () => {
     if (selectedIds.size === 0) return;
-    if (!bulkCategoryId && !bulkUnitId) {
-      toast.error("Pick a category or unit to apply");
+    const thresholdValue = bulkThreshold.trim() === "" ? null : Number(bulkThreshold);
+    if (thresholdValue !== null && (!Number.isFinite(thresholdValue) || thresholdValue < 0)) {
+      toast.error("Enter a valid low stock threshold");
+      return;
+    }
+    if (!bulkCategoryId && !bulkUnitId && thresholdValue === null) {
+      toast.error("Pick a category, unit or threshold to apply");
       return;
     }
     setBulkUpdating(true);
     try {
+      const ids = Array.from(selectedIds);
       const update: { category_id?: string; unit_id?: string } = {};
       if (bulkCategoryId) update.category_id = bulkCategoryId;
       if (bulkUnitId) update.unit_id = bulkUnitId;
-      const { error } = await supabase.from("products").update(update).in("id", Array.from(selectedIds));
-      if (error) throw error;
+      if (Object.keys(update).length > 0) {
+        const { error } = await supabase.from("products").update(update).in("id", ids);
+        if (error) throw error;
+      }
+      if (thresholdValue !== null) {
+        const { error: invErr } = await supabase
+          .from("inventory")
+          .update({ low_stock_threshold: thresholdValue })
+          .in("product_id", ids);
+        if (invErr) throw invErr;
+      }
       toast.success(`Updated ${selectedIds.size} products`);
       setBulkUpdateOpen(false);
       setBulkCategoryId("");
       setBulkUnitId("");
+      setBulkThreshold("");
       setSelectedIds(new Set());
       productsQuery.refetch();
     } catch (err: any) {
@@ -100,6 +117,7 @@ const Products = () => {
       setBulkUpdating(false);
     }
   };
+
 
   const handleScanned = (code: string) => {
     setSearch(code);
@@ -709,7 +727,7 @@ const Products = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Bulk Update {selectedIds.size} product{selectedIds.size > 1 ? "s" : ""}</AlertDialogTitle>
             <AlertDialogDescription>
-              Pick a Category and/or Unit to apply to all selected products. Leave a field empty to keep it unchanged.
+              Pick a Category, Unit and/or Low Stock Threshold to apply to all selected products. Leave a field empty to keep it unchanged.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-3 py-2">
@@ -735,10 +753,22 @@ const Products = () => {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Low Stock Threshold</label>
+              <Input
+                type="number"
+                min={0}
+                value={bulkThreshold}
+                onChange={(e) => setBulkThreshold(e.target.value)}
+                placeholder="Keep unchanged"
+              />
+              <p className="text-xs text-muted-foreground">Applies to stock records of the selected products in all locations.</p>
+            </div>
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleBulkUpdate} disabled={bulkUpdating || (!bulkCategoryId && !bulkUnitId)}>
+            <AlertDialogAction onClick={handleBulkUpdate} disabled={bulkUpdating || (!bulkCategoryId && !bulkUnitId && bulkThreshold.trim() === "")}>
+
               {bulkUpdating ? "Updating..." : "Apply"}
             </AlertDialogAction>
           </AlertDialogFooter>
