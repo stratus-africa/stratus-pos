@@ -212,7 +212,7 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
       return all.filter((r) => {
         if (r.purchase_id) {
           const deletedAt = pMap.get(r.purchase_id);
-          if (deletedAt === undefined || deletedAt !== null) return false;
+          if (deletedAt !== null) return false;
         }
         if (r.sale_id && !sSet.has(r.sale_id)) return false;
         if (r.document_id && !r.stock_adjustment_documents) return false;
