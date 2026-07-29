@@ -489,5 +489,5 @@ export function usePurchases() {
     return data as PurchaseItem[];
   };
 
-  return { query, deletedQuery, createPurchase, updatePurchase, deletePurchase, restorePurchase, purgePurchase, getPurchaseItems };
+  return { query, createPurchase, updatePurchase, deletePurchase, getPurchaseItems };
 }
