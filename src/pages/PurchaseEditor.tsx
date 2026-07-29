@@ -522,12 +522,12 @@ export default function PurchaseEditor() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Product</TableHead>
-                    <TableHead className="w-[90px]">Qty</TableHead>
-                    {postsStock && <TableHead className="w-[100px]">Received</TableHead>}
-                    <TableHead className="w-[110px]">Unit Cost</TableHead>
-                    <TableHead className="w-[110px]">Total</TableHead>
+                    <TableHead className="w-[110px]">Qty</TableHead>
+                    {postsStock && <TableHead className="w-[110px]">Received</TableHead>}
+                    <TableHead className="w-[130px]">Unit Cost</TableHead>
+                    <TableHead className="w-[130px]">Total</TableHead>
                     {vatEnabled && <TableHead className="w-[160px]">VAT</TableHead>}
-                    <TableHead className="w-[130px]">New Sell Price</TableHead>
+                    <TableHead className="w-[150px]">New Sell Price</TableHead>
                     <TableHead className="w-[40px]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -563,7 +563,7 @@ export default function PurchaseEditor() {
                           <Input type="number" min={0} step={0.01} value={item.unit_cost} onChange={(e) => updateItem(idx, "unit_cost", parseFloat(e.target.value) || 0)} className="h-8" />
                         </TableCell>
                         <TableCell>
-                          <Input type="number" min={0} step={0.01} value={item.total} onChange={(e) => updateItem(idx, "total", parseFloat(e.target.value) || 0)} className="h-8" />
+                          <Input type="number" min={0} step={0.01} value={Number(item.total || 0).toFixed(2)} onChange={(e) => updateItem(idx, "total", parseFloat(e.target.value) || 0)} className="h-8" />
                         </TableCell>
                         {vatEnabled && (
                           <TableCell>
