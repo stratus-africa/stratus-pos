@@ -186,7 +186,7 @@ const Purchases = () => {
                     <AlertDialogHeader>
                       <AlertDialogTitle>Delete {selected.length} purchase(s)?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Received stock will be removed from inventory. You can restore these purchases later from the Deleted tab.
+                        Received stock will be removed from inventory. This cannot be undone.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
