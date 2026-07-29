@@ -33,6 +33,7 @@ export interface AdjustStockSubmit {
     invoice_number: string;
     purchase_date: string;
   };
+  onProgress?: (done: number, total: number) => void;
 }
 
 interface Props {
