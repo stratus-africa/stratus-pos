@@ -64,6 +64,7 @@ const Purchases = () => {
   const payments = paymentsQuery.data || [];
 
   const [viewing, setViewing] = useState<Purchase | null>(null);
+  const [purchaseToDelete, setPurchaseToDelete] = useState<Purchase | null>(null);
 
   const exportCsv = () => {
     const headers = ["Date", "Invoice #", "Supplier", "Location", "Subtotal", "VAT", "Total", "Payment", "Status"];
