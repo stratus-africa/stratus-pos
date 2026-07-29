@@ -119,7 +119,7 @@ export function usePurchases() {
 
   // Inventory quantities are maintained by database triggers on purchase_items.
   // Here we only write the human-readable stock movement log entries.
-  const logStockMovements = async (items: PurchaseItem[], locationId: string, createdBy: string, ref: string, status = "received") => {
+  const logStockMovements = async (items: PurchaseItem[], locationId: string, createdBy: string, ref: string, purchaseId: string, status = "received") => {
     for (const item of items) {
       const qty = resolveReceived(item, status);
       if (!qty) continue;
@@ -130,6 +130,7 @@ export function usePurchases() {
         reason: "Purchase received",
         notes: `Purchase #${ref}`,
         created_by: createdBy,
+        purchase_id: purchaseId,
       });
     }
   };
