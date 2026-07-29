@@ -416,65 +416,6 @@ const Purchases = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="deleted" className="space-y-3">
-          <Card>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Deleted</TableHead>
-                    <TableHead>Invoice #</TableHead>
-                    <TableHead>Supplier</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="w-[150px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(deletedQuery.data || []).length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Nothing here. Deleted purchases can be restored from this tab.</TableCell></TableRow>
-                  ) : (deletedQuery.data || []).map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell className="text-xs text-muted-foreground">{p.deleted_at ? format(new Date(p.deleted_at), "dd MMM yyyy HH:mm") : "—"}</TableCell>
-                      <TableCell className="font-medium">{p.invoice_number || p.id.slice(0, 8)}</TableCell>
-                      <TableCell>{p.suppliers?.name || "—"}</TableCell>
-                      <TableCell>{p.locations?.name || "—"}</TableCell>
-                      <TableCell className="text-right">{formatKES(p.total)}</TableCell>
-                      <TableCell>{statusBadge(p.status)}</TableCell>
-                      <TableCell>
-                        <div className="flex justify-end gap-1">
-                          {canEdit && (
-                            <Button size="sm" variant="outline" onClick={() => restorePurchase.mutate(p.id)}>
-                              <RotateCcw className="mr-2 h-4 w-4" /> Restore
-                            </Button>
-                          )}
-                          {canDelete && (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button size="icon" variant="ghost"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Permanently delete {p.invoice_number || p.id.slice(0, 8)}?</AlertDialogTitle>
-                                  <AlertDialogDescription>This cannot be undone and the purchase can no longer be restored.</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => purgePurchase.mutate(p.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete forever</AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
       </Tabs>
 
