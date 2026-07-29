@@ -87,6 +87,47 @@ const Purchases = () => {
     URL.revokeObjectURL(url);
   };
 
+  // ---- Bulk selection ----
+  const qc = useQueryClient();
+  const [selected, setSelected] = useState<string[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const selectedPurchases = filteredPurchases.filter((p) => selected.includes(p.id));
+  const allSelected = filteredPurchases.length > 0 && selectedPurchases.length === filteredPurchases.length;
+
+  const toggleOne = (id: string, checked: boolean) =>
+    setSelected((s) => (checked ? [...new Set([...s, id])] : s.filter((x) => x !== id)));
+  const toggleAll = (checked: boolean) => setSelected(checked ? filteredPurchases.map((p) => p.id) : []);
+
+  const bulkSetStatus = async (status: "received" | "cancelled" | "draft") => {
+    setBulkBusy(true);
+    try {
+      for (const p of selectedPurchases) {
+        if (p.status === status) continue;
+        const { error } = await supabase.from("purchases").update({ status }).eq("id", p.id);
+        if (error) throw error;
+      }
+      qc.invalidateQueries({ queryKey: ["purchases"] });
+      qc.invalidateQueries({ queryKey: ["inventory"] });
+      toast.success(`${selectedPurchases.length} purchase(s) marked ${status}`);
+      setSelected([]);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Bulk update failed");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const bulkDelete = async () => {
+    setBulkBusy(true);
+    try {
+      for (const p of selectedPurchases) {
+        await deletePurchase.mutateAsync(p.id);
+      }
+      setSelected([]);
+    } finally {
+      setBulkBusy(false);
+    }
+  };
 
   return (
     <div className="space-y-3 sm:space-y-4">
@@ -101,9 +142,12 @@ const Purchases = () => {
         </TabsList>
 
         <TabsContent value="orders" className="space-y-3">
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <Button size="sm" variant="outline" onClick={exportCsv} disabled={filteredPurchases.length === 0}>
               <Download className="mr-2 h-4 w-4" /> Export CSV
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => exportPurchasesToExcel(filteredPurchases)} disabled={filteredPurchases.length === 0}>
+              <FileSpreadsheet className="mr-2 h-4 w-4" /> Export Excel
             </Button>
             {canCreate && (
               <Button size="sm" onClick={() => navigate("/purchases/new")}>
@@ -111,6 +155,49 @@ const Purchases = () => {
               </Button>
             )}
           </div>
+
+          {selected.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2">
+              <span className="text-sm font-medium">{selected.length} selected</span>
+              <div className="flex-1" />
+              <Button size="sm" variant="outline" disabled={bulkBusy} onClick={() => exportPurchasesToExcel(selectedPurchases, `purchases-selected-${format(new Date(), "yyyy-MM-dd")}.xlsx`)}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" /> Export Excel
+              </Button>
+              {canEdit && (
+                <>
+                  <Button size="sm" variant="outline" disabled={bulkBusy} onClick={() => bulkSetStatus("received")}>
+                    <CheckCircle2 className="mr-2 h-4 w-4" /> Mark Received
+                  </Button>
+                  <Button size="sm" variant="outline" disabled={bulkBusy} onClick={() => bulkSetStatus("cancelled")}>
+                    <XCircle className="mr-2 h-4 w-4" /> Cancel
+                  </Button>
+                </>
+              )}
+              {canDelete && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button size="sm" variant="destructive" disabled={bulkBusy}>
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete {selected.length} purchase(s)?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This is irreversible. Stock added by received purchases will be removed from inventory and any linked supplier payments will be deleted.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={bulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+              <Button size="sm" variant="ghost" onClick={() => setSelected([])}>Clear</Button>
+            </div>
+          )}
+
 
       <Card>
         <CardHeader className="pb-3">
