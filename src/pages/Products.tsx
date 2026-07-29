@@ -727,7 +727,7 @@ const Products = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Bulk Update {selectedIds.size} product{selectedIds.size > 1 ? "s" : ""}</AlertDialogTitle>
             <AlertDialogDescription>
-              Pick a Category and/or Unit to apply to all selected products. Leave a field empty to keep it unchanged.
+              Pick a Category, Unit and/or Low Stock Threshold to apply to all selected products. Leave a field empty to keep it unchanged.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-3 py-2">
@@ -753,10 +753,22 @@ const Products = () => {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Low Stock Threshold</label>
+              <Input
+                type="number"
+                min={0}
+                value={bulkThreshold}
+                onChange={(e) => setBulkThreshold(e.target.value)}
+                placeholder="Keep unchanged"
+              />
+              <p className="text-xs text-muted-foreground">Applies to stock records of the selected products in all locations.</p>
+            </div>
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleBulkUpdate} disabled={bulkUpdating || (!bulkCategoryId && !bulkUnitId)}>
+            <AlertDialogAction onClick={handleBulkUpdate} disabled={bulkUpdating || (!bulkCategoryId && !bulkUnitId && bulkThreshold.trim() === "")}>
+
               {bulkUpdating ? "Updating..." : "Apply"}
             </AlertDialogAction>
           </AlertDialogFooter>
