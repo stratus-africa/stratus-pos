@@ -45,7 +45,7 @@ export function TopBar() {
 
   return (
     <>
-      <header className="h-14 flex items-center justify-between border-b border-border bg-white px-4 sm:px-6 shrink-0 sticky top-0 z-20">
+      <header className="h-14 min-h-14 max-h-14 flex items-center justify-between gap-2 border-b border-border bg-white px-3 sm:px-6 shrink-0 sticky top-0 z-20 overflow-hidden">
         <div className="flex items-center gap-3">
           <span className="portrait:max-md:hidden"><SidebarTrigger /></span>
           {business && (
