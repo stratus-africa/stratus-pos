@@ -208,6 +208,7 @@ export function useSales() {
       // Bank transactions referencing this sale are removed automatically by a database trigger.
       await supabase.from("payments").delete().eq("sale_id", id);
       await supabase.from("sale_items").delete().eq("sale_id", id);
+      await supabase.from("stock_adjustments").delete().eq("sale_id", id);
       const { error } = await supabase.from("sales").delete().eq("id", id);
       if (error) throw error;
 
