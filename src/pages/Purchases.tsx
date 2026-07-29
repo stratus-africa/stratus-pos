@@ -226,11 +226,15 @@ const Purchases = () => {
               filteredPurchases.map((p) => (
                 <div key={p.id} className="p-3 space-y-2">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="font-medium text-sm truncate">{p.invoice_number || p.id.slice(0, 8)}</div>
-                      <div className="text-xs text-muted-foreground truncate">{p.suppliers?.name || "—"} · {p.locations?.name || "—"}</div>
-                      <div className="text-[11px] text-muted-foreground">{new Date(p.created_at).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })}</div>
+                    <div className="flex min-w-0 gap-2">
+                      <Checkbox className="mt-1" checked={selected.includes(p.id)} onCheckedChange={(c) => toggleOne(p.id, !!c)} aria-label="Select purchase" />
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm truncate">{p.invoice_number || p.id.slice(0, 8)}</div>
+                        <div className="text-xs text-muted-foreground truncate">{p.suppliers?.name || "—"} · {p.locations?.name || "—"}</div>
+                        <div className="text-[11px] text-muted-foreground">{new Date(p.created_at).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })}</div>
+                      </div>
                     </div>
+
                     <div className="text-right shrink-0">
                       <div className="font-semibold text-sm">{formatKES(p.total)}</div>
                       <div className="flex gap-1 justify-end mt-1">{paymentBadge(p.payment_status)}</div>
