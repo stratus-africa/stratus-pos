@@ -3971,6 +3971,10 @@ export type Database = {
         Args: { _business_id: string; _reference: string }
         Returns: undefined
       }
+      acct_vat_enabled: {
+        Args: { _business_id: string; _journal: string }
+        Returns: boolean
+      }
       add_tenant_internal_note: {
         Args: { _business_id: string; _note: string }
         Returns: undefined
