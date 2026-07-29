@@ -456,7 +456,7 @@ export function usePurchases() {
             total: purchaseSnap.total,
             prior_status: purchaseSnap.status,
             supplier: (purchaseSnap as { suppliers?: { name?: string } }).suppliers?.name || null,
-            purchase_date: purchaseSnap.date,
+            purchase_date: (purchaseSnap as { purchase_date?: string | null }).purchase_date ?? null,
             inventory_reversed: purchaseSnap.status === "received",
             items_count: itemsCount || 0,
             deleted_at: new Date().toISOString(),
