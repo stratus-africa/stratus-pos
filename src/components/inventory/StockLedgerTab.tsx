@@ -138,23 +138,33 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
       const rows = (data || []) as unknown as LedgerRow[];
 
       // stock_adjustments has no FK to purchases/sales, so resolve references separately.
+      // Hide movements whose parent transaction has been deleted.
       const purchaseIds = [...new Set(rows.map((r) => r.purchase_id).filter(Boolean))] as string[];
       const saleIds = [...new Set(rows.map((r) => r.sale_id).filter(Boolean))] as string[];
       const [purchaseRes, saleRes] = await Promise.all([
         purchaseIds.length
-          ? supabase.from("purchases").select("id, invoice_number").in("id", purchaseIds)
-          : Promise.resolve({ data: [] as { id: string; invoice_number: string | null }[] }),
+          ? supabase.from("purchases").select("id, invoice_number, deleted_at").in("id", purchaseIds)
+          : Promise.resolve({ data: [] as { id: string; invoice_number: string | null; deleted_at: string | null }[] }),
         saleIds.length
           ? supabase.from("sales").select("id, invoice_number").in("id", saleIds)
           : Promise.resolve({ data: [] as { id: string; invoice_number: string | null }[] }),
       ]);
-      const pMap = new Map((purchaseRes.data || []).map((p) => [p.id, p.invoice_number]));
+      const pMap = new Map((purchaseRes.data || []).map((p) => [p.id, p]));
       const sMap = new Map((saleRes.data || []).map((s) => [s.id, s.invoice_number]));
-      for (const r of rows) {
-        if (r.purchase_id) r.purchases = { invoice_number: pMap.get(r.purchase_id) ?? null };
+      const visibleRows = rows.filter((r) => {
+        if (r.purchase_id) {
+          const p = pMap.get(r.purchase_id);
+          if (!p || p.deleted_at) return false;
+        }
+        if (r.sale_id && !sMap.has(r.sale_id)) return false;
+        if (r.document_id && !r.stock_adjustment_documents) return false;
+        return true;
+      });
+      for (const r of visibleRows) {
+        if (r.purchase_id) r.purchases = { invoice_number: pMap.get(r.purchase_id)?.invoice_number ?? null };
         if (r.sale_id) r.sales = { invoice_number: sMap.get(r.sale_id) ?? null };
       }
-      return { rows, count: count ?? 0 };
+      return { rows: visibleRows, count: Math.max(0, (count ?? 0) - (rows.length - visibleRows.length)) };
 
     },
     enabled: !!business,
