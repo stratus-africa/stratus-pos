@@ -413,8 +413,8 @@ export function usePurchases() {
   });
 
   /**
-   * Soft delete: the purchase is hidden and its stock is reversed by DB triggers
-   * (deleted_at makes the purchase stop posting stock). It can be restored later.
+   * Permanent delete: purchase items and the purchase row are removed. DB triggers
+   * reverse any received stock. There is no undo.
    */
   const deletePurchase = useMutation({
     mutationFn: async (id: string) => {
@@ -428,15 +428,8 @@ export function usePurchases() {
         .from("purchase_items")
         .select("quantity, quantity_received, unit_cost, total, products(name, sku)")
         .eq("purchase_id", id);
-      const { data: userRes } = await supabase.auth.getUser();
 
-      const { error } = await supabase
-        .from("purchases")
-        .update({ deleted_at: new Date().toISOString(), deleted_by: userRes?.user?.id ?? null })
-        .eq("id", id);
-      if (error) throw error;
-
-      // Hide the related stock movement log entries from reports.
+      // Remove the related stock movement log entries.
       await supabase.from("stock_adjustments").delete().eq("purchase_id", id);
 
       // Also remove legacy log rows that were created before purchase_id was populated.
@@ -448,20 +441,26 @@ export function usePurchases() {
           .ilike("notes", `Purchase #${purchaseSnap.invoice_number}`);
       }
 
+      const { error: iError } = await supabase.from("purchase_items").delete().eq("purchase_id", id);
+      if (iError) throw iError;
+
+      const { error } = await supabase.from("purchases").delete().eq("id", id);
+      if (error) throw error;
+
       if (purchaseSnap) {
         await logAudit({
           business_id: business.id,
           action: "purchase_deleted",
           entity_type: "purchase",
           entity_id: id,
-          description: `Deleted (recoverable) purchase ${purchaseSnap.invoice_number || id.slice(0, 8)}${
+          description: `Permanently deleted purchase ${purchaseSnap.invoice_number || id.slice(0, 8)}${
             purchaseSnap.status === "received" ? " — received stock reversed" : ""
           }`,
           metadata: {
             invoice_number: purchaseSnap.invoice_number,
             total: purchaseSnap.total,
             prior_status: purchaseSnap.status,
-            soft_delete: true,
+            soft_delete: false,
             inventory_reversed: purchaseSnap.status === "received",
             items_count: itemsSnap?.length || 0,
             snapshot: { purchase: purchaseSnap, items: itemsSnap || [] },
@@ -471,85 +470,15 @@ export function usePurchases() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["purchases"] });
-      qc.invalidateQueries({ queryKey: ["purchases_deleted"] });
       qc.invalidateQueries({ queryKey: ["inventory"] });
       qc.invalidateQueries({ queryKey: ["stock_adjustments"] });
       qc.invalidateQueries({ queryKey: ["stock_reconciliation"] });
       qc.invalidateQueries({ queryKey: ["audit_logs"] });
-      toast.success("Purchase deleted — you can restore it from Deleted");
-    },
-    onError: (e) => toast.error(e.message),
-  });
-
-  /** Restore a soft-deleted purchase; triggers re-apply its received stock. */
-  const restorePurchase = useMutation({
-    mutationFn: async (id: string) => {
-      if (!business) throw new Error("No business");
-      const { data: purchaseSnap } = await supabase
-        .from("purchases")
-        .select("status, invoice_number, location_id, created_by")
-        .eq("id", id)
-        .maybeSingle();
-      const { data: items } = await supabase
-        .from("purchase_items")
-        .select("product_id, quantity, quantity_received, unit_cost, total, tax_rate_id")
-        .eq("purchase_id", id);
-      const { error } = await supabase
-        .from("purchases")
-        .update({ deleted_at: null, deleted_by: null })
-        .eq("id", id);
-      if (error) throw error;
-
-      // Re-create the stock movement log entries so the movement report shows them again.
-      if (purchaseSnap && purchaseSnap.status !== "draft" && purchaseSnap.status !== "cancelled" && items && items.length > 0) {
-        await logStockMovements(
-          items,
-          purchaseSnap.location_id,
-          purchaseSnap.created_by,
-          purchaseSnap.invoice_number || id.slice(0, 8),
-          id,
-          purchaseSnap.status,
-        );
-      }
-
-      await logAudit({
-        business_id: business.id,
-        action: "purchase_restored",
-        entity_type: "purchase",
-        entity_id: id,
-        description: `Restored purchase ${id.slice(0, 8)} — received stock re-applied`,
-        metadata: { restored: true },
-      });
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["purchases"] });
-      qc.invalidateQueries({ queryKey: ["purchases_deleted"] });
-      qc.invalidateQueries({ queryKey: ["inventory"] });
-      qc.invalidateQueries({ queryKey: ["stock_adjustments"] });
-      qc.invalidateQueries({ queryKey: ["stock_reconciliation"] });
-      qc.invalidateQueries({ queryKey: ["audit_logs"] });
-      toast.success("Purchase restored");
-    },
-    onError: (e) => toast.error(e.message),
-  });
-
-  /** Permanently remove a soft-deleted purchase (no undo). */
-  const purgePurchase = useMutation({
-    mutationFn: async (id: string) => {
-      await supabase.from("stock_adjustments").delete().eq("purchase_id", id);
-      const { error: iError } = await supabase.from("purchase_items").delete().eq("purchase_id", id);
-      if (iError) throw iError;
-      const { error } = await supabase.from("purchases").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["purchases_deleted"] });
-      qc.invalidateQueries({ queryKey: ["inventory"] });
-      qc.invalidateQueries({ queryKey: ["stock_adjustments"] });
       toast.success("Purchase permanently deleted");
     },
     onError: (e) => toast.error(e.message),
   });
+
 
   const getPurchaseItems = async (purchaseId: string) => {
     const { data, error } = await supabase
