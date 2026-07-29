@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, AlertCircle, UserPlus, ArrowLeft, ScanLine, Ban } from "lucide-react";
 import { toast } from "sonner";
-import { useSuppliers, usePurchases, type PurchaseItem } from "@/hooks/usePurchases";
+import { useSuppliers, usePurchases, MAX_LINE_QTY, type PurchaseItem } from "@/hooks/usePurchases";
 import { useProducts } from "@/hooks/useProducts";
 import { useTaxRates } from "@/hooks/useTaxRates";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
@@ -132,9 +132,11 @@ export default function PurchaseEditor() {
 
   // Editable fields: qty, unit_cost, total. When qty or unit_cost changes, total = qty * unit_cost.
   // When total changes, unit_cost = total / qty (qty stays fixed).
-  const updateItem = (idx: number, field: "quantity" | "unit_cost" | "total" | "quantity_received", value: number) => {
+  const updateItem = (idx: number, field: "quantity" | "unit_cost" | "total" | "quantity_received", rawValue: number) => {
     const updated = [...items];
     const row = { ...updated[idx] };
+    // Guard against scanner/typo values (e.g. a barcode typed into the qty box).
+    const value = Number.isFinite(rawValue) && Math.abs(rawValue) <= MAX_LINE_QTY ? rawValue : 0;
     if (field === "quantity_received") {
       row.quantity_received = Math.max(0, value);
     } else if (field === "quantity") {

@@ -107,10 +107,21 @@ export function useSuppliers() {
  * Only "received"-type purchases post stock; drafts/cancelled post nothing.
  * When no explicit received qty is supplied, a received purchase posts the full ordered qty.
  */
+/** Largest quantity we accept for a single line — anything above is scanner/typo garbage. */
+export const MAX_LINE_QTY = 1_000_000;
+
+/** Coerce a quantity to a safe finite number, rejecting scanned-barcode style values. */
+export function safeQty(value: unknown): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  if (Math.abs(n) > MAX_LINE_QTY) return 0;
+  return n;
+}
+
 export function resolveReceived(item: PurchaseItem, status: string): number {
   if (status === "draft" || status === "cancelled") return 0;
   const r = item.quantity_received;
-  return r === undefined || r === null ? Number(item.quantity || 0) : Math.max(0, Number(r));
+  return r === undefined || r === null ? safeQty(item.quantity) : Math.max(0, safeQty(r));
 }
 
 export function usePurchases() {
@@ -456,7 +467,14 @@ export function usePurchases() {
       qc.invalidateQueries({ queryKey: ["purchases"] });
       qc.invalidateQueries({ queryKey: ["inventory"] });
       qc.invalidateQueries({ queryKey: ["stock_adjustments"] });
+      qc.invalidateQueries({ queryKey: ["stock_ledger"] });
+      qc.invalidateQueries({ queryKey: ["stock_ledger_summary"] });
       qc.invalidateQueries({ queryKey: ["stock_reconciliation"] });
+      qc.invalidateQueries({ queryKey: ["journal_entries"] });
+      qc.invalidateQueries({ queryKey: ["journal_entry_lines"] });
+      qc.invalidateQueries({ queryKey: ["profit_loss"] });
+      qc.invalidateQueries({ queryKey: ["bank_accounts"] });
+      qc.invalidateQueries({ queryKey: ["bank_transactions"] });
       qc.invalidateQueries({ queryKey: ["audit_logs"] });
       toast.success("Purchase permanently deleted");
     },

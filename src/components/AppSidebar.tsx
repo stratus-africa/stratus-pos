@@ -238,16 +238,16 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b border-sidebar-border px-4 h-14 flex items-center shrink-0">
-        <div className="flex items-center gap-2.5">
+      <SidebarHeader className="border-b border-sidebar-border px-2 sm:px-3 h-14 min-h-14 max-h-14 flex items-center shrink-0 overflow-hidden">
+        <div className="flex items-center gap-2.5 w-full min-w-0 flex-nowrap">
           <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-xs shrink-0">
             <Store className="h-4 w-4" />
           </div>
           {!collapsed && (
-            <div className="flex flex-col min-w-0">
-              <span className="text-base font-bold tracking-tight text-sidebar-foreground">StratusPOS</span>
+            <div className="flex flex-col min-w-0 leading-tight">
+              <span className="text-base font-bold tracking-tight text-sidebar-foreground truncate">StratusPOS</span>
               {business && (
-                <span className="text-xs text-muted-foreground truncate max-w-[140px]">
+                <span className="text-xs text-muted-foreground truncate">
                   {business.name}
                 </span>
               )}
