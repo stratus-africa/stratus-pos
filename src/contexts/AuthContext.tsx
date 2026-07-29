@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { validateSignupEmail } from "@/lib/disposableEmails";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -35,6 +36,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signUp = async (email: string, password: string, fullName: string) => {
+    const emailError = validateSignupEmail(email);
+    if (emailError) return { error: new Error(emailError) };
     const { error } = await supabase.auth.signUp({
       email,
       password,

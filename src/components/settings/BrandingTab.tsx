@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Save, Loader2, Palette, Image as ImageIcon, Upload, Trash2 } from "lucide-react";
+import { Save, Loader2, Palette, Image as ImageIcon, Upload, Trash2, Check } from "lucide-react";
 import { THEMES, DEFAULT_THEME, applyTheme, type ThemeKey } from "@/lib/themes";
 
 export function BrandingTab() {
@@ -127,26 +127,60 @@ export function BrandingTab() {
             <Palette className="h-5 w-5" />
             Appearance
           </CardTitle>
-          <CardDescription>Pick a brand color. Alternating table rows use a lighter shade of this color.</CardDescription>
+          <CardDescription>
+            Pick a brand color. It drives buttons, highlights, alternating table rows and the sidebar.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {Object.values(THEMES).map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => { setThemeColor(t.key); applyTheme(t.key); }}
-                className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-colors ${
-                  themeColor === t.key ? "border-primary ring-2 ring-primary/20" : "border-border hover:border-primary/40"
-                }`}
-              >
-                <span className="h-8 w-8 rounded-full border" style={{ backgroundColor: t.swatch }} />
-                <span className="text-sm font-medium">{t.label}</span>
-              </button>
-            ))}
+        <CardContent className="space-y-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {Object.values(THEMES).map((t) => {
+              const active = themeColor === t.key;
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => { setThemeColor(t.key); applyTheme(t.key); }}
+                  className={`group relative flex flex-col gap-2 rounded-xl border-2 p-3 text-left transition-all ${
+                    active ? "border-primary shadow-md" : "border-border hover:border-primary/40 hover:shadow-sm"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="h-9 w-9 rounded-lg border shadow-inner shrink-0"
+                      style={{ backgroundColor: t.swatch }}
+                    />
+                    <span className="flex flex-col min-w-0">
+                      <span className="text-sm font-medium truncate">{t.label}</span>
+                      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{t.swatch}</span>
+                    </span>
+                  </span>
+                  {/* Mini preview: sidebar + content */}
+                  <span className="flex h-8 overflow-hidden rounded-md border">
+                    <span className="w-1/3 flex flex-col justify-center gap-1 px-1" style={{ backgroundColor: t.swatch }}>
+                      <span className="h-1 w-full rounded-full bg-white/80" />
+                      <span className="h-1 w-2/3 rounded-full bg-white/50" />
+                    </span>
+                    <span className="flex-1 bg-background flex flex-col justify-center gap-1 px-1">
+                      <span className="h-1 w-3/4 rounded-full bg-muted-foreground/30" />
+                      <span className="h-1 w-1/2 rounded-full" style={{ backgroundColor: t.swatch, opacity: 0.6 }} />
+                    </span>
+                  </span>
+                  {active && (
+                    <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                      <Check className="h-3 w-3" />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
+          <p className="text-xs text-muted-foreground">
+            The sidebar uses this color with white text. Changes preview instantly — click Save to keep them.
+          </p>
         </CardContent>
       </Card>
+
 
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={saving}>

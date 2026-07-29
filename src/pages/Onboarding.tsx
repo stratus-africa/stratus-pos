@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { validateSignupEmail } from "@/lib/disposableEmails";
 import { Link, Navigate, useNavigate } from "@/lib/router-compat";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -168,6 +169,8 @@ const RegistrationForm = ({ hasUser }: { hasUser: boolean }) => {
 
     // Step 1: create the auth account if we don't have one yet
     if (!hasUser) {
+      const emailError = validateSignupEmail(email);
+      if (emailError) { toast.error(emailError); setSubmitting(false); return; }
       if (password !== confirm) { toast.error("Passwords do not match"); setSubmitting(false); return; }
       if (password.length < 8) { toast.error("Password must be at least 8 characters"); setSubmitting(false); return; }
 
