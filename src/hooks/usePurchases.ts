@@ -467,7 +467,14 @@ export function usePurchases() {
       qc.invalidateQueries({ queryKey: ["purchases"] });
       qc.invalidateQueries({ queryKey: ["inventory"] });
       qc.invalidateQueries({ queryKey: ["stock_adjustments"] });
+      qc.invalidateQueries({ queryKey: ["stock_ledger"] });
+      qc.invalidateQueries({ queryKey: ["stock_ledger_summary"] });
       qc.invalidateQueries({ queryKey: ["stock_reconciliation"] });
+      qc.invalidateQueries({ queryKey: ["journal_entries"] });
+      qc.invalidateQueries({ queryKey: ["journal_entry_lines"] });
+      qc.invalidateQueries({ queryKey: ["profit_loss"] });
+      qc.invalidateQueries({ queryKey: ["bank_accounts"] });
+      qc.invalidateQueries({ queryKey: ["bank_transactions"] });
       qc.invalidateQueries({ queryKey: ["audit_logs"] });
       toast.success("Purchase permanently deleted");
     },
