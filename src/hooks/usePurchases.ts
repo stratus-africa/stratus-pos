@@ -202,7 +202,7 @@ export function usePurchases() {
       }
 
       if (purchase.status !== "draft" && purchase.status !== "cancelled") {
-        await updateInventoryForItems(items, purchase.location_id, purchase.created_by, purchase.invoice_number || purchaseId.slice(0, 8));
+        await logStockMovements(items, purchase.location_id, purchase.created_by, purchase.invoice_number || purchaseId.slice(0, 8));
       }
 
       if (paidThrough && paidThrough.amount > 0) {
