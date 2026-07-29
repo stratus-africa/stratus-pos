@@ -28,7 +28,7 @@ const Purchases = () => {
   const canEdit = hasPermission("purchases.edit");
   const canDelete = hasPermission("purchases.delete");
   const canCreate = hasPermission("purchases.create");
-  const { query: purchasesQuery, deletedQuery, deletePurchase, restorePurchase, purgePurchase } = usePurchases();
+  const { query: purchasesQuery, deletePurchase } = usePurchases();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
