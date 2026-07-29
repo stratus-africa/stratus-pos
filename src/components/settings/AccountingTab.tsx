@@ -21,6 +21,7 @@ import {
   MONTH_NAMES,
   type AccountingSettings,
 } from "@/hooks/useAccountingSettings";
+import AccountMappingsCard from "@/components/settings/AccountMappingsCard";
 
 export function AccountingTab() {
   const { query, save, settings } = useAccountingSettings();
