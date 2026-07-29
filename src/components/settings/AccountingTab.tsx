@@ -21,6 +21,7 @@ import {
   MONTH_NAMES,
   type AccountingSettings,
 } from "@/hooks/useAccountingSettings";
+import AccountMappingsCard from "@/components/settings/AccountMappingsCard";
 
 export function AccountingTab() {
   const { query, save, settings } = useAccountingSettings();
@@ -209,6 +210,8 @@ export function AccountingTab() {
           </div>
         </CardContent>
       </Card>
+
+      <AccountMappingsCard />
 
       <div className="flex items-center justify-end gap-3">
         {hasErrors && (

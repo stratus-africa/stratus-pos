@@ -156,6 +156,41 @@ const Reports = () => {
     enabled: !!business && canPurchases,
   });
 
+  const pnlExtras = useQuery({
+    queryKey: ["report-pnl-extras", business?.id, from, to],
+    queryFn: async () => {
+      if (!business) return { purchasesCost: 0, adjustmentsCost: 0 };
+      const [purRes, adjRes] = await Promise.all([
+        supabase
+          .from("purchases")
+          .select("total")
+          .eq("business_id", business.id)
+          .eq("status", "received")
+          .is("deleted_at", null)
+          .gte("created_at", `${from}T00:00:00`)
+          .lte("created_at", `${to}T23:59:59`),
+        supabase
+          .from("stock_adjustments")
+          .select("quantity_change, products(purchase_price), locations!inner(business_id)")
+          .eq("locations.business_id", business.id)
+          .is("purchase_id", null)
+          .is("sale_id", null)
+          .gte("created_at", `${from}T00:00:00`)
+          .lte("created_at", `${to}T23:59:59`),
+      ]);
+      if (purRes.error) throw purRes.error;
+      if (adjRes.error) throw adjRes.error;
+      const purchasesCost = (purRes.data || []).reduce((s: number, p: any) => s + Number(p.total || 0), 0);
+      // Negative stock movements are a cost, positive movements reduce cost
+      const adjustmentsCost = (adjRes.data || []).reduce(
+        (s: number, a: any) => s - Number(a.quantity_change || 0) * Number(a.products?.purchase_price || 0),
+        0,
+      );
+      return { purchasesCost, adjustmentsCost };
+    },
+    enabled: !!business && canPnL,
+  });
+
   const auditReport = useQuery({
     queryKey: ["report-audit", business?.id, from, to],
     queryFn: async () => {
@@ -322,7 +357,7 @@ const Reports = () => {
           {canPnL && (
             <TabsContent value="pnl" className="mt-0">
               <RequireFeature featureKey="accounting">
-                <PnLReportTab totalRevenue={totalRevenue} totalCOGS={totalCOGS} grossProfit={grossProfit} totalExpenses={totalExpenses} netProfit={netProfit} expenseByCategory={expenseByCategory} from={from} to={to} loading={loading} />
+                <PnLReportTab totalRevenue={totalRevenue} totalCOGS={totalCOGS} grossProfit={grossProfit} totalExpenses={totalExpenses} netProfit={netProfit} expenseByCategory={expenseByCategory} purchasesCost={pnlExtras.data?.purchasesCost || 0} adjustmentsCost={pnlExtras.data?.adjustmentsCost || 0} from={from} to={to} loading={loading || pnlExtras.isLoading} />
               </RequireFeature>
             </TabsContent>
           )}
