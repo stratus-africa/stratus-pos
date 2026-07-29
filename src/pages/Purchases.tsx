@@ -8,10 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Eye, Download } from "lucide-react";
 import { usePurchases, type Purchase } from "@/hooks/usePurchases";
 import { useSupplierPayments } from "@/hooks/useSupplierPayments";
 import { SupplierPaymentDialog } from "@/components/purchases/SupplierPaymentDialog";
+import { PurchaseDetailDialog } from "@/components/purchases/PurchaseDetailDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { format } from "date-fns";
 
@@ -56,6 +57,32 @@ const Purchases = () => {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const payments = paymentsQuery.data || [];
 
+  const [viewing, setViewing] = useState<Purchase | null>(null);
+
+  const exportCsv = () => {
+    const headers = ["Date", "Invoice #", "Supplier", "Location", "Subtotal", "VAT", "Total", "Payment", "Status"];
+    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const rows = filteredPurchases.map((p) => [
+      format(new Date(p.created_at), "yyyy-MM-dd"),
+      p.invoice_number || p.id.slice(0, 8),
+      p.suppliers?.name || "",
+      p.locations?.name || "",
+      Number(p.subtotal || 0).toFixed(2),
+      Number(p.tax || 0).toFixed(2),
+      Number(p.total || 0).toFixed(2),
+      p.payment_status,
+      p.status,
+    ]);
+    const csv = [headers, ...rows].map((r) => r.map(esc).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `purchases-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+
   return (
     <div className="space-y-3 sm:space-y-4">
       <div className="flex items-center justify-between gap-2">
@@ -69,7 +96,10 @@ const Purchases = () => {
         </TabsList>
 
         <TabsContent value="orders" className="space-y-3">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button size="sm" variant="outline" onClick={exportCsv} disabled={filteredPurchases.length === 0}>
+              <Download className="mr-2 h-4 w-4" /> Export CSV
+            </Button>
             {canCreate && (
               <Button size="sm" onClick={() => navigate("/purchases/new")}>
                 <Plus className="mr-2 h-4 w-4" /> New Purchase
@@ -117,6 +147,7 @@ const Purchases = () => {
                   <div className="flex items-center justify-between">
                     {statusBadge(p.status)}
                     <div className="flex gap-1">
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setViewing(p)}><Eye className="h-4 w-4" /></Button>
                       {canEdit && (
                         <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => navigate(`/purchases/${p.id}/edit`)}><Pencil className="h-4 w-4" /></Button>
                       )}
@@ -178,6 +209,7 @@ const Purchases = () => {
                       <TableCell>{statusBadge(p.status)}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => setViewing(p)}><Eye className="h-4 w-4" /></Button>
                           {canEdit && (
                             <Button size="icon" variant="ghost" onClick={() => navigate(`/purchases/${p.id}/edit`)}><Pencil className="h-4 w-4" /></Button>
                           )}
@@ -274,6 +306,13 @@ const Purchases = () => {
       </Tabs>
 
       <SupplierPaymentDialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen} />
+
+      <PurchaseDetailDialog
+        purchase={viewing}
+        open={!!viewing}
+        onOpenChange={(o) => { if (!o) setViewing(null); }}
+        onEdit={canEdit ? (p) => { setViewing(null); navigate(`/purchases/${p.id}/edit`); } : undefined}
+      />
     </div>
   );
 };
