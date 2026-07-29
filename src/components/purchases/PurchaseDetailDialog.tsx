@@ -94,8 +94,8 @@ export function PurchaseDetailDialog({
       <div class="head">
         <div>
           <h1>${escapeHtml(business?.name || "Purchase Order")}</h1>
-          <div class="muted">${escapeHtml(business?.address || "")}</div>
-          <div class="muted">${escapeHtml(business?.phone || "")}${business?.email ? " · " + escapeHtml(business.email) : ""}</div>
+          <div class="muted">${business?.kra_pin ? "KRA PIN: " + escapeHtml(business.kra_pin) : ""}</div>
+
         </div>
         <div style="text-align:right">
           <h1>PURCHASE</h1>
