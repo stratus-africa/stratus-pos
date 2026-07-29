@@ -180,7 +180,9 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
       for (let offset = 0; offset < 20000; offset += chunk) {
         let q = supabase
           .from("stock_adjustments")
-          .select("id, created_at, quantity_change, reason, notes, purchase_id, sale_id, document_id, product_id, location_id, products(name, barcode)")
+          .select(
+            "id, created_at, quantity_change, reason, notes, purchase_id, sale_id, document_id, product_id, location_id, products(name, barcode), stock_adjustment_documents(reference)",
+          )
           .order("created_at", { ascending: false });
         if (loc !== "all") q = q.eq("location_id", loc);
         if (from) q = q.gte("created_at", `${from}T00:00:00`);
@@ -193,7 +195,29 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
         all.push(...batch);
         if (batch.length < chunk) break;
       }
-      return all;
+
+      // Hide movements whose parent transaction has been deleted.
+      const purchaseIds = [...new Set(all.map((r) => r.purchase_id).filter(Boolean))] as string[];
+      const saleIds = [...new Set(all.map((r) => r.sale_id).filter(Boolean))] as string[];
+      const [purchaseRes, saleRes] = await Promise.all([
+        purchaseIds.length
+          ? supabase.from("purchases").select("id, deleted_at").in("id", purchaseIds)
+          : Promise.resolve({ data: [] as { id: string; deleted_at: string | null }[] }),
+        saleIds.length
+          ? supabase.from("sales").select("id").in("id", saleIds)
+          : Promise.resolve({ data: [] as { id: string }[] }),
+      ]);
+      const pMap = new Map((purchaseRes.data || []).map((p) => [p.id, p.deleted_at]));
+      const sSet = new Set((saleRes.data || []).map((s) => s.id));
+      return all.filter((r) => {
+        if (r.purchase_id) {
+          const deletedAt = pMap.get(r.purchase_id);
+          if (deletedAt === undefined || deletedAt !== null) return false;
+        }
+        if (r.sale_id && !sSet.has(r.sale_id)) return false;
+        if (r.document_id && !r.stock_adjustment_documents) return false;
+        return true;
+      });
     },
     enabled: !!business,
   });
