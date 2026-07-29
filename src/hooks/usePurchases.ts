@@ -34,6 +34,8 @@ export interface Purchase {
   notes: string | null;
   created_by: string;
   created_at: string;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
   suppliers?: { name: string } | null;
   locations?: { name: string } | null;
 }
@@ -42,6 +44,8 @@ export interface PurchaseItem {
   id?: string;
   product_id: string;
   quantity: number;
+  /** Units actually received into stock so far (partial receiving). */
+  quantity_received?: number;
   unit_cost: number;
   total: number;
   tax_rate_id?: string | null;
@@ -98,6 +102,17 @@ export function useSuppliers() {
   return { query, create, update, remove };
 }
 
+/**
+ * Received quantity actually posted to stock for a line.
+ * Only "received"-type purchases post stock; drafts/cancelled post nothing.
+ * When no explicit received qty is supplied, a received purchase posts the full ordered qty.
+ */
+export function resolveReceived(item: PurchaseItem, status: string): number {
+  if (status === "draft" || status === "cancelled") return 0;
+  const r = item.quantity_received;
+  return r === undefined || r === null ? Number(item.quantity || 0) : Math.max(0, Number(r));
+}
+
 export function usePurchases() {
   const { business } = useBusiness();
   const qc = useQueryClient();
@@ -126,7 +141,25 @@ export function usePurchases() {
         .from("purchases")
         .select("*, suppliers(name), locations(name)")
         .eq("business_id", business.id)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as Purchase[];
+    },
+    enabled: !!business,
+  });
+
+  // Soft-deleted purchases (recycle bin)
+  const deletedQuery = useQuery({
+    queryKey: ["purchases_deleted", business?.id],
+    queryFn: async () => {
+      if (!business) return [];
+      const { data, error } = await supabase
+        .from("purchases")
+        .select("*, suppliers(name), locations(name)")
+        .eq("business_id", business.id)
+        .not("deleted_at", "is", null)
+        .order("deleted_at", { ascending: false });
       if (error) throw error;
       return data as Purchase[];
     },
@@ -197,7 +230,15 @@ export function usePurchases() {
       if (items.length > 0) {
         const { error: iError } = await supabase
           .from("purchase_items")
-          .insert(items.map((i) => ({ purchase_id: purchaseId, product_id: i.product_id, quantity: i.quantity, unit_cost: i.unit_cost, total: i.total, tax_rate_id: i.tax_rate_id ?? null })));
+          .insert(items.map((i) => ({
+            purchase_id: purchaseId,
+            product_id: i.product_id,
+            quantity: i.quantity,
+            quantity_received: resolveReceived(i, purchase.status),
+            unit_cost: i.unit_cost,
+            total: i.total,
+            tax_rate_id: i.tax_rate_id ?? null,
+          })));
         if (iError) throw iError;
       }
 
@@ -283,7 +324,15 @@ export function usePurchases() {
       if (items.length > 0) {
         const { error: iError } = await supabase
           .from("purchase_items")
-          .insert(items.map((i) => ({ purchase_id: id, product_id: i.product_id, quantity: i.quantity, unit_cost: i.unit_cost, total: i.total, tax_rate_id: i.tax_rate_id ?? null })));
+          .insert(items.map((i) => ({
+            purchase_id: id,
+            product_id: i.product_id,
+            quantity: i.quantity,
+            quantity_received: resolveReceived(i, purchase.status),
+            unit_cost: i.unit_cost,
+            total: i.total,
+            tax_rate_id: i.tax_rate_id ?? null,
+          })));
         if (iError) throw iError;
       }
 
