@@ -563,7 +563,7 @@ export default function PurchaseEditor() {
                           <Input type="number" min={0} step={0.01} value={item.unit_cost} onChange={(e) => updateItem(idx, "unit_cost", parseFloat(e.target.value) || 0)} className="h-8" />
                         </TableCell>
                         <TableCell>
-                          <Input type="number" min={0} step={0.01} value={item.total} onChange={(e) => updateItem(idx, "total", parseFloat(e.target.value) || 0)} className="h-8" />
+                          <Input type="number" min={0} step={0.01} value={Number(item.total || 0).toFixed(2)} onChange={(e) => updateItem(idx, "total", parseFloat(e.target.value) || 0)} className="h-8" />
                         </TableCell>
                         {vatEnabled && (
                           <TableCell>
