@@ -210,6 +210,8 @@ export function AccountingTab() {
         </CardContent>
       </Card>
 
+      <AccountMappingsCard />
+
       <div className="flex items-center justify-end gap-3">
         {hasErrors && (
           <p className="text-xs text-destructive">Fix the highlighted settings before saving.</p>
