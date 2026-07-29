@@ -226,6 +226,8 @@ export function useSales() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sales"] });
+      queryClient.invalidateQueries({ queryKey: ["stock_adjustments"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
       toast.success("Sale deleted");
     },
     onError: (e) => toast.error(e.message),
