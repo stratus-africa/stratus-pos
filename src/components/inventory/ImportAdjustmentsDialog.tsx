@@ -144,6 +144,7 @@ export function ImportAdjustmentsDialog({ open, onOpenChange, onSubmit, isLoadin
 
   const reset = () => {
     setRows([]); setFileName(""); setNotes(""); setReference("");
+    setProgress(null);
     if (fileRef.current) fileRef.current.value = "";
   };
 
@@ -153,14 +154,20 @@ export function ImportAdjustmentsDialog({ open, onOpenChange, onSubmit, isLoadin
     // Merge duplicates on the same product
     const merged = new Map<string, number>();
     valid.forEach((r) => merged.set(r.product_id!, (merged.get(r.product_id!) || 0) + r.quantity));
+    const items = Array.from(merged.entries()).map(([product_id, quantity_change]) => ({ product_id, quantity_change }));
+    setProgress({ done: 0, total: items.length });
     onSubmit({
-      items: Array.from(merged.entries()).map(([product_id, quantity_change]) => ({ product_id, quantity_change })),
+      items,
       location_id: locationId,
       reason,
       notes: [reference ? `Ref: ${reference}` : "", notes].filter(Boolean).join(" — ") || undefined,
+      onProgress: (done, total) => {
+        setProgress({ done, total });
+        if (done >= total) {
+          setTimeout(() => { reset(); onOpenChange(false); }, 400);
+        }
+      },
     });
-    reset();
-    onOpenChange(false);
   };
 
   return (
