@@ -152,22 +152,6 @@ export function usePurchases() {
     enabled: !!business,
   });
 
-  // Soft-deleted purchases (recycle bin)
-  const deletedQuery = useQuery({
-    queryKey: ["purchases_deleted", business?.id],
-    queryFn: async () => {
-      if (!business) return [];
-      const { data, error } = await supabase
-        .from("purchases")
-        .select("*, suppliers(name), locations(name)")
-        .eq("business_id", business.id)
-        .not("deleted_at", "is", null)
-        .order("deleted_at", { ascending: false });
-      if (error) throw error;
-      return data as Purchase[];
-    },
-    enabled: !!business,
-  });
 
   const createPaidThroughTransaction = async (
     bankAccountId: string,
