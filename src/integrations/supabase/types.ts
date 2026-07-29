@@ -3865,6 +3865,10 @@ export type Database = {
         Args: { _business_id: string; _note: string }
         Returns: undefined
       }
+      apply_purchase_item_inventory: {
+        Args: { _delta: number; _location_id: string; _product_id: string }
+        Returns: undefined
+      }
       approve_offline_payment_request: {
         Args: { _id: string; _review_notes?: string }
         Returns: undefined
