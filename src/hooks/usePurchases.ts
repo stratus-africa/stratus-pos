@@ -534,6 +534,7 @@ export function usePurchases() {
   /** Permanently remove a soft-deleted purchase (no undo). */
   const purgePurchase = useMutation({
     mutationFn: async (id: string) => {
+      await supabase.from("stock_adjustments").delete().eq("purchase_id", id);
       const { error: iError } = await supabase.from("purchase_items").delete().eq("purchase_id", id);
       if (iError) throw iError;
       const { error } = await supabase.from("purchases").delete().eq("id", id);
