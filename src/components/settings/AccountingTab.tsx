@@ -22,6 +22,7 @@ import {
   type AccountingSettings,
 } from "@/hooks/useAccountingSettings";
 import AccountMappingsCard from "@/components/settings/AccountMappingsCard";
+import VatPostingCard from "@/components/settings/VatPostingCard";
 
 export function AccountingTab() {
   const { query, save, settings } = useAccountingSettings();
@@ -212,6 +213,8 @@ export function AccountingTab() {
       </Card>
 
       <AccountMappingsCard />
+
+      <VatPostingCard />
 
       <div className="flex items-center justify-end gap-3">
         {hasErrors && (

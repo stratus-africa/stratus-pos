@@ -419,9 +419,9 @@ export function usePurchases() {
         .select("*, suppliers(name), locations(name)")
         .eq("id", id)
         .maybeSingle();
-      const { data: itemsSnap } = await supabase
+      const { count: itemsCount } = await supabase
         .from("purchase_items")
-        .select("quantity, quantity_received, unit_cost, total, products(name, sku)")
+        .select("id", { count: "exact", head: true })
         .eq("purchase_id", id);
 
       // Remove the related stock movement log entries.
@@ -455,10 +455,11 @@ export function usePurchases() {
             invoice_number: purchaseSnap.invoice_number,
             total: purchaseSnap.total,
             prior_status: purchaseSnap.status,
-            soft_delete: false,
+            supplier: (purchaseSnap as { suppliers?: { name?: string } }).suppliers?.name || null,
+            purchase_date: purchaseSnap.date,
             inventory_reversed: purchaseSnap.status === "received",
-            items_count: itemsSnap?.length || 0,
-            snapshot: { purchase: purchaseSnap, items: itemsSnap || [] },
+            items_count: itemsCount || 0,
+            deleted_at: new Date().toISOString(),
           },
         });
       }
