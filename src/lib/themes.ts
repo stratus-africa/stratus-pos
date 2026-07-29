@@ -11,7 +11,8 @@ export type ThemeKey =
   | "jade-green"
   | "cobalt-blue"
   | "teal"
-  | "byzantium";
+  | "byzantium"
+  | "deep-sea-blue";
 
 
 export interface ThemeDef {
@@ -72,6 +73,14 @@ export const THEMES: Record<ThemeKey, ThemeDef> = {
     alt: "180 60% 95%",
     swatch: "#188F8F",
   },
+  "deep-sea-blue": {
+    key: "deep-sea-blue",
+    label: "Deep Sea Blue",
+    primary: "203 98% 20%",
+    primaryGlow: "203 85% 32%",
+    alt: "203 70% 96%",
+    swatch: "#023047",
+  },
   "byzantium": {
     key: "byzantium",
     label: "Byzantium",
@@ -103,13 +112,17 @@ export function applyTheme(themeKey: string | undefined | null) {
   root.style.setProperty("--ring", theme.primary);
   root.style.setProperty("--table-alt-row", theme.alt);
 
-  // Sidebar active state mirrors primary
-  root.style.setProperty("--sidebar-primary", theme.primary);
-  root.style.setProperty("--sidebar-ring", theme.primary);
-  root.style.setProperty("--sidebar-accent", theme.alt);
-  // Derive a deeper foreground for sidebar-accent text from the primary hue
-  const { h, s } = parseHSL(theme.primary);
-  root.style.setProperty("--sidebar-accent-foreground", `${h} ${Math.min(s + 10, 95)}% 24%`);
+  // Sidebar takes the brand color with white text
+  const { h, s: sat, l } = parseHSL(theme.primary);
+  const clamp = (v: number) => Math.max(6, Math.min(94, v));
+  root.style.setProperty("--sidebar-background", `${h} ${sat}% ${clamp(l)}%`);
+  root.style.setProperty("--sidebar-foreground", "0 0% 100%");
+  root.style.setProperty("--sidebar-primary", "0 0% 100%");
+  root.style.setProperty("--sidebar-primary-foreground", `${h} ${sat}% ${clamp(l)}%`);
+  root.style.setProperty("--sidebar-accent", `${h} ${sat}% ${clamp(l - 10)}%`);
+  root.style.setProperty("--sidebar-accent-foreground", "0 0% 100%");
+  root.style.setProperty("--sidebar-border", `${h} ${sat}% ${clamp(l - 8)}%`);
+  root.style.setProperty("--sidebar-ring", "0 0% 100%");
 
   root.dataset.theme = key;
 }
