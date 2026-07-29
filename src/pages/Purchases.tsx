@@ -419,10 +419,11 @@ const Purchases = () => {
       <AlertDialog open={!!purchaseToDelete} onOpenChange={(o) => { if (!o) setPurchaseToDelete(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete purchase {purchaseToDelete?.invoice_number || purchaseToDelete?.id.slice(0, 8)}?</AlertDialogTitle>
+            <AlertDialogTitle>Permanently delete purchase {purchaseToDelete?.invoice_number || purchaseToDelete?.id.slice(0, 8)}?</AlertDialogTitle>
             <AlertDialogDescription>
-              {purchaseToDelete?.status === "received" ? "Stock added by this purchase will be removed from inventory. " : ""}
-              Any linked supplier payments will be deleted and the bank balance restored.
+              This is permanent — the purchase cannot be restored afterwards.
+              {purchaseToDelete?.status === "received" ? " Stock added by this purchase will be removed from inventory." : ""}
+              {" Linked supplier payments, stock movements, reconciliation entries and accounting postings (general ledger) will also be removed, so reports will change."}
               {purchaseToDelete?.status !== "cancelled" && " If you only want to undo the stock effect, use Cancel Purchase from the edit page instead."}
             </AlertDialogDescription>
           </AlertDialogHeader>
