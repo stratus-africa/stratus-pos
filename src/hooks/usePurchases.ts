@@ -144,7 +144,7 @@ export function usePurchases() {
         .from("purchases")
         .select("*, suppliers(name), locations(name)")
         .eq("business_id", business.id)
-        .is("deleted_at", null)
+        
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Purchase[];
