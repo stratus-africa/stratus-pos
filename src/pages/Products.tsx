@@ -59,6 +59,7 @@ const Products = () => {
   const [bulkUpdateOpen, setBulkUpdateOpen] = useState(false);
   const [bulkCategoryId, setBulkCategoryId] = useState<string>("");
   const [bulkUnitId, setBulkUnitId] = useState<string>("");
+  const [bulkThreshold, setBulkThreshold] = useState<string>("");
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
