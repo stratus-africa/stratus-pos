@@ -96,7 +96,10 @@ const Purchases = () => {
         </TabsList>
 
         <TabsContent value="orders" className="space-y-3">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button size="sm" variant="outline" onClick={exportCsv} disabled={filteredPurchases.length === 0}>
+              <Download className="mr-2 h-4 w-4" /> Export CSV
+            </Button>
             {canCreate && (
               <Button size="sm" onClick={() => navigate("/purchases/new")}>
                 <Plus className="mr-2 h-4 w-4" /> New Purchase
