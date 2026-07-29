@@ -247,7 +247,7 @@ export function ImportAdjustmentsDialog({ open, onOpenChange, onSubmit, isLoadin
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((r, i) => (
+                    {rows.slice(0, 500).map((r, i) => (
                       <TableRow key={i} className={r.error ? "opacity-60" : undefined}>
                         <TableCell className="font-mono text-xs">{r.identifier || "—"}</TableCell>
                         <TableCell>{r.product_name || <span className="text-destructive text-xs">{r.error}</span>}</TableCell>
@@ -258,13 +258,33 @@ export function ImportAdjustmentsDialog({ open, onOpenChange, onSubmit, isLoadin
                   </TableBody>
                 </Table>
               </div>
+              {rows.length > 500 && (
+                <p className="text-xs text-muted-foreground">
+                  Showing first 500 of {rows.length} rows — all {valid.length} matched rows will be imported.
+                </p>
+              )}
+            </div>
+          )}
+
+          {progress && (
+            <div className="space-y-1.5 rounded-md border bg-muted/30 p-3">
+              <div className="flex items-center justify-between text-xs font-medium">
+                <span className="flex items-center gap-1.5">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Importing adjustments…
+                </span>
+                <span className="tabular-nums">
+                  {progress.done} / {progress.total} ({Math.round((progress.done / Math.max(progress.total, 1)) * 100)}%)
+                </span>
+              </div>
+              <Progress value={(progress.done / Math.max(progress.total, 1)) * 100} className="h-2" />
             </div>
           )}
 
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={isLoading || !valid.length}>
-              Import {valid.length ? `${valid.length} line${valid.length === 1 ? "" : "s"}` : ""}
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={!!progress}>Cancel</Button>
+            <Button onClick={handleSubmit} disabled={isLoading || !valid.length || !!progress}>
+              {progress ? "Importing…" : `Import ${valid.length ? `${valid.length} line${valid.length === 1 ? "" : "s"}` : ""}`}
             </Button>
           </div>
         </div>
