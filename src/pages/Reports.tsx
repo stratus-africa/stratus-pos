@@ -357,7 +357,7 @@ const Reports = () => {
           {canPnL && (
             <TabsContent value="pnl" className="mt-0">
               <RequireFeature featureKey="accounting">
-                <PnLReportTab totalRevenue={totalRevenue} totalCOGS={totalCOGS} grossProfit={grossProfit} totalExpenses={totalExpenses} netProfit={netProfit} expenseByCategory={expenseByCategory} from={from} to={to} loading={loading} />
+                <PnLReportTab totalRevenue={totalRevenue} totalCOGS={totalCOGS} grossProfit={grossProfit} totalExpenses={totalExpenses} netProfit={netProfit} expenseByCategory={expenseByCategory} purchasesCost={pnlExtras.data?.purchasesCost || 0} adjustmentsCost={pnlExtras.data?.adjustmentsCost || 0} from={from} to={to} loading={loading || pnlExtras.isLoading} />
               </RequireFeature>
             </TabsContent>
           )}
