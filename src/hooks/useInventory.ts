@@ -113,10 +113,12 @@ export function useInventory(
         .single();
       if (docErr) throw docErr as Error;
       const documentId = doc!.id;
+      const total = batch.items.length;
+      let done = 0;
+      batch.onProgress?.(0, total);
 
       for (const item of batch.items) {
         const { data: existing } = await supabase
-          .from("inventory")
           .select("id, quantity")
           .eq("product_id", item.product_id)
           .eq("location_id", batch.location_id)
