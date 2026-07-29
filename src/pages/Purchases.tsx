@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Pencil, Trash2, Eye, Download, FileSpreadsheet, CheckCircle2, XCircle } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Eye, Download, FileSpreadsheet, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
 import { usePurchases, type Purchase } from "@/hooks/usePurchases";
 import { useSupplierPayments } from "@/hooks/useSupplierPayments";
 import { SupplierPaymentDialog } from "@/components/purchases/SupplierPaymentDialog";
@@ -27,7 +27,7 @@ const Purchases = () => {
   const canEdit = hasPermission("purchases.edit");
   const canDelete = hasPermission("purchases.delete");
   const canCreate = hasPermission("purchases.create");
-  const { query: purchasesQuery, deletePurchase } = usePurchases();
+  const { query: purchasesQuery, deletedQuery, deletePurchase, restorePurchase, purgePurchase } = usePurchases();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -139,6 +139,9 @@ const Purchases = () => {
         <TabsList>
           <TabsTrigger value="orders">Orders</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
+          <TabsTrigger value="deleted">
+            Deleted{(deletedQuery.data?.length || 0) > 0 ? ` (${deletedQuery.data?.length})` : ""}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="orders" className="space-y-3">
@@ -184,7 +187,7 @@ const Purchases = () => {
                     <AlertDialogHeader>
                       <AlertDialogTitle>Delete {selected.length} purchase(s)?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This is irreversible. Stock added by received purchases will be removed from inventory and any linked supplier payments will be deleted.
+                        Received stock will be removed from inventory. You can restore these purchases later from the Deleted tab.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -256,9 +259,8 @@ const Purchases = () => {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Delete purchase {p.invoice_number || p.id.slice(0, 8)}?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                This is irreversible. {p.status === "received" ? "Stock added by this purchase will be removed from inventory. " : ""}
-                                Any linked supplier payments will be deleted and the bank balance restored.
-                                {p.status !== "cancelled" && " If you only want to undo the stock effect, use Cancel Purchase from the edit page instead."}
+                                {p.status === "received" ? "Stock added by this purchase will be removed from inventory. " : ""}
+                                You can restore it later from the Deleted tab.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -325,7 +327,7 @@ const Purchases = () => {
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Delete purchase {p.invoice_number || p.id.slice(0, 8)}?</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    This is irreversible. {p.status === "received" ? "Stock added by this purchase will be removed from inventory. " : ""}
+                                    {p.status === "received" ? "Stock added by this purchase will be removed from inventory. " : ""}
                                     Any linked supplier payments will be deleted and the bank balance restored.
                                     {p.status !== "cancelled" && " If you only want to undo the stock effect, use Cancel Purchase from the edit page instead."}
                                   </AlertDialogDescription>
@@ -406,6 +408,67 @@ const Purchases = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="deleted" className="space-y-3">
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Deleted</TableHead>
+                    <TableHead>Invoice #</TableHead>
+                    <TableHead>Supplier</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="w-[150px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(deletedQuery.data || []).length === 0 ? (
+                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Nothing here. Deleted purchases can be restored from this tab.</TableCell></TableRow>
+                  ) : (deletedQuery.data || []).map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell className="text-xs text-muted-foreground">{p.deleted_at ? format(new Date(p.deleted_at), "dd MMM yyyy HH:mm") : "—"}</TableCell>
+                      <TableCell className="font-medium">{p.invoice_number || p.id.slice(0, 8)}</TableCell>
+                      <TableCell>{p.suppliers?.name || "—"}</TableCell>
+                      <TableCell>{p.locations?.name || "—"}</TableCell>
+                      <TableCell className="text-right">{formatKES(p.total)}</TableCell>
+                      <TableCell>{statusBadge(p.status)}</TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-1">
+                          {canEdit && (
+                            <Button size="sm" variant="outline" onClick={() => restorePurchase.mutate(p.id)}>
+                              <RotateCcw className="mr-2 h-4 w-4" /> Restore
+                            </Button>
+                          )}
+                          {canDelete && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="icon" variant="ghost"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Permanently delete {p.invoice_number || p.id.slice(0, 8)}?</AlertDialogTitle>
+                                  <AlertDialogDescription>This cannot be undone and the purchase can no longer be restored.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => purgePurchase.mutate(p.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete forever</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
       </Tabs>
 
       <SupplierPaymentDialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen} />
