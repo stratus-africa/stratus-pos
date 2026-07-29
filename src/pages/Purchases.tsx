@@ -185,9 +185,9 @@ const Purchases = () => {
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Delete {selected.length} purchase(s)?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Received stock will be removed from inventory. This cannot be undone.
-                      </AlertDialogDescription>
+                     <AlertDialogDescription>
+                       This is permanent and cannot be restored. Received stock, stock movements, reconciliation entries, linked payments and accounting postings will be removed.
+                     </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
