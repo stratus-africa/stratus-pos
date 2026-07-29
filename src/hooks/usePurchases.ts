@@ -436,6 +436,18 @@ export function usePurchases() {
         .eq("id", id);
       if (error) throw error;
 
+      // Hide the related stock movement log entries from reports.
+      await supabase.from("stock_adjustments").delete().eq("purchase_id", id);
+
+      // Also remove legacy log rows that were created before purchase_id was populated.
+      if (purchaseSnap?.invoice_number) {
+        await supabase
+          .from("stock_adjustments")
+          .delete()
+          .eq("reason", "Purchase received")
+          .ilike("notes", `Purchase #${purchaseSnap.invoice_number}`);
+      }
+
       if (purchaseSnap) {
         await logAudit({
           business_id: business.id,
