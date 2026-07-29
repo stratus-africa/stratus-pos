@@ -368,8 +368,13 @@ export async function handleResetTenant(admin: any, body: ResetTenantInput) {
       admin.from('mpesa_transactions').delete({ count: 'exact' }).eq('business_id', businessId));
   }
   if (scopeSet.has('stock_adjustments')) {
-    await wipe('stock_adjustments', () =>
-      admin.from('stock_adjustments').delete({ count: 'exact' }).eq('business_id', businessId));
+    // stock_adjustments is scoped by location, not business_id.
+    if (locationIds.length) {
+      await wipe('stock_adjustments', () =>
+        admin.from('stock_adjustments').delete({ count: 'exact' }).in('location_id', locationIds));
+    }
+    await wipe('stock_adjustment_documents', () =>
+      admin.from('stock_adjustment_documents').delete({ count: 'exact' }).eq('business_id', businessId));
   }
   if (scopeSet.has('expenses')) {
     await wipe('expenses', () =>
