@@ -2621,6 +2621,7 @@ export type Database = {
           product_id: string
           purchase_id: string
           quantity: number
+          quantity_received: number
           tax_rate_id: string | null
           total: number
           unit_cost: number
@@ -2632,6 +2633,7 @@ export type Database = {
           product_id: string
           purchase_id: string
           quantity?: number
+          quantity_received?: number
           tax_rate_id?: string | null
           total?: number
           unit_cost?: number
@@ -2643,6 +2645,7 @@ export type Database = {
           product_id?: string
           purchase_id?: string
           quantity?: number
+          quantity_received?: number
           tax_rate_id?: string | null
           total?: number
           unit_cost?: number
@@ -2683,6 +2686,8 @@ export type Database = {
           business_id: string
           created_at: string
           created_by: string
+          deleted_at: string | null
+          deleted_by: string | null
           id: string
           invoice_number: string | null
           location_id: string
@@ -2701,6 +2706,8 @@ export type Database = {
           business_id: string
           created_at?: string
           created_by: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           invoice_number?: string | null
           location_id: string
@@ -2719,6 +2726,8 @@ export type Database = {
           business_id?: string
           created_at?: string
           created_by?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           invoice_number?: string | null
           location_id?: string
@@ -3796,6 +3805,46 @@ export type Database = {
           },
         ]
       }
+      stock_reconciliation: {
+        Row: {
+          actual_qty: number | null
+          adjusted_qty: number | null
+          barcode: string | null
+          business_id: string | null
+          expected_qty: number | null
+          location_id: string | null
+          location_name: string | null
+          product_id: string | null
+          product_name: string | null
+          received_qty: number | null
+          sku: string | null
+          sold_qty: number | null
+          variance: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_packages_safe: {
         Row: {
           created_at: string | null
@@ -4127,6 +4176,10 @@ export type Database = {
       }
       product_has_fiscalised_sales: {
         Args: { _product_id: string }
+        Returns: boolean
+      }
+      purchase_posts_stock: {
+        Args: { _deleted_at: string; _status: string }
         Returns: boolean
       }
       read_email_batch: {

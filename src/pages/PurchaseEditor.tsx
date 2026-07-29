@@ -101,6 +101,9 @@ export default function PurchaseEditor() {
     suggestionRefs.current[highlightIdx]?.scrollIntoView({ block: "nearest" });
   }, [highlightIdx]);
 
+  // Only received-type purchases post stock; drafts and cancellations post nothing.
+  const postsStock = status !== "draft" && status !== "cancelled";
+
   const selectedSupplier = !supplierId ? null : suppliersQuery.data?.find((s) => s.id === supplierId);
   const supplierMissingPin = vatEnabled && selectedSupplier && !selectedSupplier.kra_pin?.trim();
   const noSupplier = !supplierId;
@@ -129,12 +132,15 @@ export default function PurchaseEditor() {
 
   // Editable fields: qty, unit_cost, total. When qty or unit_cost changes, total = qty * unit_cost.
   // When total changes, unit_cost = total / qty (qty stays fixed).
-  const updateItem = (idx: number, field: "quantity" | "unit_cost" | "total", value: number) => {
+  const updateItem = (idx: number, field: "quantity" | "unit_cost" | "total" | "quantity_received", value: number) => {
     const updated = [...items];
     const row = { ...updated[idx] };
-    if (field === "quantity") {
+    if (field === "quantity_received") {
+      row.quantity_received = Math.max(0, value);
+    } else if (field === "quantity") {
       row.quantity = value;
       row.total = value * row.unit_cost;
+      if (row.quantity_received !== undefined && row.quantity_received > value) row.quantity_received = value;
     } else if (field === "unit_cost") {
       row.unit_cost = value;
       row.total = row.quantity * value;
@@ -517,6 +523,7 @@ export default function PurchaseEditor() {
                   <TableRow>
                     <TableHead>Product</TableHead>
                     <TableHead className="w-[90px]">Qty</TableHead>
+                    {postsStock && <TableHead className="w-[100px]">Received</TableHead>}
                     <TableHead className="w-[110px]">Unit Cost</TableHead>
                     <TableHead className="w-[110px]">Total</TableHead>
                     {vatEnabled && <TableHead className="w-[160px]">VAT</TableHead>}
@@ -539,6 +546,19 @@ export default function PurchaseEditor() {
                         <TableCell>
                           <Input type="number" min={0.01} step={0.01} value={item.quantity} onChange={(e) => updateItem(idx, "quantity", parseFloat(e.target.value) || 1)} className="h-8" />
                         </TableCell>
+                        {postsStock && (
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={item.quantity}
+                              step={0.01}
+                              value={item.quantity_received ?? item.quantity}
+                              onChange={(e) => updateItem(idx, "quantity_received", parseFloat(e.target.value) || 0)}
+                              className="h-8"
+                            />
+                          </TableCell>
+                        )}
                         <TableCell>
                           <Input type="number" min={0} step={0.01} value={item.unit_cost} onChange={(e) => updateItem(idx, "unit_cost", parseFloat(e.target.value) || 0)} className="h-8" />
                         </TableCell>
@@ -597,7 +617,7 @@ export default function PurchaseEditor() {
             )}
 
             <p className="text-xs text-muted-foreground">
-              Tip: enter <strong>Total</strong> and the Unit Cost auto-computes from Total ÷ Qty. Fill <strong>New Sell Price</strong> to update the product's selling price when saving.
+              Tip: <strong>Received</strong> is what posts to stock — set it below Qty for partial deliveries and raise it later as more arrives. Enter <strong>Total</strong> and the Unit Cost auto-computes from Total ÷ Qty. Fill <strong>New Sell Price</strong> to update the product's selling price when saving.
             </p>
 
             {vatEnabled && (() => {

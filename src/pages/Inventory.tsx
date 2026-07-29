@@ -10,8 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ClipboardCheck, Download, ChevronLeft, ChevronRight, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Printer, Upload } from "lucide-react";
+import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ClipboardCheck, Download, ChevronLeft, ChevronRight, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Printer, Upload, Scale } from "lucide-react";
 import { StockCountsTab } from "@/components/inventory/StockCountsTab";
+import { StockReconciliationTab } from "@/components/inventory/StockReconciliationTab";
 
 import { useInventory, type SortKey, type AdjustmentDocument } from "@/hooks/useInventory";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -30,6 +31,7 @@ const INVENTORY_TABS = [
   { key: "stock", label: "Stock Levels", icon: <Warehouse className="h-4 w-4" /> },
   { key: "adjustments", label: "Adjustments", icon: <ClipboardList className="h-4 w-4" /> },
   { key: "counts", label: "Stock Take", icon: <ClipboardCheck className="h-4 w-4" /> },
+  { key: "reconciliation", label: "Reconciliation", icon: <Scale className="h-4 w-4" /> },
 ] as const;
 type StockSort = "name_asc" | "name_desc" | "barcode_asc" | "barcode_desc" | "qty_asc" | "qty_desc";
 
@@ -434,6 +436,10 @@ const Inventory = () => {
 
         <TabsContent value="counts">
           <StockCountsTab />
+        </TabsContent>
+
+        <TabsContent value="reconciliation">
+          <StockReconciliationTab />
         </TabsContent>
 
 

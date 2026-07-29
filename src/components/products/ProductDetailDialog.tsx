@@ -7,8 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, ShoppingCart, Truck, ClipboardList, Layers, History } from "lucide-react";
+import { Package, ShoppingCart, Truck, ClipboardList, Layers, History, Check } from "lucide-react";
 import type { Product } from "@/hooks/useProducts";
 import { useBusiness } from "@/contexts/BusinessContext";
 import BatchesTab from "@/components/products/BatchesTab";
@@ -174,6 +176,28 @@ export default function ProductDetailDialog({ product: productProp, productId: p
   });
 
   const invRows = (inventoryQuery.data || []) as any[];
+
+  // Inline editing of the low-stock threshold, per inventory row (location).
+  const [thresholdDraft, setThresholdDraft] = useState<Record<string, string>>({});
+  const [savingThreshold, setSavingThreshold] = useState<string | null>(null);
+
+  const saveThreshold = async (rowId: string) => {
+    const raw = thresholdDraft[rowId];
+    const value = Number(raw);
+    if (raw === undefined || raw === "" || !Number.isFinite(value) || value < 0) {
+      toast.error("Enter a valid threshold (0 or more)");
+      return;
+    }
+    setSavingThreshold(rowId);
+    const { error } = await supabase.from("inventory").update({ low_stock_threshold: value }).eq("id", rowId);
+    setSavingThreshold(null);
+    if (error) { toast.error(error.message); return; }
+    setThresholdDraft((d) => { const n = { ...d }; delete n[rowId]; return n; });
+    queryClient.invalidateQueries({ queryKey: ["product-inventory", productId] });
+    queryClient.invalidateQueries({ queryKey: ["inventory"] });
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+    toast.success("Low stock threshold updated");
+  };
   const filteredInv = selectedLocation === "all" ? invRows : invRows.filter((r) => r.location_id === selectedLocation);
   const totalQty = invRows.reduce((s, r: any) => s + Number(r.quantity || 0), 0);
   const selectedQty = filteredInv.reduce((s, r: any) => s + Number(r.quantity || 0), 0);
@@ -405,7 +429,32 @@ export default function ProductDetailDialog({ product: productProp, productId: p
                         <TableRow key={row.id}>
                           <TableCell>{row.locations?.name || "—"}</TableCell>
                           <TableCell className="text-right font-medium">{row.quantity}</TableCell>
-                          <TableCell className="text-right text-muted-foreground">{row.low_stock_threshold}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Input
+                                type="number"
+                                min={0}
+                                step={1}
+                                className="h-8 w-24 text-right"
+                                value={thresholdDraft[row.id] ?? String(row.low_stock_threshold ?? 0)}
+                                onChange={(e) => setThresholdDraft((d) => ({ ...d, [row.id]: e.target.value }))}
+                                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveThreshold(row.id); } }}
+                              />
+                              {thresholdDraft[row.id] !== undefined &&
+                                thresholdDraft[row.id] !== String(row.low_stock_threshold ?? 0) && (
+                                  <Button
+                                    size="icon"
+                                    variant="outline"
+                                    className="h-8 w-8"
+                                    disabled={savingThreshold === row.id}
+                                    onClick={() => saveThreshold(row.id)}
+                                    title="Save threshold"
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </Button>
+                                )}
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <Badge variant={low ? "destructive" : "default"}>{low ? "Low Stock" : "OK"}</Badge>
                           </TableCell>

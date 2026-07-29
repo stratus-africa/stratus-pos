@@ -34,6 +34,8 @@ export interface Purchase {
   notes: string | null;
   created_by: string;
   created_at: string;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
   suppliers?: { name: string } | null;
   locations?: { name: string } | null;
 }
@@ -42,6 +44,8 @@ export interface PurchaseItem {
   id?: string;
   product_id: string;
   quantity: number;
+  /** Units actually received into stock so far (partial receiving). */
+  quantity_received?: number;
   unit_cost: number;
   total: number;
   tax_rate_id?: string | null;
@@ -98,18 +102,31 @@ export function useSuppliers() {
   return { query, create, update, remove };
 }
 
+/**
+ * Received quantity actually posted to stock for a line.
+ * Only "received"-type purchases post stock; drafts/cancelled post nothing.
+ * When no explicit received qty is supplied, a received purchase posts the full ordered qty.
+ */
+export function resolveReceived(item: PurchaseItem, status: string): number {
+  if (status === "draft" || status === "cancelled") return 0;
+  const r = item.quantity_received;
+  return r === undefined || r === null ? Number(item.quantity || 0) : Math.max(0, Number(r));
+}
+
 export function usePurchases() {
   const { business } = useBusiness();
   const qc = useQueryClient();
 
   // Inventory quantities are maintained by database triggers on purchase_items.
   // Here we only write the human-readable stock movement log entries.
-  const logStockMovements = async (items: PurchaseItem[], locationId: string, createdBy: string, ref: string) => {
+  const logStockMovements = async (items: PurchaseItem[], locationId: string, createdBy: string, ref: string, status = "received") => {
     for (const item of items) {
+      const qty = resolveReceived(item, status);
+      if (!qty) continue;
       await supabase.from("stock_adjustments").insert({
         product_id: item.product_id,
         location_id: locationId,
-        quantity_change: item.quantity,
+        quantity_change: qty,
         reason: "Purchase received",
         notes: `Purchase #${ref}`,
         created_by: createdBy,
@@ -126,7 +143,25 @@ export function usePurchases() {
         .from("purchases")
         .select("*, suppliers(name), locations(name)")
         .eq("business_id", business.id)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as Purchase[];
+    },
+    enabled: !!business,
+  });
+
+  // Soft-deleted purchases (recycle bin)
+  const deletedQuery = useQuery({
+    queryKey: ["purchases_deleted", business?.id],
+    queryFn: async () => {
+      if (!business) return [];
+      const { data, error } = await supabase
+        .from("purchases")
+        .select("*, suppliers(name), locations(name)")
+        .eq("business_id", business.id)
+        .not("deleted_at", "is", null)
+        .order("deleted_at", { ascending: false });
       if (error) throw error;
       return data as Purchase[];
     },
@@ -197,12 +232,20 @@ export function usePurchases() {
       if (items.length > 0) {
         const { error: iError } = await supabase
           .from("purchase_items")
-          .insert(items.map((i) => ({ purchase_id: purchaseId, product_id: i.product_id, quantity: i.quantity, unit_cost: i.unit_cost, total: i.total, tax_rate_id: i.tax_rate_id ?? null })));
+          .insert(items.map((i) => ({
+            purchase_id: purchaseId,
+            product_id: i.product_id,
+            quantity: i.quantity,
+            quantity_received: resolveReceived(i, purchase.status),
+            unit_cost: i.unit_cost,
+            total: i.total,
+            tax_rate_id: i.tax_rate_id ?? null,
+          })));
         if (iError) throw iError;
       }
 
       if (purchase.status !== "draft" && purchase.status !== "cancelled") {
-        await logStockMovements(items, purchase.location_id, purchase.created_by, purchase.invoice_number || purchaseId.slice(0, 8));
+        await logStockMovements(items, purchase.location_id, purchase.created_by, purchase.invoice_number || purchaseId.slice(0, 8), purchase.status);
       }
 
       if (paidThrough && paidThrough.amount > 0) {
@@ -283,7 +326,15 @@ export function usePurchases() {
       if (items.length > 0) {
         const { error: iError } = await supabase
           .from("purchase_items")
-          .insert(items.map((i) => ({ purchase_id: id, product_id: i.product_id, quantity: i.quantity, unit_cost: i.unit_cost, total: i.total, tax_rate_id: i.tax_rate_id ?? null })));
+          .insert(items.map((i) => ({
+            purchase_id: id,
+            product_id: i.product_id,
+            quantity: i.quantity,
+            quantity_received: resolveReceived(i, purchase.status),
+            unit_cost: i.unit_cost,
+            total: i.total,
+            tax_rate_id: i.tax_rate_id ?? null,
+          })));
         if (iError) throw iError;
       }
 
@@ -360,11 +411,13 @@ export function usePurchases() {
     onError: (e) => toast.error(e.message),
   });
 
+  /**
+   * Soft delete: the purchase is hidden and its stock is reversed by DB triggers
+   * (deleted_at makes the purchase stop posting stock). It can be restored later.
+   */
   const deletePurchase = useMutation({
     mutationFn: async (id: string) => {
       if (!business) throw new Error("No business");
-      // Snapshot purchase, items, and linked bank txns BEFORE delete so the audit log
-      // is rich enough to print a deleted-record preview later.
       const { data: purchaseSnap } = await supabase
         .from("purchases")
         .select("*, suppliers(name), locations(name)")
@@ -372,20 +425,14 @@ export function usePurchases() {
         .maybeSingle();
       const { data: itemsSnap } = await supabase
         .from("purchase_items")
-        .select("quantity, unit_cost, total, products(name, sku)")
+        .select("quantity, quantity_received, unit_cost, total, products(name, sku)")
         .eq("purchase_id", id);
-      const { data: paymentsSnap } = await supabase
-        .from("bank_transactions")
-        .select("date, amount, reference, description, bank_accounts(name)")
-        .eq("purchase_id", id);
+      const { data: userRes } = await supabase.auth.getUser();
 
-      const paidSum = (paymentsSnap ?? []).reduce((s, t: any) => s + Number(t.amount || 0), 0);
-      const itemsQty = (itemsSnap ?? []).reduce((s: number, r: any) => s + Number(r.quantity || 0), 0);
-
-      // Delete items first
-      const { error: iError } = await supabase.from("purchase_items").delete().eq("purchase_id", id);
-      if (iError) throw iError;
-      const { error } = await supabase.from("purchases").delete().eq("id", id);
+      const { error } = await supabase
+        .from("purchases")
+        .update({ deleted_at: new Date().toISOString(), deleted_by: userRes?.user?.id ?? null })
+        .eq("id", id);
       if (error) throw error;
 
       if (purchaseSnap) {
@@ -394,31 +441,73 @@ export function usePurchases() {
           action: "purchase_deleted",
           entity_type: "purchase",
           entity_id: id,
-          description: `Deleted purchase ${purchaseSnap.invoice_number || id.slice(0, 8)} — ${
-            purchaseSnap.status === "received" ? "inventory reversed" : "no inventory effect"
-          }; ${paymentsSnap?.length || 0} linked payment(s) reversed`,
+          description: `Deleted (recoverable) purchase ${purchaseSnap.invoice_number || id.slice(0, 8)}${
+            purchaseSnap.status === "received" ? " — received stock reversed" : ""
+          }`,
           metadata: {
             invoice_number: purchaseSnap.invoice_number,
             total: purchaseSnap.total,
             prior_status: purchaseSnap.status,
+            soft_delete: true,
             inventory_reversed: purchaseSnap.status === "received",
             items_count: itemsSnap?.length || 0,
-            items_quantity: itemsQty,
-            payments_reversed_count: paymentsSnap?.length || 0,
-            payments_reversed_amount: paidSum,
-            snapshot: {
-              purchase: purchaseSnap,
-              items: itemsSnap || [],
-              payments: paymentsSnap || [],
-            },
+            snapshot: { purchase: purchaseSnap, items: itemsSnap || [] },
           },
         });
       }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["purchases"] });
+      qc.invalidateQueries({ queryKey: ["purchases_deleted"] });
+      qc.invalidateQueries({ queryKey: ["inventory"] });
+      qc.invalidateQueries({ queryKey: ["stock_reconciliation"] });
       qc.invalidateQueries({ queryKey: ["audit_logs"] });
-      toast.success("Purchase deleted");
+      toast.success("Purchase deleted — you can restore it from Deleted");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  /** Restore a soft-deleted purchase; triggers re-apply its received stock. */
+  const restorePurchase = useMutation({
+    mutationFn: async (id: string) => {
+      if (!business) throw new Error("No business");
+      const { error } = await supabase
+        .from("purchases")
+        .update({ deleted_at: null, deleted_by: null })
+        .eq("id", id);
+      if (error) throw error;
+      await logAudit({
+        business_id: business.id,
+        action: "purchase_restored",
+        entity_type: "purchase",
+        entity_id: id,
+        description: `Restored purchase ${id.slice(0, 8)} — received stock re-applied`,
+        metadata: { restored: true },
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["purchases"] });
+      qc.invalidateQueries({ queryKey: ["purchases_deleted"] });
+      qc.invalidateQueries({ queryKey: ["inventory"] });
+      qc.invalidateQueries({ queryKey: ["stock_reconciliation"] });
+      qc.invalidateQueries({ queryKey: ["audit_logs"] });
+      toast.success("Purchase restored");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  /** Permanently remove a soft-deleted purchase (no undo). */
+  const purgePurchase = useMutation({
+    mutationFn: async (id: string) => {
+      const { error: iError } = await supabase.from("purchase_items").delete().eq("purchase_id", id);
+      if (iError) throw iError;
+      const { error } = await supabase.from("purchases").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["purchases_deleted"] });
+      qc.invalidateQueries({ queryKey: ["inventory"] });
+      toast.success("Purchase permanently deleted");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -432,5 +521,5 @@ export function usePurchases() {
     return data as PurchaseItem[];
   };
 
-  return { query, createPurchase, updatePurchase, deletePurchase, getPurchaseItems };
+  return { query, deletedQuery, createPurchase, updatePurchase, deletePurchase, restorePurchase, purgePurchase, getPurchaseItems };
 }
