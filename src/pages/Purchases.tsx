@@ -141,9 +141,6 @@ const Purchases = () => {
         <TabsList>
           <TabsTrigger value="orders">Orders</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
-          <TabsTrigger value="deleted">
-            Deleted{(deletedQuery.data?.length || 0) > 0 ? ` (${deletedQuery.data?.length})` : ""}
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="orders" className="space-y-3">
