@@ -147,6 +147,7 @@ const Purchases = () => {
                   <div className="flex items-center justify-between">
                     {statusBadge(p.status)}
                     <div className="flex gap-1">
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setViewing(p)}><Eye className="h-4 w-4" /></Button>
                       {canEdit && (
                         <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => navigate(`/purchases/${p.id}/edit`)}><Pencil className="h-4 w-4" /></Button>
                       )}
