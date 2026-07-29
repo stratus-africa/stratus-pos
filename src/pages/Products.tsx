@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Package, Plus, Search, Pencil, Trash2, Tag, Layers, Ruler, Download, Upload, FileDown, Lock, ScanLine, Printer, MoreHorizontal, FileSpreadsheet } from "lucide-react";
+import { Package, Plus, Search, Pencil, Trash2, Tag, Layers, Ruler, Download, Upload, FileDown, Lock, ScanLine, Printer, MoreHorizontal, FileSpreadsheet, AlertTriangle } from "lucide-react";
 import { PrintTagsDialog, type PrintTagItem } from "@/components/products/PrintTagsDialog";
 import { useProducts, useCategories, useBrands, useUnits, type ProductFormData, type Product } from "@/hooks/useProducts";
 import { ProductFormDialog } from "@/components/products/ProductFormDialog";
@@ -25,6 +25,7 @@ import { useFeatureLimit } from "@/components/FeatureGate";
 import { usePermissions } from "@/hooks/usePermissions";
 
 const Products = () => {
+  const [onlyMissingBarcode, setOnlyMissingBarcode] = useState(false);
   const { productsQuery, createProduct, updateProduct, deleteProduct } = useProducts();
   const { hasPermission } = usePermissions();
   const canEdit = hasPermission("products.edit");
@@ -117,11 +118,14 @@ const Products = () => {
       (p.sku && p.sku.toLowerCase().includes(search.toLowerCase())) ||
       (p.barcode && p.barcode.toLowerCase().includes(search.toLowerCase()));
     const matchCategory = categoryFilter === "all" || p.category_id === categoryFilter;
+    const matchBarcode = !onlyMissingBarcode || !((p as any).barcode || "").trim();
     const matchStatus = statusFilter === "all" ||
       (statusFilter === "active" && p.is_active) ||
       (statusFilter === "inactive" && !p.is_active);
-    return matchSearch && matchCategory && matchStatus;
+    return matchSearch && matchCategory && matchStatus && matchBarcode;
   });
+
+  const missingBarcode = products.filter((p) => !((p as any).barcode || "").trim() && p.is_active);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -338,6 +342,25 @@ const Products = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {missingBarcode.length > 0 && (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-warning/40 bg-warning/10 p-3">
+          <div className="flex items-start gap-2 text-sm">
+            <AlertTriangle className="h-4 w-4 mt-0.5 text-warning shrink-0" />
+            <span>
+              <strong>{missingBarcode.length}</strong> active product{missingBarcode.length > 1 ? "s have" : " has"} no barcode.
+              Scanning and label printing will not work for {missingBarcode.length > 1 ? "them" : "it"}.
+            </span>
+          </div>
+          <Button
+            size="sm"
+            variant={onlyMissingBarcode ? "default" : "outline"}
+            onClick={() => { setOnlyMissingBarcode((v) => !v); setPage(1); }}
+          >
+            {onlyMissingBarcode ? "Show all products" : "Review them"}
+          </Button>
+        </div>
+      )}
 
       <Tabs defaultValue="products" className="space-y-4">
         <TabsList>
