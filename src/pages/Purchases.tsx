@@ -57,6 +57,32 @@ const Purchases = () => {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const payments = paymentsQuery.data || [];
 
+  const [viewing, setViewing] = useState<Purchase | null>(null);
+
+  const exportCsv = () => {
+    const headers = ["Date", "Invoice #", "Supplier", "Location", "Subtotal", "VAT", "Total", "Payment", "Status"];
+    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const rows = filteredPurchases.map((p) => [
+      format(new Date(p.created_at), "yyyy-MM-dd"),
+      p.invoice_number || p.id.slice(0, 8),
+      p.suppliers?.name || "",
+      p.locations?.name || "",
+      Number(p.subtotal || 0).toFixed(2),
+      Number(p.tax || 0).toFixed(2),
+      Number(p.total || 0).toFixed(2),
+      p.payment_status,
+      p.status,
+    ]);
+    const csv = [headers, ...rows].map((r) => r.map(esc).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `purchases-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+
   return (
     <div className="space-y-3 sm:space-y-4">
       <div className="flex items-center justify-between gap-2">
