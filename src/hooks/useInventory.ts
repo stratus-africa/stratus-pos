@@ -87,6 +87,7 @@ export function useInventory(
       notes?: string;
       created_by: string;
       reference?: string;
+      onProgress?: (done: number, total: number) => void;
     }) => {
       assertCanPost();
       if (!business) throw new Error("No business context");
