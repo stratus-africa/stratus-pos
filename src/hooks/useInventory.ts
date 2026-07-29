@@ -162,6 +162,8 @@ export function useInventory(
             });
           if (error) throw error;
         }
+        done++;
+        batch.onProgress?.(done, total);
       }
       return { document_id: documentId };
     },
