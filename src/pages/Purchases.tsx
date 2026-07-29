@@ -247,31 +247,35 @@ const Purchases = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     {statusBadge(p.status)}
-                    <div className="flex gap-1">
-                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setViewing(p)}><Eye className="h-4 w-4" /></Button>
-                      {canEdit && (
-                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => navigate(`/purchases/${p.id}/edit`)}><Pencil className="h-4 w-4" /></Button>
-                      )}
-                      {canDelete && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button size="icon" variant="ghost" className="h-8 w-8"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete purchase {p.invoice_number || p.id.slice(0, 8)}?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                {p.status === "received" ? "Stock added by this purchase will be removed from inventory. " : ""}
-                                You can restore it later from the Deleted tab.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => deletePurchase.mutate(p.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      )}
+                    <div className="flex justify-end">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="ghost" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setViewing(p)}>
+                            <Eye className="mr-2 h-4 w-4" /> View
+                          </DropdownMenuItem>
+                          {canEdit && (
+                            <DropdownMenuItem onClick={() => navigate(`/purchases/${p.id}/edit`)}>
+                              <Pencil className="mr-2 h-4 w-4" /> Edit
+                            </DropdownMenuItem>
+                          )}
+                          {canDelete && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setPurchaseToDelete(p)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 </div>
