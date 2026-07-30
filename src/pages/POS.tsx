@@ -823,9 +823,10 @@ const POS = () => {
                 </span>
               </div>
               <div className="flex items-center justify-between py-2">
-                <span className="opacity-80">Served by</span>
-                <span className="font-semibold truncate max-w-[55%]">{session.session?.opened_by_name || "—"}</span>
+                <span className="opacity-80">Register</span>
+                <span className="font-semibold truncate max-w-[55%]">{currentLocation?.name || "—"}</span>
               </div>
+
             </div>
 
 
