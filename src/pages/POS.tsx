@@ -215,25 +215,28 @@ const POS = () => {
     if (match) {
       if (scanSettings.autoAddToCart) {
         pos.addToCart(match);
-        setSearch("");
+        setPickerSearch("");
       } else {
-        setSearch(match.name);
-        requestAnimationFrame(() => searchInputRef.current?.focus());
+        setProductPickerOpen(true);
+        setPickerSearch(match.name);
+        requestAnimationFrame(() => pickerSearchRef.current?.focus());
       }
       return;
     }
     // Not found: cart stays unchanged; optionally surface the code for manual lookup.
     toast.warning(`No product matches "${trimmed}"`);
     if (scanSettings.openSearchOnMiss) {
-      setSearch(trimmed);
+      setProductPickerOpen(true);
+      setPickerSearch(trimmed);
       requestAnimationFrame(() => {
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
+        pickerSearchRef.current?.focus();
+        pickerSearchRef.current?.select();
       });
     } else {
-      setSearch("");
+      setPickerSearch("");
     }
   };
+
 
 
 
