@@ -846,9 +846,6 @@ const POS = () => {
               </table>
             )}
 
-            <div className="border-t border-dashed border-white/30 my-2" />
-
-            <p className="text-center opacity-70 text-[10px]">RECEIPT PREVIEW</p>
           </div>
         </ScrollArea>
 
