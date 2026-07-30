@@ -364,6 +364,105 @@ export function usePOS() {
 
       const saleId = crypto.randomUUID();
 
+      // --- Offline path -----------------------------------------------------
+      // No connection: queue the whole sale locally (sale id doubles as the
+      // idempotency key) and hand back a receipt so the customer can leave.
+      if (!isOnline()) {
+        const offlineItems = cart.map((i) => ({
+          sale_id: saleId,
+          product_id: i.product.id,
+          quantity: i.quantity,
+          unit_price: i.unit_price,
+          discount: i.discount,
+          total: i.unit_price * i.quantity - i.discount,
+          batch_id: null,
+          tax_rate_id: vatEnabled ? (i.tax_rate_id ?? defaultTaxRate?.id ?? null) : null,
+        }));
+
+        await enqueueSale({
+          id: saleId,
+          createdAt: new Date().toISOString(),
+          sale: {
+            id: saleId,
+            business_id: business.id,
+            location_id: currentLocation.id,
+            customer_id: customerId,
+            invoice_number: invoiceNumber,
+            subtotal: cartSubtotal,
+            tax: Math.round(cartTax * 100) / 100,
+            discount: effectiveDiscount,
+            total: effectiveTotal,
+            payment_status: paymentStatus,
+            status: "final",
+            created_by: user.id,
+            notes: [opts.loyaltyNote, "Recorded offline"].filter(Boolean).join(" | "),
+          },
+          items: offlineItems,
+          payments: payments
+            .filter((p) => p.amount > 0)
+            .map((p) => ({ sale_id: saleId, method: p.method, amount: p.amount, reference: p.reference || null })),
+          adjustments: cart.map((item) => ({
+            product_id: item.product.id,
+            location_id: currentLocation.id,
+            quantity_change: -item.quantity,
+            reason: "sale",
+            notes: `Sale ${invoiceNumber} (offline)`,
+            created_by: user.id,
+            sale_id: saleId,
+          })),
+          bankTransaction: bankAccountId
+            ? {
+                business_id: business.id,
+                bank_account_id: bankAccountId,
+                type: "payment_received",
+                amount: Math.min(totalPaid, effectiveTotal),
+                date: new Date().toISOString().split("T")[0],
+                reference: invoiceNumber,
+                description: `Sale ${invoiceNumber} (offline)`,
+                category: "Sales",
+                contact_name: customerName || null,
+                sale_id: saleId,
+                created_by: user.id,
+              }
+            : null,
+          inventoryDeltas: cart.map((i) => ({
+            product_id: i.product.id,
+            location_id: currentLocation.id,
+            quantity: i.quantity,
+          })),
+        });
+
+        const offlineResult = {
+          saleId,
+          invoiceNumber,
+          items: cart,
+          subtotal: cartSubtotal,
+          tax: Math.round(cartTax * 100) / 100,
+          discount: effectiveDiscount,
+          total: effectiveTotal,
+          payments,
+          totalPaid,
+          change: Math.max(0, totalPaid - effectiveTotal),
+          customerName,
+          locationName: currentLocation.name,
+          businessName: business.name,
+          servedBy: (user as { email?: string } | null)?.email || null,
+          date: new Date(),
+          fiscal: null,
+          vatBreakdown,
+          taxInclusive,
+          loyaltyDiscount,
+          offline: true,
+        };
+        clearCart();
+        window.dispatchEvent(new CustomEvent("pos-offline-sale-queued"));
+        toast.success("Sale saved offline — it will sync automatically");
+        setProcessing(false);
+        return offlineResult;
+      }
+
+
+
       const { error: saleErr } = await supabase.from("sales").insert({
         id: saleId,
         business_id: business.id,
