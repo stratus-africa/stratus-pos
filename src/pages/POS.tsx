@@ -4,13 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  ShoppingCart, Search, Plus, Minus, Trash2, Pause, Play, X,
+  ShoppingCart, Search, Plus, Trash2, Pause, Play, X,
   User, List, LayoutGrid, Sunrise, Banknote, Smartphone, CreditCard, ScanLine,
-  ChevronUp, ChevronDown, Settings2, Printer, Loader2,
+  Settings2, Printer, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useProducts, useCategories } from "@/hooks/useProducts";
@@ -70,7 +69,6 @@ const POS = () => {
   const [scanSettingsOpen, setScanSettingsOpen] = useState(false);
   const scanSettings = useScanSettings();
 
-  const [mobileCartExpanded, setMobileCartExpanded] = useState(false);
 
   // --- Resizable split between product list and cart (desktop only) ----------
   const SPLIT_KEY = "pos_split_pct";
