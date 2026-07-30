@@ -1,408 +1,320 @@
 import { useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { format } from "date-fns";
-import { Search, Download, FileText, Printer, Undo2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import ReportTableScroll from "./ReportTableScroll";
+import { Search, Download, RefreshCw, AlertTriangle, CheckCircle2, Wrench, Undo2 } from "lucide-react";
 
-interface AuditLog {
-  id: string;
-  created_at: string;
-  user_name: string | null;
-  user_email: string | null;
-  action: string;
-  entity_type: string | null;
-  entity_id: string | null;
-  description: string | null;
-  metadata: any;
+interface ReconRow {
+  product_id: string;
+  product_name: string;
+  sku: string | null;
+  barcode: string | null;
+  location_id: string;
+  location_name: string | null;
+  actual_qty: number;
+  received_qty: number;
+  sold_qty: number;
+  adjusted_qty: number;
+  expected_qty: number;
+  variance: number;
 }
 
-interface Props {
-  logs: AuditLog[];
-  loading: boolean;
-  from: string;
-  to: string;
-}
-
-const actionColor = (action: string) => {
-  if (action.includes("delete") || action.includes("remove")) return "destructive";
-  if (action.includes("create") || action.includes("add")) return "default";
-  if (action.includes("update") || action.includes("edit")) return "secondary";
-  return "outline";
-};
-
-export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
+/**
+ * Compares expected stock (received purchases − sales + manual adjustments)
+ * with the quantity currently held in inventory, flagging any mismatch.
+ */
+export function StockReconciliationTab() {
   const { business, hasAccess } = useBusiness();
-  const qc = useQueryClient();
-  const canUndoRecalc = hasAccess(["admin", "manager"]);
   const [search, setSearch] = useState("");
-  const [actionFilter, setActionFilter] = useState<string>("all");
-  const [entityFilter, setEntityFilter] = useState<string>("all");
-  const [previewLog, setPreviewLog] = useState<AuditLog | null>(null);
-  const [undoingId, setUndoingId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"mismatch" | "all">("mismatch");
 
-  const undoneRecalcIds = useMemo(
-    () =>
-      new Set(
-        logs
-          .filter((l) => l.action === "inventory_recalculation_undone")
-          .map((l) => l.metadata?.recalc_audit_log_id)
-          .filter(Boolean),
-      ),
-    [logs],
-  );
+  const { data, isLoading, refetch, isFetching } = useQuery({
+    queryKey: ["stock_reconciliation", business?.id],
+    queryFn: async () => {
+      if (!business) return [] as ReconRow[];
+      const { data, error } = await supabase.from("stock_reconciliation").select("*").eq("business_id", business.id);
+      if (error) throw error;
+      return (data || []) as unknown as ReconRow[];
+    },
+    enabled: !!business,
+  });
 
-  const canUndoLog = (l: AuditLog) =>
-    canUndoRecalc &&
-    l.action === "inventory_recalculated" &&
-    !undoneRecalcIds.has(l.id) &&
-    l.metadata?.previous_qty != null &&
-    l.metadata?.location_id != null;
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (data || [])
+      .filter((r) => (filter === "all" ? true : Math.abs(Number(r.variance || 0)) > 0.001))
+      .filter(
+        (r) =>
+          !q ||
+          r.product_name?.toLowerCase().includes(q) ||
+          (r.sku || "").toLowerCase().includes(q) ||
+          (r.barcode || "").toLowerCase().includes(q),
+      )
+      .sort((a, b) => Math.abs(Number(b.variance || 0)) - Math.abs(Number(a.variance || 0)));
+  }, [data, search, filter]);
 
-  const undoRecalc = async (log: AuditLog) => {
+  const mismatches = (data || []).filter((r) => Math.abs(Number(r.variance || 0)) > 0.001).length;
+
+  const canFix = hasAccess(["admin", "manager"]);
+
+  const { data: undoableBatch = 0 } = useQuery({
+    queryKey: ["undoable_recalcs", business?.id],
+    queryFn: async () => {
+      if (!business) return 0;
+      const { data: recalcs, error } = await supabase
+        .from("audit_logs")
+        .select("id, created_at, user_id, metadata")
+        .eq("business_id", business.id)
+        .eq("action", "inventory_recalculated")
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error) throw error;
+
+      const { data: undos, error: undoErr } = await supabase
+        .from("audit_logs")
+        .select("metadata")
+        .eq("business_id", business.id)
+        .eq("action", "inventory_recalculation_undone");
+      if (undoErr) throw undoErr;
+
+      const undoneIds = new Set(
+        (undos || []).map((u) => (u.metadata as { recalc_audit_log_id?: string })?.recalc_audit_log_id).filter(Boolean),
+      );
+      const pending = (recalcs || []).filter((r) => !undoneIds.has(r.id));
+      if (pending.length === 0) return 0;
+
+      const latest = pending[0];
+      const batchId = (latest.metadata as { batch_id?: string })?.batch_id;
+      if (batchId) {
+        return pending.filter((r) => (r.metadata as { batch_id?: string })?.batch_id === batchId).length;
+      }
+      return pending.filter((r) => r.created_at === latest.created_at && r.user_id === latest.user_id).length;
+    },
+    enabled: !!business && canFix,
+  });
+
+  const qc = useQueryClient();
+  const [fixing, setFixing] = useState<string | null>(null);
+  const [undoing, setUndoing] = useState(false);
+
+  const recalc = async (row?: ReconRow) => {
     if (!business) return;
-    setUndoingId(log.id);
+    setFixing(row ? `${row.product_id}-${row.location_id}` : "all");
+    try {
+      const { data: fixed, error } = await supabase.rpc("recalc_inventory_from_documents", {
+        _business_id: business.id,
+        _product_id: row?.product_id ?? undefined,
+        _location_id: row?.location_id ?? undefined,
+      });
+      if (error) throw error;
+      toast.success(`Stock recalculated for ${Number(fixed || 0)} item(s)`);
+      qc.invalidateQueries({ queryKey: ["stock_reconciliation"] });
+      qc.invalidateQueries({ queryKey: ["inventory"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["undoable_recalcs"] });
+      qc.invalidateQueries({ queryKey: ["audit_logs"] });
+      qc.invalidateQueries({ queryKey: ["report-audit"] });
+      await refetch();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not recalculate stock");
+    } finally {
+      setFixing(null);
+    }
+  };
+
+  const undoLast = async () => {
+    if (!business) return;
+    setUndoing(true);
     try {
       const { data: restored, error } = await supabase.rpc("undo_inventory_recalculation", {
         _business_id: business.id,
-        _audit_log_id: log.id,
       });
       if (error) throw error;
       const count = Number(restored || 0);
       if (count === 0) {
-        toast.info("This recalculation was already undone");
+        toast.info("Nothing to undo");
       } else {
-        toast.success("Stock recalculation undone");
+        toast.success(`Undid stock recalculation for ${count} item(s)`);
       }
-      qc.invalidateQueries({ queryKey: ["report-audit"] });
       qc.invalidateQueries({ queryKey: ["stock_reconciliation"] });
       qc.invalidateQueries({ queryKey: ["inventory"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["undoable_recalcs"] });
+      qc.invalidateQueries({ queryKey: ["audit_logs"] });
+      qc.invalidateQueries({ queryKey: ["report-audit"] });
+      await refetch();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not undo recalculation");
     } finally {
-      setUndoingId(null);
+      setUndoing(false);
     }
   };
 
-  const formatKES = (n: number) =>
-    new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(
-      Number(n || 0),
-    );
-
-  const hasSnapshot = (l: AuditLog) => !!(l.metadata && l.metadata.snapshot);
-
-  const printSnapshot = (l: AuditLog) => {
-    const snap = l.metadata?.snapshot;
-    if (!snap) return;
-    const p = snap.purchase || {};
-    const items = snap.items || [];
-    const payments = snap.payments || [];
-    const win = window.open("", "_blank", "width=820,height=900");
-    if (!win) return;
-    const rows = items
-      .map(
-        (it: any) => `
-      <tr>
-        <td>${it.products?.name || "—"}${it.products?.sku ? ` <span style="color:#888">(${it.products.sku})</span>` : ""}</td>
-        <td style="text-align:right">${Number(it.quantity || 0)}</td>
-        <td style="text-align:right">${formatKES(Number(it.unit_cost || 0))}</td>
-        <td style="text-align:right">${formatKES(Number(it.total || 0))}</td>
-      </tr>`,
-      )
-      .join("");
-    const payRows = payments
-      .map(
-        (pay: any) => `
-      <tr>
-        <td>${pay.date || ""}</td>
-        <td>${pay.bank_accounts?.name || "—"}</td>
-        <td>${pay.reference || ""}</td>
-        <td style="text-align:right">${formatKES(Number(pay.amount || 0))}</td>
-      </tr>`,
-      )
-      .join("");
-    win.document
-      .write(`<!doctype html><html><head><meta charset="utf-8"><title>Deleted Purchase ${p.invoice_number || ""}</title>
-      <style>
-        body{font-family:ui-sans-serif,system-ui,Arial;color:#1e293b;padding:24px;max-width:780px;margin:auto}
-        h1{font-size:18px;margin:0 0 4px}
-        h2{font-size:13px;margin:18px 0 6px;color:#475569;text-transform:uppercase;letter-spacing:.05em}
-        .meta{font-size:12px;color:#64748b;margin-bottom:14px}
-        .banner{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:14px}
-        table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
-        th,td{border-bottom:1px solid #e2e8f0;padding:6px 8px;text-align:left}
-        th{background:#f8fafc;font-weight:600}
-        .totals{margin-top:10px;text-align:right;font-size:13px}
-        .totals div{margin:2px 0}
-        .grand{font-weight:700;font-size:14px}
-        @media print{ .noprint{display:none} }
-      </style></head><body>
-      <div class="noprint" style="text-align:right;margin-bottom:10px">
-        <button onclick="window.print()" style="padding:6px 12px;background:#1e293b;color:white;border:0;border-radius:4px;cursor:pointer">Print</button>
-      </div>
-      <div class="banner"><strong>DELETED RECORD</strong> — Purchase deleted on ${format(new Date(l.created_at), "dd MMM yyyy HH:mm")} by ${l.user_name || l.user_email || "—"}</div>
-      <h1>Purchase ${p.invoice_number || (p.id ? String(p.id).slice(0, 8) : "")}</h1>
-      <div class="meta">
-        Supplier: ${p.suppliers?.name || "—"} · Location: ${p.locations?.name || "—"}<br/>
-        Status at deletion: <strong>${p.status || "—"}</strong> · Payment: ${p.payment_status || "—"}<br/>
-        Created: ${p.created_at ? format(new Date(p.created_at), "dd MMM yyyy") : "—"}
-      </div>
-      <h2>Items (${items.length})</h2>
-      <table><thead><tr><th>Product</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit Cost</th><th style="text-align:right">Total</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="4" style="text-align:center;color:#94a3b8">No items</td></tr>`}</tbody></table>
-      <div class="totals">
-        <div>Subtotal: ${formatKES(Number(p.subtotal || 0))}</div>
-        <div>Tax: ${formatKES(Number(p.tax || 0))}</div>
-        <div class="grand">Total: ${formatKES(Number(p.total || 0))}</div>
-      </div>
-      ${
-        payments.length
-          ? `<h2>Linked Payments (reversed)</h2>
-      <table><thead><tr><th>Date</th><th>Account</th><th>Reference</th><th style="text-align:right">Amount</th></tr></thead>
-      <tbody>${payRows}</tbody></table>`
-          : ""
-      }
-      ${p.notes ? `<h2>Notes</h2><div style="font-size:12px;white-space:pre-wrap">${p.notes}</div>` : ""}
-      <div style="margin-top:24px;font-size:10px;color:#94a3b8">Audit ID: ${l.id}</div>
-      </body></html>`);
-    win.document.close();
-  };
-
-  const actions = useMemo(() => Array.from(new Set(logs.map((l) => l.action))).sort(), [logs]);
-  const entities = useMemo(
-    () => Array.from(new Set(logs.map((l) => l.entity_type).filter(Boolean) as string[])).sort(),
-    [logs],
-  );
-
-  const filtered = useMemo(() => {
-    const s = search.toLowerCase().trim();
-    return logs.filter((l) => {
-      if (actionFilter !== "all" && l.action !== actionFilter) return false;
-      if (entityFilter !== "all" && l.entity_type !== entityFilter) return false;
-      if (!s) return true;
-      return [l.user_name, l.user_email, l.action, l.entity_type, l.description]
-        .filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(s));
-    });
-  }, [logs, search, actionFilter, entityFilter]);
-
-  const buildRows = () =>
-    filtered.map((l) => {
-      const meta = l.metadata || {};
-      const extra = [meta.invoice_number, meta.total ? `Total: ${meta.total}` : null].filter(Boolean).join(" • ");
-      const desc = [l.description, extra].filter(Boolean).join(" — ");
-      return [
-        format(new Date(l.created_at), "yyyy-MM-dd HH:mm:ss"),
-        l.user_name || "",
-        l.user_email || "",
-        l.action,
-        l.entity_type || "",
-        desc,
-      ];
-    });
-
   const exportCsv = () => {
-    const headers = ["Date", "User", "Email", "Action", "Entity", "Description"];
-    const rows = buildRows();
-    const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
+    const headers = ["Product", "SKU", "Location", "Received", "Sold", "Adjusted", "Expected", "Actual", "Variance"];
+    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const csv = [
+      headers,
+      ...rows.map((r) => [
+        r.product_name,
+        r.sku || "",
+        r.location_name || "",
+        r.received_qty,
+        r.sold_qty,
+        r.adjusted_qty,
+        r.expected_qty,
+        r.actual_qty,
+        r.variance,
+      ]),
+    ]
+      .map((r) => r.map(esc).join(","))
+      .join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = `audit-log_${from}_to_${to}.csv`;
+    a.download = "stock-reconciliation.csv";
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape" });
-    doc.setFontSize(14);
-    doc.text("Audit Trail Report", 14, 15);
-    doc.setFontSize(9);
-    doc.text(`Period: ${from} to ${to}`, 14, 21);
-    doc.text(`Generated: ${format(new Date(), "yyyy-MM-dd HH:mm")}`, 14, 26);
-
-    autoTable(doc, {
-      startY: 30,
-      head: [["Date", "User", "Action", "Entity", "Description"]],
-      body: filtered.map((l) => {
-        const meta = l.metadata || {};
-        const extra = [meta.invoice_number, meta.total ? `Total: ${meta.total}` : null].filter(Boolean).join(" • ");
-        const desc = [l.description, extra].filter(Boolean).join(" — ");
-        return [
-          format(new Date(l.created_at), "dd MMM yyyy HH:mm"),
-          `${l.user_name || "—"}\n${l.user_email || ""}`,
-          l.action.replace(/_/g, " "),
-          l.entity_type || "—",
-          desc || "—",
-        ];
-      }),
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [30, 41, 59] },
-      columnStyles: { 4: { cellWidth: 100 } },
-    });
-
-    doc.save(`audit-log_${from}_to_${to}.pdf`);
-  };
-
   return (
     <div className="space-y-4">
-      <div className="flex flex-col lg:flex-row gap-2 lg:items-center lg:justify-between">
-        <div className="flex flex-col sm:flex-row gap-2 flex-1">
-          <div className="relative w-full sm:max-w-xs">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              placeholder="Search user, action..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <Select value={actionFilter} onValueChange={setActionFilter}>
-            <SelectTrigger className="w-full sm:w-44">
-              <SelectValue placeholder="All actions" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All actions</SelectItem>
-              {actions.map((a) => (
-                <SelectItem key={a} value={a} className="capitalize">
-                  {a.replace(/_/g, " ")}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={entityFilter} onValueChange={setEntityFilter}>
-            <SelectTrigger className="w-full sm:w-44">
-              <SelectValue placeholder="All entities" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All entities</SelectItem>
-              {entities.map((e) => (
-                <SelectItem key={e} value={e} className="capitalize">
-                  {e}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline">{filtered.length} entries</Badge>
-          <Button variant="outline" size="sm" onClick={exportCsv} disabled={filtered.length === 0}>
-            <Download className="h-4 w-4 mr-1" /> CSV
-          </Button>
-          <Button variant="outline" size="sm" onClick={exportPdf} disabled={filtered.length === 0}>
-            <FileText className="h-4 w-4 mr-1" /> PDF
-          </Button>
-        </div>
-      </div>
-
       <Card>
+        <CardHeader className="pb-3">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                {mismatches > 0 ? (
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4 text-success" />
+                )}
+                Stock Reconciliation
+                {mismatches > 0 && <Badge variant="destructive">{mismatches} mismatch(es)</Badge>}
+              </CardTitle>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
+                  <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> Recheck
+                </Button>
+                {canFix && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => undoLast()}
+                    disabled={undoableBatch === 0 || fixing !== null || undoing}
+                  >
+                    <Undo2 className="mr-2 h-4 w-4" />
+                    {undoing ? "Undoing…" : undoableBatch > 0 ? `Undo last fix (${undoableBatch})` : "Undo last fix"}
+                  </Button>
+                )}
+                {canFix && (
+                  <Button size="sm" onClick={() => recalc()} disabled={mismatches === 0 || fixing !== null || undoing}>
+                    <Wrench className="mr-2 h-4 w-4" /> {fixing === "all" ? "Fixing…" : "Fix all"}
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" onClick={exportCsv} disabled={rows.length === 0}>
+                  <Download className="mr-2 h-4 w-4" /> Export CSV
+                </Button>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Expected = received purchases − sales + manual adjustments. A variance means inventory drifted from what
+              the documents say.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  placeholder="Search product, SKU or barcode..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <Select value={filter} onValueChange={(v) => setFilter(v as "mismatch" | "all")}>
+                <SelectTrigger className="w-full sm:w-[190px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mismatch">Mismatches only</SelectItem>
+                  <SelectItem value="all">All stock rows</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
         <CardContent className="p-0">
-          <ReportTableScroll>
+          <div className="max-h-[65vh] overflow-auto">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>User</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Entity</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="w-[60px] text-right">Actions</TableHead>
+                  <TableHead>Product</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead className="text-right">Received</TableHead>
+                  <TableHead className="text-right">Sold</TableHead>
+                  <TableHead className="text-right">Adjusted</TableHead>
+                  <TableHead className="text-right">Expected</TableHead>
+                  <TableHead className="text-right">Actual</TableHead>
+                  <TableHead className="text-right">Variance</TableHead>
+                  <TableHead className="text-right">Fix</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {loading ? (
+                {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      Loading...
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                      Loading…
                     </TableCell>
                   </TableRow>
-                ) : filtered.length === 0 ? (
+                ) : rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      No audit entries match filters
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                      {filter === "mismatch" ? "No mismatches — inventory matches your documents." : "No stock rows."}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map((l) => {
-                    const meta = l.metadata || {};
-                    const extra = [
-                      meta.invoice_number,
-                      meta.total ? `Total: ${meta.total}` : null,
-                      l.action === "inventory_recalculated" && meta.previous_qty != null && meta.new_qty != null
-                        ? `Qty: ${meta.previous_qty} → ${meta.new_qty}`
-                        : null,
-                      l.action === "inventory_recalculation_undone" && meta.restored_qty != null
-                        ? `Restored to ${meta.restored_qty}`
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" • ");
-                    const printable = hasSnapshot(l);
-                    const undoable = canUndoLog(l);
+                  rows.map((r) => {
+                    const v = Number(r.variance || 0);
                     return (
-                      <TableRow key={l.id}>
-                        <TableCell className="text-xs whitespace-nowrap">
-                          {format(new Date(l.created_at), "dd MMM yyyy HH:mm")}
+                      <TableRow key={`${r.product_id}-${r.location_id}`} className="odd:bg-muted/30">
+                        <TableCell className="font-medium">
+                          <div>{r.product_name}</div>
+                          <div className="text-[11px] text-muted-foreground">{r.barcode || r.sku || "—"}</div>
                         </TableCell>
-                        <TableCell>
-                          <div className="text-sm font-medium">{l.user_name || "—"}</div>
-                          <div className="text-xs text-muted-foreground">{l.user_email || ""}</div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={actionColor(l.action) as any} className="capitalize">
-                            {l.action.replace(/_/g, " ")}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {l.entity_type ? <span className="capitalize">{l.entity_type}</span> : "—"}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground max-w-[400px]">
-                          <div className="truncate" title={l.description || ""}>
-                            {l.description || "—"}
-                          </div>
-                          {extra && <div className="text-xs text-muted-foreground/80 mt-0.5">{extra}</div>}
+                        <TableCell>{r.location_name || "—"}</TableCell>
+                        <TableCell className="text-right">{Number(r.received_qty || 0)}</TableCell>
+                        <TableCell className="text-right">{Number(r.sold_qty || 0)}</TableCell>
+                        <TableCell className="text-right">{Number(r.adjusted_qty || 0)}</TableCell>
+                        <TableCell className="text-right">{Number(r.expected_qty || 0)}</TableCell>
+                        <TableCell className="text-right font-medium">{Number(r.actual_qty || 0)}</TableCell>
+                        <TableCell className="text-right">
+                          {Math.abs(v) > 0.001 ? (
+                            <Badge variant="destructive">
+                              {v > 0 ? "+" : ""}
+                              {v}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">0</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            {undoable && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 px-2"
-                                disabled={undoingId !== null}
-                                onClick={() => undoRecalc(l)}
-                                aria-label="Undo stock recalculation"
-                                title="Undo stock recalculation"
-                              >
-                                <Undo2 className={`h-4 w-4 ${undoingId === l.id ? "animate-spin" : ""}`} />
-                              </Button>
-                            )}
-                            {printable && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 px-2"
-                                onClick={() => setPreviewLog(l)}
-                                aria-label="Print preview deleted record"
-                                title="Print preview deleted record"
-                              >
-                                <Printer className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
+                          {Math.abs(v) > 0.001 && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={fixing !== null || undoing}
+                              onClick={() => recalc(r)}
+                            >
+                              {fixing === `${r.product_id}-${r.location_id}` ? "Fixing…" : "Fix"}
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
@@ -410,103 +322,11 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
                 )}
               </TableBody>
             </Table>
-          </ReportTableScroll>
+          </div>
         </CardContent>
       </Card>
-
-      <Dialog open={!!previewLog} onOpenChange={(o) => !o && setPreviewLog(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Deleted record preview</DialogTitle>
-          </DialogHeader>
-          {previewLog &&
-            previewLog.metadata?.snapshot &&
-            (() => {
-              const snap = previewLog.metadata.snapshot;
-              const p = snap.purchase || {};
-              const items = snap.items || [];
-              const payments = snap.payments || [];
-              return (
-                <div className="space-y-3 text-sm">
-                  <div className="rounded-md border border-destructive/40 bg-destructive/5 text-destructive px-3 py-2 text-xs">
-                    Deleted on {format(new Date(previewLog.created_at), "dd MMM yyyy HH:mm")} by{" "}
-                    {previewLog.user_name || previewLog.user_email || "—"}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <span className="text-muted-foreground">Invoice #</span>
-                      <div className="font-medium">{p.invoice_number || "—"}</div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Total</span>
-                      <div className="font-medium">{formatKES(Number(p.total || 0))}</div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Supplier</span>
-                      <div className="font-medium">{p.suppliers?.name || "—"}</div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Location</span>
-                      <div className="font-medium">{p.locations?.name || "—"}</div>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">
-                      Items ({items.length})
-                    </div>
-                    <div className="max-h-48 overflow-auto rounded border">
-                      <table className="w-full text-xs">
-                        <thead className="bg-muted">
-                          <tr>
-                            <th className="text-left p-1.5">Product</th>
-                            <th className="text-right p-1.5">Qty</th>
-                            <th className="text-right p-1.5">Unit</th>
-                            <th className="text-right p-1.5">Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {items.map((it: any, i: number) => (
-                            <tr key={i} className="border-t">
-                              <td className="p-1.5">{it.products?.name || "—"}</td>
-                              <td className="p-1.5 text-right">{Number(it.quantity || 0)}</td>
-                              <td className="p-1.5 text-right">{formatKES(Number(it.unit_cost || 0))}</td>
-                              <td className="p-1.5 text-right">{formatKES(Number(it.total || 0))}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                  {payments.length > 0 && (
-                    <div>
-                      <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">
-                        Payments reversed ({payments.length})
-                      </div>
-                      <ul className="text-xs space-y-1">
-                        {payments.map((pay: any, i: number) => (
-                          <li key={i} className="flex justify-between border-b py-1">
-                            <span>
-                              {pay.date} · {pay.bank_accounts?.name || "—"} {pay.reference ? `· ${pay.reference}` : ""}
-                            </span>
-                            <span className="font-medium">{formatKES(Number(pay.amount || 0))}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPreviewLog(null)}>
-              Close
-            </Button>
-            <Button onClick={() => previewLog && printSnapshot(previewLog)}>
-              <Printer className="h-4 w-4 mr-1" /> Print
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
+
+export default StockReconciliationTab;
