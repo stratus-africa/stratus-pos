@@ -7,7 +7,19 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, Package, TrendingUp, ShoppingCart, Receipt, ClipboardList, Sun, Download, FileText, Clock, ScrollText } from "lucide-react";
+import {
+  BarChart3,
+  Package,
+  TrendingUp,
+  ShoppingCart,
+  Receipt,
+  ClipboardList,
+  Sun,
+  Download,
+  FileText,
+  Clock,
+  ScrollText,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -46,11 +58,29 @@ const Reports = () => {
   const canEOD = canSales;
   const canZ = canSales;
 
-  const firstTab = canSales ? "sales" : canPurchases ? "purchases" : canExpenses ? "expenses" : canInventory ? "inventory" : canPnL ? "pnl" : canEOD ? "eod" : canZ ? "zreport" : canAudit ? "audit" : "sales";
+  const firstTab = canSales
+    ? "sales"
+    : canPurchases
+      ? "purchases"
+      : canExpenses
+        ? "expenses"
+        : canInventory
+          ? "inventory"
+          : canPnL
+            ? "pnl"
+            : canEOD
+              ? "eod"
+              : canZ
+                ? "zreport"
+                : canAudit
+                  ? "audit"
+                  : "sales";
   const [searchParams, setSearchParams] = useSearchParams();
   const urlTab = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState<string>(urlTab || firstTab);
-  useEffect(() => { if (urlTab) setActiveTab(urlTab); }, [urlTab]);
+  useEffect(() => {
+    if (urlTab) setActiveTab(urlTab);
+  }, [urlTab]);
   const [from, setFrom] = useState(thirtyDaysAgo);
   const [to, setTo] = useState(today);
   const [exporter, setExporter] = useState<(() => void) | null>(null);
@@ -70,7 +100,9 @@ const Reports = () => {
       while (true) {
         const { data, error } = await supabase
           .from("sales")
-          .select("*, customers(name), locations(name), sale_items(quantity, unit_price, discount, total, batch_id, products(name, purchase_price), product_batches:batch_id(batch_number, expiry_date))")
+          .select(
+            "*, customers(name), locations(name), sale_items(quantity, unit_price, discount, total, batch_id, products(name, purchase_price), product_batches:batch_id(batch_number, expiry_date))",
+          )
           .eq("business_id", business.id)
           .neq("status", "cancelled")
           .gte("created_at", `${from}T00:00:00`)
@@ -107,7 +139,10 @@ const Reports = () => {
           .order("expiry_date", { ascending: true, nullsFirst: false }),
       ]);
       if (invRes.error) throw invRes.error;
-      const batchesByProduct = new Map<string, { batch_number: string; expiry_date: string | null; quantity: number }[]>();
+      const batchesByProduct = new Map<
+        string,
+        { batch_number: string; expiry_date: string | null; quantity: number }[]
+      >();
       (batchRes.data || []).forEach((b: any) => {
         const arr = batchesByProduct.get(b.product_id) || [];
         arr.push({ batch_number: b.batch_number, expiry_date: b.expiry_date, quantity: Number(b.quantity) });
@@ -220,7 +255,9 @@ const Reports = () => {
   const totalDiscount = sales.reduce((s, r) => s + Number(r.discount), 0);
   const totalCOGS = sales.reduce((s, sale) => {
     const items = (sale as any).sale_items || [];
-    return s + items.reduce((is: number, i: any) => is + Number(i.quantity) * Number(i.products?.purchase_price || 0), 0);
+    return (
+      s + items.reduce((is: number, i: any) => is + Number(i.quantity) * Number(i.products?.purchase_price || 0), 0)
+    );
   }, 0);
   const grossProfit = totalRevenue - totalCOGS;
   const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount), 0);
@@ -242,7 +279,9 @@ const Reports = () => {
       productRevenue[name].cost += Number(item.quantity) * Number(item.products?.purchase_price || 0);
     });
   });
-  const topProducts = Object.values(productRevenue).sort((a, b) => b.revenue - a.revenue).slice(0, 10);
+  const topProducts = Object.values(productRevenue)
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 10);
 
   const { settings: accounting } = useAccountingSettings();
   const fyMonth = accounting.financial_year_start_month || 1;
@@ -256,7 +295,8 @@ const Reports = () => {
     setTo(iso(end));
   };
 
-  const loading = salesReport.isLoading || inventoryReport.isLoading || expensesReport.isLoading || purchasesReport.isLoading;
+  const loading =
+    salesReport.isLoading || inventoryReport.isLoading || expensesReport.isLoading || purchasesReport.isLoading;
 
   return (
     <div className="space-y-4">
@@ -269,7 +309,10 @@ const Reports = () => {
             to={to}
             fyStartMonth={fyMonth}
             defaultPreset="this_month"
-            onChange={({ from: f, to: t }) => { setFrom(f); setTo(t); }}
+            onChange={({ from: f, to: t }) => {
+              setFrom(f);
+              setTo(t);
+            }}
           />
           <Badge variant="outline" className="h-8" title={`Financial year: ${financialYearLabel(fyMonth)}`}>
             {sales.length} sales in period
@@ -296,24 +339,32 @@ const Reports = () => {
             { value: "eod", label: "End of Day", icon: Sun, show: canEOD },
             { value: "zreport", label: "Z Report", icon: FileText, show: canZ },
             { value: "audit", label: "Audit Trail", icon: ClipboardList, show: canAudit },
-          ].filter(i => i.show);
+          ].filter((i) => i.show);
           return (
             <>
               <div className="md:hidden">
                 <Select value={activeTab} onValueChange={setActiveTab}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Select report" /></SelectTrigger>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select report" />
+                  </SelectTrigger>
                   <SelectContent>
-                    {items.map(i => (
+                    {items.map((i) => (
                       <SelectItem key={i.value} value={i.value}>
-                        <span className="flex items-center gap-2"><i.icon className="h-4 w-4" /> {i.label}</span>
+                        <span className="flex items-center gap-2">
+                          <i.icon className="h-4 w-4" /> {i.label}
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <TabsList className="hidden md:flex text-muted-foreground md:flex-col h-auto md:w-52 bg-muted rounded-lg p-1.5 shrink-0 md:items-start md:justify-start">
-                {items.map(i => (
-                  <TabsTrigger key={i.value} value={i.value} className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0">
+                {items.map((i) => (
+                  <TabsTrigger
+                    key={i.value}
+                    value={i.value}
+                    className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0"
+                  >
                     <i.icon className="h-4 w-4" /> {i.label}
                   </TabsTrigger>
                 ))}
@@ -321,7 +372,6 @@ const Reports = () => {
             </>
           );
         })()}
-
 
         <div className="flex-1 min-w-0">
           {canSales && (
@@ -341,7 +391,11 @@ const Reports = () => {
           )}
           {canInventory && (
             <TabsContent value="inventory" className="mt-0">
-              <InventoryReportTab inventory={inventory} loading={loading} showBatches={hasFeatureKey("batch_tracking")} />
+              <InventoryReportTab
+                inventory={inventory}
+                loading={loading}
+                showBatches={hasFeatureKey("batch_tracking")}
+              />
             </TabsContent>
           )}
           {canInventory && (
@@ -351,13 +405,34 @@ const Reports = () => {
           )}
           {canMovement && (
             <TabsContent value="movement" className="mt-0">
-              <StockLedgerTab locationId={currentLocation?.id} />
+              <StockLedgerTab
+                locationId={currentLocation?.id}
+                from={from}
+                to={to}
+                fyStartMonth={fyMonth}
+                onDateChange={({ from: f, to: t }) => {
+                  setFrom(f);
+                  setTo(t);
+                }}
+              />
             </TabsContent>
           )}
           {canPnL && (
             <TabsContent value="pnl" className="mt-0">
               <RequireFeature featureKey="accounting">
-                <PnLReportTab totalRevenue={totalRevenue} totalCOGS={totalCOGS} grossProfit={grossProfit} totalExpenses={totalExpenses} netProfit={netProfit} expenseByCategory={expenseByCategory} purchasesCost={pnlExtras.data?.purchasesCost || 0} adjustmentsCost={pnlExtras.data?.adjustmentsCost || 0} from={from} to={to} loading={loading || pnlExtras.isLoading} />
+                <PnLReportTab
+                  totalRevenue={totalRevenue}
+                  totalCOGS={totalCOGS}
+                  grossProfit={grossProfit}
+                  totalExpenses={totalExpenses}
+                  netProfit={netProfit}
+                  expenseByCategory={expenseByCategory}
+                  purchasesCost={pnlExtras.data?.purchasesCost || 0}
+                  adjustmentsCost={pnlExtras.data?.adjustmentsCost || 0}
+                  from={from}
+                  to={to}
+                  loading={loading || pnlExtras.isLoading}
+                />
               </RequireFeature>
             </TabsContent>
           )}
