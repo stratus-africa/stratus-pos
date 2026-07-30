@@ -40,43 +40,31 @@ export const CartTable = memo(function CartTable({ items, onUpdate, onRemove, on
 
   return (
     <>
-      <table className="w-full text-sm border-separate border-spacing-0">
+      <table className="w-full text-base border-separate border-spacing-0 table-fixed">
         <thead className="sticky top-0 z-10">
           <tr className="bg-muted text-muted-foreground">
-            <th className="text-left font-medium px-2 py-1.5 w-10">S.N.</th>
-            <th className="text-left font-medium px-2 py-1.5">Item Description</th>
-            <th className="text-left font-medium px-2 py-1.5 w-20 hidden md:table-cell">Unit</th>
-            <th className="text-right font-medium px-1 py-1.5 w-24">Rate</th>
-            <th className="text-center font-medium px-1 py-1.5 w-16">Qty</th>
-            <th className="text-right font-medium px-2 py-1.5 w-24 hidden sm:table-cell">Gross Amt.</th>
-            <th className="text-right font-medium px-1 py-1.5 w-24 hidden sm:table-cell">Discount</th>
-            <th className="text-right font-medium px-2 py-1.5 w-24">Net Amt.</th>
-            <th className="w-8" />
+            <th className="text-left font-medium px-2 py-2 w-[10%]">S.N.</th>
+            <th className="text-left font-medium px-2 py-2 w-[35%]">Item Description</th>
+            <th className="text-right font-medium px-1 py-2 w-[18%]">Rate</th>
+            <th className="text-center font-medium px-1 py-2 w-[14%]">Qty</th>
+            <th className="text-right font-medium px-2 py-2 w-[18%]">Net Amt.</th>
+            <th className="w-[5%]" />
           </tr>
         </thead>
         <tbody>
           {items.map((item, idx) => {
-            const gross = item.unit_price * item.quantity;
-            const net = gross - item.discount;
+            const net = item.unit_price * item.quantity - item.discount;
             const allowDecimal = item.product.allow_decimal_quantity ?? false;
-            const unit =
-              item.product.units?.abbreviation ||
-              item.product.units?.name ||
-              item.product.quantity_unit ||
-              "—";
             return (
               <tr
                 key={item.product.id}
                 className={idx % 2 === 1 ? "bg-muted/40" : "bg-background"}
               >
-                <td className="px-2 py-1.5 align-middle text-muted-foreground tabular-nums">{idx + 1}</td>
-                <td className="px-2 py-1.5 align-middle">
+                <td className="px-2 py-2 align-middle text-muted-foreground tabular-nums">{idx + 1}</td>
+                <td className="px-2 py-2 align-middle">
                   <span className="font-medium break-words leading-snug">{item.product.name}</span>
                 </td>
-                <td className="px-2 py-1.5 align-middle text-muted-foreground uppercase text-xs hidden md:table-cell">
-                  {unit}
-                </td>
-                <td className="px-1 py-1.5 align-middle">
+                <td className="px-1 py-2 align-middle">
                   <Input
                     type="number"
                     min={0}
@@ -86,11 +74,11 @@ export const CartTable = memo(function CartTable({ items, onUpdate, onRemove, on
                       const v = parseFloat(e.target.value);
                       onUpdate(item.product.id, { unit_price: Number.isNaN(v) ? 0 : Math.max(0, v) });
                     }}
-                    className="h-7 w-full text-right px-1 text-sm"
+                    className="h-8 w-full text-right px-1 text-base"
                     aria-label={`Rate for ${item.product.name}`}
                   />
                 </td>
-                <td className="px-1 py-1.5 align-middle">
+                <td className="px-1 py-2 align-middle">
                   <Input
                     type="number"
                     min={allowDecimal ? 0.01 : 1}
@@ -101,39 +89,22 @@ export const CartTable = memo(function CartTable({ items, onUpdate, onRemove, on
                       if (Number.isNaN(v)) return;
                       onUpdate(item.product.id, { quantity: Math.max(allowDecimal ? 0.01 : 1, v) });
                     }}
-                    className="h-7 w-full text-center px-1 text-sm"
+                    className="h-8 w-full text-center px-1 text-base"
                     aria-label={`Quantity for ${item.product.name}`}
                   />
                 </td>
-                <td className="px-2 py-1.5 text-right align-middle tabular-nums hidden sm:table-cell">
-                  {fmt(gross)}
-                </td>
-                <td className="px-1 py-1.5 align-middle hidden sm:table-cell">
-                  <Input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={item.discount}
-                    onChange={(e) => {
-                      const v = parseFloat(e.target.value);
-                      onUpdate(item.product.id, { discount: Number.isNaN(v) ? 0 : Math.max(0, Math.min(gross, v)) });
-                    }}
-                    className="h-7 w-full text-right px-1 text-sm"
-                    aria-label={`Discount for ${item.product.name}`}
-                  />
-                </td>
-                <td className="px-2 py-1.5 text-right font-semibold align-middle tabular-nums">
+                <td className="px-2 py-2 text-right font-semibold align-middle tabular-nums">
                   {fmt(net)}
                 </td>
-                <td className="px-0 py-1.5 align-middle">
+                <td className="px-0 py-2 align-middle">
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                    className="h-8 w-8 text-destructive hover:bg-destructive/10"
                     onClick={() => setPending(item)}
                     aria-label={`Remove ${item.product.name}`}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-5 w-5" />
                   </Button>
                 </td>
               </tr>
