@@ -666,37 +666,8 @@ const POS = () => {
           )}
         </ScrollArea>
 
-        {/* Cart items table — "PRODUCT ITEMS" panel as per design */}
-        <div className="mt-3 flex flex-col min-h-0 max-h-[45%] rounded-lg border overflow-hidden">
-          <div className="flex items-center justify-between px-3 py-2 bg-primary text-primary-foreground">
-            <span className="text-xs font-semibold tracking-wide uppercase flex items-center gap-2">
-              <ShoppingCart className="h-4 w-4" />
-              Product Items ({pos.cart.length})
-            </span>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-6 w-6 text-primary-foreground hover:bg-primary-foreground/20"
-              disabled={pos.cart.length === 0}
-              onClick={pos.clearCart}
-              title="Clear cart"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-          <ScrollArea className="flex-1 min-h-0">
-            {pos.cart.length === 0 ? (
-              <p className="text-center py-8 text-muted-foreground text-sm">Add products to start a sale</p>
-            ) : (
-              <CartTable
-                items={pos.cart}
-                onUpdate={pos.updateCartItem}
-                onRemove={pos.removeFromCart}
-                onBeforeRemove={handleBeforeRemove}
-              />
-            )}
-          </ScrollArea>
-        </div>
+
+
 
         {/* Held sales bar */}
         {pos.heldSales.length > 0 && (
@@ -802,30 +773,45 @@ const POS = () => {
               </SelectContent>
             </Select>
 
-            {/* Totals */}
-            <div className="text-sm">
-              <div className="flex justify-between py-1.5 border-b border-primary-foreground/15">
-                <span className="uppercase tracking-wide text-xs opacity-90">Subtotal</span>
-                <span className="tabular-nums">{pos.cartSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-primary-foreground/15">
-                <span className="opacity-90">Discount</span>
-                <span className="tabular-nums">
-                  {pos.cart.reduce((s, i) => s + (i.discount || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {/* Cart items */}
+            <div className="rounded-lg overflow-hidden bg-background text-foreground border border-primary-foreground/20">
+              <div className="flex items-center justify-between px-3 py-2 bg-muted">
+                <span className="text-xs font-semibold tracking-wide uppercase flex items-center gap-2">
+                  <ShoppingCart className="h-4 w-4" />
+                  Product Items ({pos.cart.length})
                 </span>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6"
+                  disabled={pos.cart.length === 0}
+                  onClick={pos.clearCart}
+                  title="Clear cart"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
               </div>
-              <div className="flex justify-between py-1.5 border-b border-primary-foreground/15">
-                <span className="opacity-90">VAT {pos.taxInclusive ? "(incl.)" : "(excl.)"}</span>
-                <span className="tabular-nums">{pos.cartTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              </div>
-              <div className="flex items-center justify-between pt-3">
-                <span className="uppercase font-semibold tracking-wide">Total</span>
-                <span className="text-3xl font-bold tabular-nums">
-                  {pos.cartTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
-              <p className="text-right text-[11px] opacity-80 mt-0.5">KES</p>
+              {pos.cart.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground text-sm">Add products to start a sale</p>
+              ) : (
+                <CartTable
+                  items={pos.cart}
+                  onUpdate={pos.updateCartItem}
+                  onRemove={pos.removeFromCart}
+                  onBeforeRemove={handleBeforeRemove}
+                />
+              )}
             </div>
+
+            {/* Total */}
+            <div className="flex items-center justify-between pt-2 border-t border-primary-foreground/20">
+              <span className="uppercase font-semibold tracking-wide text-sm">Total Due</span>
+              <span className="text-3xl font-bold tabular-nums">
+                <span className="text-base font-semibold mr-1 opacity-80">KES</span>
+                {pos.cartTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+
           </div>
         </ScrollArea>
 
