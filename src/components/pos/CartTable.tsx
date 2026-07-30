@@ -19,12 +19,15 @@ interface CartTableProps {
   onUpdate: (id: string, u: Partial<CartItem>) => void;
   onRemove: (id: string) => void;
   onBeforeRemove?: (item: CartItem) => Promise<boolean> | boolean;
+  /** Live stock at the selected location; used for over-quantity warnings. */
+  stockOf?: (productId: string) => number;
 }
 
 const fmt = (n: number) =>
   n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export const CartTable = memo(function CartTable({ items, onUpdate, onRemove, onBeforeRemove }: CartTableProps) {
+export const CartTable = memo(function CartTable({ items, onUpdate, onRemove, onBeforeRemove, stockOf }: CartTableProps) {
+
   const [pending, setPending] = useState<CartItem | null>(null);
 
   const confirmRemove = useCallback(async () => {
