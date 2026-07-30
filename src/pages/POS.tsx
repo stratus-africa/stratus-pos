@@ -37,6 +37,7 @@ import {
   loadCustomerDisplayConfig,
 } from "@/lib/customerDisplay";
 import { loadLastReceipt } from "@/lib/lastReceipt";
+import CreditCustomerDialog from "@/components/pos/CreditCustomerDialog";
 
 
 
@@ -72,6 +73,7 @@ const POS = () => {
   const [mobileCartExpanded, setMobileCartExpanded] = useState(false);
   const isResume = pos.cart.length === 0 && pos.heldSales.length > 0;
   const [approvalOpen, setApprovalOpen] = useState(false);
+  const [creditCustomerOpen, setCreditCustomerOpen] = useState(false);
   const pendingRemoveResolver = useRef<((approved: boolean) => void) | null>(null);
   const pendingRemoveItem = useRef<CartItem | null>(null);
 
@@ -757,7 +759,7 @@ const POS = () => {
                 disabled={pos.cart.length === 0}
                 onClick={() => {
                   if (!pos.customerId) {
-                    toast.error("Credit Sale requires a customer. Select a customer above (walk-in is not allowed).");
+                    setCreditCustomerOpen(true);
                     return;
                   }
                   setInitialPaymentMethod("card");
@@ -881,6 +883,19 @@ const POS = () => {
         title="Approve item removal"
         description="A manager must approve removing this item already added to the cart."
       />
+
+      <CreditCustomerDialog
+        open={creditCustomerOpen}
+        onOpenChange={setCreditCustomerOpen}
+        customers={customers.map((c) => ({ id: c.id, name: c.name, phone: c.phone }))}
+        onSelected={(c) => {
+          pos.setCustomerId(c.id);
+          pos.setCustomerName(c.name);
+          setInitialPaymentMethod("card");
+          setPaymentOpen(true);
+        }}
+      />
+
 
     </div>
   );
