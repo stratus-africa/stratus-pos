@@ -261,14 +261,15 @@ const POS = () => {
           if (qty <= 0) return false;
         }
         const matchSearch =
-          p.name.toLowerCase().includes(search.toLowerCase()) ||
-          (p.sku || "").toLowerCase().includes(search.toLowerCase()) ||
-          (p.barcode || "").toLowerCase().includes(search.toLowerCase());
+          p.name.toLowerCase().includes(pickerSearch.toLowerCase()) ||
+          (p.sku || "").toLowerCase().includes(pickerSearch.toLowerCase()) ||
+          (p.barcode || "").toLowerCase().includes(pickerSearch.toLowerCase());
         const matchCat = categoryFilter === "all" || p.category_id === categoryFilter;
         return matchSearch && matchCat;
       }),
-    [products, search, categoryFilter, stockMap, hideZeroStock]
+    [products, pickerSearch, categoryFilter, stockMap, hideZeroStock]
   );
+
 
   const handlePaymentConfirm = async (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean, loyalty: LoyaltyPayload | null) => {
     let loyaltyCtx: {
