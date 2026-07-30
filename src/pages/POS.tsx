@@ -54,9 +54,20 @@ const POS = () => {
 
   const isMobile = useIsMobile();
 
-  const [search, setSearch] = useState("");
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [productPickerOpen, setProductPickerOpen] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState("");
+  const pickerSearchRef = useRef<HTMLInputElement>(null);
   const [categoryFilter, setCategoryFilter] = useState("all");
+
+  // Focus the picker search input whenever the modal opens.
+  useEffect(() => {
+    if (productPickerOpen) {
+      const id = requestAnimationFrame(() => pickerSearchRef.current?.focus());
+      return () => cancelAnimationFrame(id);
+    }
+  }, [productPickerOpen]);
+
+
 
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [resumeOpen, setResumeOpen] = useState(false);
@@ -213,25 +224,28 @@ const POS = () => {
     if (match) {
       if (scanSettings.autoAddToCart) {
         pos.addToCart(match);
-        setSearch("");
+        setPickerSearch("");
       } else {
-        setSearch(match.name);
-        requestAnimationFrame(() => searchInputRef.current?.focus());
+        setProductPickerOpen(true);
+        setPickerSearch(match.name);
+        requestAnimationFrame(() => pickerSearchRef.current?.focus());
       }
       return;
     }
     // Not found: cart stays unchanged; optionally surface the code for manual lookup.
     toast.warning(`No product matches "${trimmed}"`);
     if (scanSettings.openSearchOnMiss) {
-      setSearch(trimmed);
+      setProductPickerOpen(true);
+      setPickerSearch(trimmed);
       requestAnimationFrame(() => {
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
+        pickerSearchRef.current?.focus();
+        pickerSearchRef.current?.select();
       });
     } else {
-      setSearch("");
+      setPickerSearch("");
     }
   };
+
 
 
 
@@ -256,14 +270,15 @@ const POS = () => {
           if (qty <= 0) return false;
         }
         const matchSearch =
-          p.name.toLowerCase().includes(search.toLowerCase()) ||
-          (p.sku || "").toLowerCase().includes(search.toLowerCase()) ||
-          (p.barcode || "").toLowerCase().includes(search.toLowerCase());
+          p.name.toLowerCase().includes(pickerSearch.toLowerCase()) ||
+          (p.sku || "").toLowerCase().includes(pickerSearch.toLowerCase()) ||
+          (p.barcode || "").toLowerCase().includes(pickerSearch.toLowerCase());
         const matchCat = categoryFilter === "all" || p.category_id === categoryFilter;
         return matchSearch && matchCat;
       }),
-    [products, search, categoryFilter, stockMap, hideZeroStock]
+    [products, pickerSearch, categoryFilter, stockMap, hideZeroStock]
   );
+
 
   const handlePaymentConfirm = async (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean, loyalty: LoyaltyPayload | null) => {
     let loyaltyCtx: {
@@ -371,7 +386,7 @@ const POS = () => {
   };
 
   // Keyboard shortcuts:
-  //   F1  scan barcode          F2  focus search
+  //   F1  scan barcode          F2  open product picker
   //   F3  Cash sale (quick complete, exact amount)
   //   F4  open payment dialog on Cash
   //   F5  open payment dialog on M-Pesa (STK Push flow)
@@ -409,9 +424,10 @@ const POS = () => {
           break;
         case "F2":
           e.preventDefault();
-          searchInputRef.current?.focus();
-          searchInputRef.current?.select();
+          setProductPickerOpen(true);
+          requestAnimationFrame(() => pickerSearchRef.current?.focus());
           break;
+
         case "F3":
           if (pos.cart.length === 0) return;
           e.preventDefault();
@@ -441,7 +457,7 @@ const POS = () => {
           break;
         case "Escape":
           if (typing) return;
-          if (paymentOpen || scannerOpen || approvalOpen || receiptOpen || startDayOpen) return;
+          if (paymentOpen || scannerOpen || approvalOpen || receiptOpen || startDayOpen || productPickerOpen) return;
           if (pos.cart.length === 0) return;
           e.preventDefault();
           if (window.confirm("Clear the current cart?")) pos.clearCart();
@@ -450,15 +466,17 @@ const POS = () => {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [pos, business, paymentOpen, scannerOpen, approvalOpen, receiptOpen, startDayOpen]);
+  }, [pos, business, paymentOpen, scannerOpen, approvalOpen, receiptOpen, startDayOpen, productPickerOpen]);
+
 
   // Global keyboard-wedge scanner listener — works even when nothing is focused.
   useBarcodeScanner({
     onScan: handleScanned,
-    disabled: scannerOpen || scanSettingsOpen,
-    searchInputRef,
+    disabled: scannerOpen || scanSettingsOpen || productPickerOpen,
+    searchInputRef: pickerSearchRef,
     settings: scanSettings,
   });
+
 
 
 
@@ -516,55 +534,22 @@ const POS = () => {
       >
         {/* Search & filters - single row on mobile */}
         <div className="flex flex-row gap-2 mb-3">
-          <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              ref={searchInputRef}
-              placeholder="Search or scan... (F2 focus · Esc clear)"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setSearch("");
-                  return;
-                }
-                if (e.key === "Enter" && search.trim()) {
-                  e.preventDefault();
-                  // Enter-to-select: if the current filter narrows to exactly one
-                  // product, add it straight to the cart; otherwise treat the text
-                  // as a scanned/typed barcode lookup.
-                  if (activeProducts.length === 1) {
-                    pos.addToCart(activeProducts[0]);
-                    setSearch("");
-                    return;
-                  }
-                  handleScanned(search.trim());
-                }
-              }}
-              className="pl-9 pr-9"
-              autoFocus
-              aria-label="Search or scan products"
-            />
-            {productsQuery.isFetching ? (
-              <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin text-muted-foreground" />
-            ) : search ? (
-              <button
-                type="button"
-                aria-label="Clear search"
-                title="Clear search (Esc)"
-                onClick={() => { setSearch(""); searchInputRef.current?.focus(); }}
-                className="absolute right-2 top-1.5 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            ) : null}
-          </div>
+          <Button
+            variant="outline"
+            className="flex-1 justify-start gap-2 text-muted-foreground h-10"
+            onClick={() => { setProductPickerOpen(true); requestAnimationFrame(() => pickerSearchRef.current?.focus()); }}
+          >
+            <Search className="h-4 w-4" />
+            <span className="truncate">Search or scan products…</span>
+            <kbd className="ml-auto hidden sm:inline-flex items-center gap-1 rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              F2
+            </kbd>
+          </Button>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger className="w-24 sm:w-40 shrink-0">
               <SelectValue placeholder="Cat." />
             </SelectTrigger>
+
             <SelectContent>
               <SelectItem value="all">All Categories</SelectItem>
               {categories.map((c) => (
@@ -584,14 +569,84 @@ const POS = () => {
 
         </div>
 
-        {/* Product picker modal — auto-opens when searching or filtering a category */}
-        <Dialog open={Boolean(search.trim() || categoryFilter !== "all")} onOpenChange={(o) => {
-          if (!o) { setSearch(""); setCategoryFilter("all"); }
+        {/* Product picker modal — opened by F2 or the search button */}
+        <Dialog open={productPickerOpen} onOpenChange={(o) => {
+          setProductPickerOpen(o);
+          if (!o) { setPickerSearch(""); setCategoryFilter("all"); }
         }}>
           <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 gap-0">
             <DialogHeader className="px-4 py-3 border-b">
               <DialogTitle className="text-base">Select product</DialogTitle>
             </DialogHeader>
+            <div className="flex flex-row gap-2 px-4 py-2 border-b">
+              <div className="relative flex-1 min-w-0">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  ref={pickerSearchRef}
+                  placeholder="Search by name, barcode or SKU…"
+                  value={pickerSearch}
+                  onChange={(e) => setPickerSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setProductPickerOpen(false);
+                      setPickerSearch("");
+                      setCategoryFilter("all");
+                      return;
+                    }
+                    if (e.key === "Enter" && pickerSearch.trim()) {
+                      e.preventDefault();
+                      // Enter-to-select: if the filter narrows to exactly one product, add it.
+                      if (activeProducts.length === 1) {
+                        pos.addToCart(activeProducts[0]);
+                        setProductPickerOpen(false);
+                        setPickerSearch("");
+                        setCategoryFilter("all");
+                        return;
+                      }
+                      // Otherwise treat as a barcode/SKU lookup.
+                      const trimmed = pickerSearch.trim();
+                      const match = products.find(
+                        (p) => p.is_active && (p.barcode === trimmed || p.sku === trimmed)
+                      );
+                      if (match) {
+                        pos.addToCart(match);
+                        setProductPickerOpen(false);
+                        setPickerSearch("");
+                        setCategoryFilter("all");
+                      } else {
+                        toast.warning(`No product matches "${trimmed}"`);
+                      }
+                    }
+                  }}
+                  className="pl-9 pr-9"
+                  aria-label="Search products by name, barcode or SKU"
+                />
+                {pickerSearch ? (
+                  <button
+                    type="button"
+                    aria-label="Clear search"
+                    title="Clear search"
+                    onClick={() => { setPickerSearch(""); pickerSearchRef.current?.focus(); }}
+                    className="absolute right-2 top-1.5 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : null}
+              </div>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-32 sm:w-40 shrink-0">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <ScrollArea className="flex-1 min-h-0">
               <table className="w-full text-sm">
                 <thead className="bg-muted/60 text-muted-foreground sticky top-0">
@@ -608,7 +663,7 @@ const POS = () => {
                     return (
                       <tr
                         key={p.id}
-                        onClick={() => { pos.addToCart(p); setSearch(""); setCategoryFilter("all"); }}
+                        onClick={() => { pos.addToCart(p); setProductPickerOpen(false); setPickerSearch(""); setCategoryFilter("all"); }}
                         className="cursor-pointer border-b last:border-0 hover:bg-accent/60 transition-colors"
                       >
                         <td className="px-3 py-2 align-middle">
