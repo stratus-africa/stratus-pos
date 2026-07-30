@@ -71,6 +71,51 @@ const POS = () => {
   const scanSettings = useScanSettings();
 
   const [mobileCartExpanded, setMobileCartExpanded] = useState(false);
+
+  // --- Resizable split between product list and cart (desktop only) ----------
+  const SPLIT_KEY = "pos_split_pct";
+  const splitRef = useRef<HTMLDivElement | null>(null);
+  const [isWide, setIsWide] = useState(false);
+  const [splitPct, setSplitPct] = useState(60);
+  const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => setIsWide(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    const saved = Number(localStorage.getItem(SPLIT_KEY));
+    if (saved >= 30 && saved <= 80) setSplitPct(saved);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    if (!dragging) return;
+    const move = (clientX: number) => {
+      const el = splitRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const pct = ((clientX - rect.left) / rect.width) * 100;
+      setSplitPct(Math.min(80, Math.max(30, Math.round(pct))));
+    };
+    const onMouseMove = (e: MouseEvent) => move(e.clientX);
+    const onTouchMove = (e: TouchEvent) => e.touches[0] && move(e.touches[0].clientX);
+    const stop = () => setDragging(false);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("touchmove", onTouchMove);
+    window.addEventListener("mouseup", stop);
+    window.addEventListener("touchend", stop);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("mouseup", stop);
+      window.removeEventListener("touchend", stop);
+    };
+  }, [dragging]);
+
+  useEffect(() => {
+    if (isWide) localStorage.setItem(SPLIT_KEY, String(splitPct));
+  }, [splitPct, isWide]);
   const isResume = pos.cart.length === 0 && pos.heldSales.length > 0;
   const [approvalOpen, setApprovalOpen] = useState(false);
   const [creditCustomerOpen, setCreditCustomerOpen] = useState(false);
