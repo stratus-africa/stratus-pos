@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -8,6 +8,9 @@ import { Product } from "@/hooks/useProducts";
 import { pickFefoBatches } from "@/hooks/useProductBatches";
 import { consumeNext } from "@/lib/numberSeries";
 import { ensureCanPost } from "@/lib/postingGuard";
+import { loadCartDraft, saveCartDraft, clearCartDraft } from "@/lib/cartPersistence";
+import { enqueueSale, isOnline } from "@/lib/offlineSales";
+
 
 
 export interface CartItem {
