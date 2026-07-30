@@ -64,6 +64,32 @@ export function StockReconciliationTab() {
 
   const mismatches = (data || []).filter((r) => Math.abs(Number(r.variance || 0)) > 0.001).length;
 
+  const qc = useQueryClient();
+  const [fixing, setFixing] = useState<string | null>(null);
+
+  const recalc = async (row?: ReconRow) => {
+    if (!business) return;
+    setFixing(row ? `${row.product_id}-${row.location_id}` : "all");
+    try {
+      const { data: fixed, error } = await supabase.rpc("recalc_inventory_from_documents", {
+        _business_id: business.id,
+        _product_id: row?.product_id ?? null,
+        _location_id: row?.location_id ?? null,
+      });
+      if (error) throw error;
+      toast.success(`Stock recalculated for ${Number(fixed || 0)} item(s)`);
+      qc.invalidateQueries({ queryKey: ["stock_reconciliation"] });
+      qc.invalidateQueries({ queryKey: ["inventory"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      await refetch();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not recalculate stock");
+    } finally {
+      setFixing(null);
+    }
+  };
+
+
   const exportCsv = () => {
     const headers = ["Product", "SKU", "Location", "Received", "Sold", "Adjusted", "Expected", "Actual", "Variance"];
     const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
