@@ -95,7 +95,14 @@ export function StockReconciliationTab() {
       if (batchId) {
         return pending.filter((r) => (r.metadata as { batch_id?: string })?.batch_id === batchId).length;
       }
-      return pending.filter((r) => r.created_at === latest.created_at && r.user_id === latest.user_id).length;
+      // Legacy entries (no batch id): group the whole run by a small time window.
+      const latestTs = new Date(latest.created_at).getTime();
+      return pending.filter(
+        (r) =>
+          !(r.metadata as { batch_id?: string })?.batch_id &&
+          r.user_id === latest.user_id &&
+          Math.abs(new Date(r.created_at).getTime() - latestTs) <= 2000,
+      ).length;
     },
     enabled: !!business && canFix,
   });
