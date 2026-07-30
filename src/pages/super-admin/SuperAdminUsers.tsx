@@ -40,7 +40,7 @@ export default function SuperAdminUsers() {
 
   const fetchUsers = async () => {
     const [profilesRes, superRes, rolesRes, bizRes] = await Promise.all([
-      supabase.from("profiles").select("*"),
+      supabase.from("profiles").select("id, business_id, email, full_name, phone, username, avatar_url, is_active, assigned_location_id, created_at, updated_at"),
       supabase.from("super_admins").select("user_id"),
       supabase.from("user_roles").select("user_id, role, business_id"),
       supabase.from("businesses").select("id, name"),
