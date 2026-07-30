@@ -129,6 +129,9 @@ export function StockReconciliationTab() {
                 <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
                   <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> Recheck
                 </Button>
+                <Button size="sm" onClick={() => recalc()} disabled={mismatches === 0 || fixing !== null}>
+                  <Wrench className="mr-2 h-4 w-4" /> {fixing === "all" ? "Fixing…" : "Fix all"}
+                </Button>
                 <Button size="sm" variant="outline" onClick={exportCsv} disabled={rows.length === 0}>
                   <Download className="mr-2 h-4 w-4" /> Export CSV
                 </Button>
