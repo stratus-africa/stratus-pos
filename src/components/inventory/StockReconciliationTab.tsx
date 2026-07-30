@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Download, RefreshCw, AlertTriangle, CheckCircle2, Wrench } from "lucide-react";
+import { Search, Download, RefreshCw, AlertTriangle, CheckCircle2, Wrench, Undo2 } from "lucide-react";
 
 interface ReconRow {
   product_id: string;
@@ -31,7 +31,7 @@ interface ReconRow {
  * with the quantity currently held in inventory, flagging any mismatch.
  */
 export function StockReconciliationTab() {
-  const { business } = useBusiness();
+  const { business, hasAccess } = useBusiness();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"mismatch" | "all">("mismatch");
 
@@ -39,10 +39,7 @@ export function StockReconciliationTab() {
     queryKey: ["stock_reconciliation", business?.id],
     queryFn: async () => {
       if (!business) return [] as ReconRow[];
-      const { data, error } = await supabase
-        .from("stock_reconciliation")
-        .select("*")
-        .eq("business_id", business.id);
+      const { data, error } = await supabase.from("stock_reconciliation").select("*").eq("business_id", business.id);
       if (error) throw error;
       return (data || []) as unknown as ReconRow[];
     },
@@ -53,19 +50,59 @@ export function StockReconciliationTab() {
     const q = search.trim().toLowerCase();
     return (data || [])
       .filter((r) => (filter === "all" ? true : Math.abs(Number(r.variance || 0)) > 0.001))
-      .filter((r) =>
-        !q ||
-        r.product_name?.toLowerCase().includes(q) ||
-        (r.sku || "").toLowerCase().includes(q) ||
-        (r.barcode || "").toLowerCase().includes(q),
+      .filter(
+        (r) =>
+          !q ||
+          r.product_name?.toLowerCase().includes(q) ||
+          (r.sku || "").toLowerCase().includes(q) ||
+          (r.barcode || "").toLowerCase().includes(q),
       )
       .sort((a, b) => Math.abs(Number(b.variance || 0)) - Math.abs(Number(a.variance || 0)));
   }, [data, search, filter]);
 
   const mismatches = (data || []).filter((r) => Math.abs(Number(r.variance || 0)) > 0.001).length;
 
+  const canFix = hasAccess(["admin", "manager"]);
+
+  const { data: undoableBatch = 0 } = useQuery({
+    queryKey: ["undoable_recalcs", business?.id],
+    queryFn: async () => {
+      if (!business) return 0;
+      const { data: recalcs, error } = await supabase
+        .from("audit_logs")
+        .select("id, created_at, user_id, metadata")
+        .eq("business_id", business.id)
+        .eq("action", "inventory_recalculated")
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error) throw error;
+
+      const { data: undos, error: undoErr } = await supabase
+        .from("audit_logs")
+        .select("metadata")
+        .eq("business_id", business.id)
+        .eq("action", "inventory_recalculation_undone");
+      if (undoErr) throw undoErr;
+
+      const undoneIds = new Set(
+        (undos || []).map((u) => (u.metadata as { recalc_audit_log_id?: string })?.recalc_audit_log_id).filter(Boolean),
+      );
+      const pending = (recalcs || []).filter((r) => !undoneIds.has(r.id));
+      if (pending.length === 0) return 0;
+
+      const latest = pending[0];
+      const batchId = (latest.metadata as { batch_id?: string })?.batch_id;
+      if (batchId) {
+        return pending.filter((r) => (r.metadata as { batch_id?: string })?.batch_id === batchId).length;
+      }
+      return pending.filter((r) => r.created_at === latest.created_at && r.user_id === latest.user_id).length;
+    },
+    enabled: !!business && canFix,
+  });
+
   const qc = useQueryClient();
   const [fixing, setFixing] = useState<string | null>(null);
+  const [undoing, setUndoing] = useState(false);
 
   const recalc = async (row?: ReconRow) => {
     if (!business) return;
@@ -81,6 +118,9 @@ export function StockReconciliationTab() {
       qc.invalidateQueries({ queryKey: ["stock_reconciliation"] });
       qc.invalidateQueries({ queryKey: ["inventory"] });
       qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["undoable_recalcs"] });
+      qc.invalidateQueries({ queryKey: ["audit_logs"] });
+      qc.invalidateQueries({ queryKey: ["report-audit"] });
       await refetch();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not recalculate stock");
@@ -89,6 +129,33 @@ export function StockReconciliationTab() {
     }
   };
 
+  const undoLast = async () => {
+    if (!business) return;
+    setUndoing(true);
+    try {
+      const { data: restored, error } = await supabase.rpc("undo_inventory_recalculation", {
+        _business_id: business.id,
+      });
+      if (error) throw error;
+      const count = Number(restored || 0);
+      if (count === 0) {
+        toast.info("Nothing to undo");
+      } else {
+        toast.success(`Undid stock recalculation for ${count} item(s)`);
+      }
+      qc.invalidateQueries({ queryKey: ["stock_reconciliation"] });
+      qc.invalidateQueries({ queryKey: ["inventory"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["undoable_recalcs"] });
+      qc.invalidateQueries({ queryKey: ["audit_logs"] });
+      qc.invalidateQueries({ queryKey: ["report-audit"] });
+      await refetch();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not undo recalculation");
+    } finally {
+      setUndoing(false);
+    }
+  };
 
   const exportCsv = () => {
     const headers = ["Product", "SKU", "Location", "Received", "Sold", "Adjusted", "Expected", "Actual", "Variance"];
@@ -96,8 +163,15 @@ export function StockReconciliationTab() {
     const csv = [
       headers,
       ...rows.map((r) => [
-        r.product_name, r.sku || "", r.location_name || "",
-        r.received_qty, r.sold_qty, r.adjusted_qty, r.expected_qty, r.actual_qty, r.variance,
+        r.product_name,
+        r.sku || "",
+        r.location_name || "",
+        r.received_qty,
+        r.sold_qty,
+        r.adjusted_qty,
+        r.expected_qty,
+        r.actual_qty,
+        r.variance,
       ]),
     ]
       .map((r) => r.map(esc).join(","))
@@ -129,16 +203,30 @@ export function StockReconciliationTab() {
                 <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
                   <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> Recheck
                 </Button>
-                <Button size="sm" onClick={() => recalc()} disabled={mismatches === 0 || fixing !== null}>
-                  <Wrench className="mr-2 h-4 w-4" /> {fixing === "all" ? "Fixing…" : "Fix all"}
-                </Button>
+                {canFix && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => undoLast()}
+                    disabled={undoableBatch === 0 || fixing !== null || undoing}
+                  >
+                    <Undo2 className="mr-2 h-4 w-4" />
+                    {undoing ? "Undoing…" : undoableBatch > 0 ? `Undo last fix (${undoableBatch})` : "Undo last fix"}
+                  </Button>
+                )}
+                {canFix && (
+                  <Button size="sm" onClick={() => recalc()} disabled={mismatches === 0 || fixing !== null || undoing}>
+                    <Wrench className="mr-2 h-4 w-4" /> {fixing === "all" ? "Fixing…" : "Fix all"}
+                  </Button>
+                )}
                 <Button size="sm" variant="outline" onClick={exportCsv} disabled={rows.length === 0}>
                   <Download className="mr-2 h-4 w-4" /> Export CSV
                 </Button>
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Expected = received purchases − sales + manual adjustments. A variance means inventory drifted from what the documents say.
+              Expected = received purchases − sales + manual adjustments. A variance means inventory drifted from what
+              the documents say.
             </p>
             <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative flex-1">
@@ -151,7 +239,9 @@ export function StockReconciliationTab() {
                 />
               </div>
               <Select value={filter} onValueChange={(v) => setFilter(v as "mismatch" | "all")}>
-                <SelectTrigger className="w-full sm:w-[190px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full sm:w-[190px]">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="mismatch">Mismatches only</SelectItem>
                   <SelectItem value="all">All stock rows</SelectItem>
@@ -178,49 +268,58 @@ export function StockReconciliationTab() {
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                      Loading…
+                    </TableCell>
+                  </TableRow>
                 ) : rows.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       {filter === "mismatch" ? "No mismatches — inventory matches your documents." : "No stock rows."}
                     </TableCell>
                   </TableRow>
-                ) : rows.map((r) => {
-                  const v = Number(r.variance || 0);
-                  return (
-                    <TableRow key={`${r.product_id}-${r.location_id}`} className="odd:bg-muted/30">
-                      <TableCell className="font-medium">
-                        <div>{r.product_name}</div>
-                        <div className="text-[11px] text-muted-foreground">{r.barcode || r.sku || "—"}</div>
-                      </TableCell>
-                      <TableCell>{r.location_name || "—"}</TableCell>
-                      <TableCell className="text-right">{Number(r.received_qty || 0)}</TableCell>
-                      <TableCell className="text-right">{Number(r.sold_qty || 0)}</TableCell>
-                      <TableCell className="text-right">{Number(r.adjusted_qty || 0)}</TableCell>
-                      <TableCell className="text-right">{Number(r.expected_qty || 0)}</TableCell>
-                      <TableCell className="text-right font-medium">{Number(r.actual_qty || 0)}</TableCell>
-                      <TableCell className="text-right">
-                        {Math.abs(v) > 0.001 ? (
-                          <Badge variant="destructive">{v > 0 ? "+" : ""}{v}</Badge>
-                        ) : (
-                          <span className="text-muted-foreground">0</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {Math.abs(v) > 0.001 && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={fixing !== null}
-                            onClick={() => recalc(r)}
-                          >
-                            {fixing === `${r.product_id}-${r.location_id}` ? "Fixing…" : "Fix"}
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                ) : (
+                  rows.map((r) => {
+                    const v = Number(r.variance || 0);
+                    return (
+                      <TableRow key={`${r.product_id}-${r.location_id}`} className="odd:bg-muted/30">
+                        <TableCell className="font-medium">
+                          <div>{r.product_name}</div>
+                          <div className="text-[11px] text-muted-foreground">{r.barcode || r.sku || "—"}</div>
+                        </TableCell>
+                        <TableCell>{r.location_name || "—"}</TableCell>
+                        <TableCell className="text-right">{Number(r.received_qty || 0)}</TableCell>
+                        <TableCell className="text-right">{Number(r.sold_qty || 0)}</TableCell>
+                        <TableCell className="text-right">{Number(r.adjusted_qty || 0)}</TableCell>
+                        <TableCell className="text-right">{Number(r.expected_qty || 0)}</TableCell>
+                        <TableCell className="text-right font-medium">{Number(r.actual_qty || 0)}</TableCell>
+                        <TableCell className="text-right">
+                          {Math.abs(v) > 0.001 ? (
+                            <Badge variant="destructive">
+                              {v > 0 ? "+" : ""}
+                              {v}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">0</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {Math.abs(v) > 0.001 && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={fixing !== null || undoing}
+                              onClick={() => recalc(r)}
+                            >
+                              {fixing === `${r.product_id}-${r.location_id}` ? "Fixing…" : "Fix"}
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
               </TableBody>
             </Table>
           </div>
