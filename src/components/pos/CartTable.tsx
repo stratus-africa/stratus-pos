@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
+import { Trash2, AlertTriangle } from "lucide-react";
 import { CartItem } from "@/hooks/usePOS";
 import {
   AlertDialog,
