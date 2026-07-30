@@ -71,6 +71,51 @@ const POS = () => {
   const scanSettings = useScanSettings();
 
   const [mobileCartExpanded, setMobileCartExpanded] = useState(false);
+
+  // --- Resizable split between product list and cart (desktop only) ----------
+  const SPLIT_KEY = "pos_split_pct";
+  const splitRef = useRef<HTMLDivElement | null>(null);
+  const [isWide, setIsWide] = useState(false);
+  const [splitPct, setSplitPct] = useState(60);
+  const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => setIsWide(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    const saved = Number(localStorage.getItem(SPLIT_KEY));
+    if (saved >= 30 && saved <= 80) setSplitPct(saved);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    if (!dragging) return;
+    const move = (clientX: number) => {
+      const el = splitRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const pct = ((clientX - rect.left) / rect.width) * 100;
+      setSplitPct(Math.min(80, Math.max(30, Math.round(pct))));
+    };
+    const onMouseMove = (e: MouseEvent) => move(e.clientX);
+    const onTouchMove = (e: TouchEvent) => e.touches[0] && move(e.touches[0].clientX);
+    const stop = () => setDragging(false);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("touchmove", onTouchMove);
+    window.addEventListener("mouseup", stop);
+    window.addEventListener("touchend", stop);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("mouseup", stop);
+      window.removeEventListener("touchend", stop);
+    };
+  }, [dragging]);
+
+  useEffect(() => {
+    if (isWide) localStorage.setItem(SPLIT_KEY, String(splitPct));
+  }, [splitPct, isWide]);
   const isResume = pos.cart.length === 0 && pos.heldSales.length > 0;
   const [approvalOpen, setApprovalOpen] = useState(false);
   const [creditCustomerOpen, setCreditCustomerOpen] = useState(false);
@@ -459,10 +504,16 @@ const POS = () => {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 h-[calc(100dvh-6rem)] lg:h-[calc(100vh-6rem)] pb-[env(safe-area-inset-bottom)]">
+    <div
+      ref={splitRef}
+      className={`flex flex-col lg:flex-row gap-4 h-[calc(100dvh-6rem)] lg:h-[calc(100vh-6rem)] pb-[env(safe-area-inset-bottom)] ${dragging ? "select-none cursor-col-resize" : ""}`}
+    >
 
-      {/* Left: Product selection — 3/5 width on large screens */}
-      <div className="flex flex-col min-h-0 flex-1 lg:flex-none w-full lg:w-3/5">
+      {/* Left: Product selection — resizable width on large screens */}
+      <div
+        className="flex flex-col min-h-0 flex-1 lg:flex-none w-full"
+        style={isWide ? { width: `calc(${splitPct}% - 0.75rem)` } : undefined}
+      >
         {/* Search & filters - single row on mobile */}
         <div className="flex flex-row gap-2 mb-3">
           <div className="relative flex-1 min-w-0">
@@ -635,8 +686,25 @@ const POS = () => {
         )}
       </div>
 
-      {/* Right: Cart — 2/5 width on large screens */}
-      <Card className="w-full lg:w-2/5 lg:flex-none flex flex-col min-h-0 min-w-0 shrink-0">
+      {/* Drag handle to resize product list vs cart */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize product list and cart"
+        title="Drag to resize"
+        onMouseDown={() => setDragging(true)}
+        onTouchStart={() => setDragging(true)}
+        onDoubleClick={() => setSplitPct(60)}
+        className="hidden lg:flex -mx-3 w-6 shrink-0 cursor-col-resize items-center justify-center group"
+      >
+        <div className={`h-16 w-1.5 rounded-full transition-colors ${dragging ? "bg-primary" : "bg-border group-hover:bg-primary/60"}`} />
+      </div>
+
+      {/* Right: Cart — resizable width on large screens */}
+      <Card
+        className="w-full flex flex-col min-h-0 min-w-0 shrink-0 lg:flex-1"
+        style={isWide ? { width: `calc(${100 - splitPct}% - 0.75rem)` } : undefined}
+      >
         {(!isMobile || mobileCartExpanded) && (
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
