@@ -785,20 +785,7 @@ const POS = () => {
 
         <ScrollArea className="flex-1 min-h-0">
           <div className="p-3 text-white text-xs font-mono">
-            {/* Receipt header */}
-            <div className="text-center space-y-0.5">
-              <p className="font-bold text-sm font-sans">{business?.name || "Business"}</p>
-              {(business as { address?: string } | null)?.address && (
-                <p className="opacity-90">{(business as { address?: string }).address}</p>
-              )}
-              {(business as { phone?: string } | null)?.phone && (
-                <p className="opacity-90">Tel: {(business as { phone?: string }).phone}</p>
-              )}
-              <p className="opacity-90">{currentLocation?.name || ""}</p>
-              <p className="opacity-90">{format(new Date(), "PPp")}</p>
-            </div>
-
-            <div className="border-t border-dashed border-white/30 my-2" />
+            {/* Invoice & Customer */}
 
             <div className="space-y-1.5">
               <div className="flex justify-between">
