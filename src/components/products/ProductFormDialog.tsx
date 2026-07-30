@@ -14,6 +14,7 @@ import { useIsProductFiscalised } from "@/hooks/useIsFiscalised";
 import { useAccountingSettings } from "@/hooks/useAccountingSettings";
 import { Plus, Trash2, FlaskConical, Shirt, ImageIcon, Loader2, Lock, Boxes } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAccountMappings } from "@/hooks/useAccountMappings";
 import { toast } from "sonner";
 
 
@@ -40,6 +41,17 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
   const vatEnabled = business?.vat_enabled !== false;
   const fiscalised = useIsProductFiscalised(product?.id);
   const { settings: accounting } = useAccountingSettings();
+  const { accounts, mappings } = useAccountMappings();
+  const accountsByType = useCallback(
+    (type: string) => (accounts.data || []).filter((a) => a.type === type && a.is_active !== false),
+    [accounts.data],
+  );
+  const mapped = mappings.data || {};
+  const defaultAccounts = {
+    cogs: mapped["cogs"] ?? null,
+    sales: mapped["sales_income"] ?? null,
+    inventory: mapped["inventory"] ?? null,
+  };
   const inventoryStartDate = accounting.inventory_start_date;
 
   const businessType = (business as any)?.business_type;
