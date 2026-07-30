@@ -550,6 +550,49 @@ const POS = () => {
       ref={splitRef}
       className={`flex flex-col lg:flex-row gap-4 h-[calc(100dvh-6rem)] lg:h-[calc(100vh-6rem)] pb-[env(safe-area-inset-bottom)] ${dragging ? "select-none cursor-col-resize" : ""}`}
     >
+      {/* Offline / pending-sync banner */}
+      {(!offline.online || offline.pending > 0) && (
+        <div className="lg:absolute lg:right-4 lg:top-0 z-20 flex items-center justify-between gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+          <span>
+            {offline.online ? "Back online" : "Offline"} ·{" "}
+            {offline.pending > 0
+              ? `${offline.pending} sale${offline.pending > 1 ? "s" : ""} waiting to sync`
+              : "sales will be saved on this device"}
+          </span>
+          {offline.online && offline.pending > 0 && (
+            <button
+              type="button"
+              className="underline underline-offset-2 disabled:opacity-50"
+              disabled={offline.syncing}
+              onClick={() => void offline.sync()}
+            >
+              {offline.syncing ? "Syncing…" : "Sync now"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Mobile: switch between the full-screen cart and the tender panel */}
+      {isMobile && (
+        <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1 lg:hidden">
+          <button
+            type="button"
+            onClick={() => setMobilePane("cart")}
+            className={`rounded-md py-2 text-sm font-medium ${mobilePane === "cart" ? "bg-background shadow-sm" : "text-muted-foreground"}`}
+          >
+            Cart{pos.cart.length ? ` (${pos.cart.length})` : ""}
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobilePane("summary")}
+            className={`rounded-md py-2 text-sm font-medium ${mobilePane === "summary" ? "bg-background shadow-sm" : "text-muted-foreground"}`}
+          >
+            Payment
+          </button>
+        </div>
+      )}
+
+
 
       {/* Left: Product selection — resizable width on large screens */}
       <div
