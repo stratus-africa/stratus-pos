@@ -40,78 +40,80 @@ export const CartTable = memo(function CartTable({ items, onUpdate, onRemove, on
 
   return (
     <>
-      <table className="w-full text-base border-separate border-spacing-0 table-fixed">
-        <thead className="sticky top-0 z-10">
-          <tr className="bg-muted text-muted-foreground">
-            <th className="text-left font-medium px-2 py-2 w-[10%]">S.N.</th>
-            <th className="text-left font-medium px-2 py-2 w-[35%]">Item Description</th>
-            <th className="text-right font-medium px-1 py-2 w-[18%]">Rate</th>
-            <th className="text-center font-medium px-1 py-2 w-[14%]">Qty</th>
-            <th className="text-right font-medium px-2 py-2 w-[18%]">Net Amt.</th>
-            <th className="w-[5%]" />
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item, idx) => {
-            const net = item.unit_price * item.quantity - item.discount;
-            const allowDecimal = item.product.allow_decimal_quantity ?? false;
-            return (
-              <tr
-                key={item.product.id}
-                className={idx % 2 === 1 ? "bg-muted/40" : "bg-background"}
-              >
-                <td className="px-2 py-2 align-middle text-muted-foreground tabular-nums">{idx + 1}</td>
-                <td className="px-2 py-2 align-middle">
-                  <span className="font-medium break-words leading-snug">{item.product.name}</span>
-                </td>
-                <td className="px-1 py-2 align-middle">
-                  <Input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={item.unit_price}
-                    onChange={(e) => {
-                      const v = parseFloat(e.target.value);
-                      onUpdate(item.product.id, { unit_price: Number.isNaN(v) ? 0 : Math.max(0, v) });
-                    }}
-                    className="h-8 w-full text-right px-1 text-base"
-                    aria-label={`Rate for ${item.product.name}`}
-                  />
-                </td>
-                <td className="px-1 py-2 align-middle">
-                  <Input
-                    type="number"
-                    min={allowDecimal ? 0.01 : 1}
-                    step={allowDecimal ? 0.01 : 1}
-                    value={item.quantity}
-                    onChange={(e) => {
-                      const v = parseFloat(e.target.value);
-                      if (Number.isNaN(v)) return;
-                      onUpdate(item.product.id, { quantity: Math.max(allowDecimal ? 0.01 : 1, v) });
-                    }}
-                    className="h-8 w-full text-center px-1 text-base"
-                    aria-label={`Quantity for ${item.product.name}`}
-                  />
-                </td>
-                <td className="px-2 py-2 text-right font-semibold align-middle tabular-nums">
-                  {fmt(net)}
-                </td>
-                <td className="px-0 py-2 align-middle">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                    onClick={() => setPending(item)}
-                    aria-label={`Remove ${item.product.name}`}
-                  >
-                    <Trash2 className="h-5 w-5" />
-                  </Button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div className="overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
+        <table className="w-full min-w-[420px] text-sm sm:text-base border-separate border-spacing-0 table-fixed">
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-muted text-muted-foreground">
+              <th className="text-left font-medium px-1 sm:px-2 py-2 sm:py-3 w-[10%]">S.N.</th>
+              <th className="text-left font-medium px-1 sm:px-2 py-2 sm:py-3 w-[35%]">Item</th>
+              <th className="text-right font-medium px-1 py-2 sm:py-3 w-[18%]">Rate</th>
+              <th className="text-center font-medium px-1 py-2 sm:py-3 w-[14%]">Qty</th>
+              <th className="text-right font-medium px-1 sm:px-2 py-2 sm:py-3 w-[18%]">Net</th>
+              <th className="w-[5%]" />
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, idx) => {
+              const net = item.unit_price * item.quantity - item.discount;
+              const allowDecimal = item.product.allow_decimal_quantity ?? false;
+              return (
+                <tr
+                  key={item.product.id}
+                  className={idx % 2 === 1 ? "bg-muted/40" : "bg-background"}
+                >
+                  <td className="px-1 sm:px-2 py-2 sm:py-3 align-middle text-muted-foreground tabular-nums">{idx + 1}</td>
+                  <td className="px-1 sm:px-2 py-2 sm:py-3 align-middle">
+                    <span className="font-medium break-words leading-snug text-base sm:text-lg">{item.product.name}</span>
+                  </td>
+                  <td className="px-1 py-2 sm:py-3 align-middle">
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={item.unit_price}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value);
+                        onUpdate(item.product.id, { unit_price: Number.isNaN(v) ? 0 : Math.max(0, v) });
+                      }}
+                      className="h-8 sm:h-10 w-full text-right px-1 text-sm sm:text-base"
+                      aria-label={`Rate for ${item.product.name}`}
+                    />
+                  </td>
+                  <td className="px-1 py-2 sm:py-3 align-middle">
+                    <Input
+                      type="number"
+                      min={allowDecimal ? 0.01 : 1}
+                      step={allowDecimal ? 0.01 : 1}
+                      value={item.quantity}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value);
+                        if (Number.isNaN(v)) return;
+                        onUpdate(item.product.id, { quantity: Math.max(allowDecimal ? 0.01 : 1, v) });
+                      }}
+                      className="h-8 sm:h-10 w-full text-center px-1 text-sm sm:text-base"
+                      aria-label={`Quantity for ${item.product.name}`}
+                    />
+                  </td>
+                  <td className="px-1 sm:px-2 py-2 sm:py-3 text-right font-semibold align-middle tabular-nums text-sm sm:text-base">
+                    {fmt(net)}
+                  </td>
+                  <td className="px-0 py-2 sm:py-3 align-middle">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 sm:h-9 sm:w-9 text-destructive hover:bg-destructive/10"
+                      onClick={() => setPending(item)}
+                      aria-label={`Remove ${item.product.name}`}
+                    >
+                      <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
+                    </Button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
 
 
       <AlertDialog open={!!pending} onOpenChange={(o) => { if (!o) setPending(null); }}>
