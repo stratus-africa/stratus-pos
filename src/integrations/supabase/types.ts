@@ -4256,6 +4256,14 @@ export type Database = {
         }[]
       }
       read_vault_secret: { Args: { _name: string }; Returns: string }
+      recalc_inventory_from_documents: {
+        Args: {
+          _business_id: string
+          _location_id?: string
+          _product_id?: string
+        }
+        Returns: number
+      }
       recompute_bank_account_balance: {
         Args: { _account_id: string }
         Returns: undefined
