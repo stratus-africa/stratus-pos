@@ -30,6 +30,10 @@ export interface Product {
   opening_stock_quantity?: number;
   opening_stock_value?: number;
   opening_stock_date?: string | null;
+  purchase_account_id?: string | null;
+  sales_account_id?: string | null;
+  inventory_account_id?: string | null;
+
   categories?: { name: string } | null;
   brands?: { name: string } | null;
   units?: { name: string; abbreviation: string | null } | null;
