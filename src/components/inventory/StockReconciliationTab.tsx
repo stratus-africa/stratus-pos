@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Download, RefreshCw, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Search, Download, RefreshCw, AlertTriangle, CheckCircle2, Wrench } from "lucide-react";
 
 interface ReconRow {
   product_id: string;
