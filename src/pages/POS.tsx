@@ -803,24 +803,24 @@ const POS = () => {
               )}
             </div>
 
-            {/* Total */}
-            <div className="flex items-center justify-between pt-2 border-t border-primary-foreground/20">
-              <span className="uppercase font-semibold tracking-wide text-sm">Total Due</span>
-              <span className="text-3xl font-bold tabular-nums">
-                <span className="text-base font-semibold mr-1 opacity-80">KES</span>
-                {pos.cartTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </div>
-
           </div>
         </ScrollArea>
+
+        {/* Total */}
+        <div className="px-3 py-2 border-t border-primary-foreground/20 flex items-center justify-between bg-primary">
+          <span className="uppercase font-semibold tracking-wide text-sm">Total Due</span>
+          <span className="text-3xl font-bold tabular-nums">
+            <span className="text-base font-semibold mr-1 opacity-80">KES</span>
+            {pos.cartTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+        </div>
 
         {/* Tender buttons */}
         <div className="p-3 pt-0 space-y-2">
           <div className="grid grid-cols-2 gap-2">
             <Button
               variant="outline"
-              className="h-11 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
+              className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
               disabled={pos.cart.length === 0}
               onClick={() => { setInitialPaymentMethod("cash"); setPaymentOpen(true); }}
             >
@@ -828,7 +828,7 @@ const POS = () => {
             </Button>
             <Button
               variant="outline"
-              className="h-11 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
+              className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
               disabled={pos.cart.length === 0}
               onClick={() => { setInitialPaymentMethod("mpesa"); setPaymentOpen(true); }}
             >
@@ -836,15 +836,7 @@ const POS = () => {
             </Button>
             <Button
               variant="outline"
-              className="h-11 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
-              disabled={pos.cart.length === 0}
-              onClick={() => { setInitialPaymentMethod("card"); setPaymentOpen(true); }}
-            >
-              <CreditCard className="h-4 w-4 mr-1.5" /> Card
-            </Button>
-            <Button
-              variant="outline"
-              className="h-11 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
+              className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
               disabled={pos.cart.length === 0}
               onClick={() => {
                 if (!pos.customerId) { setCreditCustomerOpen(true); return; }
@@ -854,18 +846,26 @@ const POS = () => {
             >
               <User className="h-4 w-4 mr-1.5" /> Credit
             </Button>
+            <Button
+              variant="outline"
+              className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
+              disabled={isResume ? pos.heldSales.length === 0 : pos.cart.length === 0}
+              onClick={() => {
+                if (isResume) { setResumeOpen(true); return; }
+                const suggested = pos.customerName || `Sale ${new Date().toLocaleTimeString()}`;
+                const label = window.prompt("Name this parked sale:", suggested);
+                if (label === null) return;
+                void pos.holdSale(label);
+              }}
+            >
+              {isResume ? <Play className="h-4 w-4 mr-1.5" /> : <Pause className="h-4 w-4 mr-1.5" />}
+              {isResume ? "Resume" : "Suspend"}
+            </Button>
           </div>
-          <Button
-            className="w-full h-12 text-base font-bold bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30 border border-primary-foreground/30"
-            disabled={pos.cart.length === 0}
-            onClick={() => { setInitialPaymentMethod("cash"); setPaymentOpen(true); }}
-          >
-            PURCHASE
-          </Button>
           <Button
             variant="ghost"
             size="sm"
-            className="w-full text-xs text-primary-foreground hover:bg-primary-foreground/10"
+            className="w-full h-10 text-xs text-primary-foreground hover:bg-primary-foreground/10"
             onClick={() => {
               const last = loadLastReceipt(business?.id);
               if (!last) {
