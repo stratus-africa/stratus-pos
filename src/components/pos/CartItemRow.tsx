@@ -125,7 +125,7 @@ export const CartItemRow = memo(function CartItemRow({ item, onUpdate, onRemove,
           {/* Top row: name + delete (always visible) */}
           <div className="flex items-start gap-2">
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm break-words leading-snug">{item.product.name}</p>
+              <p className="font-medium text-base break-words leading-snug">{item.product.name}</p>
               <p className="text-xs text-muted-foreground">@ KES {Number(item.unit_price).toLocaleString()}</p>
             </div>
             <Button
