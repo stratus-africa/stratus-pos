@@ -664,6 +664,8 @@ export function usePOS() {
     activeTaxRates, defaultTaxRate,
     heldSales, holdSale, resumeSale, removeHeldSale,
     completeSale, processing,
+    stockOf, preventOverselling,
+
   };
 }
 
