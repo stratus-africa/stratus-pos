@@ -424,21 +424,9 @@ export function usePurchases() {
         .select("id", { count: "exact", head: true })
         .eq("purchase_id", id);
 
-      // Remove the related stock movement log entries.
-      await supabase.from("stock_adjustments").delete().eq("purchase_id", id);
-
-      // Also remove legacy log rows that were created before purchase_id was populated.
-      if (purchaseSnap?.invoice_number) {
-        await supabase
-          .from("stock_adjustments")
-          .delete()
-          .eq("reason", "Purchase received")
-          .ilike("notes", `Purchase #${purchaseSnap.invoice_number}`);
-      }
-
-      const { error: iError } = await supabase.from("purchase_items").delete().eq("purchase_id", id);
-      if (iError) throw iError;
-
+      // Delete only the purchase header. Database triggers use the existing
+      // purchase lines to reverse received quantities, then cascade-delete the
+      // lines, movement logs, payments, and accounting entries exactly once.
       const { error } = await supabase.from("purchases").delete().eq("id", id);
       if (error) throw error;
 

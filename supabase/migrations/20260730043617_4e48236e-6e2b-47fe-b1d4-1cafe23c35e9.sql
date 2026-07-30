@@ -1,0 +1,1 @@
+DROP TRIGGER IF EXISTS trg_reverse_inventory_on_purchase_cancel ON public.purchases;
