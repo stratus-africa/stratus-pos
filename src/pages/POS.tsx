@@ -581,14 +581,6 @@ const POS = () => {
             <Settings2 className="h-4 w-4" />
           </Button>
 
-          <div className="flex gap-1 shrink-0">
-            <Button size="icon" variant={viewMode === "grid" ? "default" : "outline"} onClick={() => setViewMode("grid")}>
-              <LayoutGrid className="h-4 w-4" />
-            </Button>
-            <Button size="icon" variant={viewMode === "list" ? "default" : "outline"} onClick={() => setViewMode("list")}>
-              <List className="h-4 w-4" />
-            </Button>
-          </div>
         </div>
 
         {/* Product results — shown while searching or filtering a category */}
