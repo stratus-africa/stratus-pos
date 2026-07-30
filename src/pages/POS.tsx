@@ -686,8 +686,25 @@ const POS = () => {
         )}
       </div>
 
-      {/* Right: Cart — 2/5 width on large screens */}
-      <Card className="w-full lg:w-2/5 lg:flex-none flex flex-col min-h-0 min-w-0 shrink-0">
+      {/* Drag handle to resize product list vs cart */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize product list and cart"
+        title="Drag to resize"
+        onMouseDown={() => setDragging(true)}
+        onTouchStart={() => setDragging(true)}
+        onDoubleClick={() => setSplitPct(60)}
+        className="hidden lg:flex -mx-3 w-6 shrink-0 cursor-col-resize items-center justify-center group"
+      >
+        <div className={`h-16 w-1.5 rounded-full transition-colors ${dragging ? "bg-primary" : "bg-border group-hover:bg-primary/60"}`} />
+      </div>
+
+      {/* Right: Cart — resizable width on large screens */}
+      <Card
+        className="w-full flex flex-col min-h-0 min-w-0 shrink-0 lg:flex-1"
+        style={isWide ? { width: `calc(${100 - splitPct}% - 0.75rem)` } : undefined}
+      >
         {(!isMobile || mobileCartExpanded) && (
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
