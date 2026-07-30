@@ -848,36 +848,6 @@ const POS = () => {
 
             <div className="border-t border-dashed border-white/30 my-2" />
 
-            {/* Totals */}
-            <div className="space-y-1">
-              <div className="flex justify-between">
-                <span className="opacity-80">Items</span>
-                <span>{pos.cart.length}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="opacity-80">Total Qty</span>
-                <span>{pos.cart.reduce((s, i) => s + i.quantity, 0)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="opacity-80">Subtotal</span>
-                <span>{Math.round(pos.cartSubtotal * 100) / 100}</span>
-              </div>
-              {pos.vatEnabled && pos.cartTax > 0 && (
-                <div className="flex justify-between">
-                  <span className="opacity-80">VAT {pos.taxInclusive ? "(incl.)" : "(excl.)"}</span>
-                  <span>{Math.round(pos.cartTax * 100) / 100}</span>
-                </div>
-              )}
-              <div className="flex justify-between font-bold text-sm font-sans">
-                <span>TOTAL</span>
-                <span>
-                  KES {pos.cartTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
-            </div>
-
-            <div className="border-t border-dashed border-white/30 my-2" />
-
             <p className="text-center opacity-70 text-[10px]">RECEIPT PREVIEW</p>
           </div>
         </ScrollArea>
