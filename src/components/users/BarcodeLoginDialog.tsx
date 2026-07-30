@@ -27,8 +27,13 @@ export default function BarcodeLoginDialog({ open, onOpenChange, userId, userLab
   const [barcode, setBarcode] = useState("");
   const [pin, setPin] = useState("");
   const [pin2, setPin2] = useState("");
+  const [includePin, setIncludePin] = useState(true);
   const [saving, setSaving] = useState(false);
   const svgRef = useRef<SVGSVGElement | null>(null);
+
+  const pinValid = /^[0-9]{4,8}$/.test(pin);
+  // One-scan login payload: the sign-in screen splits "BARCODE*PIN".
+  const printedValue = includePin && pinValid ? `${barcode}*${pin}` : barcode;
 
   useEffect(() => {
     if (!open) return;
@@ -37,11 +42,12 @@ export default function BarcodeLoginDialog({ open, onOpenChange, userId, userLab
   }, [open]);
 
   useEffect(() => {
-    if (!svgRef.current || !barcode) return;
+    if (!svgRef.current || !printedValue) return;
     try {
-      JsBarcode(svgRef.current, barcode, { format: "CODE128", height: 60, width: 2, displayValue: true, fontSize: 14, margin: 8 });
+      JsBarcode(svgRef.current, printedValue, { format: "CODE128", height: 60, width: 2, displayValue: true, fontSize: 14, margin: 8 });
     } catch { /* ignore */ }
-  }, [barcode]);
+  }, [printedValue]);
+
 
   const save = async () => {
     if (!/^[0-9]{4,8}$/.test(pin)) return toast.error("PIN must be 4–8 digits");
