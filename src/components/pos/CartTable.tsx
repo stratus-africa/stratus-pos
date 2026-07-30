@@ -59,6 +59,11 @@ export const CartTable = memo(function CartTable({ items, onUpdate, onRemove, on
             {items.map((item, idx) => {
               const net = item.unit_price * item.quantity - item.discount;
               const allowDecimal = item.product.allow_decimal_quantity ?? false;
+              const available = stockOf?.(item.product.id);
+              const overStock =
+                item.product.track_inventory !== false &&
+                available !== undefined &&
+                item.quantity > available;
               return (
                 <tr
                   key={item.product.id}
@@ -67,7 +72,14 @@ export const CartTable = memo(function CartTable({ items, onUpdate, onRemove, on
                   <td className="px-1 sm:px-2 py-2 sm:py-3 align-middle text-muted-foreground tabular-nums">{idx + 1}</td>
                   <td className="px-1 sm:px-2 py-2 sm:py-3 align-middle">
                     <span className="font-medium break-words leading-snug text-base sm:text-lg">{item.product.name}</span>
+                    {overStock && (
+                      <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-destructive">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                        Only {available} in stock
+                      </span>
+                    )}
                   </td>
+
                   <td className="px-1 py-2 sm:py-3 align-middle">
                     <Input
                       type="number"
