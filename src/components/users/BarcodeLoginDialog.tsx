@@ -120,7 +120,23 @@ export default function BarcodeLoginDialog({ open, onOpenChange, userId, userLab
               <Input inputMode="numeric" pattern="[0-9]*" value={pin2} onChange={(e) => setPin2(e.target.value.replace(/\D/g, "").slice(0, 8))} placeholder="••••" />
             </div>
           </div>
+
+          <label className="flex items-start gap-2 rounded-md border p-3 text-sm">
+            <input
+              type="checkbox"
+              checked={includePin}
+              onChange={(e) => setIncludePin(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              One-scan login
+              <span className="block text-xs text-muted-foreground">
+                Encodes the PIN in the printed barcode so a single scan signs the user in. Keep the printed card private.
+              </span>
+            </span>
+          </label>
         </div>
+
 
         <DialogFooter className="gap-2 sm:justify-between">
           <div className="flex flex-wrap gap-2">
