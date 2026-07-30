@@ -332,6 +332,11 @@ export function usePOS() {
   ) => {
     if (!business || !currentLocation || !user || cart.length === 0) return null;
     if (!ensureCanPost()) return null;
+    // Guard against double-submits (rapid clicks / Enter key repeats).
+    if (completingRef.current) return null;
+    completingRef.current = true;
+    setProcessing(true);
+
 
 
     if (preventOverselling) {
