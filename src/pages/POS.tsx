@@ -462,10 +462,11 @@ const POS = () => {
   // Global keyboard-wedge scanner listener — works even when nothing is focused.
   useBarcodeScanner({
     onScan: handleScanned,
-    disabled: scannerOpen || scanSettingsOpen,
-    searchInputRef,
+    disabled: scannerOpen || scanSettingsOpen || productPickerOpen,
+    searchInputRef: pickerSearchRef,
     settings: scanSettings,
   });
+
 
 
 
