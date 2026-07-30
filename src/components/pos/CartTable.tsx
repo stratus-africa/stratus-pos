@@ -43,6 +43,7 @@ export const CartTable = memo(function CartTable({ items, onUpdate, onRemove, on
       <table className="w-full text-sm border-separate border-spacing-0">
         <thead className="sticky top-0 z-10">
           <tr className="bg-muted text-muted-foreground">
+            <th className="text-left font-medium px-2 py-1.5 w-8">#</th>
             <th className="text-left font-medium px-2 py-1.5">Item Name</th>
             <th className="text-center font-medium px-1 py-1.5 w-16">Qty</th>
             <th className="text-right font-medium px-1 py-1.5 w-24">Rate</th>
@@ -59,6 +60,7 @@ export const CartTable = memo(function CartTable({ items, onUpdate, onRemove, on
                 key={item.product.id}
                 className={idx % 2 === 1 ? "bg-muted/40" : "bg-background"}
               >
+                <td className="px-2 py-1.5 align-middle text-muted-foreground tabular-nums">{idx + 1}</td>
                 <td className="px-2 py-1.5 align-middle">
                   <span className="font-medium break-words leading-snug">{item.product.name}</span>
                 </td>
