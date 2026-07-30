@@ -783,53 +783,114 @@ const POS = () => {
         </div>
 
         <ScrollArea className="flex-1 min-h-0">
-          <div className="p-3 space-y-3">
-            {/* Customer selector */}
-            <Select
-              value={pos.customerId || "walkin"}
-              onValueChange={(v) => {
-                if (v === "walkin") {
-                  pos.setCustomerId(null);
-                  pos.setCustomerName(null);
-                } else {
-                  const cust = customers.find((c) => c.id === v);
-                  pos.setCustomerId(v);
-                  pos.setCustomerName(cust?.name || null);
-                }
-              }}
-            >
-              <SelectTrigger className="bg-primary-foreground/10 border-primary-foreground/30 text-primary-foreground">
-                <User className="h-4 w-4 mr-1 opacity-80" />
-                <SelectValue placeholder="Walk-in Customer" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="walkin">Walk-in Customer</SelectItem>
-                {customers.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name} {c.phone ? `(${c.phone})` : ""}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Sale info */}
-            <div className="text-sm divide-y divide-primary-foreground/15">
-              <div className="flex items-center justify-between py-2">
-                <span className="opacity-80">Items</span>
-                <span className="font-semibold tabular-nums">{pos.cart.length}</span>
-              </div>
-              <div className="flex items-center justify-between py-2">
-                <span className="opacity-80">Total Qty</span>
-                <span className="font-semibold tabular-nums">
-                  {pos.cart.reduce((s, i) => s + i.quantity, 0)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between py-2">
-                <span className="opacity-80">Register</span>
-                <span className="font-semibold truncate max-w-[55%]">{currentLocation?.name || "—"}</span>
-              </div>
-
+          <div className="p-3 text-white text-xs font-mono">
+            {/* Receipt header */}
+            <div className="text-center space-y-0.5">
+              <p className="font-bold text-sm font-sans">{business?.name || "Business"}</p>
+              {(business as { address?: string } | null)?.address && (
+                <p className="opacity-90">{(business as { address?: string }).address}</p>
+              )}
+              {(business as { phone?: string } | null)?.phone && (
+                <p className="opacity-90">Tel: {(business as { phone?: string }).phone}</p>
+              )}
+              <p className="opacity-90">{currentLocation?.name || ""}</p>
+              <p className="opacity-90">{format(new Date(), "PPp")}</p>
             </div>
 
+            <div className="border-t border-dashed border-white/30 my-2" />
 
+            <div className="space-y-1.5">
+              <div className="flex justify-between">
+                <span className="opacity-80">Invoice</span>
+                <span className="opacity-90">Pending</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="opacity-80 whitespace-nowrap">Customer</span>
+                <Select
+                  value={pos.customerId || "walkin"}
+                  onValueChange={(v) => {
+                    if (v === "walkin") {
+                      pos.setCustomerId(null);
+                      pos.setCustomerName(null);
+                    } else {
+                      const cust = customers.find((c) => c.id === v);
+                      pos.setCustomerId(v);
+                      pos.setCustomerName(cust?.name || null);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-7 w-full bg-transparent border-white/30 text-white text-xs px-2 py-1">
+                    <SelectValue placeholder="Walk-in" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="walkin">Walk-in</SelectItem>
+                    {customers.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name} {c.phone ? `(${c.phone})` : ""}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="border-t border-dashed border-white/30 my-2" />
+
+            {/* Cart items */}
+            {pos.cart.length === 0 ? (
+              <p className="text-center py-6 opacity-80">No items added yet</p>
+            ) : (
+              <table className="w-full mb-1">
+                <tbody>
+                  {pos.cart.map((item) => (
+                    <tr key={item.product.id}>
+                      <td className="py-1 align-top">
+                        <div className="font-medium">{item.product.name}</div>
+                        <div className="opacity-80">
+                          {item.quantity} x {Number(item.unit_price).toLocaleString()}
+                          {item.discount > 0 && <span className="ml-1 opacity-70">(disc -{item.discount})</span>}
+                        </div>
+                      </td>
+                      <td className="py-1 text-right align-top whitespace-nowrap">
+                        {(item.quantity * item.unit_price - item.discount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            <div className="border-t border-dashed border-white/30 my-2" />
+
+            {/* Totals */}
+            <div className="space-y-1">
+              <div className="flex justify-between">
+                <span className="opacity-80">Items</span>
+                <span>{pos.cart.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="opacity-80">Total Qty</span>
+                <span>{pos.cart.reduce((s, i) => s + i.quantity, 0)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="opacity-80">Subtotal</span>
+                <span>{Math.round(pos.cartSubtotal * 100) / 100}</span>
+              </div>
+              {pos.vatEnabled && pos.cartTax > 0 && (
+                <div className="flex justify-between">
+                  <span className="opacity-80">VAT {pos.taxInclusive ? "(incl.)" : "(excl.)"}</span>
+                  <span>{Math.round(pos.cartTax * 100) / 100}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold text-sm font-sans">
+                <span>TOTAL</span>
+                <span>
+                  KES {pos.cartTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+
+            <div className="border-t border-dashed border-white/30 my-2" />
+
+            <p className="text-center opacity-70 text-[10px]">RECEIPT PREVIEW</p>
           </div>
         </ScrollArea>
 
