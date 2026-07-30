@@ -129,12 +129,27 @@ export function DateRangeFilter({
 }: DateRangeFilterProps) {
   const [preset, setPreset] = useState<DatePresetKey>(defaultPreset);
 
-  // Apply the initial preset once (skipped for "custom").
+  // Apply the initial preset once when no range is set yet (skipped for "custom").
   useEffect(() => {
+    if (from || to) return;
     const range = resolvePreset(defaultPreset, fyStartMonth);
     if (range) onChange(range);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Keep preset dropdown in sync when from/to are controlled externally.
+  useEffect(() => {
+    if (!from && !to) return;
+    for (const p of DATE_PRESETS) {
+      if (p.key === "custom") continue;
+      const range = resolvePreset(p.key, fyStartMonth);
+      if (range?.from === from && range?.to === to) {
+        setPreset(p.key);
+        return;
+      }
+    }
+    setPreset("custom");
+  }, [from, to, fyStartMonth]);
 
   const handlePreset = (value: string) => {
     const key = value as DatePresetKey;
@@ -156,7 +171,9 @@ export function DateRangeFilter({
           </SelectTrigger>
           <SelectContent className="max-h-80">
             {DATE_PRESETS.filter((p) => p.key !== "custom").map((p) => (
-              <SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>
+              <SelectItem key={p.key} value={p.key}>
+                {p.label}
+              </SelectItem>
             ))}
             <SelectSeparator />
             <SelectItem value="custom">Custom</SelectItem>
@@ -178,7 +195,9 @@ export function DateRangeFilter({
       )}
 
       {preset !== "custom" && (from || to) && (
-        <span className="text-xs text-muted-foreground pb-2.5">{from} → {to}</span>
+        <span className="text-xs text-muted-foreground pb-2.5">
+          {from} → {to}
+        </span>
       )}
     </div>
   );
