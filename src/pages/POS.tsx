@@ -810,35 +810,24 @@ const POS = () => {
               </SelectContent>
             </Select>
 
-            {/* Cart items */}
-            <div className="rounded-lg overflow-hidden bg-background text-foreground border border-primary-foreground/20">
-              <div className="flex items-center justify-between px-3 py-2 bg-muted">
-                <span className="text-xs font-semibold tracking-wide uppercase flex items-center gap-2">
-                  <ShoppingCart className="h-4 w-4" />
-                  Product Items ({pos.cart.length})
-                </span>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-6 w-6"
-                  disabled={pos.cart.length === 0}
-                  onClick={pos.clearCart}
-                  title="Clear cart"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+            {/* Sale info */}
+            <div className="text-sm divide-y divide-primary-foreground/15">
+              <div className="flex items-center justify-between py-2">
+                <span className="opacity-80">Items</span>
+                <span className="font-semibold tabular-nums">{pos.cart.length}</span>
               </div>
-              {pos.cart.length === 0 ? (
-                <p className="text-center py-8 text-muted-foreground text-sm">Add products to start a sale</p>
-              ) : (
-                <CartTable
-                  items={pos.cart}
-                  onUpdate={pos.updateCartItem}
-                  onRemove={pos.removeFromCart}
-                  onBeforeRemove={handleBeforeRemove}
-                />
-              )}
+              <div className="flex items-center justify-between py-2">
+                <span className="opacity-80">Total Qty</span>
+                <span className="font-semibold tabular-nums">
+                  {pos.cart.reduce((s, i) => s + i.quantity, 0)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <span className="opacity-80">Served by</span>
+                <span className="font-semibold truncate max-w-[55%]">{session.session?.opened_by_name || "—"}</span>
+              </div>
             </div>
+
 
           </div>
         </ScrollArea>
