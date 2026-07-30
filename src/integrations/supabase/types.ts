@@ -498,6 +498,7 @@ export type Database = {
           pos_manager_approver_id: string | null
           pos_require_manager_to_remove_item: boolean
           pos_show_stock_qty: boolean
+          pos_split_pct: number
           prevent_overselling: boolean
           rejected_at: string | null
           rejected_by: string | null
@@ -561,6 +562,7 @@ export type Database = {
           pos_manager_approver_id?: string | null
           pos_require_manager_to_remove_item?: boolean
           pos_show_stock_qty?: boolean
+          pos_split_pct?: number
           prevent_overselling?: boolean
           rejected_at?: string | null
           rejected_by?: string | null
@@ -624,6 +626,7 @@ export type Database = {
           pos_manager_approver_id?: string | null
           pos_require_manager_to_remove_item?: boolean
           pos_show_stock_qty?: boolean
+          pos_split_pct?: number
           prevent_overselling?: boolean
           rejected_at?: string | null
           rejected_by?: string | null
@@ -2495,6 +2498,7 @@ export type Database = {
           hs_code: string | null
           id: string
           image_url: string | null
+          inventory_account_id: string | null
           is_active: boolean
           item_classification: string | null
           kra_item_code: string | null
@@ -2503,8 +2507,10 @@ export type Database = {
           opening_stock_quantity: number
           opening_stock_value: number
           packaging_unit: string | null
+          purchase_account_id: string | null
           purchase_price: number
           quantity_unit: string | null
+          sales_account_id: string | null
           selling_price: number
           sku: string | null
           tax_category: string | null
@@ -2523,6 +2529,7 @@ export type Database = {
           hs_code?: string | null
           id?: string
           image_url?: string | null
+          inventory_account_id?: string | null
           is_active?: boolean
           item_classification?: string | null
           kra_item_code?: string | null
@@ -2531,8 +2538,10 @@ export type Database = {
           opening_stock_quantity?: number
           opening_stock_value?: number
           packaging_unit?: string | null
+          purchase_account_id?: string | null
           purchase_price?: number
           quantity_unit?: string | null
+          sales_account_id?: string | null
           selling_price?: number
           sku?: string | null
           tax_category?: string | null
@@ -2551,6 +2560,7 @@ export type Database = {
           hs_code?: string | null
           id?: string
           image_url?: string | null
+          inventory_account_id?: string | null
           is_active?: boolean
           item_classification?: string | null
           kra_item_code?: string | null
@@ -2559,8 +2569,10 @@ export type Database = {
           opening_stock_quantity?: number
           opening_stock_value?: number
           packaging_unit?: string | null
+          purchase_account_id?: string | null
           purchase_price?: number
           quantity_unit?: string | null
+          sales_account_id?: string | null
           selling_price?: number
           sku?: string | null
           tax_category?: string | null
@@ -2588,6 +2600,27 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_inventory_account_id_fkey"
+            columns: ["inventory_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_purchase_account_id_fkey"
+            columns: ["purchase_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_sales_account_id_fkey"
+            columns: ["sales_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
             referencedColumns: ["id"]
           },
           {

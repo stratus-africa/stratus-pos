@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { useIsProductFiscalised } from "@/hooks/useIsFiscalised";
 import { useAccountingSettings } from "@/hooks/useAccountingSettings";
 import { Plus, Trash2, FlaskConical, Shirt, ImageIcon, Loader2, Lock, Boxes } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAccountMappings } from "@/hooks/useAccountMappings";
 import { toast } from "sonner";
 
 
@@ -40,6 +41,17 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
   const vatEnabled = business?.vat_enabled !== false;
   const fiscalised = useIsProductFiscalised(product?.id);
   const { settings: accounting } = useAccountingSettings();
+  const { accounts, mappings } = useAccountMappings();
+  const accountsByType = useCallback(
+    (type: string) => (accounts.data || []).filter((a) => a.type === type && a.is_active !== false),
+    [accounts.data],
+  );
+  const mapped = mappings.data || {};
+  const defaultAccounts = {
+    cogs: mapped["cogs"] ?? null,
+    sales: mapped["sales_income"] ?? null,
+    inventory: mapped["inventory"] ?? null,
+  };
   const inventoryStartDate = accounting.inventory_start_date;
 
   const businessType = (business as any)?.business_type;
@@ -74,6 +86,9 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
     opening_stock_value: 0,
     opening_stock_date: null,
     opening_stock_location_id: null,
+    purchase_account_id: null,
+    sales_account_id: null,
+    inventory_account_id: null,
   });
 
 
@@ -108,6 +123,9 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
         opening_stock_value: product.opening_stock_value ?? 0,
         opening_stock_date: product.opening_stock_date ?? null,
         opening_stock_location_id: null,
+        purchase_account_id: product.purchase_account_id ?? null,
+        sales_account_id: product.sales_account_id ?? null,
+        inventory_account_id: product.inventory_account_id ?? null,
       });
 
       const matched = taxRatesQuery.data?.find((tr) => tr.rate === (product.tax_rate ?? 16));
@@ -131,6 +149,9 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
         purchase_price: 0, selling_price: 0, tax_rate: 16, is_active: true, allow_decimal_quantity: false, image_url: null,
         opening_stock_quantity: 0, opening_stock_value: 0, opening_stock_date: null,
         opening_stock_location_id: currentLocation?.id || locations[0]?.id || null,
+        purchase_account_id: defaultAccounts.cogs,
+        sales_account_id: defaultAccounts.sales,
+        inventory_account_id: defaultAccounts.inventory,
       });
       const defaultRate = taxRatesQuery.data?.find((tr) => tr.type === "standard");
       setSelectedTaxRateId(defaultRate?.id || "manual");
@@ -225,6 +246,11 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!(form.purchase_price > 0)) { toast.error("Purchase price is required"); return; }
+    if (!(form.selling_price > 0)) { toast.error("Selling price is required"); return; }
+    if (!form.purchase_account_id) { toast.error("Purchase account is required"); return; }
+    if (!form.sales_account_id) { toast.error("Sales account is required"); return; }
+    if (!form.inventory_account_id) { toast.error("Inventory tracking account is required"); return; }
     const validBatches = batchesEnabled ? batches.filter((b) => b.batch_number.trim()) : [];
     const validVariants = isClothing
       ? variants.filter((v) => (v.color && v.color.trim()) || (v.size && v.size.trim()))
@@ -308,17 +334,59 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
             </div>
 
             <div className="space-y-2">
-              <Label>Purchase Price (KES)</Label>
-              <Input type="number" min={0} step={0.01} value={form.purchase_price} onChange={(e) => setForm({ ...form, purchase_price: parseFloat(e.target.value) || 0 })} />
+              <Label>Purchase Price (KES) *</Label>
+              <Input required type="number" min={0.01} step={0.01} value={form.purchase_price} onChange={(e) => setForm({ ...form, purchase_price: parseFloat(e.target.value) || 0 })} />
             </div>
             <div className="space-y-2">
-              <Label>Selling Price (KES)</Label>
-              <Input type="number" min={0} step={0.01} value={form.selling_price} onChange={(e) => setForm({ ...form, selling_price: parseFloat(e.target.value) || 0 })} />
+              <Label>Selling Price (KES) *</Label>
+              <Input required type="number" min={0.01} step={0.01} value={form.selling_price} onChange={(e) => setForm({ ...form, selling_price: parseFloat(e.target.value) || 0 })} />
             </div>
             <div className="space-y-2">
               <Label>Margin</Label>
               <div className="flex items-center h-10 px-3 rounded-md border bg-muted text-sm font-medium">
                 {margin}%
+              </div>
+            </div>
+
+            <div className="md:col-span-3 rounded-lg border p-4 space-y-3">
+              <h4 className="text-sm font-semibold">Accounting</h4>
+              <p className="text-xs text-muted-foreground">
+                Journals for sales, purchases and stock adjustments of this product post to these accounts.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="space-y-2">
+                  <Label>Purchase Account (COGS) *</Label>
+                  <Select value={form.purchase_account_id || ""} onValueChange={(v) => setForm({ ...form, purchase_account_id: v })}>
+                    <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
+                    <SelectContent>
+                      {accountsByType("expense").map((a) => (
+                        <SelectItem key={a.id} value={a.id}>{a.code} — {a.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Sales Account (Revenue) *</Label>
+                  <Select value={form.sales_account_id || ""} onValueChange={(v) => setForm({ ...form, sales_account_id: v })}>
+                    <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
+                    <SelectContent>
+                      {accountsByType("income").map((a) => (
+                        <SelectItem key={a.id} value={a.id}>{a.code} — {a.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Inventory Account (Asset) *</Label>
+                  <Select value={form.inventory_account_id || ""} onValueChange={(v) => setForm({ ...form, inventory_account_id: v })}>
+                    <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
+                    <SelectContent>
+                      {accountsByType("asset").map((a) => (
+                        <SelectItem key={a.id} value={a.id}>{a.code} — {a.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 

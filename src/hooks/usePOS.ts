@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -8,6 +8,9 @@ import { Product } from "@/hooks/useProducts";
 import { pickFefoBatches } from "@/hooks/useProductBatches";
 import { consumeNext } from "@/lib/numberSeries";
 import { ensureCanPost } from "@/lib/postingGuard";
+import { loadCartDraft, saveCartDraft, clearCartDraft } from "@/lib/cartPersistence";
+import { enqueueSale, isOnline } from "@/lib/offlineSales";
+
 
 
 export interface CartItem {
@@ -79,6 +82,8 @@ export function usePOS() {
 
   const preventOverselling = (business as { prevent_overselling?: boolean } | null)?.prevent_overselling === true;
 
+  // Stock at the selected location. Loaded regardless of the overselling rule so
+  // the cart can show live "exceeds available stock" warnings.
   const inventoryQuery = useQuery({
     queryKey: ["inventory", "pos", business?.id, currentLocation?.id],
     queryFn: async () => {
@@ -90,13 +95,18 @@ export function usePOS() {
       if (error) throw error;
       return (data || []) as { product_id: string; quantity: number }[];
     },
-    enabled: !!business && !!currentLocation && preventOverselling,
+    enabled: !!business && !!currentLocation,
+    refetchInterval: 60_000,
   });
   const inventoryRows = inventoryQuery.data || [];
-  const stockOf = (productId: string) => {
-    const row = inventoryRows.find((r) => r.product_id === productId);
-    return row ? Number(row.quantity) : 0;
-  };
+  const stockOf = useCallback(
+    (productId: string) => {
+      const row = inventoryRows.find((r) => r.product_id === productId);
+      return row ? Number(row.quantity) : 0;
+    },
+    [inventoryRows],
+  );
+
 
   const addToCart = useCallback((product: Product) => {
     setCart((prev) => {
@@ -142,11 +152,48 @@ export function usePOS() {
     setCart((prev) => prev.filter((i) => i.product.id !== productId));
   }, []);
 
+  const draftIds = {
+    businessId: business?.id ?? null,
+    locationId: currentLocation?.id ?? null,
+    userId: user?.id ?? null,
+  };
+
   const clearCart = useCallback(() => {
     setCart([]);
     setCustomerId(null);
     setCustomerName(null);
-  }, []);
+    clearCartDraft({
+      businessId: business?.id ?? null,
+      locationId: currentLocation?.id ?? null,
+      userId: user?.id ?? null,
+    });
+  }, [business?.id, currentLocation?.id, user?.id]);
+
+  // --- Cart persistence ------------------------------------------------------
+  // Restore any in-progress cart once per business/location/user combination,
+  // then keep the stored copy in sync with every change.
+  const restoredFor = useRef<string>("");
+  useEffect(() => {
+    if (!business?.id || !currentLocation?.id || !user?.id) return;
+    const sig = `${business.id}:${currentLocation.id}:${user.id}`;
+    if (restoredFor.current === sig) return;
+    restoredFor.current = sig;
+    const draft = loadCartDraft(draftIds);
+    if (draft && draft.cart.length > 0) {
+      setCart(draft.cart);
+      setCustomerId(draft.customerId);
+      setCustomerName(draft.customerName);
+      toast.info(`Restored your in-progress cart (${draft.cart.length} item${draft.cart.length > 1 ? "s" : ""})`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [business?.id, currentLocation?.id, user?.id]);
+
+  useEffect(() => {
+    if (!business?.id || !currentLocation?.id || !user?.id) return;
+    saveCartDraft({ cart, customerId, customerName }, draftIds);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart, customerId, customerName, business?.id, currentLocation?.id, user?.id]);
+
 
   // VAT rates for per-line selection.
   const taxRatesQuery = useQuery({
@@ -316,6 +363,105 @@ export function usePOS() {
       const invoiceNumber = consumeNext(business.id, "receipts");
 
       const saleId = crypto.randomUUID();
+
+      // --- Offline path -----------------------------------------------------
+      // No connection: queue the whole sale locally (sale id doubles as the
+      // idempotency key) and hand back a receipt so the customer can leave.
+      if (!isOnline()) {
+        const offlineItems = cart.map((i) => ({
+          sale_id: saleId,
+          product_id: i.product.id,
+          quantity: i.quantity,
+          unit_price: i.unit_price,
+          discount: i.discount,
+          total: i.unit_price * i.quantity - i.discount,
+          batch_id: null,
+          tax_rate_id: vatEnabled ? (i.tax_rate_id ?? defaultTaxRate?.id ?? null) : null,
+        }));
+
+        await enqueueSale({
+          id: saleId,
+          createdAt: new Date().toISOString(),
+          sale: {
+            id: saleId,
+            business_id: business.id,
+            location_id: currentLocation.id,
+            customer_id: customerId,
+            invoice_number: invoiceNumber,
+            subtotal: cartSubtotal,
+            tax: Math.round(cartTax * 100) / 100,
+            discount: effectiveDiscount,
+            total: effectiveTotal,
+            payment_status: paymentStatus,
+            status: "final",
+            created_by: user.id,
+            notes: [opts.loyaltyNote, "Recorded offline"].filter(Boolean).join(" | "),
+          },
+          items: offlineItems,
+          payments: payments
+            .filter((p) => p.amount > 0)
+            .map((p) => ({ sale_id: saleId, method: p.method, amount: p.amount, reference: p.reference || null })),
+          adjustments: cart.map((item) => ({
+            product_id: item.product.id,
+            location_id: currentLocation.id,
+            quantity_change: -item.quantity,
+            reason: "sale",
+            notes: `Sale ${invoiceNumber} (offline)`,
+            created_by: user.id,
+            sale_id: saleId,
+          })),
+          bankTransaction: bankAccountId
+            ? {
+                business_id: business.id,
+                bank_account_id: bankAccountId,
+                type: "payment_received",
+                amount: Math.min(totalPaid, effectiveTotal),
+                date: new Date().toISOString().split("T")[0],
+                reference: invoiceNumber,
+                description: `Sale ${invoiceNumber} (offline)`,
+                category: "Sales",
+                contact_name: customerName || null,
+                sale_id: saleId,
+                created_by: user.id,
+              }
+            : null,
+          inventoryDeltas: cart.map((i) => ({
+            product_id: i.product.id,
+            location_id: currentLocation.id,
+            quantity: i.quantity,
+          })),
+        });
+
+        const offlineResult = {
+          saleId,
+          invoiceNumber,
+          items: cart,
+          subtotal: cartSubtotal,
+          tax: Math.round(cartTax * 100) / 100,
+          discount: effectiveDiscount,
+          total: effectiveTotal,
+          payments,
+          totalPaid,
+          change: Math.max(0, totalPaid - effectiveTotal),
+          customerName,
+          locationName: currentLocation.name,
+          businessName: business.name,
+          servedBy: (user as { email?: string } | null)?.email || null,
+          date: new Date(),
+          fiscal: null,
+          vatBreakdown,
+          taxInclusive,
+          loyaltyDiscount,
+          offline: true,
+        };
+        clearCart();
+        window.dispatchEvent(new CustomEvent("pos-offline-sale-queued"));
+        toast.success("Sale saved offline — it will sync automatically");
+        setProcessing(false);
+        return offlineResult;
+      }
+
+
 
       const { error: saleErr } = await supabase.from("sales").insert({
         id: saleId,
@@ -518,6 +664,8 @@ export function usePOS() {
     activeTaxRates, defaultTaxRate,
     heldSales, holdSale, resumeSale, removeHeldSale,
     completeSale, processing,
+    stockOf, preventOverselling,
+
   };
 }
 

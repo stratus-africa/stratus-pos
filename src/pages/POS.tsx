@@ -39,6 +39,9 @@ import {
 } from "@/lib/customerDisplay";
 import { loadLastReceipt } from "@/lib/lastReceipt";
 import CreditCustomerDialog from "@/components/pos/CreditCustomerDialog";
+import { useAuth } from "@/contexts/AuthContext";
+import { clampSplit, loadLocalSplit, saveLocalSplit, SPLIT_FALLBACK } from "@/lib/posLayout";
+import { useOfflineSales } from "@/hooks/useOfflineSales";
 
 
 
@@ -53,6 +56,10 @@ const POS = () => {
   const { inventoryQuery } = useInventory(currentLocation?.id);
 
   const isMobile = useIsMobile();
+  const { user: authUser } = useAuth();
+  const offline = useOfflineSales();
+  /** Mobile only: tap to switch between the product list and a full-screen cart. */
+  const [mobilePane, setMobilePane] = useState<"cart" | "summary">("cart");
 
   const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [pickerSearch, setPickerSearch] = useState("");
@@ -84,21 +91,27 @@ const POS = () => {
 
 
   // --- Resizable split between product list and cart (desktop only) ----------
-  const SPLIT_KEY = "pos_split_pct";
+  // Width preference resolves as: this user's saved width on this device →
+  // the tenant-wide default (businesses.pos_split_pct) → 60%.
   const splitRef = useRef<HTMLDivElement | null>(null);
   const [isWide, setIsWide] = useState(false);
-  const [splitPct, setSplitPct] = useState(60);
+  const [splitPct, setSplitPct] = useState(SPLIT_FALLBACK);
   const [dragging, setDragging] = useState(false);
+  const tenantSplit = (business as { pos_split_pct?: number | null } | null)?.pos_split_pct ?? null;
+  const canSetTenantDefault = userRole === "admin" || userRole === "manager";
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)");
     const onChange = () => setIsWide(mq.matches);
     onChange();
     mq.addEventListener("change", onChange);
-    const saved = Number(localStorage.getItem(SPLIT_KEY));
-    if (saved >= 30 && saved <= 80) setSplitPct(saved);
     return () => mq.removeEventListener("change", onChange);
   }, []);
+
+  useEffect(() => {
+    const local = loadLocalSplit(business?.id, authUser?.id);
+    setSplitPct(clampSplit(local ?? tenantSplit ?? SPLIT_FALLBACK));
+  }, [business?.id, authUser?.id, tenantSplit]);
 
   useEffect(() => {
     if (!dragging) return;
@@ -107,7 +120,7 @@ const POS = () => {
       if (!el) return;
       const rect = el.getBoundingClientRect();
       const pct = ((clientX - rect.left) / rect.width) * 100;
-      setSplitPct(Math.min(80, Math.max(30, Math.round(pct))));
+      setSplitPct(clampSplit(pct));
     };
     const onMouseMove = (e: MouseEvent) => move(e.clientX);
     const onTouchMove = (e: TouchEvent) => e.touches[0] && move(e.touches[0].clientX);
@@ -125,8 +138,19 @@ const POS = () => {
   }, [dragging]);
 
   useEffect(() => {
-    if (isWide) localStorage.setItem(SPLIT_KEY, String(splitPct));
-  }, [splitPct, isWide]);
+    if (isWide) saveLocalSplit(splitPct, business?.id, authUser?.id);
+  }, [splitPct, isWide, business?.id, authUser?.id]);
+
+  const saveTenantSplit = useCallback(async () => {
+    if (!business?.id || !canSetTenantDefault) return;
+    const { error } = await supabase
+      .from("businesses")
+      .update({ pos_split_pct: clampSplit(splitPct) })
+      .eq("id", business.id);
+    if (error) toast.error("Could not save the layout for the business");
+    else toast.success("Layout saved as the default for all tills");
+  }, [business?.id, canSetTenantDefault, splitPct]);
+
   const isResume = pos.cart.length === 0 && pos.heldSales.length > 0;
   const [approvalOpen, setApprovalOpen] = useState(false);
   const [creditCustomerOpen, setCreditCustomerOpen] = useState(false);
@@ -526,10 +550,55 @@ const POS = () => {
       ref={splitRef}
       className={`flex flex-col lg:flex-row gap-4 h-[calc(100dvh-6rem)] lg:h-[calc(100vh-6rem)] pb-[env(safe-area-inset-bottom)] ${dragging ? "select-none cursor-col-resize" : ""}`}
     >
+      {/* Offline / pending-sync banner */}
+      {(!offline.online || offline.pending > 0) && (
+        <div className="lg:absolute lg:right-4 lg:top-0 z-20 flex items-center justify-between gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+          <span>
+            {offline.online ? "Back online" : "Offline"} ·{" "}
+            {offline.pending > 0
+              ? `${offline.pending} sale${offline.pending > 1 ? "s" : ""} waiting to sync`
+              : "sales will be saved on this device"}
+          </span>
+          {offline.online && offline.pending > 0 && (
+            <button
+              type="button"
+              className="underline underline-offset-2 disabled:opacity-50"
+              disabled={offline.syncing}
+              onClick={() => void offline.sync()}
+            >
+              {offline.syncing ? "Syncing…" : "Sync now"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Mobile: switch between the full-screen cart and the tender panel */}
+      {isMobile && (
+        <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1 lg:hidden">
+          <button
+            type="button"
+            onClick={() => setMobilePane("cart")}
+            className={`rounded-md py-2 text-sm font-medium ${mobilePane === "cart" ? "bg-background shadow-sm" : "text-muted-foreground"}`}
+          >
+            Cart{pos.cart.length ? ` (${pos.cart.length})` : ""}
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobilePane("summary")}
+            className={`rounded-md py-2 text-sm font-medium ${mobilePane === "summary" ? "bg-background shadow-sm" : "text-muted-foreground"}`}
+          >
+            Payment
+          </button>
+        </div>
+      )}
+
+
 
       {/* Left: Product selection — resizable width on large screens */}
       <div
-        className="flex flex-col min-h-0 flex-1 lg:flex-none w-full"
+        className={`flex-col min-h-0 flex-1 lg:flex-none w-full ${
+          isMobile && mobilePane !== "cart" ? "hidden lg:flex" : "flex"
+        }`}
         style={isWide ? { width: `calc(${splitPct}% - 0.75rem)` } : undefined}
       >
         {/* Search & filters - single row on mobile */}
@@ -732,6 +801,7 @@ const POS = () => {
                 onUpdate={pos.updateCartItem}
                 onRemove={pos.removeFromCart}
                 onBeforeRemove={handleBeforeRemove}
+                stockOf={pos.stockOf}
               />
             )}
           </ScrollArea>
@@ -764,10 +834,11 @@ const POS = () => {
         role="separator"
         aria-orientation="vertical"
         aria-label="Resize product list and cart"
-        title="Drag to resize"
+        title={canSetTenantDefault ? "Drag to resize · double-click to reset · right-click to save as the business default" : "Drag to resize · double-click to reset"}
         onMouseDown={() => setDragging(true)}
         onTouchStart={() => setDragging(true)}
-        onDoubleClick={() => setSplitPct(60)}
+        onDoubleClick={() => setSplitPct(SPLIT_FALLBACK)}
+        onContextMenu={(e) => { e.preventDefault(); void saveTenantSplit(); }}
         className="hidden lg:flex -mx-3 w-6 shrink-0 cursor-col-resize items-center justify-center group"
       >
         <div className={`h-16 w-1.5 rounded-full transition-colors ${dragging ? "bg-primary" : "bg-border group-hover:bg-primary/60"}`} />
@@ -775,7 +846,9 @@ const POS = () => {
 
       {/* Right: Sale summary & tender panel */}
       <div
-        className="w-full shrink-0 lg:flex-1 min-w-0 flex flex-col min-h-0 rounded-lg overflow-hidden bg-primary text-primary-foreground"
+        className={`w-full shrink-0 lg:flex-1 min-w-0 flex-col min-h-0 rounded-lg overflow-hidden bg-primary text-primary-foreground ${
+          isMobile && mobilePane !== "summary" ? "hidden lg:flex" : "flex"
+        }`}
         style={isWide ? { width: `calc(${100 - splitPct}% - 0.75rem)` } : undefined}
       >
         {/* Quick actions */}

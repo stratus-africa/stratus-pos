@@ -19,6 +19,7 @@ import ProductDetailDialog from "@/components/products/ProductDetailDialog";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useAccountMappings } from "@/hooks/useAccountMappings";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { useFeatureLimit } from "@/components/FeatureGate";
@@ -76,6 +77,13 @@ const Products = () => {
   const [printTagsOpen, setPrintTagsOpen] = useState(false);
   const [printTagItems, setPrintTagItems] = useState<PrintTagItem[]>([]);
 
+  const { accounts: chartAccounts } = useAccountMappings();
+  const accountsOfType = (type: string) =>
+    (chartAccounts.data || []).filter((a) => a.type === type && a.is_active !== false);
+  const [bulkPurchaseAccountId, setBulkPurchaseAccountId] = useState("");
+  const [bulkSalesAccountId, setBulkSalesAccountId] = useState("");
+  const [bulkInventoryAccountId, setBulkInventoryAccountId] = useState("");
+
   const handleBulkUpdate = async () => {
     if (selectedIds.size === 0) return;
     const thresholdValue = bulkThreshold.trim() === "" ? null : Number(bulkThreshold);
@@ -83,16 +91,22 @@ const Products = () => {
       toast.error("Enter a valid low stock threshold");
       return;
     }
-    if (!bulkCategoryId && !bulkUnitId && thresholdValue === null) {
+    if (!bulkCategoryId && !bulkUnitId && thresholdValue === null && !bulkPurchaseAccountId && !bulkSalesAccountId && !bulkInventoryAccountId) {
       toast.error("Pick a category, unit or threshold to apply");
       return;
     }
     setBulkUpdating(true);
     try {
       const ids = Array.from(selectedIds);
-      const update: { category_id?: string; unit_id?: string } = {};
+      const update: {
+        category_id?: string; unit_id?: string;
+        purchase_account_id?: string; sales_account_id?: string; inventory_account_id?: string;
+      } = {};
       if (bulkCategoryId) update.category_id = bulkCategoryId;
       if (bulkUnitId) update.unit_id = bulkUnitId;
+      if (bulkPurchaseAccountId) update.purchase_account_id = bulkPurchaseAccountId;
+      if (bulkSalesAccountId) update.sales_account_id = bulkSalesAccountId;
+      if (bulkInventoryAccountId) update.inventory_account_id = bulkInventoryAccountId;
       if (Object.keys(update).length > 0) {
         const { error } = await supabase.from("products").update(update).in("id", ids);
         if (error) throw error;
@@ -109,6 +123,9 @@ const Products = () => {
       setBulkCategoryId("");
       setBulkUnitId("");
       setBulkThreshold("");
+      setBulkPurchaseAccountId("");
+      setBulkSalesAccountId("");
+      setBulkInventoryAccountId("");
       setSelectedIds(new Set());
       productsQuery.refetch();
     } catch (err: any) {
@@ -764,10 +781,43 @@ const Products = () => {
               />
               <p className="text-xs text-muted-foreground">Applies to stock records of the selected products in all locations.</p>
             </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Purchase Account (COGS)</label>
+              <Select value={bulkPurchaseAccountId} onValueChange={setBulkPurchaseAccountId}>
+                <SelectTrigger><SelectValue placeholder="Keep unchanged" /></SelectTrigger>
+                <SelectContent>
+                  {accountsOfType("expense").map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.code} — {a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Sales Account (Revenue)</label>
+              <Select value={bulkSalesAccountId} onValueChange={setBulkSalesAccountId}>
+                <SelectTrigger><SelectValue placeholder="Keep unchanged" /></SelectTrigger>
+                <SelectContent>
+                  {accountsOfType("income").map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.code} — {a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Inventory Account (Asset)</label>
+              <Select value={bulkInventoryAccountId} onValueChange={setBulkInventoryAccountId}>
+                <SelectTrigger><SelectValue placeholder="Keep unchanged" /></SelectTrigger>
+                <SelectContent>
+                  {accountsOfType("asset").map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.code} — {a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleBulkUpdate} disabled={bulkUpdating || (!bulkCategoryId && !bulkUnitId && bulkThreshold.trim() === "")}>
+            <AlertDialogAction onClick={handleBulkUpdate} disabled={bulkUpdating || (!bulkCategoryId && !bulkUnitId && bulkThreshold.trim() === "" && !bulkPurchaseAccountId && !bulkSalesAccountId && !bulkInventoryAccountId)}>
 
               {bulkUpdating ? "Updating..." : "Apply"}
             </AlertDialogAction>
