@@ -206,6 +206,18 @@ export function StockReconciliationTab() {
                           <span className="text-muted-foreground">0</span>
                         )}
                       </TableCell>
+                      <TableCell className="text-right">
+                        {Math.abs(v) > 0.001 && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={fixing !== null}
+                            onClick={() => recalc(r)}
+                          >
+                            {fixing === `${r.product_id}-${r.location_id}` ? "Fixing…" : "Fix"}
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
