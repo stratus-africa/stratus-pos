@@ -559,14 +559,84 @@ const POS = () => {
 
         </div>
 
-        {/* Product picker modal — auto-opens when searching or filtering a category */}
-        <Dialog open={Boolean(search.trim() || categoryFilter !== "all")} onOpenChange={(o) => {
-          if (!o) { setSearch(""); setCategoryFilter("all"); }
+        {/* Product picker modal — opened by F2 or the search button */}
+        <Dialog open={productPickerOpen} onOpenChange={(o) => {
+          setProductPickerOpen(o);
+          if (!o) { setPickerSearch(""); setCategoryFilter("all"); }
         }}>
           <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 gap-0">
             <DialogHeader className="px-4 py-3 border-b">
               <DialogTitle className="text-base">Select product</DialogTitle>
             </DialogHeader>
+            <div className="flex flex-row gap-2 px-4 py-2 border-b">
+              <div className="relative flex-1 min-w-0">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  ref={pickerSearchRef}
+                  placeholder="Search by name, barcode or SKU…"
+                  value={pickerSearch}
+                  onChange={(e) => setPickerSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setProductPickerOpen(false);
+                      setPickerSearch("");
+                      setCategoryFilter("all");
+                      return;
+                    }
+                    if (e.key === "Enter" && pickerSearch.trim()) {
+                      e.preventDefault();
+                      // Enter-to-select: if the filter narrows to exactly one product, add it.
+                      if (activeProducts.length === 1) {
+                        pos.addToCart(activeProducts[0]);
+                        setProductPickerOpen(false);
+                        setPickerSearch("");
+                        setCategoryFilter("all");
+                        return;
+                      }
+                      // Otherwise treat as a barcode/SKU lookup.
+                      const trimmed = pickerSearch.trim();
+                      const match = products.find(
+                        (p) => p.is_active && (p.barcode === trimmed || p.sku === trimmed)
+                      );
+                      if (match) {
+                        pos.addToCart(match);
+                        setProductPickerOpen(false);
+                        setPickerSearch("");
+                        setCategoryFilter("all");
+                      } else {
+                        toast.warning(`No product matches "${trimmed}"`);
+                      }
+                    }
+                  }}
+                  className="pl-9 pr-9"
+                  aria-label="Search products by name, barcode or SKU"
+                />
+                {pickerSearch ? (
+                  <button
+                    type="button"
+                    aria-label="Clear search"
+                    title="Clear search"
+                    onClick={() => { setPickerSearch(""); pickerSearchRef.current?.focus(); }}
+                    className="absolute right-2 top-1.5 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : null}
+              </div>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-32 sm:w-40 shrink-0">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <ScrollArea className="flex-1 min-h-0">
               <table className="w-full text-sm">
                 <thead className="bg-muted/60 text-muted-foreground sticky top-0">
@@ -583,7 +653,7 @@ const POS = () => {
                     return (
                       <tr
                         key={p.id}
-                        onClick={() => { pos.addToCart(p); setSearch(""); setCategoryFilter("all"); }}
+                        onClick={() => { pos.addToCart(p); setProductPickerOpen(false); setPickerSearch(""); setCategoryFilter("all"); }}
                         className="cursor-pointer border-b last:border-0 hover:bg-accent/60 transition-colors"
                       >
                         <td className="px-3 py-2 align-middle">
