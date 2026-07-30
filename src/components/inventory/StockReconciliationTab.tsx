@@ -73,8 +73,8 @@ export function StockReconciliationTab() {
     try {
       const { data: fixed, error } = await supabase.rpc("recalc_inventory_from_documents", {
         _business_id: business.id,
-        _product_id: row?.product_id ?? null,
-        _location_id: row?.location_id ?? null,
+        _product_id: row?.product_id ?? undefined,
+        _location_id: row?.location_id ?? undefined,
       });
       if (error) throw error;
       toast.success(`Stock recalculated for ${Number(fixed || 0)} item(s)`);
