@@ -60,10 +60,8 @@ export const CartTable = memo(function CartTable({ items, onUpdate, onRemove, on
               const net = item.unit_price * item.quantity - item.discount;
               const allowDecimal = item.product.allow_decimal_quantity ?? false;
               const available = stockOf?.(item.product.id);
-              const overStock =
-                item.product.track_inventory !== false &&
-                available !== undefined &&
-                item.quantity > available;
+              const overStock = available !== undefined && item.quantity > available;
+
               return (
                 <tr
                   key={item.product.id}
