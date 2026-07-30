@@ -884,6 +884,19 @@ const POS = () => {
         description="A manager must approve removing this item already added to the cart."
       />
 
+      <CreditCustomerDialog
+        open={creditCustomerOpen}
+        onOpenChange={setCreditCustomerOpen}
+        customers={customers.map((c) => ({ id: c.id, name: c.name, phone: c.phone }))}
+        onSelected={(c) => {
+          pos.setCustomerId(c.id);
+          pos.setCustomerName(c.name);
+          setInitialPaymentMethod("card");
+          setPaymentOpen(true);
+        }}
+      />
+
+
     </div>
   );
 };
