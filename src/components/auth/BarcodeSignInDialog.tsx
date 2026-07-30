@@ -98,7 +98,7 @@ export default function BarcodeSignInDialog({ open, onOpenChange, onSuccess }: P
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Sign in with barcode</DialogTitle>
-            <DialogDescription>Scan your login barcode, then enter your PIN.</DialogDescription>
+            <DialogDescription>Scan your login barcode — if it includes your PIN you'll be signed in automatically.</DialogDescription>
           </DialogHeader>
 
           <form onSubmit={submit} className="space-y-4">
@@ -109,11 +109,17 @@ export default function BarcodeSignInDialog({ open, onOpenChange, onSuccess }: P
                   id="bc"
                   ref={barcodeRef}
                   value={barcode}
-                  onChange={(e) => setBarcode(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setBarcode(v);
+                    // Scanner pasted a combined payload without pressing Enter.
+                    const parsed = splitPayload(v);
+                    if (parsed.pin) handleScanned(v);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      if (barcode) pinRef.current?.focus();
+                      if (barcode) handleScanned(barcode);
                     }
                   }}
                   placeholder="Scan or type barcode"
@@ -128,6 +134,7 @@ export default function BarcodeSignInDialog({ open, onOpenChange, onSuccess }: P
                 <ScanLine className="h-3 w-3" /> USB/Bluetooth scanners work automatically.
               </p>
             </div>
+
 
             <div className="space-y-1.5">
               <Label htmlFor="pin">PIN</Label>
@@ -157,11 +164,11 @@ export default function BarcodeSignInDialog({ open, onOpenChange, onSuccess }: P
         open={scanning}
         onOpenChange={setScanning}
         onDetected={(code) => {
-          setBarcode(code);
           setScanning(false);
-          setTimeout(() => pinRef.current?.focus(), 60);
+          handleScanned(code);
         }}
       />
     </>
+
   );
 }
