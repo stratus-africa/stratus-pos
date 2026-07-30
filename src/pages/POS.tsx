@@ -752,24 +752,15 @@ const POS = () => {
               {pos.cart.length === 0 ? (
                 <p className="text-center py-10 text-muted-foreground text-sm">Add products to start a sale</p>
               ) : (
-                <div className="space-y-2">
-                  {pos.cart.map((item) => (
-                    <CartItemRow
-                      key={item.product.id}
-                      item={item}
-                      onUpdate={pos.updateCartItem}
-                      onRemove={pos.removeFromCart}
-                      onBeforeRemove={handleBeforeRemove}
-                      taxRates={pos.vatEnabled ? pos.activeTaxRates : undefined}
-                      defaultRateLabel={
-                        pos.defaultTaxRate
-                          ? `Default (${Number(pos.defaultTaxRate.rate)}%)`
-                          : "Default"
-                      }
-                    />
-                  ))}
-
+                <div className="rounded border overflow-hidden">
+                  <CartTable
+                    items={pos.cart}
+                    onUpdate={pos.updateCartItem}
+                    onRemove={pos.removeFromCart}
+                    onBeforeRemove={handleBeforeRemove}
+                  />
                 </div>
+
               )}
             </ScrollArea>
           )}
