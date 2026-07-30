@@ -59,7 +59,7 @@ const POS = () => {
   const { user: authUser } = useAuth();
   const offline = useOfflineSales();
   /** Mobile only: tap to switch between the product list and a full-screen cart. */
-  const [mobilePane, setMobilePane] = useState<"products" | "cart">("products");
+  const [mobilePane, setMobilePane] = useState<"cart" | "summary">("cart");
 
   const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [pickerSearch, setPickerSearch] = useState("");
@@ -553,7 +553,9 @@ const POS = () => {
 
       {/* Left: Product selection — resizable width on large screens */}
       <div
-        className="flex flex-col min-h-0 flex-1 lg:flex-none w-full"
+        className={`flex-col min-h-0 flex-1 lg:flex-none w-full ${
+          isMobile && mobilePane !== "cart" ? "hidden lg:flex" : "flex"
+        }`}
         style={isWide ? { width: `calc(${splitPct}% - 0.75rem)` } : undefined}
       >
         {/* Search & filters - single row on mobile */}
@@ -756,6 +758,7 @@ const POS = () => {
                 onUpdate={pos.updateCartItem}
                 onRemove={pos.removeFromCart}
                 onBeforeRemove={handleBeforeRemove}
+                stockOf={pos.stockOf}
               />
             )}
           </ScrollArea>
@@ -788,10 +791,11 @@ const POS = () => {
         role="separator"
         aria-orientation="vertical"
         aria-label="Resize product list and cart"
-        title="Drag to resize"
+        title={canSetTenantDefault ? "Drag to resize · double-click to reset · right-click to save as the business default" : "Drag to resize · double-click to reset"}
         onMouseDown={() => setDragging(true)}
         onTouchStart={() => setDragging(true)}
-        onDoubleClick={() => setSplitPct(60)}
+        onDoubleClick={() => setSplitPct(SPLIT_FALLBACK)}
+        onContextMenu={(e) => { e.preventDefault(); void saveTenantSplit(); }}
         className="hidden lg:flex -mx-3 w-6 shrink-0 cursor-col-resize items-center justify-center group"
       >
         <div className={`h-16 w-1.5 rounded-full transition-colors ${dragging ? "bg-primary" : "bg-border group-hover:bg-primary/60"}`} />
@@ -799,7 +803,9 @@ const POS = () => {
 
       {/* Right: Sale summary & tender panel */}
       <div
-        className="w-full shrink-0 lg:flex-1 min-w-0 flex flex-col min-h-0 rounded-lg overflow-hidden bg-primary text-primary-foreground"
+        className={`w-full shrink-0 lg:flex-1 min-w-0 flex-col min-h-0 rounded-lg overflow-hidden bg-primary text-primary-foreground ${
+          isMobile && mobilePane !== "summary" ? "hidden lg:flex" : "flex"
+        }`}
         style={isWide ? { width: `calc(${100 - splitPct}% - 0.75rem)` } : undefined}
       >
         {/* Quick actions */}
