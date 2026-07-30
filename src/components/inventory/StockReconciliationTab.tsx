@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Download, RefreshCw, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Search, Download, RefreshCw, AlertTriangle, CheckCircle2, Wrench } from "lucide-react";
 
 interface ReconRow {
   product_id: string;
@@ -63,6 +64,32 @@ export function StockReconciliationTab() {
 
   const mismatches = (data || []).filter((r) => Math.abs(Number(r.variance || 0)) > 0.001).length;
 
+  const qc = useQueryClient();
+  const [fixing, setFixing] = useState<string | null>(null);
+
+  const recalc = async (row?: ReconRow) => {
+    if (!business) return;
+    setFixing(row ? `${row.product_id}-${row.location_id}` : "all");
+    try {
+      const { data: fixed, error } = await supabase.rpc("recalc_inventory_from_documents", {
+        _business_id: business.id,
+        _product_id: row?.product_id ?? undefined,
+        _location_id: row?.location_id ?? undefined,
+      });
+      if (error) throw error;
+      toast.success(`Stock recalculated for ${Number(fixed || 0)} item(s)`);
+      qc.invalidateQueries({ queryKey: ["stock_reconciliation"] });
+      qc.invalidateQueries({ queryKey: ["inventory"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      await refetch();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not recalculate stock");
+    } finally {
+      setFixing(null);
+    }
+  };
+
+
   const exportCsv = () => {
     const headers = ["Product", "SKU", "Location", "Received", "Sold", "Adjusted", "Expected", "Actual", "Variance"];
     const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
@@ -101,6 +128,9 @@ export function StockReconciliationTab() {
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
                   <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> Recheck
+                </Button>
+                <Button size="sm" onClick={() => recalc()} disabled={mismatches === 0 || fixing !== null}>
+                  <Wrench className="mr-2 h-4 w-4" /> {fixing === "all" ? "Fixing…" : "Fix all"}
                 </Button>
                 <Button size="sm" variant="outline" onClick={exportCsv} disabled={rows.length === 0}>
                   <Download className="mr-2 h-4 w-4" /> Export CSV
@@ -143,14 +173,15 @@ export function StockReconciliationTab() {
                   <TableHead className="text-right">Expected</TableHead>
                   <TableHead className="text-right">Actual</TableHead>
                   <TableHead className="text-right">Variance</TableHead>
+                  <TableHead className="text-right">Fix</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
                 ) : rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       {filter === "mismatch" ? "No mismatches — inventory matches your documents." : "No stock rows."}
                     </TableCell>
                   </TableRow>
@@ -173,6 +204,18 @@ export function StockReconciliationTab() {
                           <Badge variant="destructive">{v > 0 ? "+" : ""}{v}</Badge>
                         ) : (
                           <span className="text-muted-foreground">0</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {Math.abs(v) > 0.001 && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={fixing !== null}
+                            onClick={() => recalc(r)}
+                          >
+                            {fixing === `${r.product_id}-${r.location_id}` ? "Fixing…" : "Fix"}
+                          </Button>
                         )}
                       </TableCell>
                     </TableRow>
