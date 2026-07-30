@@ -448,7 +448,7 @@ const POS = () => {
           break;
         case "Escape":
           if (typing) return;
-          if (paymentOpen || scannerOpen || approvalOpen || receiptOpen || startDayOpen) return;
+          if (paymentOpen || scannerOpen || approvalOpen || receiptOpen || startDayOpen || productPickerOpen) return;
           if (pos.cart.length === 0) return;
           e.preventDefault();
           if (window.confirm("Clear the current cart?")) pos.clearCart();
@@ -457,7 +457,8 @@ const POS = () => {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [pos, business, paymentOpen, scannerOpen, approvalOpen, receiptOpen, startDayOpen]);
+  }, [pos, business, paymentOpen, scannerOpen, approvalOpen, receiptOpen, startDayOpen, productPickerOpen]);
+
 
   // Global keyboard-wedge scanner listener — works even when nothing is focused.
   useBarcodeScanner({
