@@ -9,8 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   ShoppingCart, Search, Plus, Trash2, Pause, Play, X,
-  User, List, LayoutGrid, Sunrise, Banknote, Smartphone, ScanLine,
+  User, Sunrise, Banknote, Smartphone, ScanLine,
   Settings2, Printer, Loader2,
+
 } from "lucide-react";
 import { toast } from "sonner";
 import { useProducts, useCategories } from "@/hooks/useProducts";
