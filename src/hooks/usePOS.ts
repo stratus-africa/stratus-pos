@@ -82,6 +82,8 @@ export function usePOS() {
 
   const preventOverselling = (business as { prevent_overselling?: boolean } | null)?.prevent_overselling === true;
 
+  // Stock at the selected location. Loaded regardless of the overselling rule so
+  // the cart can show live "exceeds available stock" warnings.
   const inventoryQuery = useQuery({
     queryKey: ["inventory", "pos", business?.id, currentLocation?.id],
     queryFn: async () => {
@@ -93,13 +95,18 @@ export function usePOS() {
       if (error) throw error;
       return (data || []) as { product_id: string; quantity: number }[];
     },
-    enabled: !!business && !!currentLocation && preventOverselling,
+    enabled: !!business && !!currentLocation,
+    refetchInterval: 60_000,
   });
   const inventoryRows = inventoryQuery.data || [];
-  const stockOf = (productId: string) => {
-    const row = inventoryRows.find((r) => r.product_id === productId);
-    return row ? Number(row.quantity) : 0;
-  };
+  const stockOf = useCallback(
+    (productId: string) => {
+      const row = inventoryRows.find((r) => r.product_id === productId);
+      return row ? Number(row.quantity) : 0;
+    },
+    [inventoryRows],
+  );
+
 
   const addToCart = useCallback((product: Product) => {
     setCart((prev) => {
