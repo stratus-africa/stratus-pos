@@ -173,6 +173,7 @@ export function StockReconciliationTab() {
                   <TableHead className="text-right">Expected</TableHead>
                   <TableHead className="text-right">Actual</TableHead>
                   <TableHead className="text-right">Variance</TableHead>
+                  <TableHead className="text-right">Fix</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
