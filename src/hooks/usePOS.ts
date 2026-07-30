@@ -152,11 +152,48 @@ export function usePOS() {
     setCart((prev) => prev.filter((i) => i.product.id !== productId));
   }, []);
 
+  const draftIds = {
+    businessId: business?.id ?? null,
+    locationId: currentLocation?.id ?? null,
+    userId: user?.id ?? null,
+  };
+
   const clearCart = useCallback(() => {
     setCart([]);
     setCustomerId(null);
     setCustomerName(null);
-  }, []);
+    clearCartDraft({
+      businessId: business?.id ?? null,
+      locationId: currentLocation?.id ?? null,
+      userId: user?.id ?? null,
+    });
+  }, [business?.id, currentLocation?.id, user?.id]);
+
+  // --- Cart persistence ------------------------------------------------------
+  // Restore any in-progress cart once per business/location/user combination,
+  // then keep the stored copy in sync with every change.
+  const restoredFor = useRef<string>("");
+  useEffect(() => {
+    if (!business?.id || !currentLocation?.id || !user?.id) return;
+    const sig = `${business.id}:${currentLocation.id}:${user.id}`;
+    if (restoredFor.current === sig) return;
+    restoredFor.current = sig;
+    const draft = loadCartDraft(draftIds);
+    if (draft && draft.cart.length > 0) {
+      setCart(draft.cart);
+      setCustomerId(draft.customerId);
+      setCustomerName(draft.customerName);
+      toast.info(`Restored your in-progress cart (${draft.cart.length} item${draft.cart.length > 1 ? "s" : ""})`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [business?.id, currentLocation?.id, user?.id]);
+
+  useEffect(() => {
+    if (!business?.id || !currentLocation?.id || !user?.id) return;
+    saveCartDraft({ cart, customerId, customerName }, draftIds);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart, customerId, customerName, business?.id, currentLocation?.id, user?.id]);
+
 
   // VAT rates for per-line selection.
   const taxRatesQuery = useQuery({
