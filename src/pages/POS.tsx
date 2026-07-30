@@ -25,7 +25,7 @@ import ReceiptDialog from "@/components/pos/ReceiptDialog";
 import StartDayDialog from "@/components/pos/StartDayDialog";
 import ManagerApprovalDialog from "@/components/pos/ManagerApprovalDialog";
 import BarcodeScanner from "@/components/BarcodeScanner";
-import { CartItemRow } from "@/components/pos/CartItemRow";
+import { CartTable } from "@/components/pos/CartTable";
 import { logAudit } from "@/lib/audit";
 import { CartItem } from "@/hooks/usePOS";
 import { supabase } from "@/integrations/supabase/client";
