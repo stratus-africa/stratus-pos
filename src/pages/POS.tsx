@@ -54,9 +54,11 @@ const POS = () => {
 
   const isMobile = useIsMobile();
 
-  const [search, setSearch] = useState("");
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [productPickerOpen, setProductPickerOpen] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState("");
+  const pickerSearchRef = useRef<HTMLInputElement>(null);
   const [categoryFilter, setCategoryFilter] = useState("all");
+
 
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [resumeOpen, setResumeOpen] = useState(false);
