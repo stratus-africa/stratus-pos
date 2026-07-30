@@ -54,6 +54,8 @@ export function usePOS() {
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
+  const completingRef = useRef(false);
+
 
   // Persisted suspended sales (DB-backed, scoped to business + location)
   const heldQuery = useQuery({
@@ -351,8 +353,11 @@ export function usePOS() {
         const available = stockMap.get(item.product.id) ?? 0;
         if (item.quantity > available) {
           toast.error(`Cannot sell ${item.quantity} of ${item.product.name} — only ${available} in stock`);
+          completingRef.current = false;
+          setProcessing(false);
           return null;
         }
+
       }
     }
 
