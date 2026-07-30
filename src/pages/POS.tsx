@@ -59,6 +59,15 @@ const POS = () => {
   const pickerSearchRef = useRef<HTMLInputElement>(null);
   const [categoryFilter, setCategoryFilter] = useState("all");
 
+  // Focus the picker search input whenever the modal opens.
+  useEffect(() => {
+    if (productPickerOpen) {
+      const id = requestAnimationFrame(() => pickerSearchRef.current?.focus());
+      return () => cancelAnimationFrame(id);
+    }
+  }, [productPickerOpen]);
+
+
 
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [resumeOpen, setResumeOpen] = useState(false);
