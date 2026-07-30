@@ -54,6 +54,8 @@ export function usePOS() {
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
+  const completingRef = useRef(false);
+
 
   // Persisted suspended sales (DB-backed, scoped to business + location)
   const heldQuery = useQuery({
@@ -332,6 +334,11 @@ export function usePOS() {
   ) => {
     if (!business || !currentLocation || !user || cart.length === 0) return null;
     if (!ensureCanPost()) return null;
+    // Guard against double-submits (rapid clicks / Enter key repeats).
+    if (completingRef.current) return null;
+    completingRef.current = true;
+    setProcessing(true);
+
 
 
     if (preventOverselling) {
@@ -346,8 +353,11 @@ export function usePOS() {
         const available = stockMap.get(item.product.id) ?? 0;
         if (item.quantity > available) {
           toast.error(`Cannot sell ${item.quantity} of ${item.product.name} — only ${available} in stock`);
+          completingRef.current = false;
+          setProcessing(false);
           return null;
         }
+
       }
     }
 
@@ -457,7 +467,9 @@ export function usePOS() {
         clearCart();
         window.dispatchEvent(new CustomEvent("pos-offline-sale-queued"));
         toast.success("Sale saved offline — it will sync automatically");
+        completingRef.current = false;
         setProcessing(false);
+
         return offlineResult;
       }
 
@@ -653,7 +665,9 @@ export function usePOS() {
       toast.error(err.message);
       return null;
     } finally {
+      completingRef.current = false;
       setProcessing(false);
+
     }
   };
 

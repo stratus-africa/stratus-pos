@@ -27,8 +27,13 @@ export default function BarcodeLoginDialog({ open, onOpenChange, userId, userLab
   const [barcode, setBarcode] = useState("");
   const [pin, setPin] = useState("");
   const [pin2, setPin2] = useState("");
+  const [includePin, setIncludePin] = useState(true);
   const [saving, setSaving] = useState(false);
   const svgRef = useRef<SVGSVGElement | null>(null);
+
+  const pinValid = /^[0-9]{4,8}$/.test(pin);
+  // One-scan login payload: the sign-in screen splits "BARCODE*PIN".
+  const printedValue = includePin && pinValid ? `${barcode}*${pin}` : barcode;
 
   useEffect(() => {
     if (!open) return;
@@ -37,11 +42,12 @@ export default function BarcodeLoginDialog({ open, onOpenChange, userId, userLab
   }, [open]);
 
   useEffect(() => {
-    if (!svgRef.current || !barcode) return;
+    if (!svgRef.current || !printedValue) return;
     try {
-      JsBarcode(svgRef.current, barcode, { format: "CODE128", height: 60, width: 2, displayValue: true, fontSize: 14, margin: 8 });
+      JsBarcode(svgRef.current, printedValue, { format: "CODE128", height: 60, width: 2, displayValue: true, fontSize: 14, margin: 8 });
     } catch { /* ignore */ }
-  }, [barcode]);
+  }, [printedValue]);
+
 
   const save = async () => {
     if (!/^[0-9]{4,8}$/.test(pin)) return toast.error("PIN must be 4–8 digits");
@@ -114,7 +120,23 @@ export default function BarcodeLoginDialog({ open, onOpenChange, userId, userLab
               <Input inputMode="numeric" pattern="[0-9]*" value={pin2} onChange={(e) => setPin2(e.target.value.replace(/\D/g, "").slice(0, 8))} placeholder="••••" />
             </div>
           </div>
+
+          <label className="flex items-start gap-2 rounded-md border p-3 text-sm">
+            <input
+              type="checkbox"
+              checked={includePin}
+              onChange={(e) => setIncludePin(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              One-scan login
+              <span className="block text-xs text-muted-foreground">
+                Encodes the PIN in the printed barcode so a single scan signs the user in. Keep the printed card private.
+              </span>
+            </span>
+          </label>
         </div>
+
 
         <DialogFooter className="gap-2 sm:justify-between">
           <div className="flex flex-wrap gap-2">

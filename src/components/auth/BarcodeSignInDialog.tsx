@@ -16,6 +16,14 @@ interface Props {
   onSuccess?: () => void;
 }
 
+// A scanned payload may carry the PIN too: "BARCODE*1234" / "BARCODE|1234" / "BARCODE-1234"
+const splitPayload = (raw: string): { barcode: string; pin: string | null } => {
+  const v = raw.trim();
+  const m = v.match(/^(.+?)[*|#-]([0-9]{4,8})$/);
+  if (m) return { barcode: m[1].trim(), pin: m[2] };
+  return { barcode: v, pin: null };
+};
+
 export default function BarcodeSignInDialog({ open, onOpenChange, onSuccess }: Props) {
   const callBarcodeLogin = useServerFn(barcodeLogin);
   const [barcode, setBarcode] = useState("");
@@ -24,6 +32,7 @@ export default function BarcodeSignInDialog({ open, onOpenChange, onSuccess }: P
   const [submitting, setSubmitting] = useState(false);
   const barcodeRef = useRef<HTMLInputElement>(null);
   const pinRef = useRef<HTMLInputElement>(null);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     if (open) {
@@ -32,21 +41,23 @@ export default function BarcodeSignInDialog({ open, onOpenChange, onSuccess }: P
     }
   }, [open]);
 
-  const submit = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!barcode || !/^[0-9]{4,8}$/.test(pin)) {
+  const doLogin = async (bc: string, code: string) => {
+    if (submittingRef.current) return;
+    if (!bc || !/^[0-9]{4,8}$/.test(code)) {
       toast.error("Scan a barcode and enter a 4–8 digit PIN");
       return;
     }
+    submittingRef.current = true;
     setSubmitting(true);
     let data: { email: string; token_hash: string } | null = null;
     let error: Error | null = null;
     try {
-      data = await callBarcodeLogin({ data: { barcode: barcode.trim(), pin } });
+      data = await callBarcodeLogin({ data: { barcode: bc.trim(), pin: code } });
     } catch (e) {
       error = e as Error;
     }
     if (error || !data?.token_hash) {
+      submittingRef.current = false;
       setSubmitting(false);
       toast.error(error?.message || "Invalid barcode or PIN");
       return;
@@ -55,6 +66,7 @@ export default function BarcodeSignInDialog({ open, onOpenChange, onSuccess }: P
       token_hash: data.token_hash,
       type: "magiclink",
     });
+    submittingRef.current = false;
     setSubmitting(false);
     if (otpErr) { toast.error(otpErr.message); return; }
     toast.success("Welcome back!");
@@ -62,13 +74,31 @@ export default function BarcodeSignInDialog({ open, onOpenChange, onSuccess }: P
     onSuccess?.();
   };
 
+  // Handles both a manual submit and a scanner payload that includes the PIN.
+  const handleScanned = (raw: string) => {
+    const { barcode: bc, pin: code } = splitPayload(raw);
+    setBarcode(bc);
+    if (code) {
+      setPin(code);
+      void doLogin(bc, code);
+    } else {
+      setTimeout(() => pinRef.current?.focus(), 60);
+    }
+  };
+
+  const submit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    await doLogin(barcode, pin);
+  };
+
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Sign in with barcode</DialogTitle>
-            <DialogDescription>Scan your login barcode, then enter your PIN.</DialogDescription>
+            <DialogDescription>Scan your login barcode — if it includes your PIN you'll be signed in automatically.</DialogDescription>
           </DialogHeader>
 
           <form onSubmit={submit} className="space-y-4">
@@ -79,11 +109,17 @@ export default function BarcodeSignInDialog({ open, onOpenChange, onSuccess }: P
                   id="bc"
                   ref={barcodeRef}
                   value={barcode}
-                  onChange={(e) => setBarcode(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setBarcode(v);
+                    // Scanner pasted a combined payload without pressing Enter.
+                    const parsed = splitPayload(v);
+                    if (parsed.pin) handleScanned(v);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      if (barcode) pinRef.current?.focus();
+                      if (barcode) handleScanned(barcode);
                     }
                   }}
                   placeholder="Scan or type barcode"
@@ -98,6 +134,7 @@ export default function BarcodeSignInDialog({ open, onOpenChange, onSuccess }: P
                 <ScanLine className="h-3 w-3" /> USB/Bluetooth scanners work automatically.
               </p>
             </div>
+
 
             <div className="space-y-1.5">
               <Label htmlFor="pin">PIN</Label>
@@ -127,11 +164,11 @@ export default function BarcodeSignInDialog({ open, onOpenChange, onSuccess }: P
         open={scanning}
         onOpenChange={setScanning}
         onDetected={(code) => {
-          setBarcode(code);
           setScanning(false);
-          setTimeout(() => pinRef.current?.focus(), 60);
+          handleScanned(code);
         }}
       />
     </>
+
   );
 }
