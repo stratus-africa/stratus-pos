@@ -668,6 +668,38 @@ const POS = () => {
           )}
         </ScrollArea>
 
+        {/* Cart items table — "PRODUCT ITEMS" panel as per design */}
+        <div className="mt-3 flex flex-col min-h-0 max-h-[45%] rounded-lg border overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2 bg-primary text-primary-foreground">
+            <span className="text-xs font-semibold tracking-wide uppercase flex items-center gap-2">
+              <ShoppingCart className="h-4 w-4" />
+              Product Items ({pos.cart.length})
+            </span>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6 text-primary-foreground hover:bg-primary-foreground/20"
+              disabled={pos.cart.length === 0}
+              onClick={pos.clearCart}
+              title="Clear cart"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <ScrollArea className="flex-1 min-h-0">
+            {pos.cart.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground text-sm">Add products to start a sale</p>
+            ) : (
+              <CartTable
+                items={pos.cart}
+                onUpdate={pos.updateCartItem}
+                onRemove={pos.removeFromCart}
+                onBeforeRemove={handleBeforeRemove}
+              />
+            )}
+          </ScrollArea>
+        </div>
+
         {/* Held sales bar */}
         {pos.heldSales.length > 0 && (
           <div className="flex items-center gap-2 mt-2 pt-2 border-t overflow-x-auto">
@@ -686,7 +718,7 @@ const POS = () => {
         )}
       </div>
 
-      {/* Drag handle to resize product list vs cart */}
+      {/* Drag handle to resize product list vs summary */}
       <div
         role="separator"
         aria-orientation="vertical"
@@ -700,24 +732,52 @@ const POS = () => {
         <div className={`h-16 w-1.5 rounded-full transition-colors ${dragging ? "bg-primary" : "bg-border group-hover:bg-primary/60"}`} />
       </div>
 
-      {/* Right: Cart — resizable width on large screens */}
-      <Card
-        className="w-full flex flex-col min-h-0 min-w-0 shrink-0 lg:flex-1"
+      {/* Right: Sale summary & tender panel */}
+      <div
+        className="w-full shrink-0 lg:flex-1 min-w-0 flex flex-col min-h-0 rounded-lg overflow-hidden bg-primary text-primary-foreground"
         style={isWide ? { width: `calc(${100 - splitPct}% - 0.75rem)` } : undefined}
       >
-        {(!isMobile || mobileCartExpanded) && (
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <ShoppingCart className="h-5 w-5" /> Cart
-                {pos.cart.length > 0 && <Badge variant="secondary">{pos.cart.length}</Badge>}
-              </CardTitle>
-              {isMobile && (
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setMobileCartExpanded(false)}>
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
+        {/* Quick actions */}
+        <div className="grid grid-cols-3 divide-x divide-primary-foreground/20 border-b border-primary-foreground/20">
+          <button
+            type="button"
+            onClick={pos.clearCart}
+            className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium hover:bg-primary-foreground/10"
+          >
+            <Plus className="h-4 w-4" /> New
+          </button>
+          <button
+            type="button"
+            disabled={isResume ? pos.heldSales.length === 0 : pos.cart.length === 0}
+            onClick={() => {
+              if (isResume) { setResumeOpen(true); return; }
+              const suggested = pos.customerName || `Sale ${new Date().toLocaleTimeString()}`;
+              const label = window.prompt("Name this parked sale:", suggested);
+              if (label === null) return;
+              void pos.holdSale(label);
+            }}
+            className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium hover:bg-primary-foreground/10 disabled:opacity-50"
+          >
+            {isResume ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+            {isResume ? `Resume${pos.heldSales.length ? ` (${pos.heldSales.length})` : ""}` : "Draft"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setCreditCustomerOpen(true)}
+            className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium hover:bg-primary-foreground/10"
+          >
+            <User className="h-4 w-4" /> New Customer
+          </button>
+        </div>
+
+        {/* Session bar */}
+        <div className="px-3 py-2 text-[11px] bg-primary-foreground/10 border-b border-primary-foreground/20 text-center truncate">
+          {new Date().toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+          {" | "}{currentLocation?.name || ""}
+        </div>
+
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="p-3 space-y-3">
             {/* Customer selector */}
             <Select
               value={pos.customerId || "walkin"}
@@ -732,8 +792,8 @@ const POS = () => {
                 }
               }}
             >
-              <SelectTrigger className="mt-1">
-                <User className="h-4 w-4 mr-1 text-muted-foreground" />
+              <SelectTrigger className="bg-primary-foreground/10 border-primary-foreground/30 text-primary-foreground">
+                <User className="h-4 w-4 mr-1 opacity-80" />
                 <SelectValue placeholder="Walk-in Customer" />
               </SelectTrigger>
               <SelectContent>
@@ -743,142 +803,100 @@ const POS = () => {
                 ))}
               </SelectContent>
             </Select>
-          </CardHeader>
-        )}
 
-        <CardContent className="flex-1 flex flex-col min-h-0 p-3">
-          {(!isMobile || mobileCartExpanded) && (
-            <ScrollArea className="flex-1">
-              {pos.cart.length === 0 ? (
-                <p className="text-center py-10 text-muted-foreground text-sm">Add products to start a sale</p>
-              ) : (
-                <div className="rounded border overflow-hidden">
-                  <CartTable
-                    items={pos.cart}
-                    onUpdate={pos.updateCartItem}
-                    onRemove={pos.removeFromCart}
-                    onBeforeRemove={handleBeforeRemove}
-                  />
-                </div>
-
-              )}
-            </ScrollArea>
-          )}
-
-          <div className={`${(!isMobile || mobileCartExpanded) ? "pt-3 border-t mt-2" : ""} space-y-2`}>
-            {isMobile && !mobileCartExpanded && pos.cart.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setMobileCartExpanded(true)}
-                className="flex items-center justify-between w-full px-2 py-1 rounded hover:bg-accent"
-              >
-                <span className="flex items-center gap-2 text-sm font-medium">
-                  <ShoppingCart className="h-4 w-4" />
-                  {pos.cart.length} item{pos.cart.length === 1 ? "" : "s"}
-                  <ChevronUp className="h-3 w-3 text-muted-foreground" />
-                </span>
-                <span className="font-bold text-base">KES {pos.cartTotal.toLocaleString()}</span>
-              </button>
-            )}
-            {(!isMobile || mobileCartExpanded) && pos.cart.length > 0 && (
-              <div className="space-y-1">
-                <div className="flex justify-between text-2xl"><span className="text-muted-foreground">Subtotal</span><span>KES {pos.cartSubtotal.toLocaleString()}</span></div>
-                {pos.cartTax > 0 && (
-                  <div className="flex justify-between text-2xl"><span className="text-muted-foreground">VAT ({pos.taxInclusive ? "incl." : "excl."})</span><span>KES {Math.round(pos.cartTax).toLocaleString()}</span></div>
-                )}
-
-                <Separator />
-                <div className="flex justify-between font-bold text-lg"><span>Total</span><span className="text-5xl">KES {pos.cartTotal.toLocaleString()}</span></div>
+            {/* Totals */}
+            <div className="text-sm">
+              <div className="flex justify-between py-1.5 border-b border-primary-foreground/15">
+                <span className="uppercase tracking-wide text-xs opacity-90">Subtotal</span>
+                <span className="tabular-nums">{pos.cartSubtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
-            )}
-            <div className="grid grid-cols-2 gap-1.5">
-              <Button
-                variant="default"
-                className="flex flex-col items-center gap-0.5 h-auto py-3 bg-[hsl(5,75%,48%)] hover:bg-[hsl(5,75%,42%)] text-white border-transparent text-lg font-semibold"
-                disabled={pos.cart.length === 0}
-                onClick={() => { setInitialPaymentMethod("cash"); setPaymentOpen(true); }}
-              >
-                <Banknote className="h-5 w-5" />
-                <span className="text-xs font-medium">Cash</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="flex flex-col items-center gap-0.5 h-auto py-3 bg-[hsl(130,55%,25%)] text-white border-[hsl(130,55%,25%)] hover:bg-[hsl(130,55%,20%)] text-lg font-semibold"
-                disabled={pos.cart.length === 0}
-                onClick={() => { setInitialPaymentMethod("mpesa"); setPaymentOpen(true); }}
-              >
-                <Smartphone className="h-5 w-5" />
-                <span className="text-xs font-medium">M-Pesa</span>
-              </Button>
-            </div>
-            <div className="grid grid-cols-3 gap-1.5">
-              <Button
-                variant="outline"
-                className="flex flex-col items-center gap-0.5 h-auto py-2 bg-orange-500 text-white border-orange-500 hover:bg-orange-600"
-                disabled={pos.cart.length === 0}
-                onClick={() => {
-                  if (!pos.customerId) {
-                    setCreditCustomerOpen(true);
-                    return;
-                  }
-                  setInitialPaymentMethod("card");
-                  setPaymentOpen(true);
-                }}
-              >
-                <CreditCard className="h-4 w-4" />
-                <span className="text-[10px] font-medium">Credit Sale</span>
-              </Button>
-              <Button
-                variant="outline"
-                className={`flex flex-col items-center gap-0.5 h-auto py-2 ${isResume ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90" : "bg-yellow-500 text-white border-yellow-500 hover:bg-yellow-600"}`}
-                disabled={isResume ? pos.heldSales.length === 0 : pos.cart.length === 0}
-                onClick={() => {
-                  if (isResume) {
-                    setResumeOpen(true);
-                    return;
-                  }
-                  const suggested = pos.customerName || `Sale ${new Date().toLocaleTimeString()}`;
-                  const label = window.prompt("Name this parked sale:", suggested);
-                  if (label === null) return; // cancelled
-                  void pos.holdSale(label);
-                }}
-                title={isResume ? "Resume a suspended sale" : "Park sale (F9)"}
-              >
-                {isResume ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-                <span className="text-[10px] font-medium">
-                  {isResume ? `Resume Sale${pos.heldSales.length ? ` (${pos.heldSales.length})` : ""}` : "Suspend Sale"}
+              <div className="flex justify-between py-1.5 border-b border-primary-foreground/15">
+                <span className="opacity-90">Discount</span>
+                <span className="tabular-nums">
+                  {pos.cart.reduce((s, i) => s + (i.discount || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
-              </Button>
-              <Button
-                variant="outline"
-                className="flex flex-col items-center gap-0.5 h-auto py-2 border-destructive text-destructive hover:bg-destructive/10"
-                disabled={pos.cart.length === 0}
-                onClick={pos.clearCart}
-              >
-                <Trash2 className="h-4 w-4" />
-                <span className="text-[10px] font-medium">Clear</span>
-              </Button>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-primary-foreground/15">
+                <span className="opacity-90">VAT {pos.taxInclusive ? "(incl.)" : "(excl.)"}</span>
+                <span className="tabular-nums">{pos.cartTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex items-center justify-between pt-3">
+                <span className="uppercase font-semibold tracking-wide">Total</span>
+                <span className="text-3xl font-bold tabular-nums">
+                  {pos.cartTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <p className="text-right text-[11px] opacity-80 mt-0.5">KES</p>
             </div>
+          </div>
+        </ScrollArea>
+
+        {/* Tender buttons */}
+        <div className="p-3 pt-0 space-y-2">
+          <div className="grid grid-cols-2 gap-2">
             <Button
-              variant="ghost"
-              size="sm"
-              className="w-full text-xs"
+              variant="outline"
+              className="h-11 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
+              disabled={pos.cart.length === 0}
+              onClick={() => { setInitialPaymentMethod("cash"); setPaymentOpen(true); }}
+            >
+              <Banknote className="h-4 w-4 mr-1.5" /> Cash
+            </Button>
+            <Button
+              variant="outline"
+              className="h-11 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
+              disabled={pos.cart.length === 0}
+              onClick={() => { setInitialPaymentMethod("mpesa"); setPaymentOpen(true); }}
+            >
+              <Smartphone className="h-4 w-4 mr-1.5" /> M-Pesa
+            </Button>
+            <Button
+              variant="outline"
+              className="h-11 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
+              disabled={pos.cart.length === 0}
+              onClick={() => { setInitialPaymentMethod("card"); setPaymentOpen(true); }}
+            >
+              <CreditCard className="h-4 w-4 mr-1.5" /> Card
+            </Button>
+            <Button
+              variant="outline"
+              className="h-11 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
+              disabled={pos.cart.length === 0}
               onClick={() => {
-                const last = loadLastReceipt(business?.id);
-                if (!last) {
-                  toast.error("No previous receipt found on this device.");
-                  return;
-                }
-                setReprintData(last);
-                setReprintOpen(true);
+                if (!pos.customerId) { setCreditCustomerOpen(true); return; }
+                setInitialPaymentMethod("card");
+                setPaymentOpen(true);
               }}
             >
-              <Printer className="h-3.5 w-3.5 mr-1" /> Reprint Last Receipt
+              <User className="h-4 w-4 mr-1.5" /> Credit
             </Button>
-
           </div>
-        </CardContent>
-      </Card>
+          <Button
+            className="w-full h-12 text-base font-bold bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30 border border-primary-foreground/30"
+            disabled={pos.cart.length === 0}
+            onClick={() => { setInitialPaymentMethod("cash"); setPaymentOpen(true); }}
+          >
+            PURCHASE
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-xs text-primary-foreground hover:bg-primary-foreground/10"
+            onClick={() => {
+              const last = loadLastReceipt(business?.id);
+              if (!last) {
+                toast.error("No previous receipt found on this device.");
+                return;
+              }
+              setReprintData(last);
+              setReprintOpen(true);
+            }}
+          >
+            <Printer className="h-3.5 w-3.5 mr-1" /> Reprint Last Receipt
+          </Button>
+        </div>
+      </div>
+
 
       <Dialog open={resumeOpen} onOpenChange={setResumeOpen}>
         <DialogContent className="sm:max-w-md">
