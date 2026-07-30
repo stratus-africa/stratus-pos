@@ -62,23 +62,25 @@ function classify(row: LedgerRow): SourceKind {
 const fmtQty = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2));
 
 function referenceOf(row: LedgerRow): string {
-  const named =
-    row.purchases?.invoice_number ||
-    row.sales?.invoice_number ||
-    row.stock_adjustment_documents?.reference;
+  const named = row.purchases?.invoice_number || row.sales?.invoice_number || row.stock_adjustment_documents?.reference;
   if (named) return named;
   const id = row.purchase_id || row.sale_id || row.document_id || row.id;
   return `#${id.slice(0, 8)}`;
 }
 
+interface StockLedgerTabProps {
+  locationId?: string;
+  from: string;
+  to: string;
+  onDateChange: (range: { from: string; to: string }) => void;
+  fyStartMonth?: number;
+}
 
-export default function StockLedgerTab({ locationId }: { locationId?: string }) {
+export default function StockLedgerTab({ locationId, from, to, onDateChange, fyStartMonth = 1 }: StockLedgerTabProps) {
   const { business, locations } = useBusiness();
   const [productId, setProductId] = useState<string>("all");
   const [productSearch, setProductSearch] = useState("");
   const [productOpen, setProductOpen] = useState(false);
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
   const [source, setSource] = useState<"all" | SourceKind>("all");
   const [loc, setLoc] = useState<string>(locationId || "all");
   const [page, setPage] = useState(1);
@@ -102,7 +104,11 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
   const selectedProductQuery = useQuery({
     queryKey: ["stock_ledger_product", productId],
     queryFn: async () => {
-      const { data } = await supabase.from("products").select("id, name, barcode, sku").eq("id", productId).maybeSingle();
+      const { data } = await supabase
+        .from("products")
+        .select("id, name, barcode, sku")
+        .eq("id", productId)
+        .maybeSingle();
       return data as { id: string; name: string | null; barcode: string | null; sku: string | null } | null;
     },
     enabled: productId !== "all",
@@ -131,7 +137,6 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
       if (from) q = q.gte("created_at", `${from}T00:00:00`);
       if (to) q = q.lte("created_at", `${to}T23:59:59`);
       if (productId !== "all") q = q.eq("product_id", productId);
-
 
       const { data, error, count } = await q.range(start, start + pageSize - 1);
       if (error) throw error;
@@ -165,7 +170,6 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
         if (r.sale_id) r.sales = { invoice_number: sMap.get(r.sale_id) ?? null };
       }
       return { rows: visibleRows, count: Math.max(0, (count ?? 0) - (rows.length - visibleRows.length)) };
-
     },
     enabled: !!business,
   });
@@ -226,13 +230,25 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
     const all = (summaryQuery.data ?? []).filter((r) => source === "all" || classify(r) === source);
     let increases = 0;
     let decreases = 0;
-    const byProduct = new Map<string, { name: string; barcode: string | null; in: number; out: number; net: number; count: number }>();
+    const byProduct = new Map<
+      string,
+      { name: string; barcode: string | null; in: number; out: number; net: number; count: number }
+    >();
     for (const r of all) {
       const qty = Number(r.quantity_change) || 0;
-      if (qty >= 0) increases += qty; else decreases += qty;
+      if (qty >= 0) increases += qty;
+      else decreases += qty;
       const key = r.product_id;
-      const entry = byProduct.get(key) || { name: r.products?.name || "Unknown product", barcode: r.products?.barcode ?? null, in: 0, out: 0, net: 0, count: 0 };
-      if (qty >= 0) entry.in += qty; else entry.out += qty;
+      const entry = byProduct.get(key) || {
+        name: r.products?.name || "Unknown product",
+        barcode: r.products?.barcode ?? null,
+        in: 0,
+        out: 0,
+        net: 0,
+        count: 0,
+      };
+      if (qty >= 0) entry.in += qty;
+      else entry.out += qty;
       entry.net += qty;
       entry.count += 1;
       byProduct.set(key, entry);
@@ -274,7 +290,12 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
             <Label className="text-xs">Product</Label>
             <Popover open={productOpen} onOpenChange={setProductOpen}>
               <PopoverTrigger asChild>
-                <Button variant="outline" role="combobox" aria-expanded={productOpen} className="w-full justify-between font-normal">
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={productOpen}
+                  className="w-full justify-between font-normal"
+                >
                   <span className="truncate">{selectedProductLabel}</span>
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
@@ -291,7 +312,11 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
                     <CommandGroup>
                       <CommandItem
                         value="all"
-                        onSelect={() => { setProductId("all"); setPage(1); setProductOpen(false); }}
+                        onSelect={() => {
+                          setProductId("all");
+                          setPage(1);
+                          setProductOpen(false);
+                        }}
                       >
                         <Check className={cn("mr-2 h-4 w-4", productId === "all" ? "opacity-100" : "opacity-0")} />
                         All products
@@ -300,7 +325,11 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
                         <CommandItem
                           key={p.id}
                           value={p.id}
-                          onSelect={() => { setProductId(p.id); setPage(1); setProductOpen(false); }}
+                          onSelect={() => {
+                            setProductId(p.id);
+                            setPage(1);
+                            setProductOpen(false);
+                          }}
                         >
                           <Check className={cn("mr-2 h-4 w-4", productId === p.id ? "opacity-100" : "opacity-0")} />
                           <span className="truncate">
@@ -322,18 +351,32 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
             <DateRangeFilter
               from={from}
               to={to}
-              defaultPreset="this_month"
-              onChange={({ from: f, to: t }) => { setFrom(f); setTo(t); setPage(1); }}
+              fyStartMonth={fyStartMonth}
+              defaultPreset="custom"
+              onChange={({ from: f, to: t }) => {
+                onDateChange({ from: f, to: t });
+                setPage(1);
+              }}
             />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Location</Label>
-            <Select value={loc} onValueChange={(v) => { setLoc(v); setPage(1); }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+            <Select
+              value={loc}
+              onValueChange={(v) => {
+                setLoc(v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All locations</SelectItem>
                 {(locations || []).map((l) => (
-                  <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -341,26 +384,48 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
           <div className="space-y-1.5">
             <Label className="text-xs">Transaction type</Label>
             <Select value={source} onValueChange={(v) => setSource(v as typeof source)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All transactions</SelectItem>
                 {(Object.keys(SOURCE_LABELS) as SourceKind[]).map((k) => (
-                  <SelectItem key={k} value={k}>{SOURCE_LABELS[k]}</SelectItem>
+                  <SelectItem key={k} value={k}>
+                    {SOURCE_LABELS[k]}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Rows</Label>
-            <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(v) => {
+                setPageSize(Number(v));
+                setPage(1);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                {PAGE_SIZES.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                {PAGE_SIZES.map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
           <div className="flex items-end">
-            <Button variant="outline" size="sm" onClick={exportCSV} disabled={!rows.length} className="hidden md:inline-flex">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportCSV}
+              disabled={!rows.length}
+              className="hidden md:inline-flex"
+            >
               <Download className="mr-2 h-4 w-4" /> Export CSV
             </Button>
           </div>
@@ -371,14 +436,34 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
         <CardContent className="pt-4 space-y-4">
           <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
             {[
-              { label: "Stock in", value: summaryQuery.isLoading ? null : `+${fmtQty(summary.increases)}`, cls: "text-success" },
-              { label: "Stock out", value: summaryQuery.isLoading ? null : fmtQty(summary.decreases), cls: "text-destructive" },
-              { label: "Net quantity moved", value: summaryQuery.isLoading ? null : `${summary.net > 0 ? "+" : ""}${fmtQty(summary.net)}`, cls: summary.net < 0 ? "text-destructive" : "text-success" },
-              { label: "Products affected", value: summaryQuery.isLoading ? null : String(summary.products.length), cls: "" },
+              {
+                label: "Stock in",
+                value: summaryQuery.isLoading ? null : `+${fmtQty(summary.increases)}`,
+                cls: "text-success",
+              },
+              {
+                label: "Stock out",
+                value: summaryQuery.isLoading ? null : fmtQty(summary.decreases),
+                cls: "text-destructive",
+              },
+              {
+                label: "Net quantity moved",
+                value: summaryQuery.isLoading ? null : `${summary.net > 0 ? "+" : ""}${fmtQty(summary.net)}`,
+                cls: summary.net < 0 ? "text-destructive" : "text-success",
+              },
+              {
+                label: "Products affected",
+                value: summaryQuery.isLoading ? null : String(summary.products.length),
+                cls: "",
+              },
             ].map((c) => (
               <div key={c.label} className="rounded-lg border p-3">
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{c.label}</p>
-                {c.value === null ? <Skeleton className="h-6 w-20 mt-1" /> : <p className={`text-xl font-semibold ${c.cls}`}>{c.value}</p>}
+                {c.value === null ? (
+                  <Skeleton className="h-6 w-20 mt-1" />
+                ) : (
+                  <p className={`text-xl font-semibold ${c.cls}`}>{c.value}</p>
+                )}
               </div>
             ))}
           </div>
@@ -406,10 +491,18 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
                 <TableBody>
                   {summaryQuery.isLoading ? (
                     Array.from({ length: 3 }).map((_, i) => (
-                      <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-5 w-full" /></TableCell></TableRow>
+                      <TableRow key={i}>
+                        <TableCell colSpan={5}>
+                          <Skeleton className="h-5 w-full" />
+                        </TableCell>
+                      </TableRow>
                     ))
                   ) : summary.products.length === 0 ? (
-                    <TableRow><TableCell colSpan={5} className="text-center py-6 text-muted-foreground">No movement in this range.</TableCell></TableRow>
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                        No movement in this range.
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     (showAllProducts ? summary.products : summary.products.slice(0, 5)).map((p, i) => (
                       <TableRow key={p.name + i} className={i % 2 ? "bg-muted/40" : undefined}>
@@ -419,7 +512,12 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
                         </TableCell>
                         <TableCell className="py-1.5 text-right text-sm text-success">+{fmtQty(p.in)}</TableCell>
                         <TableCell className="py-1.5 text-right text-sm text-destructive">{fmtQty(p.out)}</TableCell>
-                        <TableCell className={`py-1.5 text-right text-sm font-medium ${p.net < 0 ? "text-destructive" : "text-success"}`}>{p.net > 0 ? "+" : ""}{fmtQty(p.net)}</TableCell>
+                        <TableCell
+                          className={`py-1.5 text-right text-sm font-medium ${p.net < 0 ? "text-destructive" : "text-success"}`}
+                        >
+                          {p.net > 0 ? "+" : ""}
+                          {fmtQty(p.net)}
+                        </TableCell>
                         <TableCell className="py-1.5 text-right text-sm hidden sm:table-cell">{p.count}</TableCell>
                       </TableRow>
                     ))
@@ -448,24 +546,43 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
               <TableBody>
                 {query.isLoading ? (
                   Array.from({ length: 6 }).map((_, i) => (
-                    <TableRow key={i}><TableCell colSpan={6}><Skeleton className="h-5 w-full" /></TableCell></TableRow>
+                    <TableRow key={i}>
+                      <TableCell colSpan={6}>
+                        <Skeleton className="h-5 w-full" />
+                      </TableCell>
+                    </TableRow>
                   ))
                 ) : rows.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No stock transactions for this filter.</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      No stock transactions for this filter.
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   rows.map((r, i) => (
                     <TableRow key={r.id} className={i % 2 ? "bg-muted/40" : undefined}>
                       <TableCell className="py-1.5 text-sm">
                         <span className="font-medium">{r.products?.name || "—"}</span>
-                        {r.products?.barcode && <span className="block text-[11px] text-muted-foreground">{r.products.barcode}</span>}
+                        {r.products?.barcode && (
+                          <span className="block text-[11px] text-muted-foreground">{r.products.barcode}</span>
+                        )}
                       </TableCell>
                       <TableCell className="py-1.5 text-sm hidden md:table-cell">{r.locations?.name || "—"}</TableCell>
-                      <TableCell className="py-1.5"><Badge variant="secondary" className="text-[11px]">{SOURCE_LABELS[classify(r)]}</Badge></TableCell>
-                      <TableCell className={`py-1.5 text-right text-sm font-medium ${r.quantity_change < 0 ? "text-destructive" : "text-success"}`}>
-                        {r.quantity_change > 0 ? "+" : ""}{r.quantity_change}
+                      <TableCell className="py-1.5">
+                        <Badge variant="secondary" className="text-[11px]">
+                          {SOURCE_LABELS[classify(r)]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell
+                        className={`py-1.5 text-right text-sm font-medium ${r.quantity_change < 0 ? "text-destructive" : "text-success"}`}
+                      >
+                        {r.quantity_change > 0 ? "+" : ""}
+                        {r.quantity_change}
                       </TableCell>
                       <TableCell className="py-1.5 text-xs font-mono">{referenceOf(r)}</TableCell>
-                      <TableCell className="py-1.5 text-xs text-muted-foreground hidden lg:table-cell">{r.notes || "—"}</TableCell>
+                      <TableCell className="py-1.5 text-xs text-muted-foreground hidden lg:table-cell">
+                        {r.notes || "—"}
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -476,11 +593,19 @@ export default function StockLedgerTab({ locationId }: { locationId?: string }) 
       </Card>
 
       <div className="flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">{total} transaction{total === 1 ? "" : "s"}</span>
+        <span className="text-muted-foreground">
+          {total} transaction{total === 1 ? "" : "s"}
+        </span>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Previous</Button>
-          <span className="text-xs text-muted-foreground">Page {page} of {pages}</span>
-          <Button variant="outline" size="sm" disabled={page >= pages} onClick={() => setPage((p) => p + 1)}>Next</Button>
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+            Previous
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            Page {page} of {pages}
+          </span>
+          <Button variant="outline" size="sm" disabled={page >= pages} onClick={() => setPage((p) => p + 1)}>
+            Next
+          </Button>
         </div>
       </div>
     </div>
