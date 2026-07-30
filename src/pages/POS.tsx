@@ -39,6 +39,9 @@ import {
 } from "@/lib/customerDisplay";
 import { loadLastReceipt } from "@/lib/lastReceipt";
 import CreditCustomerDialog from "@/components/pos/CreditCustomerDialog";
+import { useAuth } from "@/contexts/AuthContext";
+import { clampSplit, loadLocalSplit, saveLocalSplit, SPLIT_FALLBACK } from "@/lib/posLayout";
+import { useOfflineSales } from "@/hooks/useOfflineSales";
 
 
 
@@ -53,6 +56,10 @@ const POS = () => {
   const { inventoryQuery } = useInventory(currentLocation?.id);
 
   const isMobile = useIsMobile();
+  const { user: authUser } = useAuth();
+  const offline = useOfflineSales();
+  /** Mobile only: tap to switch between the product list and a full-screen cart. */
+  const [mobilePane, setMobilePane] = useState<"products" | "cart">("products");
 
   const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [pickerSearch, setPickerSearch] = useState("");
