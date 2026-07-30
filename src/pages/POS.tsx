@@ -84,21 +84,27 @@ const POS = () => {
 
 
   // --- Resizable split between product list and cart (desktop only) ----------
-  const SPLIT_KEY = "pos_split_pct";
+  // Width preference resolves as: this user's saved width on this device →
+  // the tenant-wide default (businesses.pos_split_pct) → 60%.
   const splitRef = useRef<HTMLDivElement | null>(null);
   const [isWide, setIsWide] = useState(false);
-  const [splitPct, setSplitPct] = useState(60);
+  const [splitPct, setSplitPct] = useState(SPLIT_FALLBACK);
   const [dragging, setDragging] = useState(false);
+  const tenantSplit = (business as { pos_split_pct?: number | null } | null)?.pos_split_pct ?? null;
+  const canSetTenantDefault = userRole === "admin" || userRole === "manager";
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)");
     const onChange = () => setIsWide(mq.matches);
     onChange();
     mq.addEventListener("change", onChange);
-    const saved = Number(localStorage.getItem(SPLIT_KEY));
-    if (saved >= 30 && saved <= 80) setSplitPct(saved);
     return () => mq.removeEventListener("change", onChange);
   }, []);
+
+  useEffect(() => {
+    const local = loadLocalSplit(business?.id, authUser?.id);
+    setSplitPct(clampSplit(local ?? tenantSplit ?? SPLIT_FALLBACK));
+  }, [business?.id, authUser?.id, tenantSplit]);
 
   useEffect(() => {
     if (!dragging) return;
@@ -107,7 +113,7 @@ const POS = () => {
       if (!el) return;
       const rect = el.getBoundingClientRect();
       const pct = ((clientX - rect.left) / rect.width) * 100;
-      setSplitPct(Math.min(80, Math.max(30, Math.round(pct))));
+      setSplitPct(clampSplit(pct));
     };
     const onMouseMove = (e: MouseEvent) => move(e.clientX);
     const onTouchMove = (e: TouchEvent) => e.touches[0] && move(e.touches[0].clientX);
@@ -125,8 +131,19 @@ const POS = () => {
   }, [dragging]);
 
   useEffect(() => {
-    if (isWide) localStorage.setItem(SPLIT_KEY, String(splitPct));
-  }, [splitPct, isWide]);
+    if (isWide) saveLocalSplit(splitPct, business?.id, authUser?.id);
+  }, [splitPct, isWide, business?.id, authUser?.id]);
+
+  const saveTenantSplit = useCallback(async () => {
+    if (!business?.id || !canSetTenantDefault) return;
+    const { error } = await supabase
+      .from("businesses")
+      .update({ pos_split_pct: clampSplit(splitPct) })
+      .eq("id", business.id);
+    if (error) toast.error("Could not save the layout for the business");
+    else toast.success("Layout saved as the default for all tills");
+  }, [business?.id, canSetTenantDefault, splitPct]);
+
   const isResume = pos.cart.length === 0 && pos.heldSales.length > 0;
   const [approvalOpen, setApprovalOpen] = useState(false);
   const [creditCustomerOpen, setCreditCustomerOpen] = useState(false);
