@@ -76,6 +76,13 @@ export interface ProductFormData {
   hs_code?: string | null;
   country_of_origin?: string | null;
   tax_category?: string | null;
+  /** Cost of Goods Sold account debited when this product is sold. */
+  purchase_account_id?: string | null;
+  /** Revenue account credited when this product is sold. */
+  sales_account_id?: string | null;
+  /** Asset account used to track this product's stock value. */
+  inventory_account_id?: string | null;
+
   opening_stock_quantity?: number;
   opening_stock_value?: number;
   opening_stock_date?: string | null;
