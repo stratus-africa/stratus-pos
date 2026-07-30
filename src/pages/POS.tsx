@@ -590,81 +590,118 @@ const POS = () => {
           </div>
         </div>
 
-        {/* Product grid/list */}
-        <ScrollArea className="flex-1">
-          {viewMode === "grid" ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-              {activeProducts.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => pos.addToCart(p)}
-                  className="flex flex-col items-start p-3 rounded-lg border bg-card text-left transition-colors hover:bg-accent hover:border-primary"
-                >
-                  <span className="font-medium text-sm line-clamp-2">{p.name}</span>
-                  {p.sku && <span className="text-xs text-muted-foreground">{p.sku}</span>}
-                  <span className="mt-auto pt-1 font-semibold text-primary">KES {Number(p.selling_price).toLocaleString()}</span>
-                </button>
-              ))}
-              {activeProducts.length === 0 && (
-                <p className="col-span-full text-center py-10 text-muted-foreground">No products found</p>
-              )}
-            </div>
-          ) : (
-            <div className="rounded-lg border overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/60 text-muted-foreground">
-                  <tr className="text-left">
-                    <th className="px-3 py-2 font-medium">Product</th>
-                    {showStockQty && <th className="px-3 py-2 font-medium hidden sm:table-cell">Stock</th>}
-                    <th className="px-3 py-2 font-medium text-right">Price</th>
-                  </tr>
-                </thead>
-                <tbody className="theme-alt-rows">
-                  {activeProducts.map((p) => {
-                    const qty = stockMap.get(p.id) ?? 0;
-                    const lowStock = qty <= 0;
-                    return (
-                      <tr
-                        key={p.id}
-                        onClick={() => pos.addToCart(p)}
-                        className="cursor-pointer border-b last:border-0 hover:bg-accent/60 transition-colors"
-                      >
-                        <td className="px-3 py-2.5 align-middle">
-                          <div className="flex flex-col min-w-0">
-                            <span className="font-medium truncate">{p.name}</span>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              {p.sku && <span className="truncate">{p.sku}</span>}
-                              {showStockQty && (
-                                <Badge variant={lowStock ? "destructive" : "secondary"} className="sm:hidden text-[10px] font-normal">
-                                  Qty: {qty}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        {showStockQty && (
-                          <td className="px-3 py-2.5 align-middle hidden sm:table-cell">
-                            <Badge variant={lowStock ? "destructive" : "secondary"} className="text-[10px] font-normal">
-                              {qty}
-                            </Badge>
-                          </td>
-                        )}
-                        <td className="px-3 py-2.5 align-middle text-right font-semibold text-primary whitespace-nowrap">
-                          KES {Number(p.selling_price).toLocaleString()}
-                        </td>
-                      </tr>
-                    );
-                  })}
+        {/* Product results — shown while searching or filtering a category */}
+        {(search.trim() || categoryFilter !== "all") && (
+          <div className="mb-3 shrink-0 rounded-lg border overflow-hidden">
+            <ScrollArea className="max-h-56">
+              {viewMode === "grid" ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 p-2">
+                  {activeProducts.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => pos.addToCart(p)}
+                      className="flex flex-col items-start p-3 rounded-lg border bg-card text-left transition-colors hover:bg-accent hover:border-primary"
+                    >
+                      <span className="font-medium text-sm line-clamp-2">{p.name}</span>
+                      {p.sku && <span className="text-xs text-muted-foreground">{p.sku}</span>}
+                      <span className="mt-auto pt-1 font-semibold text-primary">KES {Number(p.selling_price).toLocaleString()}</span>
+                    </button>
+                  ))}
                   {activeProducts.length === 0 && (
-                    <tr>
-                      <td colSpan={showStockQty ? 3 : 2} className="text-center py-10 text-muted-foreground">No products found</td>
-                    </tr>
+                    <p className="col-span-full text-center py-10 text-muted-foreground">No products found</p>
                   )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </ScrollArea>
+                </div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/60 text-muted-foreground">
+                    <tr className="text-left">
+                      <th className="px-3 py-2 font-medium">Product</th>
+                      {showStockQty && <th className="px-3 py-2 font-medium hidden sm:table-cell">Stock</th>}
+                      <th className="px-3 py-2 font-medium text-right">Price</th>
+                    </tr>
+                  </thead>
+                  <tbody className="theme-alt-rows">
+                    {activeProducts.map((p) => {
+                      const qty = stockMap.get(p.id) ?? 0;
+                      const lowStock = qty <= 0;
+                      return (
+                        <tr
+                          key={p.id}
+                          onClick={() => pos.addToCart(p)}
+                          className="cursor-pointer border-b last:border-0 hover:bg-accent/60 transition-colors"
+                        >
+                          <td className="px-3 py-2 align-middle">
+                            <div className="flex flex-col min-w-0">
+                              <span className="font-medium truncate">{p.name}</span>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                {p.sku && <span className="truncate">{p.sku}</span>}
+                                {showStockQty && (
+                                  <Badge variant={lowStock ? "destructive" : "secondary"} className="sm:hidden text-[10px] font-normal">
+                                    Qty: {qty}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          {showStockQty && (
+                            <td className="px-3 py-2 align-middle hidden sm:table-cell">
+                              <Badge variant={lowStock ? "destructive" : "secondary"} className="text-[10px] font-normal">
+                                {qty}
+                              </Badge>
+                            </td>
+                          )}
+                          <td className="px-3 py-2 align-middle text-right font-semibold text-primary whitespace-nowrap">
+                            KES {Number(p.selling_price).toLocaleString()}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {activeProducts.length === 0 && (
+                      <tr>
+                        <td colSpan={showStockQty ? 3 : 2} className="text-center py-10 text-muted-foreground">No products found</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </ScrollArea>
+          </div>
+        )}
+
+        {/* PRODUCT ITEMS — the current sale's cart */}
+        <div className="flex-1 min-h-0 flex flex-col rounded-lg border overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2 bg-primary text-primary-foreground">
+            <span className="text-xs font-semibold tracking-wide uppercase flex items-center gap-2">
+              <ShoppingCart className="h-4 w-4" />
+              Product Items ({pos.cart.length})
+            </span>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6 text-primary-foreground hover:bg-primary-foreground/15"
+              disabled={pos.cart.length === 0}
+              onClick={pos.clearCart}
+              title="Clear cart"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <ScrollArea className="flex-1 min-h-0">
+            {pos.cart.length === 0 ? (
+              <p className="text-center py-12 text-muted-foreground text-sm">
+                Search or scan a product to start a sale
+              </p>
+            ) : (
+              <CartTable
+                items={pos.cart}
+                onUpdate={pos.updateCartItem}
+                onRemove={pos.removeFromCart}
+                onBeforeRemove={handleBeforeRemove}
+              />
+            )}
+          </ScrollArea>
+        </div>
+
 
 
 
@@ -773,35 +810,25 @@ const POS = () => {
               </SelectContent>
             </Select>
 
-            {/* Cart items */}
-            <div className="rounded-lg overflow-hidden bg-background text-foreground border border-primary-foreground/20">
-              <div className="flex items-center justify-between px-3 py-2 bg-muted">
-                <span className="text-xs font-semibold tracking-wide uppercase flex items-center gap-2">
-                  <ShoppingCart className="h-4 w-4" />
-                  Product Items ({pos.cart.length})
-                </span>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-6 w-6"
-                  disabled={pos.cart.length === 0}
-                  onClick={pos.clearCart}
-                  title="Clear cart"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+            {/* Sale info */}
+            <div className="text-sm divide-y divide-primary-foreground/15">
+              <div className="flex items-center justify-between py-2">
+                <span className="opacity-80">Items</span>
+                <span className="font-semibold tabular-nums">{pos.cart.length}</span>
               </div>
-              {pos.cart.length === 0 ? (
-                <p className="text-center py-8 text-muted-foreground text-sm">Add products to start a sale</p>
-              ) : (
-                <CartTable
-                  items={pos.cart}
-                  onUpdate={pos.updateCartItem}
-                  onRemove={pos.removeFromCart}
-                  onBeforeRemove={handleBeforeRemove}
-                />
-              )}
+              <div className="flex items-center justify-between py-2">
+                <span className="opacity-80">Total Qty</span>
+                <span className="font-semibold tabular-nums">
+                  {pos.cart.reduce((s, i) => s + i.quantity, 0)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <span className="opacity-80">Register</span>
+                <span className="font-semibold truncate max-w-[55%]">{currentLocation?.name || "—"}</span>
+              </div>
+
             </div>
+
 
           </div>
         </ScrollArea>
