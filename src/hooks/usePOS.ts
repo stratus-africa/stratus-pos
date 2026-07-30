@@ -467,7 +467,9 @@ export function usePOS() {
         clearCart();
         window.dispatchEvent(new CustomEvent("pos-offline-sale-queued"));
         toast.success("Sale saved offline — it will sync automatically");
+        completingRef.current = false;
         setProcessing(false);
+
         return offlineResult;
       }
 
@@ -663,7 +665,9 @@ export function usePOS() {
       toast.error(err.message);
       return null;
     } finally {
+      completingRef.current = false;
       setProcessing(false);
+
     }
   };
 
