@@ -377,7 +377,7 @@ const POS = () => {
   };
 
   // Keyboard shortcuts:
-  //   F1  scan barcode          F2  focus search
+  //   F1  scan barcode          F2  open product picker
   //   F3  Cash sale (quick complete, exact amount)
   //   F4  open payment dialog on Cash
   //   F5  open payment dialog on M-Pesa (STK Push flow)
@@ -415,9 +415,10 @@ const POS = () => {
           break;
         case "F2":
           e.preventDefault();
-          searchInputRef.current?.focus();
-          searchInputRef.current?.select();
+          setProductPickerOpen(true);
+          requestAnimationFrame(() => pickerSearchRef.current?.focus());
           break;
+
         case "F3":
           if (pos.cart.length === 0) return;
           e.preventDefault();
