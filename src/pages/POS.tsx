@@ -9,8 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   ShoppingCart, Search, Plus, Trash2, Pause, Play, X,
-  User, List, LayoutGrid, Sunrise, Banknote, Smartphone, ScanLine,
+  User, Sunrise, Banknote, Smartphone, ScanLine,
   Settings2, Printer, Loader2,
+
 } from "lucide-react";
 import { toast } from "sonner";
 import { useProducts, useCategories } from "@/hooks/useProducts";
@@ -56,7 +57,7 @@ const POS = () => {
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
+
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [resumeOpen, setResumeOpen] = useState(false);
   const [initialPaymentMethod, setInitialPaymentMethod] = useState<"cash" | "mpesa" | "card">("cash");
@@ -581,93 +582,71 @@ const POS = () => {
             <Settings2 className="h-4 w-4" />
           </Button>
 
-          <div className="flex gap-1 shrink-0">
-            <Button size="icon" variant={viewMode === "grid" ? "default" : "outline"} onClick={() => setViewMode("grid")}>
-              <LayoutGrid className="h-4 w-4" />
-            </Button>
-            <Button size="icon" variant={viewMode === "list" ? "default" : "outline"} onClick={() => setViewMode("list")}>
-              <List className="h-4 w-4" />
-            </Button>
-          </div>
         </div>
 
-        {/* Product results — shown while searching or filtering a category */}
-        {(search.trim() || categoryFilter !== "all") && (
-          <div className="mb-3 shrink-0 rounded-lg border overflow-hidden">
-            <ScrollArea className="max-h-56">
-              {viewMode === "grid" ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 p-2">
-                  {activeProducts.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => pos.addToCart(p)}
-                      className="flex flex-col items-start p-3 rounded-lg border bg-card text-left transition-colors hover:bg-accent hover:border-primary"
-                    >
-                      <span className="font-medium text-sm line-clamp-2">{p.name}</span>
-                      {p.sku && <span className="text-xs text-muted-foreground">{p.sku}</span>}
-                      <span className="mt-auto pt-1 font-semibold text-primary">KES {Number(p.selling_price).toLocaleString()}</span>
-                    </button>
-                  ))}
-                  {activeProducts.length === 0 && (
-                    <p className="col-span-full text-center py-10 text-muted-foreground">No products found</p>
-                  )}
-                </div>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/60 text-muted-foreground">
-                    <tr className="text-left">
-                      <th className="px-3 py-2 font-medium">Product</th>
-                      {showStockQty && <th className="px-3 py-2 font-medium hidden sm:table-cell">Stock</th>}
-                      <th className="px-3 py-2 font-medium text-right">Price</th>
-                    </tr>
-                  </thead>
-                  <tbody className="theme-alt-rows">
-                    {activeProducts.map((p) => {
-                      const qty = stockMap.get(p.id) ?? 0;
-                      const lowStock = qty <= 0;
-                      return (
-                        <tr
-                          key={p.id}
-                          onClick={() => pos.addToCart(p)}
-                          className="cursor-pointer border-b last:border-0 hover:bg-accent/60 transition-colors"
-                        >
-                          <td className="px-3 py-2 align-middle">
-                            <div className="flex flex-col min-w-0">
-                              <span className="font-medium truncate">{p.name}</span>
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                {p.sku && <span className="truncate">{p.sku}</span>}
-                                {showStockQty && (
-                                  <Badge variant={lowStock ? "destructive" : "secondary"} className="sm:hidden text-[10px] font-normal">
-                                    Qty: {qty}
-                                  </Badge>
-                                )}
-                              </div>
+        {/* Product picker modal — auto-opens when searching or filtering a category */}
+        <Dialog open={Boolean(search.trim() || categoryFilter !== "all")} onOpenChange={(o) => {
+          if (!o) { setSearch(""); setCategoryFilter("all"); }
+        }}>
+          <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 gap-0">
+            <DialogHeader className="px-4 py-3 border-b">
+              <DialogTitle className="text-base">Select product</DialogTitle>
+            </DialogHeader>
+            <ScrollArea className="flex-1 min-h-0">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/60 text-muted-foreground sticky top-0">
+                  <tr className="text-left">
+                    <th className="px-3 py-2 font-medium">Product</th>
+                    {showStockQty && <th className="px-3 py-2 font-medium hidden sm:table-cell">Stock</th>}
+                    <th className="px-3 py-2 font-medium text-right">Price</th>
+                  </tr>
+                </thead>
+                <tbody className="theme-alt-rows">
+                  {activeProducts.map((p) => {
+                    const qty = stockMap.get(p.id) ?? 0;
+                    const lowStock = qty <= 0;
+                    return (
+                      <tr
+                        key={p.id}
+                        onClick={() => { pos.addToCart(p); setSearch(""); setCategoryFilter("all"); }}
+                        className="cursor-pointer border-b last:border-0 hover:bg-accent/60 transition-colors"
+                      >
+                        <td className="px-3 py-2 align-middle">
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-medium truncate">{p.name}</span>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              {p.sku && <span className="truncate">{p.sku}</span>}
+                              {showStockQty && (
+                                <Badge variant={lowStock ? "destructive" : "secondary"} className="sm:hidden text-[10px] font-normal">
+                                  Qty: {qty}
+                                </Badge>
+                              )}
                             </div>
+                          </div>
+                        </td>
+                        {showStockQty && (
+                          <td className="px-3 py-2 align-middle hidden sm:table-cell">
+                            <Badge variant={lowStock ? "destructive" : "secondary"} className="text-[10px] font-normal">
+                              {qty}
+                            </Badge>
                           </td>
-                          {showStockQty && (
-                            <td className="px-3 py-2 align-middle hidden sm:table-cell">
-                              <Badge variant={lowStock ? "destructive" : "secondary"} className="text-[10px] font-normal">
-                                {qty}
-                              </Badge>
-                            </td>
-                          )}
-                          <td className="px-3 py-2 align-middle text-right font-semibold text-primary whitespace-nowrap">
-                            KES {Number(p.selling_price).toLocaleString()}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {activeProducts.length === 0 && (
-                      <tr>
-                        <td colSpan={showStockQty ? 3 : 2} className="text-center py-10 text-muted-foreground">No products found</td>
+                        )}
+                        <td className="px-3 py-2 align-middle text-right font-semibold text-primary whitespace-nowrap">
+                          KES {Number(p.selling_price).toLocaleString()}
+                        </td>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              )}
+                    );
+                  })}
+                  {activeProducts.length === 0 && (
+                    <tr>
+                      <td colSpan={showStockQty ? 3 : 2} className="text-center py-10 text-muted-foreground">No products found</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </ScrollArea>
-          </div>
-        )}
+          </DialogContent>
+        </Dialog>
 
         {/* PRODUCT ITEMS — the current sale's cart */}
         <div className="flex-1 min-h-0 flex flex-col rounded-lg border overflow-hidden">
