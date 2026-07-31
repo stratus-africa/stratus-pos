@@ -3891,8 +3891,11 @@ export type Database = {
           document_id: string | null
           id: string | null
           location_id: string | null
+          location_name: string | null
           notes: string | null
+          product_barcode: string | null
           product_id: string | null
+          product_name: string | null
           purchase_id: string | null
           quantity_change: number | null
           reason: string | null
