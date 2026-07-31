@@ -34,6 +34,45 @@ export const MOVEMENT_REASONS = ["sale", "return", "Return"];
 
 export type MovementSource = "all" | "sale" | "return" | "purchase";
 
+/** Row shape of the `stock_movements_ledger` database view. */
+export interface LedgerViewRow {
+  id: string;
+  business_id: string;
+  location_id: string;
+  product_id: string;
+  created_at: string;
+  quantity_change: number;
+  reason: string;
+  source: "purchase" | "sale" | "adjustment";
+  purchase_id: string | null;
+  sale_id: string | null;
+  document_id: string | null;
+  reference: string | null;
+  notes: string | null;
+  created_by: string | null;
+  product_name: string | null;
+  product_barcode: string | null;
+  location_name: string | null;
+}
+
+/** Minimal PostgREST builder surface for the untyped ledger view. */
+export interface LedgerQuery {
+  select: (cols: string, opts?: { count: "exact" }) => LedgerQuery;
+  eq: (col: string, val: unknown) => LedgerQuery;
+  in: (col: string, vals: unknown[]) => LedgerQuery;
+  or: (filter: string) => LedgerQuery;
+  gte: (col: string, val: unknown) => LedgerQuery;
+  lte: (col: string, val: unknown) => LedgerQuery;
+  order: (col: string, opts?: { ascending?: boolean }) => LedgerQuery;
+  limit: (n: number) => LedgerQuery;
+  range: (a: number, b: number) => Promise<{ data: LedgerViewRow[] | null; error: { message: string } | null; count: number | null }>;
+  then: never;
+}
+
+/** Typed accessor for the ledger view (not present in generated Supabase types). */
+export const ledgerView = () => (supabase.from as unknown as (t: string) => LedgerQuery)("stock_movements_ledger");
+
+
 export type SortKey = "date_desc" | "date_asc" | "product_asc" | "product_desc";
 
 export interface MovementFilters {
