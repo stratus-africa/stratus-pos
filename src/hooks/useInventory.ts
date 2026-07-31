@@ -262,27 +262,27 @@ export function useInventory(
       if (!business) return { rows: [] as StockAdjustment[], count: 0 };
       const fromIdx = (mvPage - 1) * mvPageSize;
       const toIdx = fromIdx + mvPageSize - 1;
-      let q = supabase
-        .from("stock_adjustments")
-        .select("*, products(name), locations(name)", { count: "exact" });
+      // Movements come from the unified ledger view (sales + purchases + manual
+      // adjustments), so each stock transaction appears exactly once.
+      let q = (supabase as unknown as SupabaseLike)
+        .from("stock_movements_ledger")
+        .select("*", { count: "exact" })
+        .eq("business_id", business.id);
+
       if (mvSort === "date_asc") q = q.order("created_at", { ascending: true });
-      else if (mvSort === "product_asc") q = q.order("product_id", { ascending: true }).order("created_at", { ascending: false });
-      else if (mvSort === "product_desc") q = q.order("product_id", { ascending: false }).order("created_at", { ascending: false });
+      else if (mvSort === "product_asc") q = q.order("product_name", { ascending: true }).order("created_at", { ascending: false });
+      else if (mvSort === "product_desc") q = q.order("product_name", { ascending: false }).order("created_at", { ascending: false });
       else q = q.order("created_at", { ascending: false });
 
-      // Source filter
       const src = mvFilters.source ?? "all";
       if (src === "purchase") {
-        q = q.not("purchase_id", "is", null);
+        q = q.eq("source", "purchase");
       } else if (src === "sale") {
-        // sale-only: reason='sale' AND quantity_change < 0, no purchase
-        q = q.is("purchase_id", null).eq("reason", "sale").lt("quantity_change", 0);
+        q = q.eq("source", "sale");
       } else if (src === "return") {
-        // returns: reason='Return' OR (reason='sale' AND qty_change > 0)
-        q = q.or("reason.eq.Return,reason.eq.return,and(reason.eq.sale,quantity_change.gt.0)");
+        q = q.eq("source", "adjustment").or("reason.eq.Return,reason.eq.return");
       } else {
-        // all movements: any sale/return/purchase row
-        q = q.or(`reason.in.(${MOVEMENT_REASONS.join(",")}),purchase_id.not.is.null`);
+        q = q.in("source", ["purchase", "sale", "adjustment"]);
       }
 
       if (mvFilters.from) q = q.gte("created_at", `${mvFilters.from}T00:00:00`);
@@ -291,10 +291,16 @@ export function useInventory(
 
       const { data, error, count } = await q.range(fromIdx, toIdx);
       if (error) throw error;
-      return { rows: (data || []) as StockAdjustment[], count: count ?? 0 };
+      const rows = (data || []).map((r) => ({
+        ...r,
+        products: { name: r.product_name },
+        locations: { name: r.location_name },
+      })) as unknown as StockAdjustment[];
+      return { rows, count: count ?? 0 };
     },
     enabled: !!business,
   });
+
 
   const deleteAdjustment = useMutation({
     mutationFn: async (id: string) => {
