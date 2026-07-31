@@ -89,6 +89,22 @@ const POS = () => {
   const [scanSettingsOpen, setScanSettingsOpen] = useState(false);
   const scanSettings = useScanSettings();
 
+  // Inline product table on the POS screen (toggled next to scanner settings).
+  const [showProductList, setShowProductList] = useState(false);
+  useEffect(() => {
+    try {
+      setShowProductList(localStorage.getItem("pos-show-product-list") === "1");
+    } catch { /* storage unavailable */ }
+  }, []);
+  const toggleProductList = () => {
+    setShowProductList((prev) => {
+      const next = !prev;
+      try { localStorage.setItem("pos-show-product-list", next ? "1" : "0"); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
+
 
   // --- Resizable split between product list and cart (desktop only) ----------
   // Width preference resolves as: this user's saved width on this device →
