@@ -487,7 +487,15 @@ export function usePOS() {
         created_by: user.id,
         notes: opts.loyaltyNote || null,
       });
-      if (saleErr) throw saleErr;
+      if (saleErr) {
+        // 23505 = the same finalize was already committed (duplicate click / retry).
+        if ((saleErr as { code?: string }).code === "23505") {
+          toast.info("This sale was already recorded");
+          clearCart();
+          return null;
+        }
+        throw saleErr;
+      }
 
       const isPharmacy = (business as any)?.business_type === "pharmacy";
       const saleItems: any[] = [];
