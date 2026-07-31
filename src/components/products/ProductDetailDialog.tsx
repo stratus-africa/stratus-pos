@@ -16,6 +16,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import BatchesTab from "@/components/products/BatchesTab";
 import QuickStockActions from "@/components/products/QuickStockActions";
 import { useFeatureLimit } from "@/components/FeatureGate";
+import { ledgerView } from "@/hooks/useInventory";
 
 
 interface ProductDetailDialogProps {
