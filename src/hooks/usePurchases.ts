@@ -227,9 +227,8 @@ export function usePurchases() {
         if (iError) throw iError;
       }
 
-      if (purchase.status !== "draft" && purchase.status !== "cancelled") {
-        await logStockMovements(items, purchase.location_id, purchase.created_by, purchase.invoice_number || purchaseId.slice(0, 8), purchaseId, purchase.status);
-      }
+
+
 
       if (paidThrough && paidThrough.amount > 0) {
         // Look up supplier name for contact_name
