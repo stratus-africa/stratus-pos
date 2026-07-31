@@ -683,8 +683,8 @@ const POS = () => {
                     if (e.key === "Enter" && pickerSearch.trim()) {
                       e.preventDefault();
                       // Enter-to-select: if the filter narrows to exactly one product, add it.
-                      if (activeProducts.length === 1) {
-                        pos.addToCart(activeProducts[0]);
+                      if (matchedProducts.length === 1) {
+                        pos.addToCart(matchedProducts[0]);
                         setProductPickerOpen(false);
                         setPickerSearch("");
                         setCategoryFilter("all");
