@@ -667,8 +667,58 @@ const POS = () => {
           >
             <Settings2 className="h-4 w-4" />
           </Button>
+          <Button
+            size="icon"
+            variant={showProductList ? "default" : "outline"}
+            className="shrink-0"
+            onClick={toggleProductList}
+            title={showProductList ? "Hide product list" : "Show product list"}
+            aria-pressed={showProductList}
+          >
+            <List className="h-4 w-4" />
+          </Button>
 
         </div>
+
+        {/* Inline product list — toggled from the button beside scanner settings */}
+        {showProductList && (
+          <div className="mb-3 rounded-lg border overflow-hidden max-h-64 flex flex-col">
+            <ScrollArea className="flex-1 min-h-0">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-muted/80 backdrop-blur text-left">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">Product</th>
+                    <th className="px-3 py-2 font-medium text-right">Price</th>
+                    {showStockQty && <th className="px-3 py-2 font-medium text-right w-20">Stock</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeProducts.map((p, idx) => (
+                    <tr
+                      key={p.id}
+                      onClick={() => pos.addToCart(p)}
+                      className={`cursor-pointer hover:bg-accent ${idx % 2 ? "bg-muted/30" : ""}`}
+                    >
+                      <td className="px-3 py-1.5 truncate">{p.name}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums">{Number(p.selling_price).toLocaleString()}</td>
+                      {showStockQty && (
+                        <td className="px-3 py-1.5 text-right tabular-nums">{stockMap.get(p.id) ?? 0}</td>
+                      )}
+                    </tr>
+                  ))}
+                  {activeProducts.length === 0 && (
+                    <tr>
+                      <td colSpan={showStockQty ? 3 : 2} className="text-center py-6 text-muted-foreground">
+                        No products found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </ScrollArea>
+          </div>
+        )}
+
 
         {/* Product picker modal — opened by F2 or the search button */}
         <Dialog open={productPickerOpen} onOpenChange={(o) => {
