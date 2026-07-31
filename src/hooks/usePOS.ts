@@ -411,15 +411,9 @@ export function usePOS() {
           payments: payments
             .filter((p) => p.amount > 0)
             .map((p) => ({ sale_id: saleId, method: p.method, amount: p.amount, reference: p.reference || null })),
-          adjustments: cart.map((item) => ({
-            product_id: item.product.id,
-            location_id: currentLocation.id,
-            quantity_change: -item.quantity,
-            reason: "sale",
-            notes: `Sale ${invoiceNumber} (offline)`,
-            created_by: user.id,
-            sale_id: saleId,
-          })),
+          // Stock movements are derived from the sale document itself — no mirror
+          // adjustment rows (they duplicated every stock transaction).
+          adjustments: [],
           bankTransaction: bankAccountId
             ? {
                 business_id: business.id,
