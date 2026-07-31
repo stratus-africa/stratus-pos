@@ -471,6 +471,9 @@ export function usePOS() {
 
       const { error: saleErr } = await supabase.from("sales").insert({
         id: saleId,
+        // Server-side idempotency: a replayed finalize hits the unique index
+        // (business_id, idempotency_key) and is rejected instead of duplicating.
+        idempotency_key: saleId,
         business_id: business.id,
         location_id: currentLocation.id,
         customer_id: customerId,
