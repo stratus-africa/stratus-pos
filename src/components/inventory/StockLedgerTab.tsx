@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { downloadCSV } from "@/components/reports/reportUtils";
 import { DateRangeFilter } from "@/components/reports/DateRangeFilter";
+import { ledgerView, type LedgerViewRow } from "@/hooks/useInventory";
 
 const PAGE_SIZES = [25, 50, 100, 200] as const;
 
