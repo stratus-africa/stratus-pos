@@ -12,6 +12,7 @@ import {
   User, Sunrise, Banknote, Smartphone, ScanLine,
   Settings2, Printer, Loader2,
 
+  List,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useProducts, useCategories } from "@/hooks/useProducts";
