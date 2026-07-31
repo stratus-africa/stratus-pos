@@ -163,14 +163,22 @@ export default function ProductDetailDialog({ product: productProp, productId: p
     queryKey: ["product-adjustments", productId],
     queryFn: async () => {
       if (!productId) return [];
-      const { data, error } = await supabase
-        .from("stock_adjustments")
-        .select("id, quantity_change, reason, notes, created_at, location_id, locations(name)")
+      // Unified ledger: sales, purchases and manual adjustments, each once.
+      const { data, error } = await ledgerView()
+        .select("*")
         .eq("product_id", productId)
         .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return data || [];
+        .range(0, 49);
+      if (error) throw new Error(error.message);
+      return (data || []).map((r) => ({
+        id: r.id,
+        quantity_change: Number(r.quantity_change) || 0,
+        reason: r.reason,
+        notes: r.notes,
+        created_at: r.created_at,
+        location_id: r.location_id,
+        locations: { name: r.location_name },
+      }));
     },
     enabled: !!productId && open,
   });
