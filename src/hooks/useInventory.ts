@@ -303,10 +303,10 @@ export function useInventory(
       const toIdx = fromIdx + mvPageSize - 1;
       // Movements come from the unified ledger view (sales + purchases + manual
       // adjustments), so each stock transaction appears exactly once.
-      const fromView = supabase.from as unknown as (t: string) => LedgerQuery;
-      let q = fromView("stock_movements_ledger")
+      let q = ledgerView()
         .select("*", { count: "exact" })
         .eq("business_id", business.id);
+
 
 
       if (mvSort === "date_asc") q = q.order("created_at", { ascending: true });
