@@ -411,15 +411,9 @@ export function usePOS() {
           payments: payments
             .filter((p) => p.amount > 0)
             .map((p) => ({ sale_id: saleId, method: p.method, amount: p.amount, reference: p.reference || null })),
-          adjustments: cart.map((item) => ({
-            product_id: item.product.id,
-            location_id: currentLocation.id,
-            quantity_change: -item.quantity,
-            reason: "sale",
-            notes: `Sale ${invoiceNumber} (offline)`,
-            created_by: user.id,
-            sale_id: saleId,
-          })),
+          // Stock movements are derived from the sale document itself — no mirror
+          // adjustment rows (they duplicated every stock transaction).
+          adjustments: [],
           bankTransaction: bankAccountId
             ? {
                 business_id: business.id,
@@ -477,6 +471,9 @@ export function usePOS() {
 
       const { error: saleErr } = await supabase.from("sales").insert({
         id: saleId,
+        // Server-side idempotency: a replayed finalize hits the unique index
+        // (business_id, idempotency_key) and is rejected instead of duplicating.
+        idempotency_key: saleId,
         business_id: business.id,
         location_id: currentLocation.id,
         customer_id: customerId,
@@ -490,7 +487,15 @@ export function usePOS() {
         created_by: user.id,
         notes: opts.loyaltyNote || null,
       });
-      if (saleErr) throw saleErr;
+      if (saleErr) {
+        // 23505 = the same finalize was already committed (duplicate click / retry).
+        if ((saleErr as { code?: string }).code === "23505") {
+          toast.info("This sale was already recorded");
+          clearCart();
+          return null;
+        }
+        throw saleErr;
+      }
 
       const isPharmacy = (business as any)?.business_type === "pharmacy";
       const saleItems: any[] = [];
@@ -564,16 +569,9 @@ export function usePOS() {
           )
       );
 
-      const adjustments = cart.map((item) => ({
-        product_id: item.product.id,
-        location_id: currentLocation.id,
-        quantity_change: -item.quantity,
-        reason: "sale",
-        notes: `Sale ${invoiceNumber}`,
-        created_by: user.id,
-        sale_id: saleId,
-      }));
-      await supabase.from("stock_adjustments").insert(adjustments);
+      // No mirror stock_adjustments row: the sale document is the stock movement.
+      // The Inventory Movement ledger reads sales/purchases directly.
+
 
       if (bankAccountId) {
         const { error: btErr } = await supabase.from("bank_transactions").insert({

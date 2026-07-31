@@ -26,10 +26,9 @@ async function pushSale(q: QueuedSale): Promise<void> {
     const { error } = await supabase.from("payments").insert(q.payments as never);
     if (error) throw error;
   }
-  if (q.adjustments.length) {
-    const { error } = await supabase.from("stock_adjustments").insert(q.adjustments as never);
-    if (error) throw error;
-  }
+  // Legacy queued sales may still carry mirror adjustment rows; they are dropped
+  // because stock movements are now derived from the sale document itself.
+
   if (q.bankTransaction) {
     await supabase.from("bank_transactions").insert(q.bankTransaction as never);
   }

@@ -128,23 +128,10 @@ export function usePurchases() {
   const { business } = useBusiness();
   const qc = useQueryClient();
 
-  // Inventory quantities are maintained by database triggers on purchase_items.
-  // Here we only write the human-readable stock movement log entries.
-  const logStockMovements = async (items: PurchaseItem[], locationId: string, createdBy: string, ref: string, purchaseId: string, status = "received") => {
-    for (const item of items) {
-      const qty = resolveReceived(item, status);
-      if (!qty) continue;
-      await supabase.from("stock_adjustments").insert({
-        product_id: item.product_id,
-        location_id: locationId,
-        quantity_change: qty,
-        reason: "Purchase received",
-        notes: `Purchase #${ref}`,
-        created_by: createdBy,
-        purchase_id: purchaseId,
-      });
-    }
-  };
+  // Inventory quantities are maintained by database triggers on purchase_items,
+  // and the Inventory Movement ledger reads purchase documents directly, so we no
+  // longer write mirror stock_adjustments rows (they duplicated every movement).
+
 
 
   const query = useQuery({
@@ -240,9 +227,8 @@ export function usePurchases() {
         if (iError) throw iError;
       }
 
-      if (purchase.status !== "draft" && purchase.status !== "cancelled") {
-        await logStockMovements(items, purchase.location_id, purchase.created_by, purchase.invoice_number || purchaseId.slice(0, 8), purchaseId, purchase.status);
-      }
+
+
 
       if (paidThrough && paidThrough.amount > 0) {
         // Look up supplier name for contact_name

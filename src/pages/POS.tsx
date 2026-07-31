@@ -12,6 +12,7 @@ import {
   User, Sunrise, Banknote, Smartphone, ScanLine,
   Settings2, Printer, Loader2,
 
+  List,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useProducts, useCategories } from "@/hooks/useProducts";
@@ -88,6 +89,22 @@ const POS = () => {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanSettingsOpen, setScanSettingsOpen] = useState(false);
   const scanSettings = useScanSettings();
+
+  // Inline product table on the POS screen (toggled next to scanner settings).
+  const [showProductList, setShowProductList] = useState(false);
+  useEffect(() => {
+    try {
+      setShowProductList(localStorage.getItem("pos-show-product-list") === "1");
+    } catch { /* storage unavailable */ }
+  }, []);
+  const toggleProductList = () => {
+    setShowProductList((prev) => {
+      const next = !prev;
+      try { localStorage.setItem("pos-show-product-list", next ? "1" : "0"); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
 
 
   // --- Resizable split between product list and cart (desktop only) ----------
@@ -284,24 +301,39 @@ const POS = () => {
     return m;
   }, [inventory]);
 
+  // Debounce the picker search so typing stays fluid on large catalogues.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(pickerSearch), 150);
+    return () => clearTimeout(t);
+  }, [pickerSearch]);
+
+  const matchedProducts = useMemo(() => {
+    const term = debouncedSearch.trim().toLowerCase();
+    return products.filter((p) => {
+      if (!p.is_active) return false;
+      // Optionally hide zero / negative stock products (business setting).
+      if (hideZeroStock) {
+        const qty = stockMap.get(p.id) ?? 0;
+        if (qty <= 0) return false;
+      }
+      const matchSearch =
+        !term ||
+        p.name.toLowerCase().includes(term) ||
+        (p.sku || "").toLowerCase().includes(term) ||
+        (p.barcode || "").toLowerCase().includes(term);
+      const matchCat = categoryFilter === "all" || p.category_id === categoryFilter;
+      return matchSearch && matchCat;
+    });
+  }, [products, debouncedSearch, categoryFilter, stockMap, hideZeroStock]);
+
+  /** Capped list actually rendered — keeps the picker fast on big catalogues. */
+  const MAX_PICKER_ROWS = 200;
   const activeProducts = useMemo(
-    () =>
-      products.filter((p) => {
-        if (!p.is_active) return false;
-        // Optionally hide zero / negative stock products (business setting).
-        if (hideZeroStock) {
-          const qty = stockMap.get(p.id) ?? 0;
-          if (qty <= 0) return false;
-        }
-        const matchSearch =
-          p.name.toLowerCase().includes(pickerSearch.toLowerCase()) ||
-          (p.sku || "").toLowerCase().includes(pickerSearch.toLowerCase()) ||
-          (p.barcode || "").toLowerCase().includes(pickerSearch.toLowerCase());
-        const matchCat = categoryFilter === "all" || p.category_id === categoryFilter;
-        return matchSearch && matchCat;
-      }),
-    [products, pickerSearch, categoryFilter, stockMap, hideZeroStock]
+    () => matchedProducts.slice(0, MAX_PICKER_ROWS),
+    [matchedProducts],
   );
+
 
 
   const handlePaymentConfirm = async (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean, loyalty: LoyaltyPayload | null) => {
@@ -493,10 +525,11 @@ const POS = () => {
   }, [pos, business, paymentOpen, scannerOpen, approvalOpen, receiptOpen, startDayOpen, productPickerOpen]);
 
 
-  // Global keyboard-wedge scanner listener — works even when nothing is focused.
+  // Global keyboard-wedge scanner listener — works anywhere on the POS screen,
+  // with or without the product picker open and with nothing focused.
   useBarcodeScanner({
     onScan: handleScanned,
-    disabled: scannerOpen || scanSettingsOpen || productPickerOpen,
+    disabled: scannerOpen || scanSettingsOpen,
     searchInputRef: pickerSearchRef,
     settings: scanSettings,
   });
@@ -635,8 +668,58 @@ const POS = () => {
           >
             <Settings2 className="h-4 w-4" />
           </Button>
+          <Button
+            size="icon"
+            variant={showProductList ? "default" : "outline"}
+            className="shrink-0"
+            onClick={toggleProductList}
+            title={showProductList ? "Hide product list" : "Show product list"}
+            aria-pressed={showProductList}
+          >
+            <List className="h-4 w-4" />
+          </Button>
 
         </div>
+
+        {/* Inline product list — toggled from the button beside scanner settings */}
+        {showProductList && (
+          <div className="mb-3 rounded-lg border overflow-hidden max-h-64 flex flex-col">
+            <ScrollArea className="flex-1 min-h-0">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-muted/80 backdrop-blur text-left">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">Product</th>
+                    <th className="px-3 py-2 font-medium text-right">Price</th>
+                    {showStockQty && <th className="px-3 py-2 font-medium text-right w-20">Stock</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeProducts.map((p, idx) => (
+                    <tr
+                      key={p.id}
+                      onClick={() => pos.addToCart(p)}
+                      className={`cursor-pointer hover:bg-accent ${idx % 2 ? "bg-muted/30" : ""}`}
+                    >
+                      <td className="px-3 py-1.5 truncate">{p.name}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums">{Number(p.selling_price).toLocaleString()}</td>
+                      {showStockQty && (
+                        <td className="px-3 py-1.5 text-right tabular-nums">{stockMap.get(p.id) ?? 0}</td>
+                      )}
+                    </tr>
+                  ))}
+                  {activeProducts.length === 0 && (
+                    <tr>
+                      <td colSpan={showStockQty ? 3 : 2} className="text-center py-6 text-muted-foreground">
+                        No products found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </ScrollArea>
+          </div>
+        )}
+
 
         {/* Product picker modal — opened by F2 or the search button */}
         <Dialog open={productPickerOpen} onOpenChange={(o) => {
@@ -667,8 +750,8 @@ const POS = () => {
                     if (e.key === "Enter" && pickerSearch.trim()) {
                       e.preventDefault();
                       // Enter-to-select: if the filter narrows to exactly one product, add it.
-                      if (activeProducts.length === 1) {
-                        pos.addToCart(activeProducts[0]);
+                      if (matchedProducts.length === 1) {
+                        pos.addToCart(matchedProducts[0]);
                         setProductPickerOpen(false);
                         setPickerSearch("");
                         setCategoryFilter("all");

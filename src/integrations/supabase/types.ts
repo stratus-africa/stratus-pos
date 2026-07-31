@@ -2948,6 +2948,7 @@ export type Database = {
           fiscal_submitted_at: string | null
           fiscal_verification_url: string | null
           id: string
+          idempotency_key: string | null
           invoice_number: string | null
           location_id: string
           notes: string | null
@@ -2973,6 +2974,7 @@ export type Database = {
           fiscal_submitted_at?: string | null
           fiscal_verification_url?: string | null
           id?: string
+          idempotency_key?: string | null
           invoice_number?: string | null
           location_id: string
           notes?: string | null
@@ -2998,6 +3000,7 @@ export type Database = {
           fiscal_submitted_at?: string | null
           fiscal_verification_url?: string | null
           id?: string
+          idempotency_key?: string | null
           invoice_number?: string | null
           location_id?: string
           notes?: string | null
@@ -3879,6 +3882,28 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      stock_movements_ledger: {
+        Row: {
+          business_id: string | null
+          created_at: string | null
+          created_by: string | null
+          document_id: string | null
+          id: string | null
+          location_id: string | null
+          location_name: string | null
+          notes: string | null
+          product_barcode: string | null
+          product_id: string | null
+          product_name: string | null
+          purchase_id: string | null
+          quantity_change: number | null
+          reason: string | null
+          reference: string | null
+          sale_id: string | null
+          source: string | null
+        }
+        Relationships: []
       }
       stock_reconciliation: {
         Row: {
