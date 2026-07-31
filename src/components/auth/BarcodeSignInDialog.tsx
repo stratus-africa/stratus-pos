@@ -36,7 +36,7 @@ export default function BarcodeSignInDialog({ open, onOpenChange, onSuccess }: P
 
   useEffect(() => {
     if (open) {
-      setBarcode(""); setPin("");
+      setBarcode(""); setPin(""); setPinPrompt(null);
       setTimeout(() => barcodeRef.current?.focus(), 60);
     }
   }, [open]);
