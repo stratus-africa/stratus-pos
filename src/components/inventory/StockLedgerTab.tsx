@@ -121,17 +121,34 @@ export default function StockLedgerTab({ locationId, from, to, onDateChange, fyS
         selectedProductQuery.data?.name ||
         "Selected product";
 
+  // The ledger view already excludes deleted/cancelled parent documents and
+  // records each stock transaction exactly once (no mirror adjustment rows).
+  const toLedgerRow = (r: LedgerViewRow): LedgerRow => ({
+    id: r.id,
+    created_at: r.created_at,
+    quantity_change: Number(r.quantity_change) || 0,
+    reason: r.reason,
+    notes: r.notes,
+    purchase_id: r.purchase_id,
+    sale_id: r.sale_id,
+    document_id: r.document_id,
+    product_id: r.product_id,
+    location_id: r.location_id,
+    products: { name: r.product_name, barcode: r.product_barcode },
+    locations: { name: r.location_name },
+    purchases: r.purchase_id ? { invoice_number: r.reference } : null,
+    sales: r.sale_id ? { invoice_number: r.reference } : null,
+    stock_adjustment_documents: r.document_id ? { reference: r.reference } : null,
+  });
+
   const query = useQuery({
     queryKey: ["stock_ledger", business?.id, loc, from, to, page, pageSize, productId],
     queryFn: async () => {
       if (!business) return { rows: [] as LedgerRow[], count: 0 };
       const start = (page - 1) * pageSize;
-      let q = supabase
-        .from("stock_adjustments")
-        .select(
-          "id, created_at, quantity_change, reason, notes, purchase_id, sale_id, document_id, product_id, location_id, products(name, barcode), locations(name), stock_adjustment_documents(reference)",
-          { count: "exact" },
-        )
+      let q = ledgerView()
+        .select("*", { count: "exact" })
+        .eq("business_id", business.id)
         .order("created_at", { ascending: false });
       if (loc !== "all") q = q.eq("location_id", loc);
       if (from) q = q.gte("created_at", `${from}T00:00:00`);
@@ -139,37 +156,8 @@ export default function StockLedgerTab({ locationId, from, to, onDateChange, fyS
       if (productId !== "all") q = q.eq("product_id", productId);
 
       const { data, error, count } = await q.range(start, start + pageSize - 1);
-      if (error) throw error;
-      const rows = (data || []) as unknown as LedgerRow[];
-
-      // stock_adjustments has no FK to purchases/sales, so resolve references separately.
-      // Hide movements whose parent transaction has been deleted.
-      const purchaseIds = [...new Set(rows.map((r) => r.purchase_id).filter(Boolean))] as string[];
-      const saleIds = [...new Set(rows.map((r) => r.sale_id).filter(Boolean))] as string[];
-      const [purchaseRes, saleRes] = await Promise.all([
-        purchaseIds.length
-          ? supabase.from("purchases").select("id, invoice_number, deleted_at").in("id", purchaseIds)
-          : Promise.resolve({ data: [] as { id: string; invoice_number: string | null; deleted_at: string | null }[] }),
-        saleIds.length
-          ? supabase.from("sales").select("id, invoice_number").in("id", saleIds)
-          : Promise.resolve({ data: [] as { id: string; invoice_number: string | null }[] }),
-      ]);
-      const pMap = new Map((purchaseRes.data || []).map((p) => [p.id, p]));
-      const sMap = new Map((saleRes.data || []).map((s) => [s.id, s.invoice_number]));
-      const visibleRows = rows.filter((r) => {
-        if (r.purchase_id) {
-          const p = pMap.get(r.purchase_id);
-          if (!p || p.deleted_at) return false;
-        }
-        if (r.sale_id && !sMap.has(r.sale_id)) return false;
-        if (r.document_id && !r.stock_adjustment_documents) return false;
-        return true;
-      });
-      for (const r of visibleRows) {
-        if (r.purchase_id) r.purchases = { invoice_number: pMap.get(r.purchase_id)?.invoice_number ?? null };
-        if (r.sale_id) r.sales = { invoice_number: sMap.get(r.sale_id) ?? null };
-      }
-      return { rows: visibleRows, count: Math.max(0, (count ?? 0) - (rows.length - visibleRows.length)) };
+      if (error) throw new Error(error.message);
+      return { rows: (data || []).map(toLedgerRow), count: count ?? 0 };
     },
     enabled: !!business,
   });
@@ -182,11 +170,9 @@ export default function StockLedgerTab({ locationId, from, to, onDateChange, fyS
       const all: LedgerRow[] = [];
       const chunk = 1000;
       for (let offset = 0; offset < 20000; offset += chunk) {
-        let q = supabase
-          .from("stock_adjustments")
-          .select(
-            "id, created_at, quantity_change, reason, notes, purchase_id, sale_id, document_id, product_id, location_id, products(name, barcode), stock_adjustment_documents(reference)",
-          )
+        let q = ledgerView()
+          .select("*")
+          .eq("business_id", business.id)
           .order("created_at", { ascending: false });
         if (loc !== "all") q = q.eq("location_id", loc);
         if (from) q = q.gte("created_at", `${from}T00:00:00`);
@@ -194,37 +180,16 @@ export default function StockLedgerTab({ locationId, from, to, onDateChange, fyS
         if (productId !== "all") q = q.eq("product_id", productId);
 
         const { data, error } = await q.range(offset, offset + chunk - 1);
-        if (error) throw error;
-        const batch = (data || []) as unknown as LedgerRow[];
+        if (error) throw new Error(error.message);
+        const batch = (data || []).map(toLedgerRow);
         all.push(...batch);
         if (batch.length < chunk) break;
       }
-
-      // Hide movements whose parent transaction has been deleted.
-      const purchaseIds = [...new Set(all.map((r) => r.purchase_id).filter(Boolean))] as string[];
-      const saleIds = [...new Set(all.map((r) => r.sale_id).filter(Boolean))] as string[];
-      const [purchaseRes, saleRes] = await Promise.all([
-        purchaseIds.length
-          ? supabase.from("purchases").select("id, deleted_at").in("id", purchaseIds)
-          : Promise.resolve({ data: [] as { id: string; deleted_at: string | null }[] }),
-        saleIds.length
-          ? supabase.from("sales").select("id").in("id", saleIds)
-          : Promise.resolve({ data: [] as { id: string }[] }),
-      ]);
-      const pMap = new Map((purchaseRes.data || []).map((p) => [p.id, p.deleted_at]));
-      const sSet = new Set((saleRes.data || []).map((s) => s.id));
-      return all.filter((r) => {
-        if (r.purchase_id) {
-          const deletedAt = pMap.get(r.purchase_id);
-          if (deletedAt !== null) return false;
-        }
-        if (r.sale_id && !sSet.has(r.sale_id)) return false;
-        if (r.document_id && !r.stock_adjustment_documents) return false;
-        return true;
-      });
+      return all;
     },
     enabled: !!business,
   });
+
 
   const summary = useMemo(() => {
     const all = (summaryQuery.data ?? []).filter((r) => source === "all" || classify(r) === source);
