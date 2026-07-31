@@ -165,7 +165,11 @@ export default function BarcodeSignInDialog({ open, onOpenChange, onSuccess }: P
                 className="h-11 tracking-widest"
                 autoComplete="one-time-code"
               />
+              {pinPrompt && (
+                <p className="text-xs text-amber-600 dark:text-amber-500">{pinPrompt}</p>
+              )}
             </div>
+
 
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
