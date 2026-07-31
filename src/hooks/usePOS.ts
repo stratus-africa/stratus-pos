@@ -558,16 +558,9 @@ export function usePOS() {
           )
       );
 
-      const adjustments = cart.map((item) => ({
-        product_id: item.product.id,
-        location_id: currentLocation.id,
-        quantity_change: -item.quantity,
-        reason: "sale",
-        notes: `Sale ${invoiceNumber}`,
-        created_by: user.id,
-        sale_id: saleId,
-      }));
-      await supabase.from("stock_adjustments").insert(adjustments);
+      // No mirror stock_adjustments row: the sale document is the stock movement.
+      // The Inventory Movement ledger reads sales/purchases directly.
+
 
       if (bankAccountId) {
         const { error: btErr } = await supabase.from("bank_transactions").insert({
