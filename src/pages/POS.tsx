@@ -284,24 +284,39 @@ const POS = () => {
     return m;
   }, [inventory]);
 
+  // Debounce the picker search so typing stays fluid on large catalogues.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(pickerSearch), 150);
+    return () => clearTimeout(t);
+  }, [pickerSearch]);
+
+  const matchedProducts = useMemo(() => {
+    const term = debouncedSearch.trim().toLowerCase();
+    return products.filter((p) => {
+      if (!p.is_active) return false;
+      // Optionally hide zero / negative stock products (business setting).
+      if (hideZeroStock) {
+        const qty = stockMap.get(p.id) ?? 0;
+        if (qty <= 0) return false;
+      }
+      const matchSearch =
+        !term ||
+        p.name.toLowerCase().includes(term) ||
+        (p.sku || "").toLowerCase().includes(term) ||
+        (p.barcode || "").toLowerCase().includes(term);
+      const matchCat = categoryFilter === "all" || p.category_id === categoryFilter;
+      return matchSearch && matchCat;
+    });
+  }, [products, debouncedSearch, categoryFilter, stockMap, hideZeroStock]);
+
+  /** Capped list actually rendered — keeps the picker fast on big catalogues. */
+  const MAX_PICKER_ROWS = 200;
   const activeProducts = useMemo(
-    () =>
-      products.filter((p) => {
-        if (!p.is_active) return false;
-        // Optionally hide zero / negative stock products (business setting).
-        if (hideZeroStock) {
-          const qty = stockMap.get(p.id) ?? 0;
-          if (qty <= 0) return false;
-        }
-        const matchSearch =
-          p.name.toLowerCase().includes(pickerSearch.toLowerCase()) ||
-          (p.sku || "").toLowerCase().includes(pickerSearch.toLowerCase()) ||
-          (p.barcode || "").toLowerCase().includes(pickerSearch.toLowerCase());
-        const matchCat = categoryFilter === "all" || p.category_id === categoryFilter;
-        return matchSearch && matchCat;
-      }),
-    [products, pickerSearch, categoryFilter, stockMap, hideZeroStock]
+    () => matchedProducts.slice(0, MAX_PICKER_ROWS),
+    [matchedProducts],
   );
+
 
 
   const handlePaymentConfirm = async (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean, loyalty: LoyaltyPayload | null) => {
