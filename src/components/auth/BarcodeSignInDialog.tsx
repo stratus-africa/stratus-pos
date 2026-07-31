@@ -41,11 +41,20 @@ export default function BarcodeSignInDialog({ open, onOpenChange, onSuccess }: P
     }
   }, [open]);
 
-  const doLogin = async (bc: string, code: string) => {
-    if (submittingRef.current) return;
+  const [pinPrompt, setPinPrompt] = useState<string | null>(null);
+
+  /** Ask for the PIN manually — used when the scan carries none, or the embedded one is rejected. */
+  const askForPin = (message: string) => {
+    setPin("");
+    setPinPrompt(message);
+    setTimeout(() => pinRef.current?.focus(), 60);
+  };
+
+  const doLogin = async (bc: string, code: string): Promise<boolean> => {
+    if (submittingRef.current) return false;
     if (!bc || !/^[0-9]{4,8}$/.test(code)) {
       toast.error("Scan a barcode and enter a 4–8 digit PIN");
-      return;
+      return false;
     }
     submittingRef.current = true;
     setSubmitting(true);
@@ -60,7 +69,7 @@ export default function BarcodeSignInDialog({ open, onOpenChange, onSuccess }: P
       submittingRef.current = false;
       setSubmitting(false);
       toast.error(error?.message || "Invalid barcode or PIN");
-      return;
+      return false;
     }
     const { error: otpErr } = await supabase.auth.verifyOtp({
       token_hash: data.token_hash,
@@ -68,21 +77,26 @@ export default function BarcodeSignInDialog({ open, onOpenChange, onSuccess }: P
     });
     submittingRef.current = false;
     setSubmitting(false);
-    if (otpErr) { toast.error(otpErr.message); return; }
+    if (otpErr) { toast.error(otpErr.message); return false; }
+    setPinPrompt(null);
     toast.success("Welcome back!");
     onOpenChange(false);
     onSuccess?.();
+    return true;
   };
 
   // Handles both a manual submit and a scanner payload that includes the PIN.
-  const handleScanned = (raw: string) => {
+  const handleScanned = async (raw: string) => {
     const { barcode: bc, pin: code } = splitPayload(raw);
     setBarcode(bc);
     if (code) {
       setPin(code);
-      void doLogin(bc, code);
+      setPinPrompt(null);
+      const ok = await doLogin(bc, code);
+      // Embedded PIN rejected — fall back to asking the user for it.
+      if (!ok) askForPin("That barcode's PIN wasn't accepted. Enter your PIN to continue.");
     } else {
-      setTimeout(() => pinRef.current?.focus(), 60);
+      askForPin("Barcode scanned. Enter your PIN to sign in.");
     }
   };
 
@@ -90,6 +104,7 @@ export default function BarcodeSignInDialog({ open, onOpenChange, onSuccess }: P
     e?.preventDefault();
     await doLogin(barcode, pin);
   };
+
 
 
   return (
