@@ -255,6 +255,20 @@ const POS = () => {
   const handleScanned = (code: string) => {
     const trimmed = code.trim();
     if (!trimmed) return;
+
+    // Idempotent scan window: a repeat of the exact same code inside the
+    // cooldown is a scanner burst / double trigger, never a real second scan.
+    const cooldown = Number(scanSettings.scanCooldown ?? 0);
+    const now = performance.now();
+    if (
+      cooldown > 0 &&
+      lastScanRef.current.code === trimmed &&
+      now - lastScanRef.current.at < cooldown
+    ) {
+      return;
+    }
+    lastScanRef.current = { code: trimmed, at: now };
+
     const parsed = parseBarcode(trimmed, scanSettings.parseGs1);
     const list = (productsQuery.data ?? []).filter((p) => p.is_active);
     let match: (typeof list)[number] | undefined;
@@ -273,19 +287,12 @@ const POS = () => {
       }
       return;
     }
-    // Not found: cart stays unchanged; optionally surface the code for manual lookup.
-    toast.warning(`No product matches "${trimmed}"`);
-    if (scanSettings.openSearchOnMiss) {
-      setProductPickerOpen(true);
-      setPickerSearch(trimmed);
-      requestAnimationFrame(() => {
-        pickerSearchRef.current?.focus();
-        pickerSearchRef.current?.select();
-      });
-    } else {
-      setPickerSearch("");
-    }
+    // Not found: prompt to map the code to a product (or create one) instead of
+    // silently dropping the scan.
+    setUnknownCode(trimmed);
+    setUnknownOpen(true);
   };
+
 
 
 
