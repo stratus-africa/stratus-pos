@@ -16,6 +16,11 @@ export interface BarcodeScanSettings {
   enterHandling: "required" | "optional" | "ignore";
   /** When enterHandling !== "required", flush the buffer after this idle time (ms). */
   idleFlush: number;
+  /**
+   * Identical barcodes scanned again within this window (ms) are ignored, so a
+   * scanner burst / double trigger cannot double-add the same item.
+   */
+  scanCooldown: number;
   /** On no match, put the code in the product search box and focus it. */
   openSearchOnMiss: boolean;
   /** Scanned matches are added to the cart automatically (no click required). */
@@ -29,10 +34,12 @@ export const DEFAULT_SCAN_SETTINGS: BarcodeScanSettings = {
   maxInterval: 80,
   enterHandling: "optional",
   idleFlush: 220,
+  scanCooldown: 250,
   openSearchOnMiss: true,
   autoAddToCart: true,
   parseGs1: true,
 };
+
 
 const SETTING_KEY = "barcode_scan_settings";
 const LEGACY_KEY = "pos.barcodeScanSettings";
