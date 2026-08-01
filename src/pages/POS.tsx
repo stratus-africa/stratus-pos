@@ -1179,6 +1179,34 @@ const POS = () => {
 
       <BarcodeScanner open={scannerOpen} onOpenChange={setScannerOpen} onDetected={handleScanned} />
 
+      <UnknownBarcodeDialog
+        open={unknownOpen}
+        onOpenChange={setUnknownOpen}
+        code={unknownCode}
+        products={products as any}
+        onAssigned={async (p) => {
+          const res = await productsQuery.refetch();
+          const fresh = res.data?.find((x) => x.id === p.id);
+          if (fresh) pos.addToCart(fresh);
+        }}
+        onCreateNew={() => setNewProductOpen(true)}
+      />
+
+      <ProductFormDialog
+        open={newProductOpen}
+        onOpenChange={setNewProductOpen}
+        initialBarcode={unknownCode}
+        isLoading={createProduct.isPending}
+        onSubmit={async (data) => {
+          await createProduct.mutateAsync(data);
+          setNewProductOpen(false);
+          const res = await productsQuery.refetch();
+          const fresh = res.data?.find((x) => x.barcode === unknownCode);
+          if (fresh) pos.addToCart(fresh);
+        }}
+      />
+
+
       <ScannerSettingsDialog open={scanSettingsOpen} onOpenChange={setScanSettingsOpen} />
 
 
