@@ -93,18 +93,21 @@ export default function SuperAdminBusinesses() {
   const fetchData = async () => {
     const [bizRes, salesRes, subsRes] = await Promise.all([
       supabase.from("businesses").select("*"),
-      supabase.from("sales").select("business_id, total"),
+      // Aggregated server-side: a plain sales select is capped at 1000 rows,
+      // which made most tenants show KES 0 revenue.
+      supabase.rpc("super_admin_business_sales_summary" as any),
       supabase.from("subscriptions").select("user_id, status, current_period_end, plan_code"),
     ]);
     if (!bizRes.data) { setLoading(false); return; }
 
     const salesByBiz = new Map<string, { count: number; revenue: number }>();
-    (salesRes.data || []).forEach((s) => {
-      const entry = salesByBiz.get(s.business_id) || { count: 0, revenue: 0 };
-      entry.count++;
-      entry.revenue += Number(s.total);
-      salesByBiz.set(s.business_id, entry);
+    ((salesRes.data as any[]) || []).forEach((s: any) => {
+      salesByBiz.set(s.business_id, {
+        count: Number(s.sales_count) || 0,
+        revenue: Number(s.revenue) || 0,
+      });
     });
+
 
     const subsByUser = new Map<string, SubInfo>();
     (subsRes.data || []).forEach((s: any) => {
