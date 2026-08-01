@@ -57,12 +57,18 @@ interface Options {
 export function useBarcodeScanner({ onScan, disabled, searchInputRef, settings }: Options) {
   const onScanRef = useRef(onScan);
   onScanRef.current = onScan;
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const searchRef = useRef(searchInputRef);
+  searchRef.current = searchInputRef;
 
   useEffect(() => {
     if (disabled) return;
     let buffer = "";
     let lastTime = 0;
     let flushTimer: ReturnType<typeof setTimeout> | null = null;
+    // Keys we swallowed for the current buffer, so a partial scan never leaks.
+    let suppressing = false;
 
     const clearTimer = () => {
       if (flushTimer) {
@@ -71,66 +77,78 @@ export function useBarcodeScanner({ onScan, disabled, searchInputRef, settings }
       }
     };
 
+    const reset = () => {
+      buffer = "";
+      suppressing = false;
+      clearTimer();
+    };
+
     const emit = () => {
       const code = buffer;
-      buffer = "";
-      clearTimer();
-      if (code.length >= settings.minLength) onScanRef.current(code);
+      const min = settingsRef.current.minLength;
+      reset();
+      if (code.length >= min) onScanRef.current(code);
     };
 
     const scheduleFlush = () => {
-      if (settings.enterHandling === "required") return;
+      if (settingsRef.current.enterHandling === "required") return;
       clearTimer();
-      flushTimer = setTimeout(emit, settings.idleFlush);
+      flushTimer = setTimeout(emit, settingsRef.current.idleFlush);
     };
 
     const onKey = (e: KeyboardEvent) => {
+      const s = settingsRef.current;
       const now = performance.now();
       const gap = now - lastTime;
       lastTime = now;
 
       const target = e.target as HTMLElement | null;
-      const isSearchInput = !!searchInputRef?.current && target === searchInputRef.current;
+      const isSearchInput = !!searchRef.current?.current && target === searchRef.current.current;
       const typingElsewhere =
         !isSearchInput &&
         !!target &&
         (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
 
       if (e.key === "Enter") {
-        if (settings.enterHandling !== "ignore" && buffer.length >= settings.minLength) {
+        if (s.enterHandling !== "ignore" && buffer.length >= s.minLength) {
           e.preventDefault();
           e.stopPropagation();
           emit();
           return;
         }
-        buffer = "";
-        clearTimer();
+        reset();
         return;
       }
 
       // Only printable single characters are part of a barcode.
       if (e.key.length !== 1 || e.metaKey || e.ctrlKey || e.altKey) {
-        buffer = "";
-        clearTimer();
+        reset();
         return;
       }
 
       // Slow (human) typing restarts the buffer.
-      if (gap > settings.maxInterval) buffer = "";
+      if (gap > s.maxInterval) {
+        buffer = "";
+        suppressing = false;
+      }
       buffer += e.key;
       scheduleFlush();
 
       // Suppress scan keystrokes that would otherwise pollute an unrelated field.
-      if (typingElsewhere && buffer.length >= 2) {
+      if (typingElsewhere && (suppressing || buffer.length >= 2)) {
+        suppressing = true;
         e.preventDefault();
         e.stopPropagation();
       }
     };
 
-    window.addEventListener("keydown", onKey, true);
+    // Capture phase on the document keeps the listener working no matter what
+    // is focused (cart inputs, dialogs, buttons) while the screen is mounted.
+    document.addEventListener("keydown", onKey, true);
     return () => {
       clearTimer();
-      window.removeEventListener("keydown", onKey, true);
+      document.removeEventListener("keydown", onKey, true);
     };
-  }, [disabled, settings, searchInputRef]);
+  }, [disabled]);
 }
+
