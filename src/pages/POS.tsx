@@ -43,6 +43,8 @@ import CreditCustomerDialog from "@/components/pos/CreditCustomerDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { clampSplit, loadLocalSplit, saveLocalSplit, SPLIT_FALLBACK } from "@/lib/posLayout";
 import { useOfflineSales } from "@/hooks/useOfflineSales";
+import UnknownBarcodeDialog from "@/components/pos/UnknownBarcodeDialog";
+import { ProductFormDialog } from "@/components/products/ProductFormDialog";
 
 
 
