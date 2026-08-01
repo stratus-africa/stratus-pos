@@ -543,7 +543,7 @@ const POS = () => {
   // with or without the product picker open and with nothing focused.
   useBarcodeScanner({
     onScan: handleScanned,
-    disabled: scannerOpen || scanSettingsOpen,
+    disabled: scannerOpen || scanSettingsOpen || unknownOpen || newProductOpen,
     searchInputRef: pickerSearchRef,
     settings: scanSettings,
   });
