@@ -22,6 +22,7 @@ import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppBankingRouteImport } from './routes/_app.banking'
+import { Route as AppBarcodeMappingRouteImport } from './routes/_app.barcode-mapping'
 import { Route as AppChartOfAccountsRouteImport } from './routes/_app.chart-of-accounts'
 import { Route as AppCustomersRouteImport } from './routes/_app.customers'
 import { Route as AppExpensesRouteImport } from './routes/_app.expenses'
@@ -131,6 +132,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppBankingRoute = AppBankingRouteImport.update({
   id: '/banking',
   path: '/banking',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBarcodeMappingRoute = AppBarcodeMappingRouteImport.update({
+  id: '/barcode-mapping',
+  path: '/barcode-mapping',
   getParentRoute: () => AppRoute,
 } as any)
 const AppChartOfAccountsRoute = AppChartOfAccountsRouteImport.update({
@@ -397,6 +403,7 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof SignInRoute
   '/terms': typeof TermsRoute
   '/banking': typeof AppBankingRoute
+  '/barcode-mapping': typeof AppBarcodeMappingRoute
   '/chart-of-accounts': typeof AppChartOfAccountsRoute
   '/customers': typeof AppCustomersRoute
   '/expenses': typeof AppExpensesRoute
@@ -457,6 +464,7 @@ export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
   '/terms': typeof TermsRoute
   '/banking': typeof AppBankingRoute
+  '/barcode-mapping': typeof AppBarcodeMappingRoute
   '/chart-of-accounts': typeof AppChartOfAccountsRoute
   '/customers': typeof AppCustomersRoute
   '/expenses': typeof AppExpensesRoute
@@ -519,6 +527,7 @@ export interface FileRoutesById {
   '/sign-in': typeof SignInRoute
   '/terms': typeof TermsRoute
   '/_app/banking': typeof AppBankingRoute
+  '/_app/barcode-mapping': typeof AppBarcodeMappingRoute
   '/_app/chart-of-accounts': typeof AppChartOfAccountsRoute
   '/_app/customers': typeof AppCustomersRoute
   '/_app/expenses': typeof AppExpensesRoute
@@ -582,6 +591,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/terms'
     | '/banking'
+    | '/barcode-mapping'
     | '/chart-of-accounts'
     | '/customers'
     | '/expenses'
@@ -642,6 +652,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/terms'
     | '/banking'
+    | '/barcode-mapping'
     | '/chart-of-accounts'
     | '/customers'
     | '/expenses'
@@ -703,6 +714,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/terms'
     | '/_app/banking'
+    | '/_app/barcode-mapping'
     | '/_app/chart-of-accounts'
     | '/_app/customers'
     | '/_app/expenses'
@@ -860,6 +872,13 @@ declare module '@tanstack/react-router' {
       path: '/banking'
       fullPath: '/banking'
       preLoaderRoute: typeof AppBankingRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/barcode-mapping': {
+      id: '/_app/barcode-mapping'
+      path: '/barcode-mapping'
+      fullPath: '/barcode-mapping'
+      preLoaderRoute: typeof AppBarcodeMappingRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/chart-of-accounts': {
@@ -1196,6 +1215,7 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppBankingRoute: typeof AppBankingRoute
+  AppBarcodeMappingRoute: typeof AppBarcodeMappingRoute
   AppChartOfAccountsRoute: typeof AppChartOfAccountsRoute
   AppCustomersRoute: typeof AppCustomersRoute
   AppExpensesRoute: typeof AppExpensesRoute
@@ -1220,6 +1240,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppBankingRoute: AppBankingRoute,
+  AppBarcodeMappingRoute: AppBarcodeMappingRoute,
   AppChartOfAccountsRoute: AppChartOfAccountsRoute,
   AppCustomersRoute: AppCustomersRoute,
   AppExpensesRoute: AppExpensesRoute,
