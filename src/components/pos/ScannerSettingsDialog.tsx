@@ -41,6 +41,8 @@ export function ScannerSettingsDialog({ open, onOpenChange }: Props) {
         minLength: Math.max(1, Number(s.minLength) || 1),
         maxInterval: Math.max(10, Number(s.maxInterval) || 10),
         idleFlush: Math.max(50, Number(s.idleFlush) || 50),
+        scanCooldown: Math.max(0, Number(s.scanCooldown) || 0),
+
       }, business?.id);
       toast.success("Scanner settings saved for all tills");
       onOpenChange(false);
