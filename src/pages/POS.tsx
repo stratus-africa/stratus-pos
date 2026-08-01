@@ -752,9 +752,8 @@ const POS = () => {
                       // Enter-to-select: if the filter narrows to exactly one product, add it.
                       if (matchedProducts.length === 1) {
                         pos.addToCart(matchedProducts[0]);
-                        setProductPickerOpen(false);
                         setPickerSearch("");
-                        setCategoryFilter("all");
+                        pickerSearchRef.current?.focus();
                         return;
                       }
                       // Otherwise treat as a barcode/SKU lookup.
@@ -764,9 +763,8 @@ const POS = () => {
                       );
                       if (match) {
                         pos.addToCart(match);
-                        setProductPickerOpen(false);
                         setPickerSearch("");
-                        setCategoryFilter("all");
+                        pickerSearchRef.current?.focus();
                       } else {
                         toast.warning(`No product matches "${trimmed}"`);
                       }
@@ -815,7 +813,7 @@ const POS = () => {
                     return (
                       <tr
                         key={p.id}
-                        onClick={() => { pos.addToCart(p); setProductPickerOpen(false); setPickerSearch(""); setCategoryFilter("all"); }}
+                        onClick={() => { pos.addToCart(p); setPickerSearch(""); pickerSearchRef.current?.focus(); }}
                         className="cursor-pointer border-b last:border-0 hover:bg-accent/60 transition-colors"
                       >
                         <td className="px-3 py-2 align-middle">
