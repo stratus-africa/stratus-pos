@@ -809,7 +809,7 @@ const POS = () => {
                     return (
                       <tr
                         key={p.id}
-                        onClick={() => { pos.addToCart(p); setProductPickerOpen(false); setPickerSearch(""); setCategoryFilter("all"); }}
+                        onClick={() => { pos.addToCart(p); }}
                         className="cursor-pointer border-b last:border-0 hover:bg-accent/60 transition-colors"
                       >
                         <td className="px-3 py-2 align-middle">
