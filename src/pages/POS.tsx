@@ -90,6 +90,13 @@ const POS = () => {
   const [scanSettingsOpen, setScanSettingsOpen] = useState(false);
   const scanSettings = useScanSettings();
 
+  // Unknown-barcode prompt + new product creation from a scan.
+  const [unknownOpen, setUnknownOpen] = useState(false);
+  const [unknownCode, setUnknownCode] = useState("");
+  const [newProductOpen, setNewProductOpen] = useState(false);
+  const lastScanRef = useRef<{ code: string; at: number }>({ code: "", at: 0 });
+
+
   // Inline product table on the POS screen (toggled next to scanner settings).
   const [showProductList, setShowProductList] = useState(false);
   useEffect(() => {
