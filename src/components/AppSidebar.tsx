@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   UserCircle,
   UserCog,
+  ScanBarcode,
 } from "lucide-react";
 import { useFeatureLimit } from "@/components/FeatureGate";
 import { useDigitaxEnabled } from "@/hooks/useDigitax";
