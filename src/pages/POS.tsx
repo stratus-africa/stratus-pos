@@ -752,9 +752,6 @@ const POS = () => {
                       // Enter-to-select: if the filter narrows to exactly one product, add it.
                       if (matchedProducts.length === 1) {
                         pos.addToCart(matchedProducts[0]);
-                        setProductPickerOpen(false);
-                        setPickerSearch("");
-                        setCategoryFilter("all");
                         return;
                       }
                       // Otherwise treat as a barcode/SKU lookup.
@@ -764,9 +761,6 @@ const POS = () => {
                       );
                       if (match) {
                         pos.addToCart(match);
-                        setProductPickerOpen(false);
-                        setPickerSearch("");
-                        setCategoryFilter("all");
                       } else {
                         toast.warning(`No product matches "${trimmed}"`);
                       }
