@@ -48,7 +48,7 @@ import { useOfflineSales } from "@/hooks/useOfflineSales";
 
 
 const POS = () => {
-  const { productsQuery } = useProducts();
+  const { productsQuery, createProduct } = useProducts();
   const { query: categoriesQuery } = useCategories();
   const { query: customersQuery } = useCustomers({ pageSize: 1000 });
   const pos = usePOS();
