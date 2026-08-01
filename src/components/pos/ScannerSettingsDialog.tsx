@@ -107,6 +107,19 @@ export function ScannerSettingsDialog({ open, onOpenChange }: Props) {
             </div>
           )}
 
+          <div className="space-y-1.5">
+            <Label htmlFor="scanCooldown">Same-code cooldown (ms)</Label>
+            <Input
+              id="scanCooldown" type="number" min={0} value={s.scanCooldown}
+              onChange={(e) => setS({ ...s, scanCooldown: Number(e.target.value) })}
+            />
+            <p className="text-xs text-muted-foreground">
+              Repeats of the exact same barcode inside this window are ignored, so a
+              scanner burst cannot double-add an item. Set 0 to disable.
+            </p>
+          </div>
+
+
           <div className="flex items-center justify-between rounded-md border p-3">
             <div className="pr-4">
               <Label htmlFor="autoAdd">Scan automatically adds item to cart</Label>
