@@ -4352,6 +4352,14 @@ export type Database = {
         Args: { _environment?: string; _package_id: string }
         Returns: Json
       }
+      super_admin_business_sales_summary: {
+        Args: never
+        Returns: {
+          business_id: string
+          revenue: number
+          sales_count: number
+        }[]
+      }
       tax_rate_usage: {
         Args: { _business_id: string }
         Returns: {
