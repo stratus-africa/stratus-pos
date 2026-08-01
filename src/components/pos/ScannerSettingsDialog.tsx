@@ -41,6 +41,8 @@ export function ScannerSettingsDialog({ open, onOpenChange }: Props) {
         minLength: Math.max(1, Number(s.minLength) || 1),
         maxInterval: Math.max(10, Number(s.maxInterval) || 10),
         idleFlush: Math.max(50, Number(s.idleFlush) || 50),
+        scanCooldown: Math.max(0, Number(s.scanCooldown) || 0),
+
       }, business?.id);
       toast.success("Scanner settings saved for all tills");
       onOpenChange(false);
@@ -104,6 +106,19 @@ export function ScannerSettingsDialog({ open, onOpenChange }: Props) {
               />
             </div>
           )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="scanCooldown">Same-code cooldown (ms)</Label>
+            <Input
+              id="scanCooldown" type="number" min={0} value={s.scanCooldown}
+              onChange={(e) => setS({ ...s, scanCooldown: Number(e.target.value) })}
+            />
+            <p className="text-xs text-muted-foreground">
+              Repeats of the exact same barcode inside this window are ignored, so a
+              scanner burst cannot double-add an item. Set 0 to disable.
+            </p>
+          </div>
+
 
           <div className="flex items-center justify-between rounded-md border p-3">
             <div className="pr-4">

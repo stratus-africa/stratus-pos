@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   UserCircle,
   UserCog,
+  ScanBarcode,
 } from "lucide-react";
 import { useFeatureLimit } from "@/components/FeatureGate";
 import { useDigitaxEnabled } from "@/hooks/useDigitax";
@@ -79,7 +80,13 @@ const mainNav: NavItem[] = [
 ];
 
 const inventoryNav: NavItem[] = [
-  { title: "Products", url: "/products", icon: Package, roles: ["admin", "manager", "cashier"], featureKey: "products", permission: "products.view" },
+  {
+    title: "Products", url: "/products", icon: Package, roles: ["admin", "manager", "cashier"], featureKey: "products", permission: "products.view",
+    children: [
+      { title: "Barcode Mapping", url: "/barcode-mapping", icon: ScanBarcode, roles: ["admin", "manager"], featureKey: "products", permission: "products.edit" },
+    ],
+  },
+
   { title: "Inventory", url: "/inventory", icon: Warehouse, roles: ["admin", "manager", "cashier"], featureKey: "inventory", permission: "inventory.view" },
 ];
 

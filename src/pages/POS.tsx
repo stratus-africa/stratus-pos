@@ -43,12 +43,14 @@ import CreditCustomerDialog from "@/components/pos/CreditCustomerDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { clampSplit, loadLocalSplit, saveLocalSplit, SPLIT_FALLBACK } from "@/lib/posLayout";
 import { useOfflineSales } from "@/hooks/useOfflineSales";
+import UnknownBarcodeDialog from "@/components/pos/UnknownBarcodeDialog";
+import { ProductFormDialog } from "@/components/products/ProductFormDialog";
 
 
 
 
 const POS = () => {
-  const { productsQuery } = useProducts();
+  const { productsQuery, createProduct } = useProducts();
   const { query: categoriesQuery } = useCategories();
   const { query: customersQuery } = useCustomers({ pageSize: 1000 });
   const pos = usePOS();
@@ -89,6 +91,13 @@ const POS = () => {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanSettingsOpen, setScanSettingsOpen] = useState(false);
   const scanSettings = useScanSettings();
+
+  // Unknown-barcode prompt + new product creation from a scan.
+  const [unknownOpen, setUnknownOpen] = useState(false);
+  const [unknownCode, setUnknownCode] = useState("");
+  const [newProductOpen, setNewProductOpen] = useState(false);
+  const lastScanRef = useRef<{ code: string; at: number }>({ code: "", at: 0 });
+
 
   // Inline product table on the POS screen (toggled next to scanner settings).
   const [showProductList, setShowProductList] = useState(false);
@@ -255,6 +264,20 @@ const POS = () => {
   const handleScanned = (code: string) => {
     const trimmed = code.trim();
     if (!trimmed) return;
+
+    // Idempotent scan window: a repeat of the exact same code inside the
+    // cooldown is a scanner burst / double trigger, never a real second scan.
+    const cooldown = Number(scanSettings.scanCooldown ?? 0);
+    const now = performance.now();
+    if (
+      cooldown > 0 &&
+      lastScanRef.current.code === trimmed &&
+      now - lastScanRef.current.at < cooldown
+    ) {
+      return;
+    }
+    lastScanRef.current = { code: trimmed, at: now };
+
     const parsed = parseBarcode(trimmed, scanSettings.parseGs1);
     const list = (productsQuery.data ?? []).filter((p) => p.is_active);
     let match: (typeof list)[number] | undefined;
@@ -273,19 +296,12 @@ const POS = () => {
       }
       return;
     }
-    // Not found: cart stays unchanged; optionally surface the code for manual lookup.
-    toast.warning(`No product matches "${trimmed}"`);
-    if (scanSettings.openSearchOnMiss) {
-      setProductPickerOpen(true);
-      setPickerSearch(trimmed);
-      requestAnimationFrame(() => {
-        pickerSearchRef.current?.focus();
-        pickerSearchRef.current?.select();
-      });
-    } else {
-      setPickerSearch("");
-    }
+    // Not found: prompt to map the code to a product (or create one) instead of
+    // silently dropping the scan.
+    setUnknownCode(trimmed);
+    setUnknownOpen(true);
   };
+
 
 
 
@@ -529,7 +545,7 @@ const POS = () => {
   // with or without the product picker open and with nothing focused.
   useBarcodeScanner({
     onScan: handleScanned,
-    disabled: scannerOpen || scanSettingsOpen,
+    disabled: scannerOpen || scanSettingsOpen || unknownOpen || newProductOpen,
     searchInputRef: pickerSearchRef,
     settings: scanSettings,
   });
@@ -1164,6 +1180,34 @@ const POS = () => {
 
 
       <BarcodeScanner open={scannerOpen} onOpenChange={setScannerOpen} onDetected={handleScanned} />
+
+      <UnknownBarcodeDialog
+        open={unknownOpen}
+        onOpenChange={setUnknownOpen}
+        code={unknownCode}
+        products={products as any}
+        onAssigned={async (p) => {
+          const res = await productsQuery.refetch();
+          const fresh = res.data?.find((x) => x.id === p.id);
+          if (fresh) pos.addToCart(fresh);
+        }}
+        onCreateNew={() => setNewProductOpen(true)}
+      />
+
+      <ProductFormDialog
+        open={newProductOpen}
+        onOpenChange={setNewProductOpen}
+        initialBarcode={unknownCode}
+        isLoading={createProduct.isPending}
+        onSubmit={async (data) => {
+          await createProduct.mutateAsync(data);
+          setNewProductOpen(false);
+          const res = await productsQuery.refetch();
+          const fresh = res.data?.find((x) => x.barcode === unknownCode);
+          if (fresh) pos.addToCart(fresh);
+        }}
+      />
+
 
       <ScannerSettingsDialog open={scanSettingsOpen} onOpenChange={setScanSettingsOpen} />
 
