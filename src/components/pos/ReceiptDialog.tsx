@@ -115,60 +115,68 @@ export default function ReceiptDialog({ open, onOpenChange, data, reprint = fals
   const handlePrint = () => {
     const content = receiptRef.current;
     if (!content) return;
-    const win = window.open("", "_blank", "width=380,height=700");
-    if (!win) return;
-    win.document.write(`
-      <html><head><title>Receipt</title>
-      <style>
-        @page { size: ${cfg.paper === "a4" ? "A4" : `${width} auto`}; margin: 0; }
-        * { box-sizing: border-box; }
-        html, body { margin: 0; padding: 0; background: #fff; color: #000; }
-        body {
-          font-family: ${cfg.fontFamily};
-          font-size: ${cfg.fontSize}px;
-          line-height: 1.45;
-          width: ${width};
-          padding: 3mm;
 
-        }
-        /* utility classes mirrored from the on-screen receipt design */
-        .text-center, .center { text-align: center; }
-        .text-right, .right { text-align: right; }
-        .font-bold, .bold { font-weight: 700; }
-        .font-semibold { font-weight: 600; }
-        .italic { font-style: italic; }
-        .capitalize { text-transform: capitalize; }
-        .break-all { word-break: break-all; }
-        .break-words { overflow-wrap: anywhere; }
-        .whitespace-nowrap { white-space: nowrap; }
-        .whitespace-pre-wrap { white-space: pre-wrap; }
-        .line { border-top: 1px dashed #000; margin: 6px 0; }
-        .flex { display: flex; }
-        .justify-between { justify-content: space-between; }
-        .justify-center { justify-content: center; }
-        .w-full { width: 100%; }
-        .pt-2 { padding-top: 8px; }
-        .my-2 { margin-top: 6px; margin-bottom: 6px; }
-        .space-y-2 > * + * { margin-top: 6px; }
-        .space-y-1 > * + * { margin-top: 3px; }
-        .space-y-0\\.5 > * + * { margin-top: 2px; }
-        .text-sm { font-size: ${cfg.fontSize + 1}px; }
-        .text-xs { font-size: ${cfg.fontSize}px; }
-        .text-\\[10px\\] { font-size: ${Math.max(8, cfg.fontSize - 2)}px; }
-        .text-muted-foreground { color: #444; }
-        .text-red-600 { color: #000; font-weight: 700; }
-        p { margin: 0; }
-        img { max-height: 60px; max-width: 100%; display: block; margin: 0 auto 4px; object-fit: contain; }
-        svg { display: block; margin: 0 auto; }
-        table { width: 100%; border-collapse: collapse; }
-        td { padding: 2px 0; vertical-align: top; }
-      </style></head><body>
-      ${content.innerHTML}
-      <script>setTimeout(function(){window.print();window.close();}, 300);</script>
-      </body></html>
-    `);
-    win.document.close();
+    // Clone the exact rendered receipt (inline styles included) and print it
+    // with the app's real stylesheets so the printout matches the designed
+    // template pixel-for-pixel.
+    const styles = Array.from(
+      document.querySelectorAll('link[rel="stylesheet"], style'),
+    )
+      .map((n) => n.outerHTML)
+      .join("\n");
+
+    const pageCss = `
+      @page { size: ${cfg.paper === "a4" ? "A4" : `${width} auto`}; margin: 0; }
+      html, body { margin: 0; padding: 0; background: #fff; }
+      body { width: ${width}; }
+      #receipt-print-root {
+        width: ${width} !important;
+        max-width: ${width} !important;
+        margin: 0 auto !important;
+        padding: 3mm !important;
+        background: #fff !important;
+        color: #000 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      #receipt-print-root * { color: #000 !important; }
+      #receipt-print-root .text-muted-foreground { color: #444 !important; }
+      #receipt-print-root .text-red-600 { color: #000 !important; font-weight: 700; }
+      #receipt-print-root .border-foreground\\/30 { border-color: #000 !important; }
+      #receipt-print-root img { max-height: 60px; max-width: 100%; object-fit: contain; }
+      #receipt-print-root svg { display: block; margin: 0 auto; }
+    `;
+
+    const clone = content.cloneNode(true) as HTMLDivElement;
+    clone.id = "receipt-print-root";
+
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentDocument;
+    if (!doc) {
+      document.body.removeChild(iframe);
+      return;
+    }
+    doc.open();
+    doc.write(
+      `<!DOCTYPE html><html><head><title>Receipt</title>${styles}<style>${pageCss}</style></head><body>${clone.outerHTML}</body></html>`,
+    );
+    doc.close();
+
+    const run = () => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } finally {
+        setTimeout(() => iframe.remove(), 1000);
+      }
+    };
+    // Give fonts/stylesheets/images a moment to settle before printing.
+    setTimeout(run, 500);
   };
+
 
   printFnRef.current = handlePrint;
 
