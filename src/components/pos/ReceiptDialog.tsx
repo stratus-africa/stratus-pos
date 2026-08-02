@@ -186,7 +186,10 @@ export default function ReceiptDialog({ open, onOpenChange, data, reprint = fals
     );
     doc.close();
 
+    let printed = false;
     const run = () => {
+      if (printed) return;
+      printed = true;
       try {
         iframe.contentWindow?.focus();
         iframe.contentWindow?.print();
@@ -206,6 +209,7 @@ export default function ReceiptDialog({ open, onOpenChange, data, reprint = fals
       pending.forEach((im) => { im.addEventListener("load", next); im.addEventListener("error", next); });
       setTimeout(run, 2000);
     }
+
   };
 
 
