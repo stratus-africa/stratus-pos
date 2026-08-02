@@ -276,8 +276,7 @@ export default function ReceiptDialog({ open, onOpenChange, data, reprint = fals
             <tbody>
               {data.items.map((item, i) => (
                 <tr key={i}>
-                  <td>{item.product.name}</td>
-                  <td className="text-right whitespace-nowrap">{item.quantity} x {Number(item.unit_price).toLocaleString()}</td>
+                  <td>{item.product.name} x{item.quantity}</td>
                   <td className="text-right whitespace-nowrap">{(item.quantity * item.unit_price - item.discount).toLocaleString()}</td>
                 </tr>
               ))}
