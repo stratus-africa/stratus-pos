@@ -2,12 +2,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Printer } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
 import { QRCodeSVG } from "qrcode.react";
 import { CartItem, PaymentEntry } from "@/hooks/usePOS";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { loadReceiptConfig, paperWidth } from "@/lib/receiptTemplate";
+import { loadReceiptConfig, fetchReceiptConfig, paperWidth, type ReceiptConfig } from "@/lib/receiptTemplate";
 import { saveLastReceipt } from "@/lib/lastReceipt";
 
 
@@ -60,7 +60,18 @@ interface Props {
 export default function ReceiptDialog({ open, onOpenChange, data, reprint = false }: Props) {
   const receiptRef = useRef<HTMLDivElement>(null);
   const { business } = useBusiness();
-  const cfg = loadReceiptConfig(business?.id);
+  // The saved template lives in the backend so every user (not just the admin
+  // who designed it) prints the exact same receipt.
+  const [cfg, setCfg] = useState<ReceiptConfig>(() => loadReceiptConfig(business?.id));
+  useEffect(() => {
+    if (!business?.id) return;
+    let cancelled = false;
+    setCfg(loadReceiptConfig(business.id));
+    fetchReceiptConfig(business.id)
+      .then((c) => { if (!cancelled) setCfg(c); })
+      .catch(() => { /* keep cached */ });
+    return () => { cancelled = true; };
+  }, [business?.id]);
   const width = paperWidth(cfg.paper);
   const showLogo = cfg.showLogo && !!business?.logo_url;
   const autoPrint = ((business as { pos_auto_print_receipt?: boolean } | null)?.pos_auto_print_receipt ?? false) && !reprint;
@@ -265,8 +276,7 @@ export default function ReceiptDialog({ open, onOpenChange, data, reprint = fals
             <tbody>
               {data.items.map((item, i) => (
                 <tr key={i}>
-                  <td>{item.product.name}</td>
-                  <td className="text-right whitespace-nowrap">{item.quantity} x {Number(item.unit_price).toLocaleString()}</td>
+                  <td>{item.product.name} x{item.quantity}</td>
                   <td className="text-right whitespace-nowrap">{(item.quantity * item.unit_price - item.discount).toLocaleString()}</td>
                 </tr>
               ))}
