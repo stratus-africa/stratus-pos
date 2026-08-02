@@ -43,8 +43,8 @@ export const DEFAULT_SCAN_SETTINGS: BarcodeScanSettings = {
 
 const SETTING_KEY = "barcode_scan_settings";
 const LEGACY_KEY = "pos.barcodeScanSettings";
-const cacheKey = (businessId?: string | null) =>
-  businessId ? `pos.barcodeScanSettings.${businessId}` : LEGACY_KEY;
+const cacheKey = (scopeId?: string | null) =>
+  scopeId ? `pos.barcodeScanSettings.${scopeId}` : LEGACY_KEY;
 
 function normalize(raw: unknown): BarcodeScanSettings {
   const parsed = (raw || {}) as Partial<BarcodeScanSettings>;
@@ -52,10 +52,10 @@ function normalize(raw: unknown): BarcodeScanSettings {
 }
 
 /** Synchronous read from the local cache (used for instant first paint). */
-export function loadScanSettings(businessId?: string | null): BarcodeScanSettings {
+export function loadScanSettings(scopeId?: string | null): BarcodeScanSettings {
   try {
     const raw =
-      localStorage.getItem(cacheKey(businessId)) ??
+      localStorage.getItem(cacheKey(scopeId)) ??
       localStorage.getItem(LEGACY_KEY);
     if (!raw) return DEFAULT_SCAN_SETTINGS;
     return normalize(JSON.parse(raw));
@@ -64,39 +64,49 @@ export function loadScanSettings(businessId?: string | null): BarcodeScanSetting
   }
 }
 
-/** Tenant-wide settings from the backend, falling back to the local cache. */
-export async function fetchScanSettings(businessId: string): Promise<BarcodeScanSettings> {
+async function currentUserId(): Promise<string | null> {
+  const { data } = await supabase.auth.getUser();
+  return data.user?.id ?? null;
+}
+
+/** Per-user settings from the backend, falling back to the local cache. */
+export async function fetchScanSettings(scopeId?: string | null): Promise<BarcodeScanSettings> {
+  const userId = await currentUserId();
+  if (!userId) return loadScanSettings(scopeId);
   const { data } = await supabase
-    .from("business_settings" as any)
+    .from("user_settings")
     .select("value")
-    .eq("business_id", businessId)
+    .eq("user_id", userId)
     .eq("key", SETTING_KEY)
     .maybeSingle();
-  const value = (data as any)?.value;
-  const merged = value ? normalize(value) : loadScanSettings(businessId);
+  const value = (data as { value?: unknown } | null)?.value;
+  const merged = value ? normalize(value) : loadScanSettings(scopeId ?? userId);
   try {
-    localStorage.setItem(cacheKey(businessId), JSON.stringify(merged));
+    localStorage.setItem(cacheKey(scopeId ?? userId), JSON.stringify(merged));
+    localStorage.setItem(cacheKey(userId), JSON.stringify(merged));
   } catch { /* ignore */ }
   return merged;
 }
 
-export async function saveScanSettings(s: BarcodeScanSettings, businessId?: string | null) {
+export async function saveScanSettings(s: BarcodeScanSettings, scopeId?: string | null) {
   const clean = normalize(s);
+  const userId = await currentUserId();
   try {
-    localStorage.setItem(cacheKey(businessId), JSON.stringify(clean));
+    localStorage.setItem(cacheKey(scopeId), JSON.stringify(clean));
+    if (userId) localStorage.setItem(cacheKey(userId), JSON.stringify(clean));
     window.dispatchEvent(new CustomEvent("barcode-scan-settings-changed"));
   } catch { /* ignore */ }
-  if (!businessId) return;
+  if (!userId) return;
   const { error } = await supabase
-    .from("business_settings" as any)
+    .from("user_settings")
     .upsert(
       {
-        business_id: businessId,
+        user_id: userId,
         key: SETTING_KEY,
-        value: clean as any,
+        value: clean as never,
         updated_at: new Date().toISOString(),
-      } as any,
-      { onConflict: "business_id,key" } as any,
+      },
+      { onConflict: "user_id,key" },
     );
   if (error) throw error;
 }
