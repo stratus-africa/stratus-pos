@@ -375,14 +375,15 @@ export default function ReceiptDialog({ open, onOpenChange, data, reprint = fals
             </>
           )}
 
-          {cfg.qrCodePosition === "footer" && qrBlock}
-
           {(cfg.showServedBy || cfg.showPrintedAt) && (
             <div className="text-center text-[10px] text-muted-foreground pt-2 space-y-0.5">
               {cfg.showServedBy && data.servedBy && <p>Served by: {data.servedBy}</p>}
               {cfg.showPrintedAt && <p>Printed: {format(new Date(), "PPp")}</p>}
             </div>
           )}
+
+          {cfg.qrCodePosition === "footer" && qrBlock}
+
 
           {reprint && <p className="text-center font-bold pt-2">*** REPRINT ***</p>}
         </div>
