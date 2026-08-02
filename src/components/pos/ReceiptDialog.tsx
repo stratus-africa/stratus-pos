@@ -116,39 +116,60 @@ export default function ReceiptDialog({ open, onOpenChange, data, reprint = fals
     const content = receiptRef.current;
     if (!content) return;
 
-    // Clone the exact rendered receipt (inline styles included) and print it
-    // with the app's real stylesheets so the printout matches the designed
-    // template pixel-for-pixel.
-    const styles = Array.from(
-      document.querySelectorAll('link[rel="stylesheet"], style'),
-    )
-      .map((n) => n.outerHTML)
-      .join("\n");
-
+    // Self-contained print CSS: reproduces the on-screen receipt design without
+    // depending on the app's stylesheets (which load async inside the iframe and
+    // rely on theme CSS variables that don't apply to printed output).
     const pageCss = `
       @page { size: ${cfg.paper === "a4" ? "A4" : `${width} auto`}; margin: 0; }
       html, body { margin: 0; padding: 0; background: #fff; }
-      body { width: ${width}; }
+      * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       #receipt-print-root {
-        width: ${width} !important;
-        max-width: ${width} !important;
-        margin: 0 auto !important;
-        padding: 3mm !important;
-        background: #fff !important;
-        color: #000 !important;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
+        width: ${width};
+        max-width: ${width};
+        margin: 0 auto;
+        padding: 3mm;
+        background: #fff;
+        color: #000;
+        font-family: ${cfg.fontFamily};
+        font-size: ${cfg.fontSize}px;
+        line-height: 1.45;
       }
-      #receipt-print-root * { color: #000 !important; }
-      #receipt-print-root .text-muted-foreground { color: #444 !important; }
-      #receipt-print-root .text-red-600 { color: #000 !important; font-weight: 700; }
-      #receipt-print-root .border-foreground\\/30 { border-color: #000 !important; }
-      #receipt-print-root img { max-height: 60px; max-width: 100%; object-fit: contain; }
+      #receipt-print-root * { color: #000; }
+      #receipt-print-root p { margin: 0; }
+      #receipt-print-root .space-y-2 > * + * { margin-top: 8px; }
+      #receipt-print-root .space-y-1 > * + * { margin-top: 4px; }
+      #receipt-print-root .space-y-0\\.5 > * + * { margin-top: 2px; }
+      #receipt-print-root .text-center { text-align: center; }
+      #receipt-print-root .text-right { text-align: right; }
+      #receipt-print-root .font-bold { font-weight: 700; }
+      #receipt-print-root .font-semibold { font-weight: 600; }
+      #receipt-print-root .italic { font-style: italic; }
+      #receipt-print-root .capitalize { text-transform: capitalize; }
+      #receipt-print-root .whitespace-pre-wrap { white-space: pre-wrap; }
+      #receipt-print-root .whitespace-nowrap { white-space: nowrap; }
+      #receipt-print-root .break-all { word-break: break-all; }
+      #receipt-print-root .break-words { overflow-wrap: break-word; }
+      #receipt-print-root .flex { display: flex; }
+      #receipt-print-root .justify-between { justify-content: space-between; }
+      #receipt-print-root .justify-center { justify-content: center; }
+      #receipt-print-root .w-full { width: 100%; }
+      #receipt-print-root table { width: 100%; border-collapse: collapse; }
+      #receipt-print-root td { vertical-align: top; padding: 0; }
+      #receipt-print-root .text-\\[10px\\] { font-size: 10px; }
+      #receipt-print-root .text-sm { font-size: ${cfg.fontSize + 1}px; }
+      #receipt-print-root .pt-2 { padding-top: 8px; }
+      #receipt-print-root .my-2 { margin-top: 8px; margin-bottom: 8px; }
+      #receipt-print-root .mb-1 { margin-bottom: 4px; }
+      #receipt-print-root .mx-auto { margin-left: auto; margin-right: auto; }
+      #receipt-print-root .line { border: 0; border-top: 1px dashed #000; height: 0; }
+      #receipt-print-root .text-muted-foreground { color: #444; }
+      #receipt-print-root img { display: block; max-height: 60px; max-width: 100%; object-fit: contain; }
       #receipt-print-root svg { display: block; margin: 0 auto; }
     `;
 
     const clone = content.cloneNode(true) as HTMLDivElement;
     clone.id = "receipt-print-root";
+    clone.removeAttribute("style");
 
     const iframe = document.createElement("iframe");
     iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
@@ -161,7 +182,7 @@ export default function ReceiptDialog({ open, onOpenChange, data, reprint = fals
     }
     doc.open();
     doc.write(
-      `<!DOCTYPE html><html><head><title>Receipt</title>${styles}<style>${pageCss}</style></head><body>${clone.outerHTML}</body></html>`,
+      `<!DOCTYPE html><html><head><title>Receipt</title><style>${pageCss}</style></head><body>${clone.outerHTML}</body></html>`,
     );
     doc.close();
 
@@ -173,9 +194,20 @@ export default function ReceiptDialog({ open, onOpenChange, data, reprint = fals
         setTimeout(() => iframe.remove(), 1000);
       }
     };
-    // Give fonts/stylesheets/images a moment to settle before printing.
-    setTimeout(run, 500);
+
+    // Wait for images (logo) to decode before printing.
+    const imgs = Array.from(doc.images || []);
+    const pending = imgs.filter((im) => !im.complete);
+    if (pending.length === 0) {
+      setTimeout(run, 150);
+    } else {
+      let done = 0;
+      const next = () => { if (++done >= pending.length) setTimeout(run, 100); };
+      pending.forEach((im) => { im.addEventListener("load", next); im.addEventListener("error", next); });
+      setTimeout(run, 2000);
+    }
   };
+
 
 
   printFnRef.current = handlePrint;
