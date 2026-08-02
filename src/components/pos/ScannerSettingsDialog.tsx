@@ -28,9 +28,7 @@ export function ScannerSettingsDialog({ open, onOpenChange }: Props) {
   useEffect(() => {
     if (!open) return;
     setS(loadScanSettings(business?.id));
-    if (business?.id) {
-      fetchScanSettings(business.id).then(setS).catch(() => { /* cached */ });
-    }
+    fetchScanSettings(business?.id).then(setS).catch(() => { /* cached */ });
   }, [open, business?.id]);
 
   const save = async () => {
@@ -44,7 +42,7 @@ export function ScannerSettingsDialog({ open, onOpenChange }: Props) {
         scanCooldown: Math.max(0, Number(s.scanCooldown) || 0),
 
       }, business?.id);
-      toast.success("Scanner settings saved for all tills");
+      toast.success("Scanner settings saved");
       onOpenChange(false);
     } catch (e: any) {
       toast.error(e?.message || "Failed to save scanner settings");
@@ -60,7 +58,7 @@ export function ScannerSettingsDialog({ open, onOpenChange }: Props) {
         <DialogHeader>
           <DialogTitle>Barcode scanner settings</DialogTitle>
           <DialogDescription>
-            Tune detection for USB, Bluetooth and slower handheld scanners.
+            Tune detection for USB, Bluetooth and slower handheld scanners. Saved to your own account.
           </DialogDescription>
         </DialogHeader>
 

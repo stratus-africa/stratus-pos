@@ -24,7 +24,6 @@ export function useScanSettings(): BarcodeScanSettings {
   }, [businessId]);
 
   useEffect(() => {
-    if (!businessId) return;
     let cancelled = false;
     fetchScanSettings(businessId)
       .then((s) => { if (!cancelled) setSettings(s); })
