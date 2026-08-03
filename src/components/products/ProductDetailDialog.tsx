@@ -239,10 +239,10 @@ export default function ProductDetailDialog({ product: productProp, productId: p
   type TimelineEntry = {
     id: string;
     date: string;
-    kind: "Purchase" | "Sale" | "Transfer" | "Adjustment";
+    kind: "Purchase" | "Sale" | "Transfer" | "Adjustment" | "Created" | "Edited" | "Deleted";
     reference: string;
     detail: string;
-    change: number;
+    change: number | null;
     locationId?: string | null;
     locationName?: string;
   };
