@@ -4,6 +4,28 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { toast } from "sonner";
 import { handlePlanLimitError } from "@/lib/planLimits";
 
+/** Fields tracked in the item history timeline. */
+const PRODUCT_AUDIT_FIELDS = [
+  { key: "name", label: "Name" },
+  { key: "sku", label: "SKU" },
+  { key: "barcode", label: "Barcode" },
+  { key: "purchase_price", label: "Purchase price" },
+  { key: "selling_price", label: "Selling price" },
+  { key: "tax_rate", label: "Tax rate" },
+  { key: "category_id", label: "Category" },
+  { key: "brand_id", label: "Brand" },
+  { key: "unit_id", label: "Unit" },
+  { key: "is_active", label: "Active" },
+  { key: "allow_decimal_quantity", label: "Decimal quantity" },
+  { key: "image_url", label: "Image" },
+  { key: "kra_item_code", label: "KRA item code" },
+  { key: "tax_category", label: "Tax category" },
+  { key: "purchase_account_id", label: "Purchase account" },
+  { key: "sales_account_id", label: "Sales account" },
+  { key: "inventory_account_id", label: "Inventory account" },
+];
+
+
 export interface Product {
   id: string;
   business_id: string;
