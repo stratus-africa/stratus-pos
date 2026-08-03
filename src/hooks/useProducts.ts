@@ -4,6 +4,28 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { toast } from "sonner";
 import { handlePlanLimitError } from "@/lib/planLimits";
 
+/** Fields tracked in the item history timeline. */
+const PRODUCT_AUDIT_FIELDS = [
+  { key: "name", label: "Name" },
+  { key: "sku", label: "SKU" },
+  { key: "barcode", label: "Barcode" },
+  { key: "purchase_price", label: "Purchase price" },
+  { key: "selling_price", label: "Selling price" },
+  { key: "tax_rate", label: "Tax rate" },
+  { key: "category_id", label: "Category" },
+  { key: "brand_id", label: "Brand" },
+  { key: "unit_id", label: "Unit" },
+  { key: "is_active", label: "Active" },
+  { key: "allow_decimal_quantity", label: "Decimal quantity" },
+  { key: "image_url", label: "Image" },
+  { key: "kra_item_code", label: "KRA item code" },
+  { key: "tax_category", label: "Tax category" },
+  { key: "purchase_account_id", label: "Purchase account" },
+  { key: "sales_account_id", label: "Sales account" },
+  { key: "inventory_account_id", label: "Inventory account" },
+];
+
+
 export interface Product {
   id: string;
   business_id: string;
@@ -195,6 +217,17 @@ export function useProducts() {
           if (vErr) throw vErr;
         }
       }
+      if (created?.id) {
+        const { logAudit } = await import("@/lib/audit");
+        await logAudit({
+          business_id: business.id,
+          action: "product_created",
+          entity_type: "product",
+          entity_id: created.id,
+          description: `Created item ${productData.name} (buy ${productData.purchase_price}, sell ${productData.selling_price})`,
+          metadata: { product_name: productData.name },
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -210,6 +243,8 @@ export function useProducts() {
   const updateProduct = useMutation({
     mutationFn: async ({ id, initial_batches: _ib, variants, opening_stock_location_id: _ol, ...form }: ProductFormData & { id: string }) => {
       if (!business) throw new Error("No business");
+      // Snapshot the previous values so the change can be written to the item history.
+      const { data: before } = await supabase.from("products").select("*").eq("id", id).maybeSingle();
       const { error } = await supabase.from("products").update(form).eq("id", id);
       if (error) throw error;
       if (variants) {
@@ -235,10 +270,24 @@ export function useProducts() {
           if (vErr) throw vErr;
         }
       }
+
+      const { diffFields, describeChanges, logAudit } = await import("@/lib/audit");
+      const changes = diffFields(before as any, form as any, PRODUCT_AUDIT_FIELDS);
+      if (changes.length > 0) {
+        await logAudit({
+          business_id: business.id,
+          action: "product_updated",
+          entity_type: "product",
+          entity_id: id,
+          description: describeChanges(changes),
+          metadata: { changes, product_name: (form as any).name ?? (before as any)?.name },
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["product_variants"] });
+      queryClient.invalidateQueries({ queryKey: ["product-history"] });
       toast.success("Product updated");
     },
     onError: (e) => toast.error(e.message),
@@ -246,8 +295,19 @@ export function useProducts() {
 
   const deleteProduct = useMutation({
     mutationFn: async (id: string) => {
+      const { data: before } = await supabase.from("products").select("name").eq("id", id).maybeSingle();
       const { error } = await supabase.from("products").delete().eq("id", id);
       if (error) throw error;
+      if (business) {
+        const { logAudit } = await import("@/lib/audit");
+        await logAudit({
+          business_id: business.id,
+          action: "product_deleted",
+          entity_type: "product",
+          entity_id: id,
+          description: `Deleted item ${(before as any)?.name || id}`,
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -255,6 +315,7 @@ export function useProducts() {
     },
     onError: (e) => toast.error(e.message),
   });
+
 
   return { productsQuery, createProduct, updateProduct, deleteProduct };
 }

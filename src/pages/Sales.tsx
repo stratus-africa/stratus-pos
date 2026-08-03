@@ -7,11 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Eye, Trash2, Ban, RotateCcw, Pause, Play, X, RefreshCw } from "lucide-react";
+import { Search, Eye, Trash2, Ban, RotateCcw, Pause, Play, X, RefreshCw, MoreHorizontal, Pencil } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useSales, Sale } from "@/hooks/useSales";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import SaleDetailDialog from "@/components/sales/SaleDetailDialog";
+import SaleEditDialog from "@/components/sales/SaleEditDialog";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -28,6 +30,7 @@ const Sales = () => {
   const canDelete = hasPermission("sales.delete") && !isCashier;
   const canCancel = !isCashier;
   const canRetry = !isCashier;
+  const canEdit = hasPermission("sales.edit") || hasPermission("sales.create");
 
   const [search, setSearch] = useState("");
   const initialStatus = searchParams.get("payment_status") || "all";
@@ -36,6 +39,7 @@ const Sales = () => {
   const dateTo = searchParams.get("to") || "";
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [pageSize, setPageSize] = useState<number>(() => {
     const saved = Number(localStorage.getItem("sales_page_size"));
     return [25, 50, 100, 200].includes(saved) ? saved : 25;
@@ -283,59 +287,57 @@ const Sales = () => {
                     </TableCell>
 
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => { setSelectedSale(sale); setDetailOpen(true); }} aria-label="View sale">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      {canCancel && sale.status !== "cancelled" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Cancel sale"
-                          title="Cancel sale (reverse stock movements)"
-                          onClick={() => {
-                            if (!confirm(`Cancel sale ${sale.invoice_number || ""}? Inventory will be restored and stock movement records removed.`)) return;
-                            cancelSale.mutate({ id: sale.id, cancel: true });
-                          }}
-                        >
-                          <Ban className="h-4 w-4 text-warning" />
-                        </Button>
-                      )}
-                      {canCancel && sale.status === "cancelled" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Reactivate sale"
-                          title="Reactivate sale"
-                          onClick={() => cancelSale.mutate({ id: sale.id, cancel: false })}
-                        >
-                          <RotateCcw className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {canRetry && (sale.fiscal_status === "failed" || sale.fiscal_status === "retry_required") && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Retry KRA submission"
-                          title={`Retry KRA submission${sale.fiscal_status === "failed" ? " (failed)" : ""}`}
-                          onClick={() => retryFiscalisation.mutate(sale.id)}
-                        >
-                          <RefreshCw className="h-4 w-4 text-amber-600" />
-                        </Button>
-                      )}
-                      {canDelete && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Delete sale"
-                          onClick={() => {
-                            if (!canDelete) return;
-                            if (!confirm("Delete this sale? Inventory will be restored.")) return;
-                            deleteSale.mutate(sale.id);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" aria-label="Actions">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem onClick={() => { setSelectedSale(sale); setDetailOpen(true); }}>
+                            <Eye className="h-4 w-4 mr-2" /> View
+                          </DropdownMenuItem>
+                          {canEdit && (
+                            <DropdownMenuItem onClick={() => { setSelectedSale(sale); setEditOpen(true); }}>
+                              <Pencil className="h-4 w-4 mr-2" /> Edit
+                            </DropdownMenuItem>
+                          )}
+                          {canCancel && sale.status !== "cancelled" && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                if (!confirm(`Cancel sale ${sale.invoice_number || ""}? Inventory will be restored and stock movement records removed.`)) return;
+                                cancelSale.mutate({ id: sale.id, cancel: true });
+                              }}
+                            >
+                              <Ban className="h-4 w-4 mr-2 text-warning" /> Cancel
+                            </DropdownMenuItem>
+                          )}
+                          {canCancel && sale.status === "cancelled" && (
+                            <DropdownMenuItem onClick={() => cancelSale.mutate({ id: sale.id, cancel: false })}>
+                              <RotateCcw className="h-4 w-4 mr-2" /> Reactivate
+                            </DropdownMenuItem>
+                          )}
+                          {canRetry && (sale.fiscal_status === "failed" || sale.fiscal_status === "retry_required") && (
+                            <DropdownMenuItem onClick={() => retryFiscalisation.mutate(sale.id)}>
+                              <RefreshCw className="h-4 w-4 mr-2 text-amber-600" /> Retry KRA submission
+                            </DropdownMenuItem>
+                          )}
+                          {canDelete && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => {
+                                  if (!confirm("Delete this sale? Inventory will be restored.")) return;
+                                  deleteSale.mutate(sale.id);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" /> Delete
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))
@@ -438,6 +440,7 @@ const Sales = () => {
         </TabsContent>
       </Tabs>
 
+      <SaleEditDialog open={editOpen} onOpenChange={setEditOpen} sale={selectedSale} />
       <SaleDetailDialog open={detailOpen} onOpenChange={setDetailOpen} sale={selectedSale} />
     </div>
   );

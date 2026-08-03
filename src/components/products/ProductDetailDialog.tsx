@@ -184,6 +184,25 @@ export default function ProductDetailDialog({ product: productProp, productId: p
     enabled: !!productId && open,
   });
 
+  // Edit history (renames, price changes, activation…) recorded in the audit trail.
+  const historyQuery = useQuery({
+    queryKey: ["product-history", productId],
+    queryFn: async () => {
+      if (!productId) return [];
+      const { data, error } = await (supabase as any)
+        .from("audit_logs")
+        .select("id, action, description, metadata, user_name, user_email, created_at")
+        .eq("entity_type", "product")
+        .eq("entity_id", productId)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!productId && open,
+  });
+
+
   const invRows = (inventoryQuery.data || []) as any[];
 
   // Inline editing of the low-stock threshold, per inventory row (location).
@@ -220,10 +239,10 @@ export default function ProductDetailDialog({ product: productProp, productId: p
   type TimelineEntry = {
     id: string;
     date: string;
-    kind: "Purchase" | "Sale" | "Transfer" | "Adjustment";
+    kind: "Purchase" | "Sale" | "Transfer" | "Adjustment" | "Created" | "Edited" | "Deleted";
     reference: string;
     detail: string;
-    change: number;
+    change: number | null;
     locationId?: string | null;
     locationName?: string;
   };
@@ -270,11 +289,23 @@ export default function ProductDetailDialog({ product: productProp, productId: p
       });
     }
 
+    for (const row of (historyQuery.data || []) as any[]) {
+      const who = row.user_name || row.user_email || "System";
+      entries.push({
+        id: `h-${row.id}`,
+        date: row.created_at,
+        kind: row.action === "product_created" ? "Created" : row.action === "product_deleted" ? "Deleted" : "Edited",
+        reference: who,
+        detail: row.description || "—",
+        change: null,
+      });
+    }
+
     return entries
       .filter((e) => selectedLocation === "all" || !e.locationId || e.locationId === selectedLocation)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 60);
-  }, [purchasesQuery.data, salesQuery.data, adjustmentsQuery.data, selectedLocation]);
+      .slice(0, 80);
+  }, [purchasesQuery.data, salesQuery.data, adjustmentsQuery.data, historyQuery.data, selectedLocation]);
 
 
   if (!product) {
@@ -326,7 +357,7 @@ export default function ProductDetailDialog({ product: productProp, productId: p
           {/* TIMELINE */}
           <TabsContent value="timeline">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <h4 className="text-sm font-semibold">Recent stock movements · {selectedLocationName}</h4>
+              <h4 className="text-sm font-semibold">Item history &amp; stock movements · {selectedLocationName}</h4>
               <Select value={selectedLocation} onValueChange={setSelectedLocation}>
                 <SelectTrigger className="h-8 w-[200px]"><SelectValue placeholder="Location" /></SelectTrigger>
                 <SelectContent>
@@ -348,7 +379,7 @@ export default function ProductDetailDialog({ product: productProp, productId: p
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {purchasesQuery.isLoading || salesQuery.isLoading || adjustmentsQuery.isLoading ? (
+                {purchasesQuery.isLoading || salesQuery.isLoading || adjustmentsQuery.isLoading || historyQuery.isLoading ? (
                   Array.from({ length: 4 }).map((_, i) => (
                     <TableRow key={i}>
                       {Array.from({ length: 5 }).map((__, j) => (
@@ -357,7 +388,7 @@ export default function ProductDetailDialog({ product: productProp, productId: p
                     </TableRow>
                   ))
                 ) : timeline.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No stock movements yet</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No activity yet</TableCell></TableRow>
                 ) : (
                   timeline.map((e) => (
                     <TableRow key={e.id}>
@@ -365,10 +396,10 @@ export default function ProductDetailDialog({ product: productProp, productId: p
                       <TableCell>
                         <Badge variant={e.kind === "Sale" ? "secondary" : e.kind === "Purchase" ? "default" : "outline"}>{e.kind}</Badge>
                       </TableCell>
-                      <TableCell className="capitalize">{e.reference}</TableCell>
+                      <TableCell>{e.reference}</TableCell>
                       <TableCell className="text-muted-foreground">{e.locationName ? `${e.locationName} · ` : ""}{e.detail}</TableCell>
-                      <TableCell className={`text-right font-semibold ${e.change >= 0 ? "text-emerald-600" : "text-destructive"}`}>
-                        {e.change > 0 ? "+" : ""}{e.change}
+                      <TableCell className={`text-right font-semibold ${e.change === null ? "text-muted-foreground" : e.change >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                        {e.change === null ? "—" : `${e.change > 0 ? "+" : ""}${e.change}`}
                       </TableCell>
                     </TableRow>
                   ))
