@@ -217,6 +217,17 @@ export function useProducts() {
           if (vErr) throw vErr;
         }
       }
+      if (created?.id) {
+        const { logAudit } = await import("@/lib/audit");
+        await logAudit({
+          business_id: business.id,
+          action: "product_created",
+          entity_type: "product",
+          entity_id: created.id,
+          description: `Created item ${productData.name} (buy ${productData.purchase_price}, sell ${productData.selling_price})`,
+          metadata: { product_name: productData.name },
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
