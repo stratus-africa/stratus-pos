@@ -379,7 +379,7 @@ export default function ProductDetailDialog({ product: productProp, productId: p
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {purchasesQuery.isLoading || salesQuery.isLoading || adjustmentsQuery.isLoading ? (
+                {purchasesQuery.isLoading || salesQuery.isLoading || adjustmentsQuery.isLoading || historyQuery.isLoading ? (
                   Array.from({ length: 4 }).map((_, i) => (
                     <TableRow key={i}>
                       {Array.from({ length: 5 }).map((__, j) => (
@@ -388,7 +388,7 @@ export default function ProductDetailDialog({ product: productProp, productId: p
                     </TableRow>
                   ))
                 ) : timeline.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No stock movements yet</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No activity yet</TableCell></TableRow>
                 ) : (
                   timeline.map((e) => (
                     <TableRow key={e.id}>
@@ -396,10 +396,10 @@ export default function ProductDetailDialog({ product: productProp, productId: p
                       <TableCell>
                         <Badge variant={e.kind === "Sale" ? "secondary" : e.kind === "Purchase" ? "default" : "outline"}>{e.kind}</Badge>
                       </TableCell>
-                      <TableCell className="capitalize">{e.reference}</TableCell>
+                      <TableCell>{e.reference}</TableCell>
                       <TableCell className="text-muted-foreground">{e.locationName ? `${e.locationName} · ` : ""}{e.detail}</TableCell>
-                      <TableCell className={`text-right font-semibold ${e.change >= 0 ? "text-emerald-600" : "text-destructive"}`}>
-                        {e.change > 0 ? "+" : ""}{e.change}
+                      <TableCell className={`text-right font-semibold ${e.change === null ? "text-muted-foreground" : e.change >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                        {e.change === null ? "—" : `${e.change > 0 ? "+" : ""}${e.change}`}
                       </TableCell>
                     </TableRow>
                   ))
