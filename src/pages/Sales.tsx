@@ -7,11 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Eye, Trash2, Ban, RotateCcw, Pause, Play, X, RefreshCw } from "lucide-react";
+import { Search, Eye, Trash2, Ban, RotateCcw, Pause, Play, X, RefreshCw, MoreHorizontal, Pencil } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useSales, Sale } from "@/hooks/useSales";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import SaleDetailDialog from "@/components/sales/SaleDetailDialog";
+import SaleEditDialog from "@/components/sales/SaleEditDialog";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -28,6 +30,7 @@ const Sales = () => {
   const canDelete = hasPermission("sales.delete") && !isCashier;
   const canCancel = !isCashier;
   const canRetry = !isCashier;
+  const canEdit = hasPermission("sales.edit") || hasPermission("sales.create");
 
   const [search, setSearch] = useState("");
   const initialStatus = searchParams.get("payment_status") || "all";
@@ -36,6 +39,7 @@ const Sales = () => {
   const dateTo = searchParams.get("to") || "";
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [pageSize, setPageSize] = useState<number>(() => {
     const saved = Number(localStorage.getItem("sales_page_size"));
     return [25, 50, 100, 200].includes(saved) ? saved : 25;
@@ -436,6 +440,7 @@ const Sales = () => {
         </TabsContent>
       </Tabs>
 
+      <SaleEditDialog open={editOpen} onOpenChange={setEditOpen} sale={selectedSale} />
       <SaleDetailDialog open={detailOpen} onOpenChange={setDetailOpen} sale={selectedSale} />
     </div>
   );
