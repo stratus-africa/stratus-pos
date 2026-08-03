@@ -289,11 +289,23 @@ export default function ProductDetailDialog({ product: productProp, productId: p
       });
     }
 
+    for (const row of (historyQuery.data || []) as any[]) {
+      const who = row.user_name || row.user_email || "System";
+      entries.push({
+        id: `h-${row.id}`,
+        date: row.created_at,
+        kind: row.action === "product_created" ? "Created" : row.action === "product_deleted" ? "Deleted" : "Edited",
+        reference: who,
+        detail: row.description || "—",
+        change: null,
+      });
+    }
+
     return entries
       .filter((e) => selectedLocation === "all" || !e.locationId || e.locationId === selectedLocation)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 60);
-  }, [purchasesQuery.data, salesQuery.data, adjustmentsQuery.data, selectedLocation]);
+      .slice(0, 80);
+  }, [purchasesQuery.data, salesQuery.data, adjustmentsQuery.data, historyQuery.data, selectedLocation]);
 
 
   if (!product) {
