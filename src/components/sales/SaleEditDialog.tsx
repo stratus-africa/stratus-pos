@@ -90,8 +90,9 @@ export default function SaleEditDialog({ open, onOpenChange, sale }: Props) {
   const setLine = (id: string, patch: Partial<EditableLine>) =>
     setLines((ls) => ls.map((l) => (l.id === id ? { ...l, ...patch } : l)));
 
-  const handleSave = async () => {
+  const handleSave = async (approvalOverride?: string) => {
     if (!sale || !business) return;
+    const approver = approvalOverride ?? approvedBy;
     if (fiscalLocked) {
       toast.error("This invoice has been fiscalised and can no longer be edited.");
       return;
@@ -100,7 +101,7 @@ export default function SaleEditDialog({ open, onOpenChange, sale }: Props) {
       toast.error("An invoice must have at least one line.");
       return;
     }
-    if (needsApproval) {
+    if (isCashier && isPosted && !approver) {
       setApprovalOpen(true);
       return;
     }
@@ -165,7 +166,7 @@ export default function SaleEditDialog({ open, onOpenChange, sale }: Props) {
           invoice_number: sale.invoice_number,
           previous_total: Number(sale.total),
           new_total: totals.total,
-          approved_by: approvedBy,
+          approved_by: approver,
         },
       });
 
@@ -300,7 +301,7 @@ export default function SaleEditDialog({ open, onOpenChange, sale }: Props) {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving || loading || fiscalLocked}>
+            <Button onClick={() => void handleSave()} disabled={saving || loading || fiscalLocked}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {needsApproval ? "Approve & save" : "Save changes"}
             </Button>
@@ -317,17 +318,10 @@ export default function SaleEditDialog({ open, onOpenChange, sale }: Props) {
           setApprovedBy(managerId);
           setApprovalOpen(false);
           // Save immediately once approval is granted.
-          setTimeout(() => void handleSaveApproved(managerId), 0);
+          void handleSave(managerId);
         }}
       />
     </>
   );
 
-  // Save path used right after approval, so the freshly granted approval is used
-  // without waiting for a state re-render.
-  async function handleSaveApproved(managerId: string) {
-    setApprovedBy(managerId);
-    await new Promise((r) => setTimeout(r, 0));
-    await handleSave();
-  }
 }
