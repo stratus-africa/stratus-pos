@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TrendingUp, ShoppingCart } from "lucide-react";
+import SaleDetailDialog from "@/components/sales/SaleDetailDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { formatKES, downloadCSV } from "./reportUtils";
@@ -44,7 +45,7 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
       while (true) {
         const q = supabase
           .from("sales")
-          .select("id, invoice_number, status, subtotal, tax, discount, total, created_at, customers(name), payments(method, amount), sale_items(quantity, unit_price, total, products(name, units(name)))")
+          .select("id, invoice_number, status, payment_status, location_id, created_by, subtotal, tax, discount, total, created_at, notes, fiscal_status, fiscal_invoice_number, fiscal_reference, fiscal_verification_url, customers(name), locations(name), payments(method, amount), sale_items(quantity, unit_price, total, products(name, units(name)))")
           .eq("business_id", business.id)
           .gte("created_at", `${from}T00:00:00`)
           .lte("created_at", `${to}T23:59:59`)
@@ -65,6 +66,48 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
 
   const sales = query.data || [];
 
+  // Cashier list for the filter — names resolved from profiles in this business.
+  const cashiersQuery = useQuery({
+    queryKey: ["report-cashiers", business?.id],
+    queryFn: async () => {
+      if (!business) return [] as { id: string; full_name: string | null }[];
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("business_id", business.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!business,
+  });
+
+  const cashierName = (id: string | null) =>
+    (cashiersQuery.data || []).find((c: any) => c.id === id)?.full_name || "—";
+
+  const [cashierFilter, setCashierFilter] = useState("all");
+  const [paymentFilter, setPaymentFilter] = useState("all");
+  const [drillSale, setDrillSale] = useState<any | null>(null);
+  const [drillOpen, setDrillOpen] = useState(false);
+
+  const paymentMethods = useMemo(() => {
+    const set = new Set<string>();
+    sales.forEach((s: any) => (s.payments || []).forEach((p: any) => set.add(String(p.method || "unknown").toLowerCase())));
+    return [...set].sort();
+  }, [sales]);
+
+  const filteredSales = useMemo(
+    () =>
+      sales.filter((s: any) => {
+        if (cashierFilter !== "all" && s.created_by !== cashierFilter) return false;
+        if (paymentFilter !== "all") {
+          const methods = (s.payments || []).map((p: any) => String(p.method || "unknown").toLowerCase());
+          if (!methods.includes(paymentFilter)) return false;
+        }
+        return true;
+      }),
+    [sales, cashierFilter, paymentFilter],
+  );
+
   const [pageSize, setPageSize] = useState<number>(() => {
     const s = Number(localStorage.getItem("daily-sales-report:pageSize"));
     return [25, 100, 200].includes(s) ? s : 25;
@@ -73,11 +116,11 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
   useEffect(() => {
     localStorage.setItem("daily-sales-report:pageSize", String(pageSize));
   }, [pageSize]);
-  useEffect(() => { setPage(1); }, [pageSize, from, to]);
+  useEffect(() => { setPage(1); }, [pageSize, from, to, cashierFilter, paymentFilter]);
 
 
   const stats = useMemo(() => {
-    const active = sales.filter((s: any) => s.status !== "cancelled");
+    const active = filteredSales.filter((s: any) => s.status !== "cancelled");
     const revenue = active.reduce((a: number, s: any) => a + Number(s.total), 0);
     const count = active.length;
     const units = active.reduce(
@@ -111,7 +154,7 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
       byPay: [...byPay.entries()].sort((a, b) => b[1] - a[1]),
       topItems,
     };
-  }, [sales]);
+  }, [filteredSales]);
 
   // Register the export function with parent toolbar
   useEffect(() => {
@@ -151,8 +194,29 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Badge variant="outline" className="h-7">{stats.count} sales</Badge>
+        <Select value={cashierFilter} onValueChange={setCashierFilter}>
+          <SelectTrigger className="h-8 w-[190px]"><SelectValue placeholder="Cashier" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All cashiers</SelectItem>
+            {(cashiersQuery.data || []).map((c: any) => (
+              <SelectItem key={c.id} value={c.id}>{c.full_name || "Unnamed user"}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+          <SelectTrigger className="h-8 w-[170px]"><SelectValue placeholder="Payment mode" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All payment modes</SelectItem>
+            {paymentMethods.map((m) => (
+              <SelectItem key={m} value={m} className="capitalize">{m}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {(cashierFilter !== "all" || paymentFilter !== "all") && (
+          <Button variant="ghost" size="sm" onClick={() => { setCashierFilter("all"); setPaymentFilter("all"); }}>Clear filters</Button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -246,6 +310,8 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
                   <TableHead>Time</TableHead>
                   <TableHead>Invoice</TableHead>
                   <TableHead>Customer</TableHead>
+                  <TableHead>Cashier</TableHead>
+                  <TableHead>Payment</TableHead>
                   <TableHead className="text-right">Total</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
@@ -253,14 +319,22 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
               <TableBody>
                 {stats.active.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-sm text-muted-foreground">No sales in this range.</TableCell>
+                    <TableCell colSpan={7} className="text-sm text-muted-foreground">No sales in this range.</TableCell>
                   </TableRow>
                 ) : (
                   stats.active.slice((page - 1) * pageSize, page * pageSize).map((s: any) => (
-                    <TableRow key={s.id}>
+                    <TableRow
+                      key={s.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => { setDrillSale(s); setDrillOpen(true); }}
+                    >
                       <TableCell>{new Date(s.created_at).toLocaleString()}</TableCell>
                       <TableCell>{s.invoice_number || "—"}</TableCell>
                       <TableCell>{s.customers?.name || "Walk-in"}</TableCell>
+                      <TableCell>{cashierName(s.created_by)}</TableCell>
+                      <TableCell className="capitalize">
+                        {[...new Set((s.payments || []).map((p: any) => String(p.method || "").toLowerCase()))].join(", ") || "—"}
+                      </TableCell>
                       <TableCell className="text-right">{formatKES(Number(s.total))}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="capitalize">{s.status}</Badge>
@@ -297,6 +371,8 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
           )}
         </CardContent>
       </Card>
+
+      <SaleDetailDialog open={drillOpen} onOpenChange={setDrillOpen} sale={drillSale} />
     </div>
   );
 }
