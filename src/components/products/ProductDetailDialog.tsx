@@ -357,7 +357,7 @@ export default function ProductDetailDialog({ product: productProp, productId: p
           {/* TIMELINE */}
           <TabsContent value="timeline">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <h4 className="text-sm font-semibold">Recent stock movements · {selectedLocationName}</h4>
+              <h4 className="text-sm font-semibold">Item history &amp; stock movements · {selectedLocationName}</h4>
               <Select value={selectedLocation} onValueChange={setSelectedLocation}>
                 <SelectTrigger className="h-8 w-[200px]"><SelectValue placeholder="Location" /></SelectTrigger>
                 <SelectContent>
