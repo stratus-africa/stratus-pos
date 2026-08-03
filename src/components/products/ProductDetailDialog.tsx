@@ -184,6 +184,25 @@ export default function ProductDetailDialog({ product: productProp, productId: p
     enabled: !!productId && open,
   });
 
+  // Edit history (renames, price changes, activation…) recorded in the audit trail.
+  const historyQuery = useQuery({
+    queryKey: ["product-history", productId],
+    queryFn: async () => {
+      if (!productId) return [];
+      const { data, error } = await (supabase as any)
+        .from("audit_logs")
+        .select("id, action, description, metadata, user_name, user_email, created_at")
+        .eq("entity_type", "product")
+        .eq("entity_id", productId)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!productId && open,
+  });
+
+
   const invRows = (inventoryQuery.data || []) as any[];
 
   // Inline editing of the low-stock threshold, per inventory row (location).
