@@ -210,6 +210,8 @@ export function useProducts() {
   const updateProduct = useMutation({
     mutationFn: async ({ id, initial_batches: _ib, variants, opening_stock_location_id: _ol, ...form }: ProductFormData & { id: string }) => {
       if (!business) throw new Error("No business");
+      // Snapshot the previous values so the change can be written to the item history.
+      const { data: before } = await supabase.from("products").select("*").eq("id", id).maybeSingle();
       const { error } = await supabase.from("products").update(form).eq("id", id);
       if (error) throw error;
       if (variants) {
@@ -235,10 +237,24 @@ export function useProducts() {
           if (vErr) throw vErr;
         }
       }
+
+      const { diffFields, describeChanges, logAudit } = await import("@/lib/audit");
+      const changes = diffFields(before as any, form as any, PRODUCT_AUDIT_FIELDS);
+      if (changes.length > 0) {
+        await logAudit({
+          business_id: business.id,
+          action: "product_updated",
+          entity_type: "product",
+          entity_id: id,
+          description: describeChanges(changes),
+          metadata: { changes, product_name: (form as any).name ?? (before as any)?.name },
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["product_variants"] });
+      queryClient.invalidateQueries({ queryKey: ["product-history"] });
       toast.success("Product updated");
     },
     onError: (e) => toast.error(e.message),
@@ -246,8 +262,19 @@ export function useProducts() {
 
   const deleteProduct = useMutation({
     mutationFn: async (id: string) => {
+      const { data: before } = await supabase.from("products").select("name").eq("id", id).maybeSingle();
       const { error } = await supabase.from("products").delete().eq("id", id);
       if (error) throw error;
+      if (business) {
+        const { logAudit } = await import("@/lib/audit");
+        await logAudit({
+          business_id: business.id,
+          action: "product_deleted",
+          entity_type: "product",
+          entity_id: id,
+          description: `Deleted item ${(before as any)?.name || id}`,
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -255,6 +282,7 @@ export function useProducts() {
     },
     onError: (e) => toast.error(e.message),
   });
+
 
   return { productsQuery, createProduct, updateProduct, deleteProduct };
 }
