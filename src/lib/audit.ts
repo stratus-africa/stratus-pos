@@ -9,6 +9,41 @@ export interface AuditLogEntry {
   metadata?: Record<string, any>;
 }
 
+export interface FieldChange {
+  field: string;
+  from: unknown;
+  to: unknown;
+}
+
+/**
+ * Compare two records and return a list of user-visible field changes.
+ * Only the keys listed in `fields` are compared.
+ */
+export function diffFields(
+  before: Record<string, any> | null | undefined,
+  after: Record<string, any> | null | undefined,
+  fields: { key: string; label: string }[],
+): FieldChange[] {
+  if (!before || !after) return [];
+  const changes: FieldChange[] = [];
+  for (const f of fields) {
+    if (!(f.key in after)) continue;
+    const a = before[f.key] ?? null;
+    const b = after[f.key] ?? null;
+    const norm = (v: any) => (typeof v === "number" ? v : v === null || v === undefined ? null : String(v));
+    const na = typeof a === "number" || typeof b === "number" ? Number(a ?? 0) : norm(a);
+    const nb = typeof a === "number" || typeof b === "number" ? Number(b ?? 0) : norm(b);
+    if (na !== nb) changes.push({ field: f.label, from: a, to: b });
+  }
+  return changes;
+}
+
+export function describeChanges(changes: FieldChange[]): string {
+  return changes
+    .map((c) => `${c.field}: ${c.from === null || c.from === "" ? "—" : c.from} → ${c.to === null || c.to === "" ? "—" : c.to}`)
+    .join("; ");
+}
+
 /**
  * Write a row into the audit_logs table. Best-effort; never throws.
  * Captures user identity from the active Supabase session.
