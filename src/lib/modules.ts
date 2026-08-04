@@ -1,7 +1,20 @@
 import type { ElementType } from "react";
 import {
-  LayoutDashboard, Store, Package, Boxes, Receipt, ShoppingBag, Wallet, BarChart3,
-  Calculator, BookOpen, ShoppingCart, Briefcase, ArrowLeftRight, Wrench, Sparkles,
+  LayoutDashboard,
+  Store,
+  Package,
+  Boxes,
+  Receipt,
+  ShoppingBag,
+  Wallet,
+  BarChart3,
+  Calculator,
+  BookOpen,
+  ShoppingCart,
+  Briefcase,
+  ArrowLeftRight,
+  Wrench,
+  Sparkles,
   FileCheck,
 } from "lucide-react";
 
@@ -26,26 +39,160 @@ export interface AppModule {
  * tenant-side feature gates.
  */
 export const APP_MODULES: AppModule[] = [
-  { key: "dashboard", label: "Dashboard", description: "Business overview & KPIs", group: "core", Icon: LayoutDashboard, route: "/" },
-  { key: "pos", label: "Point of Sale", description: "In-store POS terminal", group: "core", Icon: Store, route: "/pos" },
-  { key: "products", label: "Products", description: "Product catalog management", group: "core", Icon: Package, route: "/products" },
-  { key: "inventory", label: "Inventory", description: "Stock levels & adjustments", group: "core", Icon: Boxes, route: "/inventory" },
-  { key: "sales", label: "Sales", description: "Sales records & invoices", group: "core", Icon: Receipt, route: "/sales" },
-  { key: "purchases", label: "Purchases", description: "Purchase orders & supplier bills", group: "core", Icon: ShoppingBag, route: "/purchases" },
-  { key: "expenses", label: "Expenses", description: "Track & categorize expenses", group: "core", Icon: Wallet, route: "/expenses" },
-  { key: "reports", label: "Reports", description: "Sales, P&L, inventory reports", group: "core", Icon: BarChart3, route: "/reports" },
+  {
+    key: "dashboard",
+    label: "Dashboard",
+    description: "Business overview & KPIs",
+    group: "core",
+    Icon: LayoutDashboard,
+    route: "/",
+  },
+  {
+    key: "pos",
+    label: "Point of Sale",
+    description: "In-store POS terminal",
+    group: "core",
+    Icon: Store,
+    route: "/pos",
+  },
+  {
+    key: "products",
+    label: "Products",
+    description: "Product catalog management",
+    group: "core",
+    Icon: Package,
+    route: "/products",
+  },
+  {
+    key: "inventory",
+    label: "Inventory",
+    description: "Stock levels & adjustments",
+    group: "core",
+    Icon: Boxes,
+    route: "/inventory",
+  },
+  {
+    key: "sales",
+    label: "Sales",
+    description: "Sales records & invoices",
+    group: "core",
+    Icon: Receipt,
+    route: "/sales",
+  },
+  {
+    key: "purchases",
+    label: "Purchases",
+    description: "Purchase orders & supplier bills",
+    group: "core",
+    Icon: ShoppingBag,
+    route: "/purchases",
+  },
+  {
+    key: "expenses",
+    label: "Expenses",
+    description: "Track & categorize expenses",
+    group: "core",
+    Icon: Wallet,
+    route: "/expenses",
+  },
+  {
+    key: "reports",
+    label: "Reports",
+    description: "Sales, P&L, inventory reports",
+    group: "core",
+    Icon: BarChart3,
+    route: "/reports",
+  },
 
-  { key: "accounting", label: "Accounting", description: "Banking, manual journals & accountant tools", group: "accounting", Icon: Calculator, aliases: ["chart_of_accounts"], route: "/chart-of-accounts" },
-  { key: "banking", label: "Banking", description: "Bank accounts & transactions", group: "accounting", Icon: Wallet, route: "/banking" },
-  { key: "manual_journals", label: "Manual Journals", description: "Post manual journal entries", group: "accounting", Icon: BookOpen, aliases: ["journal_entries"], route: "/journal-entries" },
+  {
+    key: "accounting",
+    label: "Accounting",
+    description: "Banking, manual journals & accountant tools",
+    group: "accounting",
+    Icon: Calculator,
+    aliases: ["chart_of_accounts"],
+    route: "/chart-of-accounts",
+  },
+  {
+    key: "banking",
+    label: "Banking",
+    description: "Bank accounts & transactions",
+    group: "accounting",
+    Icon: Wallet,
+    route: "/banking",
+  },
+  {
+    key: "manual_journals",
+    label: "Manual Journals",
+    description: "Post manual journal entries",
+    group: "accounting",
+    Icon: BookOpen,
+    aliases: ["journal_entries"],
+    route: "/journal-entries",
+  },
 
-  { key: "hr_management", label: "HR Management", description: "Employees, leave, payslips & payroll", group: "premium", Icon: Briefcase, aliases: ["hr", "payroll"], route: "/hr" },
-  { key: "digitax", label: "DigiTax (KRA eTIMS)", description: "Kenya KRA eTIMS fiscalization & VAT compliance", group: "premium", Icon: FileCheck, aliases: ["etims", "kra_etims"], route: "/digitax" },
-  { key: "service_maintenance", label: "Service & Maintenance", description: "Service jobs, repairs & maintenance schedules", group: "premium", Icon: Wrench },
-  { key: "online_orders", label: "Online Orders", description: "E-commerce & online order management", group: "premium", Icon: ShoppingCart, aliases: ["woocommerce"] },
-  { key: "transfers", label: "Transfers", description: "Stock transfers between locations", group: "premium", Icon: ArrowLeftRight },
-  { key: "multi_location", label: "Multi-Location", description: "Operate more than one store/branch", group: "premium", Icon: Store },
-  { key: "ai_reports", label: "AI Reports", description: "AI-powered analytics & insights", group: "premium", Icon: Sparkles },
+  {
+    key: "hr_management",
+    label: "HR Management",
+    description: "Employees, leave, payslips & payroll",
+    group: "premium",
+    Icon: Briefcase,
+    aliases: ["hr", "payroll"],
+    route: "/hr",
+  },
+  {
+    key: "digitax",
+    label: "DigiTax (KRA eTIMS)",
+    description: "Kenya KRA eTIMS fiscalization & VAT compliance",
+    group: "premium",
+    Icon: FileCheck,
+    aliases: ["etims", "kra_etims"],
+    route: "/digitax",
+  },
+  {
+    key: "service_maintenance",
+    label: "Service & Maintenance",
+    description: "Service jobs, repairs & maintenance schedules",
+    group: "premium",
+    Icon: Wrench,
+  },
+  {
+    key: "online_orders",
+    label: "Online Orders",
+    description: "E-commerce & online order management",
+    group: "premium",
+    Icon: ShoppingCart,
+    aliases: ["woocommerce"],
+  },
+  {
+    key: "transfers",
+    label: "Transfers",
+    description: "Stock transfers between locations",
+    group: "premium",
+    Icon: ArrowLeftRight,
+  },
+  {
+    key: "multi_location",
+    label: "Multi-Location",
+    description: "Operate more than one store/branch",
+    group: "premium",
+    Icon: Store,
+  },
+  {
+    key: "ai_reports",
+    label: "AI Reports",
+    description: "AI-powered analytics & insights",
+    group: "premium",
+    Icon: Sparkles,
+  },
+  {
+    key: "bakery",
+    label: "Bakery Production",
+    description: "Recipes, batch production & ingredient costing",
+    group: "premium",
+    Icon: ChefHat,
+    route: "/bakery",
+  },
 ];
 
 export const moduleGroupLabels: Record<ModuleGroup, string> = {
@@ -54,8 +201,7 @@ export const moduleGroupLabels: Record<ModuleGroup, string> = {
   premium: "Premium modules",
 };
 
-export const findModule = (key: string) =>
-  APP_MODULES.find((m) => m.key === key || m.aliases?.includes(key));
+export const findModule = (key: string) => APP_MODULES.find((m) => m.key === key || m.aliases?.includes(key));
 
 /** Every accepted key (canonical + aliases) for a module. */
 export const moduleKeys = (key: string): string[] => {

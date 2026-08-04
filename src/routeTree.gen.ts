@@ -21,6 +21,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
+import { Route as AppBakeryRouteImport } from './routes/_app.bakery'
 import { Route as AppBankingRouteImport } from './routes/_app.banking'
 import { Route as AppBarcodeMappingRouteImport } from './routes/_app.barcode-mapping'
 import { Route as AppChartOfAccountsRouteImport } from './routes/_app.chart-of-accounts'
@@ -127,6 +128,11 @@ const TermsRoute = TermsRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBakeryRoute = AppBakeryRouteImport.update({
+  id: '/bakery',
+  path: '/bakery',
   getParentRoute: () => AppRoute,
 } as any)
 const AppBankingRoute = AppBankingRouteImport.update({
@@ -402,6 +408,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/sign-in': typeof SignInRoute
   '/terms': typeof TermsRoute
+  '/bakery': typeof AppBakeryRoute
   '/banking': typeof AppBankingRoute
   '/barcode-mapping': typeof AppBarcodeMappingRoute
   '/chart-of-accounts': typeof AppChartOfAccountsRoute
@@ -463,6 +470,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/sign-in': typeof SignInRoute
   '/terms': typeof TermsRoute
+  '/bakery': typeof AppBakeryRoute
   '/banking': typeof AppBankingRoute
   '/barcode-mapping': typeof AppBarcodeMappingRoute
   '/chart-of-accounts': typeof AppChartOfAccountsRoute
@@ -526,6 +534,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/sign-in': typeof SignInRoute
   '/terms': typeof TermsRoute
+  '/_app/bakery': typeof AppBakeryRoute
   '/_app/banking': typeof AppBankingRoute
   '/_app/barcode-mapping': typeof AppBarcodeMappingRoute
   '/_app/chart-of-accounts': typeof AppChartOfAccountsRoute
@@ -590,6 +599,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sign-in'
     | '/terms'
+    | '/bakery'
     | '/banking'
     | '/barcode-mapping'
     | '/chart-of-accounts'
@@ -651,6 +661,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sign-in'
     | '/terms'
+    | '/bakery'
     | '/banking'
     | '/barcode-mapping'
     | '/chart-of-accounts'
@@ -713,6 +724,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sign-in'
     | '/terms'
+    | '/_app/bakery'
     | '/_app/banking'
     | '/_app/barcode-mapping'
     | '/_app/chart-of-accounts'
@@ -865,6 +877,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/bakery': {
+      id: '/_app/bakery'
+      path: '/bakery'
+      fullPath: '/bakery'
+      preLoaderRoute: typeof AppBakeryRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/banking': {
@@ -1214,6 +1233,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppBakeryRoute: typeof AppBakeryRoute
   AppBankingRoute: typeof AppBankingRoute
   AppBarcodeMappingRoute: typeof AppBarcodeMappingRoute
   AppChartOfAccountsRoute: typeof AppChartOfAccountsRoute
@@ -1239,6 +1259,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppBakeryRoute: AppBakeryRoute,
   AppBankingRoute: AppBankingRoute,
   AppBarcodeMappingRoute: AppBarcodeMappingRoute,
   AppChartOfAccountsRoute: AppChartOfAccountsRoute,
@@ -1345,3 +1366,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
