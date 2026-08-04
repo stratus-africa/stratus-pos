@@ -26,7 +26,8 @@ import { toast } from "sonner";
 import { useNavigate, useSearchParams } from "@/lib/router-compat";
 
 const Sales = () => {
-  const { salesQuery, deleteSale, cancelSale, retryFiscalisation } = useSales();
+  // This page owns the broader sales/suspended-sales realtime channel below.
+  const { salesQuery, deleteSale, cancelSale, retryFiscalisation } = useSales({ subscribeToFiscalUpdates: false });
   const { business, userRole } = useBusiness();
   const { hasPermission } = usePermissions();
   const navigate = useNavigate();
@@ -82,21 +83,22 @@ const Sales = () => {
     enabled: !!business,
   });
 
-  const filteredSales = sales.filter((s) => {
-    const matchesSearch =
-      (s.invoice_number || "").toLowerCase().includes(search.toLowerCase()) ||
-      (s.customers?.name || "walk-in").toLowerCase().includes(search.toLowerCase());
-    const matchesStatus =
-      statusFilter === "all"
-        ? true
-        : statusFilter === "credit"
-          ? ["unpaid", "partial", "credit"].includes(s.payment_status) && s.status !== "cancelled"
-          : s.payment_status === statusFilter;
-    const created = s.created_at?.slice(0, 10) || "";
-    const matchesFrom = !dateFrom || created >= dateFrom;
-    const matchesTo = !dateTo || created <= dateTo;
-    return matchesSearch && matchesStatus && matchesFrom && matchesTo;
-  });
+  const filteredSales = useMemo(() => {
+    const normalizedSearch = search.toLowerCase();
+    return sales.filter((s) => {
+      const matchesSearch =
+        (s.invoice_number || "").toLowerCase().includes(normalizedSearch) ||
+        (s.customers?.name || "walk-in").toLowerCase().includes(normalizedSearch);
+      const matchesStatus =
+        statusFilter === "all"
+          ? true
+          : statusFilter === "credit"
+            ? ["unpaid", "partial", "credit"].includes(s.payment_status) && s.status !== "cancelled"
+            : s.payment_status === statusFilter;
+      const created = s.created_at?.slice(0, 10) || "";
+      return matchesSearch && matchesStatus && (!dateFrom || created >= dateFrom) && (!dateTo || created <= dateTo);
+    });
+  }, [sales, search, statusFilter, dateFrom, dateTo]);
 
   const totalPages = Math.max(1, Math.ceil(filteredSales.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -108,9 +110,13 @@ const Sales = () => {
     setPage(1);
   }, [search, statusFilter, pageSize]);
 
-  const activeSales = sales.filter((s) => s.status !== "cancelled");
-  const totalSales = activeSales.reduce((s, v) => s + Number(v.total), 0);
-  const paidSales = activeSales.filter((s) => s.payment_status === "paid").length;
+  const { totalSales, paidSales } = useMemo(() => {
+    const activeSales = sales.filter((sale) => sale.status !== "cancelled");
+    return {
+      totalSales: activeSales.reduce((sum, sale) => sum + Number(sale.total), 0),
+      paidSales: activeSales.filter((sale) => sale.payment_status === "paid").length,
+    };
+  }, [sales]);
   const suspended = suspendedQuery.data || [];
   const suspendedTotalPages = Math.max(1, Math.ceil(suspended.length / suspendedPageSize));
   const suspendedCurrentPage = Math.min(suspendedPage, suspendedTotalPages);
@@ -179,7 +185,7 @@ const Sales = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [business, qc]);
+  }, [business?.id, qc]);
 
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = async () => {
