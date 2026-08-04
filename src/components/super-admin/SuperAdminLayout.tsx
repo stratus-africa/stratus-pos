@@ -33,6 +33,7 @@ import {
   LogOut,
   PanelLeft,
   Bell,
+  Menu,
   Zap,
   Settings2,
 } from "lucide-react";
@@ -105,6 +106,7 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileSection, setMobileSection] = useState("Management");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showAllMobileMenus, setShowAllMobileMenus] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffectR(() => {
@@ -263,28 +265,8 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
             className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2"
             aria-label="Super admin navigation"
           >
-            <div className="mx-auto grid max-w-md grid-cols-6 items-end rounded-[1.75rem] border border-border/60 bg-card/95 px-2 py-2 shadow-[0_10px_30px_-10px_hsl(var(--foreground)/0.25)] backdrop-blur">
-              <Link
-                to="/super-admin"
-                aria-current={isActive("/super-admin") ? "page" : undefined}
-                className={cn(
-                  "group flex min-w-0 flex-col items-center justify-end gap-0.5 px-1 pt-1 text-[10px] font-medium",
-                  isActive("/super-admin") ? "text-primary" : "text-muted-foreground",
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-full transition-all",
-                    isActive("/super-admin")
-                      ? "-translate-y-2 bg-primary text-primary-foreground shadow-lg shadow-primary/30 ring-4 ring-background"
-                      : "group-active:bg-muted",
-                  )}
-                >
-                  <LayoutDashboard className="h-4 w-4" />
-                </span>
-                <span className={cn("truncate", isActive("/super-admin") && "-mt-2 font-semibold")}>Dashboard</span>
-              </Link>
-              {mobileNavGroups.map((group) => {
+            <div className="mx-auto grid max-w-md grid-cols-5 items-end rounded-[1.75rem] border border-border/60 bg-card/95 px-2 py-2 shadow-[0_10px_30px_-10px_hsl(var(--foreground)/0.25)] backdrop-blur">
+              {mobileNavGroups.slice(0, 4).map((group) => {
                 const active = group.label === mobileSection;
                 const Icon = group.items[0].icon;
                 return (
@@ -294,6 +276,7 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
                     aria-expanded={active && mobileMenuOpen}
                     onClick={() => {
                       setMobileSection(group.label);
+                      setShowAllMobileMenus(false);
                       setMobileMenuOpen(true);
                     }}
                     className={cn(
@@ -315,34 +298,87 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
                   </button>
                 );
               })}
+              <button
+                type="button"
+                aria-label="Open more navigation"
+                onClick={() => {
+                  setShowAllMobileMenus(true);
+                  setMobileMenuOpen(true);
+                }}
+                className="group flex min-w-0 flex-col items-center justify-end gap-0.5 px-1 pt-1 text-[10px] font-medium text-muted-foreground"
+              >
+                <span className="flex h-10 w-10 items-center justify-center rounded-full transition-all group-active:bg-muted">
+                  <Menu className="h-4 w-4" />
+                </span>
+                <span className="truncate">More</span>
+              </button>
             </div>
           </nav>
 
           <SheetContent side="bottom" className="flex max-h-[80vh] flex-col rounded-t-2xl p-0">
             <SheetHeader className="border-b px-4 py-3 text-left">
               <SheetTitle className="flex items-center gap-2 text-base">
-                {SelectedMobileGroupIcon && <SelectedMobileGroupIcon className="h-4 w-4 text-primary" />}
-                {selectedMobileGroup.mobileLabel}
+                {showAllMobileMenus ? (
+                  <Menu className="h-4 w-4 text-primary" />
+                ) : (
+                  SelectedMobileGroupIcon && <SelectedMobileGroupIcon className="h-4 w-4 text-primary" />
+                )}
+                {showAllMobileMenus ? "Navigation" : selectedMobileGroup.mobileLabel}
               </SheetTitle>
             </SheetHeader>
             <div className="grid flex-1 grid-cols-3 gap-2 overflow-y-auto px-4 py-3 sm:grid-cols-4">
-              {selectedMobileGroup.items.map((item) => {
-                const active = isActive(item.url);
-                return (
+              {showAllMobileMenus ? (
+                <>
                   <Link
-                    key={item.url}
-                    to={item.url}
+                    to="/super-admin"
                     onClick={() => setMobileMenuOpen(false)}
                     className={cn(
                       "flex min-h-20 flex-col items-center justify-center gap-1 rounded-xl border px-2 text-center text-xs font-medium transition-colors",
-                      active ? "border-primary bg-primary/10 text-primary" : "bg-card text-foreground hover:bg-muted",
+                      isActive("/super-admin")
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "bg-card text-foreground hover:bg-muted",
                     )}
                   >
-                    <item.icon className="h-5 w-5" />
-                    <span className="line-clamp-2">{item.title}</span>
+                    <LayoutDashboard className="h-5 w-5" />
+                    <span>Dashboard</span>
                   </Link>
-                );
-              })}
+                  {mobileNavGroups.map((group) => {
+                    const Icon = group.items[0].icon;
+                    return (
+                      <button
+                        key={group.label}
+                        type="button"
+                        onClick={() => {
+                          setMobileSection(group.label);
+                          setShowAllMobileMenus(false);
+                        }}
+                        className="flex min-h-20 flex-col items-center justify-center gap-1 rounded-xl border bg-card px-2 text-center text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                      >
+                        <Icon className="h-5 w-5" />
+                        <span>{group.mobileLabel}</span>
+                      </button>
+                    );
+                  })}
+                </>
+              ) : (
+                selectedMobileGroup.items.map((item) => {
+                  const active = isActive(item.url);
+                  return (
+                    <Link
+                      key={item.url}
+                      to={item.url}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={cn(
+                        "flex min-h-20 flex-col items-center justify-center gap-1 rounded-xl border px-2 text-center text-xs font-medium transition-colors",
+                        active ? "border-primary bg-primary/10 text-primary" : "bg-card text-foreground hover:bg-muted",
+                      )}
+                    >
+                      <item.icon className="h-5 w-5" />
+                      <span className="line-clamp-2">{item.title}</span>
+                    </Link>
+                  );
+                })
+              )}
             </div>
             <div className="border-t p-3">
               <Button variant="outline" className="w-full" onClick={signOut}>

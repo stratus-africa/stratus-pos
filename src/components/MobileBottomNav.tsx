@@ -241,9 +241,15 @@ export function MobileBottomNav() {
   const chosen = selected.map((k) => items.find((i) => keyOf(i) === k)).filter((i): i is Item => Boolean(i));
 
   // Quick tabs: user preference first, otherwise the first few available modules.
+  // Active HR and Bakery modules are promoted into the initial bar so staff
+  // with access can discover them without having to open More first.
   // The active module is always surfaced so the pill never looks unselected.
   const quick = (() => {
-    const base = (chosen.length ? chosen : items.slice(0, MAX_QUICK)).slice(0, MAX_QUICK);
+    const defaultItems = [
+      ...items.filter((item) => item.to === "/hr" || item.to === "/bakery"),
+      ...items.filter((item) => item.to !== "/hr" && item.to !== "/bakery"),
+    ];
+    const base = (chosen.length ? chosen : defaultItems).slice(0, MAX_QUICK);
     if (base.some((i) => isActive(i.to))) return base;
     const current = items.find((i) => isActive(i.to));
     return current ? [current, ...base.slice(0, MAX_QUICK - 1)] : base;
