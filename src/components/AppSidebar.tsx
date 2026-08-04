@@ -125,7 +125,14 @@ const inventoryNav: NavItem[] = [
     featureKey: "inventory",
     permission: "inventory.view",
   },
-  { title: "Bakery Production", url: "/bakery", icon: ChefHat, roles: ["admin", "manager"], featureKey: "bakery" },
+  {
+    title: "Bakery Production",
+    url: "/bakery",
+    icon: ChefHat,
+    roles: ["admin", "manager", "cashier", "stores_manager"],
+    featureKey: "bakery",
+    permission: "bakery.view",
+  },
 ];
 
 const transactionNav: NavItem[] = [
