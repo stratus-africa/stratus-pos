@@ -105,7 +105,6 @@ const NAV: Item[] = [
     icon: ChefHat,
     roles: ["admin", "manager", "cashier", "stores_manager"],
     featureKey: "bakery",
-    permission: "bakery.view",
   },
   {
     to: "/sales",
@@ -186,14 +185,7 @@ const NAV: Item[] = [
       "report.audit",
     ],
   },
-  {
-    to: "/hr",
-    label: "HR",
-    icon: UserCog,
-    roles: ["admin", "manager", "cashier", "stores_manager"],
-    featureKey: "hr",
-    permission: "hr.view",
-  },
+  { to: "/hr", label: "HR", icon: UserCog, roles: ["admin", "manager", "cashier", "stores_manager"], featureKey: "hr" },
   {
     to: "/tax-compliance",
     label: "Tax",
