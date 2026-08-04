@@ -40,7 +40,6 @@ export interface Sale {
   locations?: { name: string } | null;
 }
 
-
 export interface SaleItem {
   id: string;
   sale_id: string;
@@ -100,16 +99,16 @@ export function useCustomers(opts: UseCustomersOpts = {}) {
   const create = useMutation({
     mutationFn: async (form: Omit<Customer, "id" | "business_id" | "balance">) => {
       if (!business) throw new Error("No business");
-      const { error } = await supabase
-        .from("customers")
-        .insert({ ...form, business_id: business.id });
+      const { error } = await supabase.from("customers").insert({ ...form, business_id: business.id });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customers"] });
       toast.success("Customer created");
     },
-    onError: (e: any) => { if (!handlePlanLimitError(e, "customers")) toast.error(e.message); },
+    onError: (e: any) => {
+      if (!handlePlanLimitError(e, "customers")) toast.error(e.message);
+    },
   });
 
   const update = useMutation({
@@ -139,7 +138,7 @@ export function useCustomers(opts: UseCustomersOpts = {}) {
   return { query, create, update, remove };
 }
 
-export function useSales() {
+export function useSales({ subscribeToFiscalUpdates = true }: { subscribeToFiscalUpdates?: boolean } = {}) {
   const { business, userRole } = useBusiness();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -174,15 +173,8 @@ export function useSales() {
 
   const getSaleDetails = async (saleId: string) => {
     const [itemsRes, paymentsRes] = await Promise.all([
-      supabase
-        .from("sale_items")
-        .select("*, products(name)")
-        .eq("sale_id", saleId),
-      supabase
-        .from("payments")
-        .select("*")
-        .eq("sale_id", saleId)
-        .order("created_at"),
+      supabase.from("sale_items").select("*, products(name)").eq("sale_id", saleId),
+      supabase.from("payments").select("*").eq("sale_id", saleId).order("created_at"),
     ]);
     if (itemsRes.error) throw itemsRes.error;
     if (paymentsRes.error) throw paymentsRes.error;
@@ -243,10 +235,7 @@ export function useSales() {
         .maybeSingle();
 
       const nextStatus = cancel ? "cancelled" : "final";
-      const { error } = await supabase
-        .from("sales")
-        .update({ status: nextStatus })
-        .eq("id", id);
+      const { error } = await supabase.from("sales").update({ status: nextStatus }).eq("id", id);
       if (error) throw error;
 
       // Remove linked bank transactions when voiding (mirrors delete behaviour)
@@ -256,7 +245,9 @@ export function useSales() {
         try {
           const { submitSaleToDigitax } = await import("@/hooks/useDigitax");
           await submitSaleToDigitax(id, { invoice_type: "credit_note", original_sale_id: id });
-        } catch { /* digitax not enabled or offline — ignored */ }
+        } catch {
+          /* digitax not enabled or offline — ignored */
+        }
       }
 
       if (saleSnap?.business_id) {
@@ -267,10 +258,14 @@ export function useSales() {
           entity_type: "sale",
           entity_id: id,
           description: `${cancel ? "Cancelled" : "Reactivated"} sale ${saleSnap.invoice_number || id} (KES ${Number(saleSnap.total || 0).toLocaleString()})`,
-          metadata: { invoice_number: saleSnap.invoice_number, total: saleSnap.total, previous_status: saleSnap.status, new_status: nextStatus },
+          metadata: {
+            invoice_number: saleSnap.invoice_number,
+            total: saleSnap.total,
+            previous_status: saleSnap.status,
+            new_status: nextStatus,
+          },
         });
       }
-
     },
     onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ["sales"] });
@@ -296,18 +291,24 @@ export function useSales() {
 
   // Realtime: when a KRA callback updates a sale's fiscal columns, refresh the list.
   useEffect(() => {
-    if (!business?.id) return;
+    if (!subscribeToFiscalUpdates || !business?.id) return;
     const channel = supabase.channel(`sales-fiscal-${business.id}-${Math.random().toString(36).slice(2)}`);
     channel
-      .on("postgres_changes",
-          { event: "UPDATE", schema: "public", table: "sales", filter: `business_id=eq.${business.id}` },
-          () => queryClient.invalidateQueries({ queryKey: ["sales"] }))
-      .on("postgres_changes",
-          { event: "*", schema: "public", table: "digitax_invoice_queue", filter: `business_id=eq.${business.id}` },
-          () => queryClient.invalidateQueries({ queryKey: ["sales"] }))
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "sales", filter: `business_id=eq.${business.id}` },
+        () => queryClient.invalidateQueries({ queryKey: ["sales"] }),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "digitax_invoice_queue", filter: `business_id=eq.${business.id}` },
+        () => queryClient.invalidateQueries({ queryKey: ["sales"] }),
+      )
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [business?.id, queryClient]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [business?.id, queryClient, subscribeToFiscalUpdates]);
 
   return { salesQuery, getSaleDetails, deleteSale, cancelSale, retryFiscalisation };
 }
