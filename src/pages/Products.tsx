@@ -1,5 +1,15 @@
-import { useState, useRef } from "react";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useMemo, useRef, useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,11 +17,43 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Package, Plus, Search, Pencil, Trash2, Tag, Layers, Ruler, Download, Upload, FileDown, Lock, ScanLine, Printer, MoreHorizontal, FileSpreadsheet, AlertTriangle } from "lucide-react";
+import {
+  Package,
+  Plus,
+  Search,
+  Pencil,
+  Trash2,
+  Tag,
+  Layers,
+  Ruler,
+  Download,
+  Upload,
+  FileDown,
+  Lock,
+  ScanLine,
+  Printer,
+  MoreHorizontal,
+  FileSpreadsheet,
+  AlertTriangle,
+} from "lucide-react";
 import { PrintTagsDialog, type PrintTagItem } from "@/components/products/PrintTagsDialog";
-import { useProducts, useCategories, useBrands, useUnits, type ProductFormData, type Product } from "@/hooks/useProducts";
+import {
+  useProducts,
+  useCategories,
+  useBrands,
+  useUnits,
+  type ProductFormData,
+  type Product,
+} from "@/hooks/useProducts";
 import { ProductFormDialog } from "@/components/products/ProductFormDialog";
 import { TaxonomyDialog } from "@/components/products/TaxonomyDialog";
 import ImportMappingDialog from "@/components/products/ImportMappingDialog";
@@ -21,7 +63,6 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccountMappings } from "@/hooks/useAccountMappings";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
 import { useFeatureLimit } from "@/components/FeatureGate";
 import { usePermissions } from "@/hooks/usePermissions";
 
@@ -31,7 +72,12 @@ const Products = () => {
   const { hasPermission } = usePermissions();
   const canEdit = hasPermission("products.edit");
   const canDelete = hasPermission("products.delete");
-  const { query: categoriesQuery, create: createCategory, update: updateCategory, remove: removeCategory } = useCategories();
+  const {
+    query: categoriesQuery,
+    create: createCategory,
+    update: updateCategory,
+    remove: removeCategory,
+  } = useCategories();
   const { query: brandsQuery, create: createBrand, update: updateBrand, remove: removeBrand } = useBrands();
   const { query: unitsQuery, create: createUnit, update: updateUnit, remove: removeUnit } = useUnits();
 
@@ -69,7 +115,9 @@ const Products = () => {
     if (detailLockRef.current) return;
     detailLockRef.current = true;
     setDetailProduct(p);
-    window.setTimeout(() => { detailLockRef.current = false; }, 400);
+    window.setTimeout(() => {
+      detailLockRef.current = false;
+    }, 400);
   };
 
   const [page, setPage] = useState(1);
@@ -91,7 +139,14 @@ const Products = () => {
       toast.error("Enter a valid low stock threshold");
       return;
     }
-    if (!bulkCategoryId && !bulkUnitId && thresholdValue === null && !bulkPurchaseAccountId && !bulkSalesAccountId && !bulkInventoryAccountId) {
+    if (
+      !bulkCategoryId &&
+      !bulkUnitId &&
+      thresholdValue === null &&
+      !bulkPurchaseAccountId &&
+      !bulkSalesAccountId &&
+      !bulkInventoryAccountId
+    ) {
       toast.error("Pick a category, unit or threshold to apply");
       return;
     }
@@ -99,8 +154,11 @@ const Products = () => {
     try {
       const ids = Array.from(selectedIds);
       const update: {
-        category_id?: string; unit_id?: string;
-        purchase_account_id?: string; sales_account_id?: string; inventory_account_id?: string;
+        category_id?: string;
+        unit_id?: string;
+        purchase_account_id?: string;
+        sales_account_id?: string;
+        inventory_account_id?: string;
       } = {};
       if (bulkCategoryId) update.category_id = bulkCategoryId;
       if (bulkUnitId) update.unit_id = bulkUnitId;
@@ -135,7 +193,6 @@ const Products = () => {
     }
   };
 
-
   const handleScanned = (code: string) => {
     setSearch(code);
     const match = products.find((p) => p.barcode === code || p.sku === code);
@@ -148,30 +205,42 @@ const Products = () => {
 
   const products = productsQuery.data || [];
   const atProductLimit = maxProducts !== Infinity && products.length >= maxProducts;
-  const filtered = products.filter((p) => {
-    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
-      (p.sku && p.sku.toLowerCase().includes(search.toLowerCase())) ||
-      (p.barcode && p.barcode.toLowerCase().includes(search.toLowerCase()));
-    const matchCategory = categoryFilter === "all" || p.category_id === categoryFilter;
-    const matchBarcode = !onlyMissingBarcode || !((p as any).barcode || "").trim();
-    const matchStatus = statusFilter === "all" ||
-      (statusFilter === "active" && p.is_active) ||
-      (statusFilter === "inactive" && !p.is_active);
-    return matchSearch && matchCategory && matchStatus && matchBarcode;
-  });
+  const filtered = useMemo(() => {
+    const normalizedSearch = search.toLowerCase();
+    return products.filter((p) => {
+      const matchSearch =
+        p.name.toLowerCase().includes(normalizedSearch) ||
+        (p.sku && p.sku.toLowerCase().includes(normalizedSearch)) ||
+        (p.barcode && p.barcode.toLowerCase().includes(normalizedSearch));
+      const matchCategory = categoryFilter === "all" || p.category_id === categoryFilter;
+      const matchBarcode = !onlyMissingBarcode || !((p as any).barcode || "").trim();
+      const matchStatus =
+        statusFilter === "all" ||
+        (statusFilter === "active" && p.is_active) ||
+        (statusFilter === "inactive" && !p.is_active);
+      return matchSearch && matchCategory && matchStatus && matchBarcode;
+    });
+  }, [products, search, categoryFilter, onlyMissingBarcode, statusFilter]);
 
-  const missingBarcode = products.filter((p) => !((p as any).barcode || "").trim() && p.is_active);
+  const missingBarcode = useMemo(
+    () => products.filter((p) => !((p as any).barcode || "").trim() && p.is_active),
+    [products],
+  );
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const paged = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paged = useMemo(
+    () => filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filtered, currentPage, pageSize],
+  );
 
   const allFilteredSelected = paged.length > 0 && paged.every((p) => selectedIds.has(p.id));
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
@@ -211,9 +280,15 @@ const Products = () => {
 
   const handleProductSubmit = (data: ProductFormData) => {
     if (editingProduct) {
-      updateProduct.mutate({ ...data, id: editingProduct.id }, {
-        onSuccess: () => { setProductDialogOpen(false); setEditingProduct(null); },
-      });
+      updateProduct.mutate(
+        { ...data, id: editingProduct.id },
+        {
+          onSuccess: () => {
+            setProductDialogOpen(false);
+            setEditingProduct(null);
+          },
+        },
+      );
     } else {
       createProduct.mutate(data, {
         onSuccess: () => setProductDialogOpen(false),
@@ -229,20 +304,55 @@ const Products = () => {
   const formatKES = (amount: number) =>
     new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(amount);
 
-  const downloadTemplate = () => {
+  const downloadTemplate = async () => {
+    const XLSX = await import("xlsx");
     const sample = [
-      { Name: "Maize Flour 2kg", SKU: "MF-2KG", Barcode: "6901234567890", Category: "Flour", Brand: "Jogoo", Unit: "Pieces", "Purchase Price": 120, "Selling Price": 150, "Tax Rate": 16, Active: "Yes" },
-      { Name: "Sugar 1kg", SKU: "SG-1KG", Barcode: "6907654321098", Category: "Sugar", Brand: "Mumias", Unit: "Pieces", "Purchase Price": 140, "Selling Price": 180, "Tax Rate": 16, Active: "Yes" },
+      {
+        Name: "Maize Flour 2kg",
+        SKU: "MF-2KG",
+        Barcode: "6901234567890",
+        Category: "Flour",
+        Brand: "Jogoo",
+        Unit: "Pieces",
+        "Purchase Price": 120,
+        "Selling Price": 150,
+        "Tax Rate": 16,
+        Active: "Yes",
+      },
+      {
+        Name: "Sugar 1kg",
+        SKU: "SG-1KG",
+        Barcode: "6907654321098",
+        Category: "Sugar",
+        Brand: "Mumias",
+        Unit: "Pieces",
+        "Purchase Price": 140,
+        "Selling Price": 180,
+        "Tax Rate": 16,
+        Active: "Yes",
+      },
     ];
     const ws = XLSX.utils.json_to_sheet(sample);
-    ws["!cols"] = [{ wch: 20 }, { wch: 10 }, { wch: 15 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 8 }];
+    ws["!cols"] = [
+      { wch: 20 },
+      { wch: 10 },
+      { wch: 15 },
+      { wch: 12 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 14 },
+      { wch: 14 },
+      { wch: 10 },
+      { wch: 8 },
+    ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Template");
     XLSX.writeFile(wb, "product_import_template.csv", { bookType: "csv" });
     toast.success("Template downloaded");
   };
 
-  const exportProducts = (format: "csv" | "xlsx") => {
+  const exportProducts = async (format: "csv" | "xlsx") => {
+    const XLSX = await import("xlsx");
     const data = products.map((p) => ({
       Name: p.name,
       SKU: p.sku || "",
@@ -266,11 +376,15 @@ const Products = () => {
     const file = e.target.files?.[0];
     if (!file || !business) return;
     try {
+      const XLSX = await import("xlsx");
       const data = await file.arrayBuffer();
       const wb = XLSX.read(data);
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json<Record<string, any>>(ws);
-      if (rows.length === 0) { toast.error("File is empty"); return; }
+      if (rows.length === 0) {
+        toast.error("File is empty");
+        return;
+      }
       setImportRows(rows);
       setImportHeaders(Object.keys(rows[0]));
       setMappingOpen(true);
@@ -288,7 +402,7 @@ const Products = () => {
       const catMap = new Map((categoriesQuery.data || []).map((c) => [c.name.toLowerCase(), c.id]));
       const brandMap = new Map((brandsQuery.data || []).map((b) => [b.name.toLowerCase(), b.id]));
       const unitMap = new Map((unitsQuery.data || []).map((u) => [u.name.toLowerCase(), u.id]));
-      const get = (row: Record<string, any>, k: string) => mapping[k] ? row[mapping[k] as string] : undefined;
+      const get = (row: Record<string, any>, k: string) => (mapping[k] ? row[mapping[k] as string] : undefined);
       const toInsert = importRows.map((row) => ({
         business_id: business.id,
         name: String(get(row, "name") ?? "Unnamed"),
@@ -349,8 +463,11 @@ const Products = () => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button 
-            onClick={() => { setEditingProduct(null); setProductDialogOpen(true); }}
+          <Button
+            onClick={() => {
+              setEditingProduct(null);
+              setProductDialogOpen(true);
+            }}
             disabled={atProductLimit}
             title={atProductLimit ? `Product limit reached (${maxProducts}). Upgrade your plan.` : undefined}
           >
@@ -364,12 +481,17 @@ const Products = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete "{deleteTarget?.name}"?</AlertDialogTitle>
-            <AlertDialogDescription>This action cannot be undone. This product will be permanently removed.</AlertDialogDescription>
+            <AlertDialogDescription>
+              This action cannot be undone. This product will be permanently removed.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => { if (deleteTarget) deleteProduct.mutate(deleteTarget.id); setDeleteTarget(null); }}
+              onClick={() => {
+                if (deleteTarget) deleteProduct.mutate(deleteTarget.id);
+                setDeleteTarget(null);
+              }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
@@ -383,14 +505,17 @@ const Products = () => {
           <div className="flex items-start gap-2 text-sm">
             <AlertTriangle className="h-4 w-4 mt-0.5 text-warning shrink-0" />
             <span>
-              <strong>{missingBarcode.length}</strong> active product{missingBarcode.length > 1 ? "s have" : " has"} no barcode.
-              Scanning and label printing will not work for {missingBarcode.length > 1 ? "them" : "it"}.
+              <strong>{missingBarcode.length}</strong> active product{missingBarcode.length > 1 ? "s have" : " has"} no
+              barcode. Scanning and label printing will not work for {missingBarcode.length > 1 ? "them" : "it"}.
             </span>
           </div>
           <Button
             size="sm"
             variant={onlyMissingBarcode ? "default" : "outline"}
-            onClick={() => { setOnlyMissingBarcode((v) => !v); setPage(1); }}
+            onClick={() => {
+              setOnlyMissingBarcode((v) => !v);
+              setPage(1);
+            }}
           >
             {onlyMissingBarcode ? "Show all products" : "Review them"}
           </Button>
@@ -399,10 +524,18 @@ const Products = () => {
 
       <Tabs defaultValue="products" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="products"><Package className="mr-1 h-4 w-4" /> Products ({products.length})</TabsTrigger>
-          <TabsTrigger value="categories"><Layers className="mr-1 h-4 w-4" /> Categories</TabsTrigger>
-          <TabsTrigger value="brands"><Tag className="mr-1 h-4 w-4" /> Brands</TabsTrigger>
-          <TabsTrigger value="units"><Ruler className="mr-1 h-4 w-4" /> Units</TabsTrigger>
+          <TabsTrigger value="products">
+            <Package className="mr-1 h-4 w-4" /> Products ({products.length})
+          </TabsTrigger>
+          <TabsTrigger value="categories">
+            <Layers className="mr-1 h-4 w-4" /> Categories
+          </TabsTrigger>
+          <TabsTrigger value="brands">
+            <Tag className="mr-1 h-4 w-4" /> Brands
+          </TabsTrigger>
+          <TabsTrigger value="units">
+            <Ruler className="mr-1 h-4 w-4" /> Units
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="products" className="space-y-4">
@@ -411,19 +544,30 @@ const Products = () => {
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Search by name or barcode..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+                  <Input
+                    placeholder="Search by name or barcode..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-9"
+                  />
                 </div>
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="w-[160px]"><SelectValue placeholder="Category" /></SelectTrigger>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Categories</SelectItem>
                     {categoriesQuery.data?.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[130px]"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectTrigger className="w-[130px]">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="active">Active</SelectItem>
@@ -443,33 +587,54 @@ const Products = () => {
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button size="sm" variant="destructive" disabled={bulkDeleting}>
-                          <Trash2 className="mr-1 h-4 w-4" /> {bulkDeleting ? "Deleting..." : `Delete ${selectedIds.size}`}
+                          <Trash2 className="mr-1 h-4 w-4" />{" "}
+                          {bulkDeleting ? "Deleting..." : `Delete ${selectedIds.size}`}
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Delete {selectedIds.size} product{selectedIds.size > 1 ? "s" : ""}?</AlertDialogTitle>
+                          <AlertDialogTitle>
+                            Delete {selectedIds.size} product{selectedIds.size > 1 ? "s" : ""}?
+                          </AlertDialogTitle>
                           <AlertDialogDescription>
-                            This action cannot be undone. The selected products will be permanently removed from your inventory.
+                            This action cannot be undone. The selected products will be permanently removed from your
+                            inventory.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                          <AlertDialogAction
+                            onClick={handleBulkDelete}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
                             Delete
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
                   )}
-                  <Button size="sm" variant="outline" onClick={() => {
-                    const selected = filtered.filter((p) => selectedIds.has(p.id));
-                    setPrintTagItems(selected.map((p) => ({ id: p.id, name: p.name, sku: p.sku, barcode: (p as any).barcode, selling_price: Number(p.selling_price) })));
-                    setPrintTagsOpen(true);
-                  }}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const selected = filtered.filter((p) => selectedIds.has(p.id));
+                      setPrintTagItems(
+                        selected.map((p) => ({
+                          id: p.id,
+                          name: p.name,
+                          sku: p.sku,
+                          barcode: (p as any).barcode,
+                          selling_price: Number(p.selling_price),
+                        })),
+                      );
+                      setPrintTagsOpen(true);
+                    }}
+                  >
                     <Printer className="mr-1 h-4 w-4" /> Print Tags
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>Clear</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+                    Clear
+                  </Button>
                 </div>
               )}
             </CardHeader>
@@ -494,14 +659,17 @@ const Products = () => {
                   {filtered.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                        {products.length === 0 ? "No products yet. Add your first product!" : "No products match your filters."}
+                        {products.length === 0
+                          ? "No products yet. Add your first product!"
+                          : "No products match your filters."}
                       </TableCell>
                     </TableRow>
                   ) : (
                     paged.map((p) => {
-                      const margin = p.purchase_price > 0
-                        ? (((p.selling_price - p.purchase_price) / p.purchase_price) * 100).toFixed(0)
-                        : "—";
+                      const margin =
+                        p.purchase_price > 0
+                          ? (((p.selling_price - p.purchase_price) / p.purchase_price) * 100).toFixed(0)
+                          : "—";
                       return (
                         <TableRow
                           key={p.id}
@@ -517,7 +685,6 @@ const Products = () => {
                             }
                           }}
                         >
-
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <Checkbox checked={selectedIds.has(p.id)} onCheckedChange={() => toggleSelect(p.id)} />
                           </TableCell>
@@ -525,7 +692,9 @@ const Products = () => {
                             <span className="hover:text-primary hover:underline">{p.name}</span>
                           </TableCell>
 
-                          <TableCell className="font-mono text-xs text-muted-foreground">{(p as any).barcode || "—"}</TableCell>
+                          <TableCell className="font-mono text-xs text-muted-foreground">
+                            {(p as any).barcode || "—"}
+                          </TableCell>
                           <TableCell>{p.categories?.name || "—"}</TableCell>
                           <TableCell className="text-right">{formatKES(p.purchase_price)}</TableCell>
                           <TableCell className="text-right font-medium">{formatKES(p.selling_price)}</TableCell>
@@ -548,16 +717,29 @@ const Products = () => {
                                     <Pencil className="mr-2 h-4 w-4" /> Edit
                                   </DropdownMenuItem>
                                 )}
-                                <DropdownMenuItem onClick={() => {
-                                  setPrintTagItems([{ id: p.id, name: p.name, sku: p.sku, barcode: (p as any).barcode, selling_price: Number(p.selling_price) }]);
-                                  setPrintTagsOpen(true);
-                                }}>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setPrintTagItems([
+                                      {
+                                        id: p.id,
+                                        name: p.name,
+                                        sku: p.sku,
+                                        barcode: (p as any).barcode,
+                                        selling_price: Number(p.selling_price),
+                                      },
+                                    ]);
+                                    setPrintTagsOpen(true);
+                                  }}
+                                >
                                   <Printer className="mr-2 h-4 w-4" /> Print label
                                 </DropdownMenuItem>
                                 {canDelete && (
                                   <>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteTarget(p)}>
+                                    <DropdownMenuItem
+                                      className="text-destructive focus:text-destructive"
+                                      onClick={() => setDeleteTarget(p)}
+                                    >
                                       <Trash2 className="mr-2 h-4 w-4" /> Delete
                                     </DropdownMenuItem>
                                   </>
@@ -575,19 +757,48 @@ const Products = () => {
             {filtered.length > 0 && (
               <div className="flex items-center justify-between gap-2 px-4 py-3 border-t flex-wrap">
                 <div className="text-sm text-muted-foreground">
-                  Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filtered.length)} of {filtered.length}
+                  Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filtered.length)} of{" "}
+                  {filtered.length}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Rows per page</span>
-                  <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
-                    <SelectTrigger className="h-8 w-[80px]"><SelectValue /></SelectTrigger>
+                  <Select
+                    value={String(pageSize)}
+                    onValueChange={(v) => {
+                      setPageSize(Number(v));
+                      setPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 w-[80px]">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      {[10, 25, 50, 100].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                      {[10, 25, 50, 100].map((n) => (
+                        <SelectItem key={n} value={String(n)}>
+                          {n}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
-                  <Button size="sm" variant="outline" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>Prev</Button>
-                  <span className="text-sm">Page {currentPage} / {totalPages}</span>
-                  <Button size="sm" variant="outline" disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)}>Next</Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={currentPage === 1}
+                    onClick={() => setPage(currentPage - 1)}
+                  >
+                    Prev
+                  </Button>
+                  <span className="text-sm">
+                    Page {currentPage} / {totalPages}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={currentPage === totalPages}
+                    onClick={() => setPage(currentPage + 1)}
+                  >
+                    Next
+                  </Button>
                 </div>
               </div>
             )}
@@ -598,24 +809,60 @@ const Products = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Categories</CardTitle>
-              <Button size="sm" onClick={() => { setEditingCategory(null); setCatDialogOpen(true); }}><Plus className="mr-1 h-4 w-4" /> Add</Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setEditingCategory(null);
+                  setCatDialogOpen(true);
+                }}
+              >
+                <Plus className="mr-1 h-4 w-4" /> Add
+              </Button>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
-                <TableHeader><TableRow><TableHead className="w-16">Color</TableHead><TableHead>Name</TableHead><TableHead className="w-28 text-right">Actions</TableHead></TableRow></TableHeader>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-16">Color</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead className="w-28 text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
                   {(categoriesQuery.data || []).map((c: any) => (
                     <TableRow key={c.id}>
-                      <TableCell><span className="inline-block h-5 w-5 rounded-full border" style={{ background: c.color_code || "transparent" }} /></TableCell>
+                      <TableCell>
+                        <span
+                          className="inline-block h-5 w-5 rounded-full border"
+                          style={{ background: c.color_code || "transparent" }}
+                        />
+                      </TableCell>
                       <TableCell>{c.name}</TableCell>
                       <TableCell className="text-right">
-                        <Button size="icon" variant="ghost" onClick={() => { setEditingCategory(c); setCatDialogOpen(true); }}><Pencil className="h-4 w-4" /></Button>
-                        {canDelete && <Button size="icon" variant="ghost" onClick={() => removeCategory.mutate(c.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditingCategory(c);
+                            setCatDialogOpen(true);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        {canDelete && (
+                          <Button size="icon" variant="ghost" onClick={() => removeCategory.mutate(c.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
                   {(!categoriesQuery.data || categoriesQuery.data.length === 0) && (
-                    <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-6">No categories yet.</TableCell></TableRow>
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center text-muted-foreground py-6">
+                        No categories yet.
+                      </TableCell>
+                    </TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -627,23 +874,53 @@ const Products = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Brands</CardTitle>
-              <Button size="sm" onClick={() => { setEditingBrand(null); setBrandDialogOpen(true); }}><Plus className="mr-1 h-4 w-4" /> Add</Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setEditingBrand(null);
+                  setBrandDialogOpen(true);
+                }}
+              >
+                <Plus className="mr-1 h-4 w-4" /> Add
+              </Button>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
-                <TableHeader><TableRow><TableHead>Name</TableHead><TableHead className="w-28 text-right">Actions</TableHead></TableRow></TableHeader>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead className="w-28 text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
                   {(brandsQuery.data || []).map((b: any) => (
                     <TableRow key={b.id}>
                       <TableCell>{b.name}</TableCell>
                       <TableCell className="text-right">
-                        <Button size="icon" variant="ghost" onClick={() => { setEditingBrand(b); setBrandDialogOpen(true); }}><Pencil className="h-4 w-4" /></Button>
-                        {canDelete && <Button size="icon" variant="ghost" onClick={() => removeBrand.mutate(b.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditingBrand(b);
+                            setBrandDialogOpen(true);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        {canDelete && (
+                          <Button size="icon" variant="ghost" onClick={() => removeBrand.mutate(b.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
                   {(!brandsQuery.data || brandsQuery.data.length === 0) && (
-                    <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground py-6">No brands yet.</TableCell></TableRow>
+                    <TableRow>
+                      <TableCell colSpan={2} className="text-center text-muted-foreground py-6">
+                        No brands yet.
+                      </TableCell>
+                    </TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -655,24 +932,55 @@ const Products = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Units of Measure</CardTitle>
-              <Button size="sm" onClick={() => { setEditingUnit(null); setUnitDialogOpen(true); }}><Plus className="mr-1 h-4 w-4" /> Add</Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setEditingUnit(null);
+                  setUnitDialogOpen(true);
+                }}
+              >
+                <Plus className="mr-1 h-4 w-4" /> Add
+              </Button>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
-                <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Abbreviation</TableHead><TableHead className="w-28 text-right">Actions</TableHead></TableRow></TableHeader>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Abbreviation</TableHead>
+                    <TableHead className="w-28 text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
                   {(unitsQuery.data || []).map((u: any) => (
                     <TableRow key={u.id}>
                       <TableCell>{u.name}</TableCell>
                       <TableCell className="text-muted-foreground">{u.abbreviation || "—"}</TableCell>
                       <TableCell className="text-right">
-                        <Button size="icon" variant="ghost" onClick={() => { setEditingUnit(u); setUnitDialogOpen(true); }}><Pencil className="h-4 w-4" /></Button>
-                        {canDelete && <Button size="icon" variant="ghost" onClick={() => removeUnit.mutate(u.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditingUnit(u);
+                            setUnitDialogOpen(true);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        {canDelete && (
+                          <Button size="icon" variant="ghost" onClick={() => removeUnit.mutate(u.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
                   {(!unitsQuery.data || unitsQuery.data.length === 0) && (
-                    <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-6">No units yet.</TableCell></TableRow>
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center text-muted-foreground py-6">
+                        No units yet.
+                      </TableCell>
+                    </TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -683,7 +991,10 @@ const Products = () => {
 
       <ProductFormDialog
         open={productDialogOpen}
-        onOpenChange={(open) => { setProductDialogOpen(open); if (!open) setEditingProduct(null); }}
+        onOpenChange={(open) => {
+          setProductDialogOpen(open);
+          if (!open) setEditingProduct(null);
+        }}
         onSubmit={handleProductSubmit}
         product={editingProduct}
         isLoading={createProduct.isPending || updateProduct.isPending}
@@ -691,42 +1002,56 @@ const Products = () => {
 
       <TaxonomyDialog
         open={catDialogOpen}
-        onOpenChange={(o) => { setCatDialogOpen(o); if (!o) setEditingCategory(null); }}
+        onOpenChange={(o) => {
+          setCatDialogOpen(o);
+          if (!o) setEditingCategory(null);
+        }}
         title={editingCategory ? "Edit Category" : "Add Category"}
         label="Category Name"
         withColor
         initial={editingCategory}
         onSubmit={(v) => {
-          if (editingCategory) updateCategory.mutate({ id: editingCategory.id, name: v.name, color_code: v.color_code });
+          if (editingCategory)
+            updateCategory.mutate({ id: editingCategory.id, name: v.name, color_code: v.color_code });
           else createCategory.mutate({ name: v.name, color_code: v.color_code });
-          setCatDialogOpen(false); setEditingCategory(null);
+          setCatDialogOpen(false);
+          setEditingCategory(null);
         }}
         isLoading={createCategory.isPending || updateCategory.isPending}
       />
       <TaxonomyDialog
         open={brandDialogOpen}
-        onOpenChange={(o) => { setBrandDialogOpen(o); if (!o) setEditingBrand(null); }}
+        onOpenChange={(o) => {
+          setBrandDialogOpen(o);
+          if (!o) setEditingBrand(null);
+        }}
         title={editingBrand ? "Edit Brand" : "Add Brand"}
         label="Brand Name"
         initial={editingBrand}
         onSubmit={(v) => {
           if (editingBrand) updateBrand.mutate({ id: editingBrand.id, name: v.name });
           else createBrand.mutate({ name: v.name });
-          setBrandDialogOpen(false); setEditingBrand(null);
+          setBrandDialogOpen(false);
+          setEditingBrand(null);
         }}
         isLoading={createBrand.isPending || updateBrand.isPending}
       />
       <TaxonomyDialog
         open={unitDialogOpen}
-        onOpenChange={(o) => { setUnitDialogOpen(o); if (!o) setEditingUnit(null); }}
+        onOpenChange={(o) => {
+          setUnitDialogOpen(o);
+          if (!o) setEditingUnit(null);
+        }}
         title={editingUnit ? "Edit Unit" : "Add Unit"}
         label="Unit Name (e.g. Pieces)"
         withAbbreviation
         initial={editingUnit}
         onSubmit={(v) => {
-          if (editingUnit) updateUnit.mutate({ id: editingUnit.id, name: v.name, abbreviation: v.abbreviation ?? null });
+          if (editingUnit)
+            updateUnit.mutate({ id: editingUnit.id, name: v.name, abbreviation: v.abbreviation ?? null });
           else createUnit.mutate({ name: v.name, abbreviation: v.abbreviation ?? null });
-          setUnitDialogOpen(false); setEditingUnit(null);
+          setUnitDialogOpen(false);
+          setEditingUnit(null);
         }}
         isLoading={createUnit.isPending || updateUnit.isPending}
       />
@@ -735,26 +1060,35 @@ const Products = () => {
       <ProductDetailDialog
         product={detailProduct}
         open={!!detailProduct}
-        onOpenChange={(o) => { if (!o) setDetailProduct(null); }}
+        onOpenChange={(o) => {
+          if (!o) setDetailProduct(null);
+        }}
       />
 
       {/* Bulk Update Dialog */}
       <AlertDialog open={bulkUpdateOpen} onOpenChange={setBulkUpdateOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Bulk Update {selectedIds.size} product{selectedIds.size > 1 ? "s" : ""}</AlertDialogTitle>
+            <AlertDialogTitle>
+              Bulk Update {selectedIds.size} product{selectedIds.size > 1 ? "s" : ""}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Pick a Category, Unit and/or Low Stock Threshold to apply to all selected products. Leave a field empty to keep it unchanged.
+              Pick a Category, Unit and/or Low Stock Threshold to apply to all selected products. Leave a field empty to
+              keep it unchanged.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Category</label>
               <Select value={bulkCategoryId} onValueChange={setBulkCategoryId}>
-                <SelectTrigger><SelectValue placeholder="Keep unchanged" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Keep unchanged" />
+                </SelectTrigger>
                 <SelectContent>
                   {categoriesQuery.data?.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -762,10 +1096,15 @@ const Products = () => {
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Unit</label>
               <Select value={bulkUnitId} onValueChange={setBulkUnitId}>
-                <SelectTrigger><SelectValue placeholder="Keep unchanged" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Keep unchanged" />
+                </SelectTrigger>
                 <SelectContent>
                   {unitsQuery.data?.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>{u.name}{u.abbreviation ? ` (${u.abbreviation})` : ""}</SelectItem>
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.name}
+                      {u.abbreviation ? ` (${u.abbreviation})` : ""}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -779,15 +1118,21 @@ const Products = () => {
                 onChange={(e) => setBulkThreshold(e.target.value)}
                 placeholder="Keep unchanged"
               />
-              <p className="text-xs text-muted-foreground">Applies to stock records of the selected products in all locations.</p>
+              <p className="text-xs text-muted-foreground">
+                Applies to stock records of the selected products in all locations.
+              </p>
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Purchase Account (COGS)</label>
               <Select value={bulkPurchaseAccountId} onValueChange={setBulkPurchaseAccountId}>
-                <SelectTrigger><SelectValue placeholder="Keep unchanged" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Keep unchanged" />
+                </SelectTrigger>
                 <SelectContent>
                   {accountsOfType("expense").map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.code} — {a.name}</SelectItem>
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.code} — {a.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -795,10 +1140,14 @@ const Products = () => {
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Sales Account (Revenue)</label>
               <Select value={bulkSalesAccountId} onValueChange={setBulkSalesAccountId}>
-                <SelectTrigger><SelectValue placeholder="Keep unchanged" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Keep unchanged" />
+                </SelectTrigger>
                 <SelectContent>
                   {accountsOfType("income").map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.code} — {a.name}</SelectItem>
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.code} — {a.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -806,10 +1155,14 @@ const Products = () => {
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Inventory Account (Asset)</label>
               <Select value={bulkInventoryAccountId} onValueChange={setBulkInventoryAccountId}>
-                <SelectTrigger><SelectValue placeholder="Keep unchanged" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Keep unchanged" />
+                </SelectTrigger>
                 <SelectContent>
                   {accountsOfType("asset").map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.code} — {a.name}</SelectItem>
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.code} — {a.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -817,8 +1170,18 @@ const Products = () => {
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleBulkUpdate} disabled={bulkUpdating || (!bulkCategoryId && !bulkUnitId && bulkThreshold.trim() === "" && !bulkPurchaseAccountId && !bulkSalesAccountId && !bulkInventoryAccountId)}>
-
+            <AlertDialogAction
+              onClick={handleBulkUpdate}
+              disabled={
+                bulkUpdating ||
+                (!bulkCategoryId &&
+                  !bulkUnitId &&
+                  bulkThreshold.trim() === "" &&
+                  !bulkPurchaseAccountId &&
+                  !bulkSalesAccountId &&
+                  !bulkInventoryAccountId)
+              }
+            >
               {bulkUpdating ? "Updating..." : "Apply"}
             </AlertDialogAction>
           </AlertDialogFooter>
