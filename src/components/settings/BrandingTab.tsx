@@ -130,6 +130,7 @@ export function BrandingTab() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {Object.values(THEMES).map((t) => {
               const active = themeColor === t.key;
+              const colors = Array.isArray(t.colors) && t.colors.length > 0 ? t.colors : [t.swatch];
               return (
                 <button
                   key={t.key}
@@ -154,7 +155,7 @@ export function BrandingTab() {
                     </span>
                   </span>
                   <span className="flex h-8 overflow-hidden rounded-md border">
-                    {t.colors.map((color) => (
+                    {colors.map((color) => (
                       <span key={color} className="flex-1" style={{ backgroundColor: color }} />
                     ))}
                   </span>
