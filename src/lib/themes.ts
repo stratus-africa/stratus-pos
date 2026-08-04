@@ -1,7 +1,13 @@
 // Theme presets for StratusPOS.
 // Each preset is based on a complete, selectable brand palette.
 
-export type ThemeKey = "frosty-ash" | "ocean-breeze" | "mystic-midnight";
+export type ThemeKey =
+  | "frosty-ash"
+  | "ocean-breeze"
+  | "mystic-midnight"
+  | "enchanted-forest"
+  | "black-gold-elegance"
+  | "warm-autumn-glow";
 
 export interface ThemeDef {
   key: ThemeKey;
@@ -40,6 +46,33 @@ export const THEMES: Record<ThemeKey, ThemeDef> = {
     alt: "216 58% 96%",
     swatch: "#21439B",
     colors: ["#EFF3FA", "#21439B", "#233D7F", "#253663", "#28292A"],
+  },
+  "enchanted-forest": {
+    key: "enchanted-forest",
+    label: "Enchanted Forest",
+    primary: "124 18% 31%",
+    primaryGlow: "124 18% 56%",
+    alt: "120 32% 96%",
+    swatch: "#415D43",
+    colors: ["#F2F8F2", "#CDE0D0", "#7DA182", "#415D43", "#111D13"],
+  },
+  "black-gold-elegance": {
+    key: "black-gold-elegance",
+    label: "Black & Gold Elegance",
+    primary: "38 97% 53%",
+    primaryGlow: "38 97% 62%",
+    alt: "0 0% 90%",
+    swatch: "#FCA311",
+    colors: ["#000000", "#14213D", "#FCA311", "#E5E5E5", "#FFFFFF"],
+  },
+  "warm-autumn-glow": {
+    key: "warm-autumn-glow",
+    label: "Warm Autumn Glow",
+    primary: "31 100% 48%",
+    primaryGlow: "40 97% 64%",
+    alt: "47 52% 91%",
+    swatch: "#F77F00",
+    colors: ["#003049", "#D62828", "#F77F00", "#FCBF49", "#EAE2B7"],
   },
 };
 
