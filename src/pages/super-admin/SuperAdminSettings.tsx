@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -9,7 +9,22 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Settings2, Palette, Brush, Building2, CreditCard, Loader2, Check, ChevronRight, Banknote } from "lucide-react";
+import {
+  Settings2,
+  Palette,
+  Brush,
+  Building2,
+  CreditCard,
+  Loader2,
+  Check,
+  ChevronRight,
+  Banknote,
+  Bold,
+  Italic,
+  Underline,
+  List,
+  ListOrdered,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { THEMES, DEFAULT_THEME, applyTheme } from "@/lib/themes";
 
@@ -248,43 +263,18 @@ export default function SuperAdminSettings() {
                     placeholder="https://..."
                   />
                 </Field>
+                <ThemePalettePicker
+                  value={s.theme_color}
+                  onChange={(theme) => {
+                    set("theme_color", theme);
+                    applyTheme(theme);
+                  }}
+                />
               </div>
             )}
 
             {tab === "appearance" && (
-              <Field label="Brand palette" help="Used for buttons, highlights, table rows, and navigation accents.">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  {Object.values(THEMES).map((theme) => {
-                    const active = (s.theme_color || DEFAULT_THEME) === theme.key;
-                    return (
-                      <button
-                        key={theme.key}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => {
-                          set("theme_color", theme.key);
-                          applyTheme(theme.key);
-                        }}
-                        className={cn(
-                          "relative rounded-xl border-2 p-3 text-left transition-all",
-                          active ? "border-primary shadow-sm" : "border-border hover:border-primary/40",
-                        )}
-                      >
-                        <span className="mb-2 flex h-8 overflow-hidden rounded-md border">
-                          {(Array.isArray(theme.colors) && theme.colors.length ? theme.colors : [theme.swatch]).map(
-                            (color) => (
-                              <span key={color} className="flex-1" style={{ backgroundColor: color }} />
-                            ),
-                          )}
-                        </span>
-                        <span className="block text-sm font-medium">{theme.label}</span>
-                        <span className="block text-xs text-muted-foreground">{theme.swatch}</span>
-                        {active && <Check className="absolute right-2 top-2 h-4 w-4 text-primary" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </Field>
+              <p className="text-sm text-muted-foreground">Choose the application palette from the Branding section.</p>
             )}
 
             {tab === "company" && (
@@ -390,10 +380,9 @@ export default function SuperAdminSettings() {
                   </Field>
                 </div>
                 <Field label="Payment instructions" help="Shown to tenants inside the offline payment dialog.">
-                  <Textarea
-                    rows={4}
+                  <RichTextEditor
                     value={offline.instructions}
-                    onChange={(e) => setOff("instructions", e.target.value)}
+                    onChange={(instructions) => setOff("instructions", instructions)}
                   />
                 </Field>
               </div>
@@ -441,6 +430,135 @@ function Field({
       </Label>
       {children}
       {help && <p className="text-xs text-muted-foreground">{help}</p>}
+    </div>
+  );
+}
+
+function ThemePalettePicker({ value, onChange }: { value?: string; onChange: (theme: string) => void }) {
+  return (
+    <Field label="Brand palette" help="Used for buttons, highlights, table rows, and navigation accents.">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {Object.values(THEMES).map((theme) => {
+          const active = (value || DEFAULT_THEME) === theme.key;
+          const colors = Array.isArray((theme as { colors?: unknown }).colors)
+            ? (theme as { colors: unknown[] }).colors.filter((color): color is string => typeof color === "string")
+            : [];
+          return (
+            <button
+              key={theme.key}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onChange(theme.key)}
+              className={cn(
+                "relative rounded-xl border-2 p-3 text-left transition-all",
+                active ? "border-primary shadow-sm" : "border-border hover:border-primary/40",
+              )}
+            >
+              <span className="mb-2 flex h-8 overflow-hidden rounded-md border">
+                {(colors.length > 0 ? colors : [theme.swatch]).map((color, index) => (
+                  <span key={`${color}-${index}`} className="flex-1" style={{ backgroundColor: color }} />
+                ))}
+              </span>
+              <span className="block text-sm font-medium">{theme.label}</span>
+              <span className="block text-xs text-muted-foreground">{theme.swatch}</span>
+              {active && <Check className="absolute right-2 top-2 h-4 w-4 text-primary" />}
+            </button>
+          );
+        })}
+      </div>
+    </Field>
+  );
+}
+
+function RichTextEditor({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const html = /<\/?[a-z][\s\S]*>/i.test(value)
+      ? value
+      : value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
+    if (editor.innerHTML !== html) editor.innerHTML = html;
+  }, [value]);
+
+  const applyFormat = (command: string) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    document.execCommand(command, false);
+    onChange(editor.innerHTML);
+  };
+
+  return (
+    <div className="overflow-hidden rounded-md border bg-background">
+      <div className="flex flex-wrap gap-1 border-b bg-muted/30 p-1.5">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          aria-label="Bold"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => applyFormat("bold")}
+        >
+          <Bold className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          aria-label="Italic"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => applyFormat("italic")}
+        >
+          <Italic className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          aria-label="Underline"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => applyFormat("underline")}
+        >
+          <Underline className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          aria-label="Bulleted list"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => applyFormat("insertUnorderedList")}
+        >
+          <List className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          aria-label="Numbered list"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => applyFormat("insertOrderedList")}
+        >
+          <ListOrdered className="h-4 w-4" />
+        </Button>
+      </div>
+      <div
+        ref={editorRef}
+        contentEditable
+        role="textbox"
+        aria-multiline="true"
+        suppressContentEditableWarning
+        onInput={(event) => onChange(event.currentTarget.innerHTML)}
+        className="min-h-32 p-3 text-sm outline-none empty:before:pointer-events-none empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)]"
+        data-placeholder="Enter payment instructions..."
+      />
     </div>
   );
 }
