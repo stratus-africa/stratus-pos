@@ -110,7 +110,7 @@ export const APP_MODULES: AppModule[] = [
     description: "Employees, leave, payroll and payslips",
     group: "premium",
     Icon: Briefcase,
-    aliases: ["human_resources", "human_resources_payroll"],
+    aliases: ["human_resources", "human_resources_payroll", "hr_management", "payroll"],
     route: "/hr",
   },
 
@@ -141,15 +141,6 @@ export const APP_MODULES: AppModule[] = [
     route: "/journal-entries",
   },
 
-  {
-    key: "hr_management",
-    label: "HR Management",
-    description: "Employees, leave, payslips & payroll",
-    group: "premium",
-    Icon: Briefcase,
-    aliases: ["hr", "payroll"],
-    route: "/hr",
-  },
   {
     key: "digitax",
     label: "DigiTax (KRA eTIMS)",
