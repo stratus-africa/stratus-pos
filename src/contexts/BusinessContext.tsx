@@ -4,7 +4,6 @@ import { useAuth } from "./AuthContext";
 import { applyTheme, DEFAULT_THEME } from "@/lib/themes";
 import { setPostingState } from "@/lib/postingGuard";
 
-
 interface Business {
   id: string;
   name: string;
@@ -51,7 +50,6 @@ interface BusinessContextType {
   stopMasquerade: () => void;
 }
 
-
 const BusinessContext = createContext<BusinessContextType | undefined>(undefined);
 
 export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -66,7 +64,6 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isMasquerading, setIsMasquerading] = useState(false);
   const [subscriptionEndsAt, setSubscriptionEndsAt] = useState<Date | null>(null);
   const [subscriptionExpired, setSubscriptionExpired] = useState(false);
-
 
   const fetchBusiness = async () => {
     if (!user) {
@@ -84,13 +81,12 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return;
     }
 
-
     try {
       // Check for masquerade mode (super admin viewing as another business)
       const masqueradeId = localStorage.getItem("masquerade_business_id");
-      
+
       let businessId: string | null = null;
-      
+
       if (masqueradeId) {
         // Verify user is super admin
         const { data: isSA } = await supabase.rpc("is_super_admin", { _user_id: user.id });
@@ -103,11 +99,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
 
       if (!businessId) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("business_id")
-          .eq("id", user.id)
-          .single();
+        const { data: profile } = await supabase.from("profiles").select("business_id").eq("id", user.id).single();
         businessId = profile?.business_id || null;
         setIsMasquerading(false);
 
@@ -121,10 +113,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             .limit(1)
             .maybeSingle();
           if (roleRow?.business_id) {
-            await supabase
-              .from("profiles")
-              .update({ business_id: roleRow.business_id })
-              .eq("id", user.id);
+            await supabase.from("profiles").update({ business_id: roleRow.business_id }).eq("id", user.id);
             businessId = roleRow.business_id;
           }
         }
@@ -136,11 +125,7 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return;
       }
 
-      const { data: biz } = await supabase
-        .from("businesses")
-        .select("*")
-        .eq("id", businessId)
-        .single();
+      const { data: biz } = await supabase.from("businesses").select("*").eq("id", businessId).single();
 
       if (biz) {
         setBusiness(biz as Business);
@@ -148,21 +133,31 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setIsSuspended(biz.is_active === false);
         applyTheme((biz as { theme_color?: string }).theme_color || DEFAULT_THEME);
 
+        // These requests do not depend on each other. Loading them together shortens
+        // the time before a signed-in user can start using the application.
+        const ownerId = (biz as { owner_id?: string | null }).owner_id;
+        const subscriptionRequest = ownerId
+          ? supabase
+              .from("subscriptions")
+              .select("status, current_period_end")
+              .eq("user_id", ownerId)
+              .order("updated_at", { ascending: false })
+              .limit(1)
+              .maybeSingle()
+          : Promise.resolve({ data: null });
+        const [subscriptionResult, roleResult, profileResult, locationsResult] = await Promise.all([
+          subscriptionRequest,
+          supabase.from("user_roles").select("role").eq("user_id", user.id).eq("business_id", biz.id).maybeSingle(),
+          supabase.from("profiles").select("assigned_location_id").eq("id", user.id).maybeSingle(),
+          supabase.from("locations").select("*").eq("business_id", biz.id).eq("is_active", true),
+        ]);
+
         // Determine subscription expiry from the business owner's subscription.
         // Users can still log in when expired, but transaction posting is blocked.
-        // Override: if the business itself is marked active, treat as not expired
-        // (business-level activation reactivates all features regardless of sub).
-        const ownerId = (biz as { owner_id?: string | null }).owner_id;
         let endsAt: Date | null = null;
         let expired = false;
         if (ownerId) {
-          const { data: subRow } = await supabase
-            .from("subscriptions")
-            .select("status, current_period_end")
-            .eq("user_id", ownerId)
-            .order("updated_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
+          const subRow = subscriptionResult.data;
           if (subRow) {
             endsAt = subRow.current_period_end ? new Date(subRow.current_period_end) : null;
             const statusOk = ["active", "trialing"].includes(subRow.status);
@@ -180,39 +175,18 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setSubscriptionExpired(expired);
         setPostingState({ expired, endsAt });
 
-
-        // Fetch role + assigned location in parallel
-        const [{ data: roleData }, { data: profileExtra }] = await Promise.all([
-          supabase
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", user.id)
-            .eq("business_id", biz.id)
-            .maybeSingle(),
-          supabase
-            .from("profiles")
-            .select("assigned_location_id")
-            .eq("id", user.id)
-            .maybeSingle(),
-        ]);
-
-        const role = (roleData?.role as AppRole) || null;
+        const role = (roleResult.data?.role as AppRole) || null;
         setUserRole(role);
 
-        const { data: locs } = await supabase
-          .from("locations")
-          .select("*")
-          .eq("business_id", biz.id)
-          .eq("is_active", true);
-
-        const locationList = (locs || []) as Location[];
+        const locationList = (locationsResult.data || []) as Location[];
         setLocations(locationList);
 
-        const assignedId = (profileExtra as { assigned_location_id?: string | null } | null)?.assigned_location_id;
+        const assignedId = (profileResult.data as { assigned_location_id?: string | null } | null)
+          ?.assigned_location_id;
         const savedLocId = localStorage.getItem("currentLocationId");
         // Cashiers are pinned to their assigned till; others remember their last selection.
         const preferredId =
-          role === "cashier" && assignedId ? assignedId : (savedLocId || assignedId || locationList[0]?.id);
+          role === "cashier" && assignedId ? assignedId : savedLocId || assignedId || locationList[0]?.id;
         const chosen = locationList.find((l) => l.id === preferredId) || locationList[0] || null;
         setCurrentLocation(chosen);
       } else {
