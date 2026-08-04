@@ -1,11 +1,18 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sunrise, Loader2, Landmark, Wallet, Store } from "lucide-react";
-import { useBankAccounts, BankAccount } from "@/hooks/useBankAccounts";
+import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { useBusiness } from "@/contexts/BusinessContext";
 
 interface StartDayDialogProps {
@@ -98,9 +105,7 @@ export default function StartDayDialog({ open, onOpenChange, onConfirm }: StartD
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                Choose which till you're opening today.
-              </p>
+              <p className="text-xs text-muted-foreground">Choose which till you're opening today.</p>
             </div>
           )}
 
@@ -131,7 +136,7 @@ export default function StartDayDialog({ open, onOpenChange, onConfirm }: StartD
                 <SelectContent>
                   {cashAccounts.map((acc) => (
                     <SelectItem key={acc.id} value={acc.id}>
-                      {acc.name} — KES {Number(acc.balance).toLocaleString()}
+                      {acc.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -146,28 +151,26 @@ export default function StartDayDialog({ open, onOpenChange, onConfirm }: StartD
             )}
           </div>
 
-          {/* Bank & Cash Account Balances */}
-          {bankAccounts.length > 0 && (
+          {/* Do not expose the cash till amount before the cashier has counted it. */}
+          {bankAccounts.some((account) => account.account_type !== "cash") && (
             <div className="space-y-2">
               <Label className="flex items-center gap-1.5">
                 <Landmark className="h-4 w-4 text-muted-foreground" />
                 Account Balances
               </Label>
               <div className="rounded-lg border bg-muted/50 divide-y">
-                {bankAccounts.map((acc: BankAccount) => (
-                  <div key={acc.id} className="flex items-center justify-between px-3 py-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      {acc.account_type === "cash" ? (
-                        <Wallet className="h-3.5 w-3.5 text-emerald-500" />
-                      ) : (
+                {bankAccounts
+                  .filter((acc) => acc.account_type !== "cash")
+                  .map((acc) => (
+                    <div key={acc.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                      <div className="flex items-center gap-2">
                         <Landmark className="h-3.5 w-3.5 text-blue-500" />
-                      )}
-                      <span>{acc.name}</span>
-                      <span className="text-xs text-muted-foreground capitalize">({acc.account_type})</span>
+                        <span>{acc.name}</span>
+                        <span className="text-xs text-muted-foreground capitalize">({acc.account_type})</span>
+                      </div>
+                      <span className="font-medium">KES {Number(acc.balance).toLocaleString()}</span>
                     </div>
-                    <span className="font-medium">KES {Number(acc.balance).toLocaleString()}</span>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
           )}
@@ -195,7 +198,9 @@ export default function StartDayDialog({ open, onOpenChange, onConfirm }: StartD
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
           <Button onClick={handleConfirm} disabled={loading || cashAccounts.length === 0}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Open Register
