@@ -1,6 +1,13 @@
 import { Link, useLocation, useNavigate } from "@/lib/router-compat";
 import { useAuth } from "@/contexts/AuthContext";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { Plus, UserCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect as useEffectR } from "react";
@@ -16,7 +23,6 @@ import {
   FileText,
   PieChart,
   Globe,
-  
   Sparkles,
   LayoutGrid,
   DollarSign,
@@ -70,8 +76,6 @@ const navGroups: NavGroup[] = [
   {
     label: "CMS",
     items: [
-
-      
       { title: "Hero Section", url: "/super-admin/cms/hero", icon: Sparkles },
       { title: "Features", url: "/super-admin/cms/features", icon: LayoutGrid },
       { title: "Pricing Section", url: "/super-admin/cms/pricing", icon: DollarSign },
@@ -84,11 +88,13 @@ const navGroups: NavGroup[] = [
   },
   {
     label: "System",
-    items: [
-      { title: "General Settings", url: "/super-admin/settings", icon: Settings2 },
-    ],
+    items: [{ title: "General Settings", url: "/super-admin/settings", icon: Settings2 }],
   },
 ];
+
+const mobileNavGroups = navGroups
+  .filter((group) => group.label !== "Main")
+  .map((group) => ({ ...group, mobileLabel: group.label === "System" ? "Settings" : group.label }));
 
 export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const { signOut, user } = useAuth();
@@ -96,7 +102,8 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileSection, setMobileSection] = useState("Management");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffectR(() => {
@@ -105,13 +112,16 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
       setPendingCount(Array.isArray(data) ? data.length : 0);
     };
     void load();
-    const ch = supabase.channel("sa-pending-approvals")
+    const ch = supabase
+      .channel("sa-pending-approvals")
       .on("postgres_changes", { event: "*", schema: "public", table: "businesses" }, () => void load())
       .subscribe();
-    return () => { void supabase.removeChannel(ch); };
+    return () => {
+      void supabase.removeChannel(ch);
+    };
   }, []);
 
-  const sidebarVisible = !isMobile || mobileOpen;
+  const sidebarVisible = !isMobile;
   const userName = (user?.user_metadata as any)?.full_name || "Super Admin";
 
   const isActive = (url: string) => {
@@ -119,21 +129,24 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
     return location.pathname.startsWith(url);
   };
 
+  const selectedMobileGroup = mobileNavGroups.find((group) => group.label === mobileSection) || mobileNavGroups[0];
+
+  useEffectR(() => {
+    const activeGroup = mobileNavGroups.find((group) =>
+      group.items.some((item) =>
+        item.url === "/super-admin" ? location.pathname === "/super-admin" : location.pathname.startsWith(item.url),
+      ),
+    );
+    if (activeGroup) setMobileSection(activeGroup.label);
+  }, [location.pathname]);
+
   return (
     <div className="flex min-h-screen bg-[hsl(210_20%_98%)]">
-      {/* Backdrop on mobile */}
-      {isMobile && mobileOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-black/40"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
-
       {sidebarVisible && (
         <aside
           className={cn(
             "bg-white border-r border-border flex flex-col transition-[width] duration-200",
-            isMobile ? "fixed inset-y-0 left-0 z-40 w-64" : "w-64"
+            isMobile ? "fixed inset-y-0 left-0 z-40 w-64" : "w-64",
           )}
         >
           {/* Brand */}
@@ -158,12 +171,11 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
                       <Link
                         key={item.url}
                         to={item.url}
-                        onClick={() => isMobile && setMobileOpen(false)}
                         className={cn(
                           "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
                           active
                             ? "bg-emerald-50 text-emerald-700 font-medium"
-                            : "text-foreground/70 hover:bg-muted hover:text-foreground"
+                            : "text-foreground/70 hover:bg-muted hover:text-foreground",
                         )}
                       >
                         <item.icon className={cn("h-4 w-4 shrink-0", active && "text-emerald-600")} />
@@ -183,11 +195,7 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
 
           {/* Logout */}
           <div className="p-3 border-t border-border">
-            <Button
-              variant="outline"
-              className="w-full justify-center gap-2 text-sm"
-              onClick={signOut}
-            >
+            <Button variant="outline" className="w-full justify-center gap-2 text-sm" onClick={signOut}>
               <LogOut className="h-4 w-4" />
               Log out
             </Button>
@@ -196,15 +204,15 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex min-w-0 flex-col">
         {/* Top bar */}
         <header className="h-14 bg-white border-b border-border flex items-center justify-between px-4 sm:px-6 sticky top-0 z-20">
           <div className="flex items-center gap-2">
             <Button
               size="icon"
               variant="ghost"
-              className="h-8 w-8"
-              onClick={() => (isMobile ? setMobileOpen((o) => !o) : setCollapsed((c) => !c))}
+              className="hidden h-8 w-8 sm:inline-flex"
+              onClick={() => setCollapsed((c) => !c)}
             >
               <PanelLeft className="h-4 w-4" />
             </Button>
@@ -244,8 +252,64 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-6 overflow-auto">{children}</main>
+        <main className="flex-1 overflow-auto p-4 pb-32 sm:p-6">{children}</main>
       </div>
+
+      {isMobile && selectedMobileGroup && (
+        <nav
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_30px_-15px_hsl(var(--foreground)/0.2)] backdrop-blur"
+          aria-label="Super admin navigation"
+        >
+          {mobileMenuOpen && (
+            <div className="mx-auto mb-2 grid max-h-48 max-w-xl grid-cols-3 gap-2 overflow-y-auto rounded-xl border bg-background p-2 sm:grid-cols-4">
+              {selectedMobileGroup.items.map((item) => {
+                const active = isActive(item.url);
+                return (
+                  <Link
+                    key={item.url}
+                    to={item.url}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={cn(
+                      "flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg px-1 text-center text-[10px] font-medium transition-colors",
+                      active ? "bg-primary text-primary-foreground" : "bg-muted/50 text-foreground hover:bg-muted",
+                    )}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    <span className="line-clamp-2">{item.title}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+          <div className="mx-auto grid max-w-xl grid-cols-5 gap-1">
+            {mobileNavGroups.map((group) => {
+              const active = group.label === mobileSection;
+              const Icon = group.items[0].icon;
+              return (
+                <button
+                  key={group.label}
+                  type="button"
+                  aria-expanded={active && mobileMenuOpen}
+                  onClick={() => {
+                    if (active) setMobileMenuOpen((open) => !open);
+                    else {
+                      setMobileSection(group.label);
+                      setMobileMenuOpen(true);
+                    }
+                  }}
+                  className={cn(
+                    "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg px-1 text-[10px] font-medium transition-colors",
+                    active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className="truncate">{group.mobileLabel}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      )}
     </div>
   );
 }
