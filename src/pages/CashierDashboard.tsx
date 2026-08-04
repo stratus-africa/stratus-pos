@@ -15,13 +15,18 @@ interface DailyTotals {
 }
 
 interface AccountRecon {
-  id: string; name: string; type: string;
-  openingBalance: number; inflow: number; outflow: number;
-  expected: number; currentBalance: number; variance: number;
+  id: string;
+  name: string;
+  type: string;
+  openingBalance: number;
+  inflow: number;
+  outflow: number;
+  expected: number;
+  currentBalance: number;
+  variance: number;
 }
 
-const KES = (n: number) =>
-  `KES ${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+const KES = (n: number) => `KES ${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
 export default function CashierDashboard() {
   const { user } = useAuth();
@@ -52,8 +57,7 @@ export default function CashierDashboard() {
 
       const byMethod: Record<string, number> = {};
       if (saleIds.length) {
-        const { data: pays } = await supabase
-          .from("payments").select("amount, method, sale_id").in("sale_id", saleIds);
+        const { data: pays } = await supabase.from("payments").select("amount, method, sale_id").in("sale_id", saleIds);
         (pays || []).forEach((p: { amount: number; method: string }) => {
           const k = (p.method || "other").toLowerCase();
           byMethod[k] = (byMethod[k] || 0) + Number(p.amount || 0);
@@ -64,18 +68,25 @@ export default function CashierDashboard() {
       const { data: accounts } = await supabase
         .from("bank_accounts")
         .select("id, name, account_type, balance")
-        .eq("business_id", business.id).eq("is_active", true).order("name");
+        .eq("business_id", business.id)
+        .eq("is_active", true)
+        .order("name");
 
       const recon: AccountRecon[] = [];
       for (const acc of accounts || []) {
         const { data: txs } = await supabase
           .from("bank_transactions")
           .select("type, amount, date")
-          .eq("bank_account_id", acc.id).eq("date", date);
-        let inflow = 0, outflow = 0;
+          .eq("bank_account_id", acc.id)
+          .eq("date", date);
+        let inflow = 0,
+          outflow = 0;
         (txs || []).forEach((t: { type: string; amount: number }) => {
           const amt = Number(t.amount || 0);
-          if (["payment_received", "deposit", "transfer_in"].includes(t.type)) inflow += amt;
+          // Keep this classification aligned with Banking and the balance trigger.
+          // Anything not explicitly credited to the account is an outflow.
+          if (["payment_received", "transfer_in", "owner_deposit", "loan_disbursement_received"].includes(t.type))
+            inflow += amt;
           else outflow += amt;
         });
         const currentBalance = Number(acc.balance || 0);
@@ -83,8 +94,14 @@ export default function CashierDashboard() {
         const openingBalance = currentBalance - net;
         const expected = openingBalance + inflow - outflow;
         recon.push({
-          id: acc.id, name: acc.name, type: acc.account_type,
-          openingBalance, inflow, outflow, expected, currentBalance,
+          id: acc.id,
+          name: acc.name,
+          type: acc.account_type,
+          openingBalance,
+          inflow,
+          outflow,
+          expected,
+          currentBalance,
           variance: currentBalance - expected,
         });
       }
@@ -93,10 +110,7 @@ export default function CashierDashboard() {
     })();
   }, [business, user, date]);
 
-  const methodList = useMemo(
-    () => Object.entries(totals.byMethod).sort((a, b) => b[1] - a[1]),
-    [totals]
-  );
+  const methodList = useMemo(() => Object.entries(totals.byMethod).sort((a, b) => b[1] - a[1]), [totals]);
 
   return (
     <div className="space-y-6">
@@ -104,13 +118,18 @@ export default function CashierDashboard() {
         <div>
           <h1 className="text-2xl font-bold text-white">My Daily Records</h1>
           <p className="text-sm text-white/70">
-            {business?.name}{currentLocation ? ` — ${currentLocation.name}` : ""}
+            {business?.name}
+            {currentLocation ? ` — ${currentLocation.name}` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Label htmlFor="record-date" className="text-xs text-white/80">Date</Label>
+          <Label htmlFor="record-date" className="text-xs text-white/80">
+            Date
+          </Label>
           <Input
-            id="record-date" type="date" value={date}
+            id="record-date"
+            type="date"
+            value={date}
             onChange={(e) => setDate(e.target.value)}
             className="h-9 w-[170px] bg-white/10 border-white/20 text-white"
           />
@@ -118,37 +137,47 @@ export default function CashierDashboard() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card><CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Sales</p>
-            <TrendingUp className="h-4 w-4 text-emerald-500" />
-          </div>
-          <p className="text-2xl font-bold mt-2">{KES(totals.totalSales)}</p>
-          <p className="text-xs text-muted-foreground mt-1">{totals.txCount} transaction{totals.txCount === 1 ? "" : "s"}</p>
-        </CardContent></Card>
-        <Card><CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Cash Collected</p>
-            <Wallet className="h-4 w-4 text-amber-500" />
-          </div>
-          <p className="text-2xl font-bold mt-2">{KES(totals.byMethod["cash"] || 0)}</p>
-        </CardContent></Card>
-        <Card><CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">M-Pesa</p>
-            <ArrowDownToLine className="h-4 w-4 text-emerald-600" />
-          </div>
-          <p className="text-2xl font-bold mt-2">{KES(totals.byMethod["mpesa"] || 0)}</p>
-        </CardContent></Card>
-        <Card><CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Card / Other</p>
-            <Landmark className="h-4 w-4 text-blue-500" />
-          </div>
-          <p className="text-2xl font-bold mt-2">
-            {KES((totals.byMethod["card"] || 0) + (totals.byMethod["bank"] || 0) + (totals.byMethod["other"] || 0))}
-          </p>
-        </CardContent></Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Sales</p>
+              <TrendingUp className="h-4 w-4 text-emerald-500" />
+            </div>
+            <p className="text-2xl font-bold mt-2">{KES(totals.totalSales)}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {totals.txCount} transaction{totals.txCount === 1 ? "" : "s"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Cash Collected</p>
+              <Wallet className="h-4 w-4 text-amber-500" />
+            </div>
+            <p className="text-2xl font-bold mt-2">{KES(totals.byMethod["cash"] || 0)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">M-Pesa</p>
+              <ArrowDownToLine className="h-4 w-4 text-emerald-600" />
+            </div>
+            <p className="text-2xl font-bold mt-2">{KES(totals.byMethod["mpesa"] || 0)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Card / Other</p>
+              <Landmark className="h-4 w-4 text-blue-500" />
+            </div>
+            <p className="text-2xl font-bold mt-2">
+              {KES((totals.byMethod["card"] || 0) + (totals.byMethod["bank"] || 0) + (totals.byMethod["other"] || 0))}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {(() => {
@@ -161,9 +190,13 @@ export default function CashierDashboard() {
               <CardTitle className="text-base flex items-center gap-2">
                 <Receipt className="h-4 w-4" /> Sales vs Payments Reconciliation
                 {matched ? (
-                  <span className="ml-auto text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-medium">Balanced</span>
+                  <span className="ml-auto text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-medium">
+                    Balanced
+                  </span>
                 ) : (
-                  <span className="ml-auto text-xs px-2 py-0.5 rounded bg-amber-500/15 text-amber-700 font-medium">Mismatch</span>
+                  <span className="ml-auto text-xs px-2 py-0.5 rounded bg-amber-500/15 text-amber-700 font-medium">
+                    Mismatch
+                  </span>
                 )}
               </CardTitle>
               <CardDescription>
@@ -174,8 +207,14 @@ export default function CashierDashboard() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-3 gap-4 text-sm">
-                <div><p className="text-xs text-muted-foreground">Sales total</p><p className="font-semibold">{KES(totals.totalSales)}</p></div>
-                <div><p className="text-xs text-muted-foreground">Payments total</p><p className="font-semibold">{KES(paymentsTotal)}</p></div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Sales total</p>
+                  <p className="font-semibold">{KES(totals.totalSales)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Payments total</p>
+                  <p className="font-semibold">{KES(paymentsTotal)}</p>
+                </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Variance</p>
                   <p className={`font-semibold ${matched ? "" : "text-amber-600"}`}>{KES(diff)}</p>
@@ -188,7 +227,9 @@ export default function CashierDashboard() {
 
       {methodList.length > 0 && (
         <Card>
-          <CardHeader><CardTitle className="text-base">Payment Methods</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-base">Payment Methods</CardTitle>
+          </CardHeader>
           <CardContent>
             <div className="rounded-lg border divide-y">
               {methodList.map(([method, amount]) => (
@@ -241,7 +282,9 @@ export default function CashierDashboard() {
                       <TableCell className="text-right text-rose-600">{KES(a.outflow)}</TableCell>
                       <TableCell className="text-right">{KES(a.expected)}</TableCell>
                       <TableCell className="text-right">{KES(a.currentBalance)}</TableCell>
-                      <TableCell className={`text-right ${Math.abs(a.variance) < 0.01 ? "" : "text-amber-600 font-medium"}`}>
+                      <TableCell
+                        className={`text-right ${Math.abs(a.variance) < 0.01 ? "" : "text-amber-600 font-medium"}`}
+                      >
                         {KES(a.variance)}
                       </TableCell>
                     </TableRow>
