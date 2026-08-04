@@ -131,7 +131,7 @@ const inventoryNav: NavItem[] = [
     icon: ChefHat,
     roles: ["admin", "manager", "cashier", "stores_manager"],
     featureKey: "bakery",
-    permission: "bakery.view",
+    anyPermission: ["bakery.view", "bakery.create", "bakery.edit", "bakery.delete"],
   },
 ];
 
@@ -231,7 +231,7 @@ const systemNav: NavItem[] = [
     icon: UserCog,
     roles: ["admin", "manager", "cashier", "stores_manager"],
     featureKey: "hr",
-    permission: "hr.view",
+    anyPermission: ["hr.view", "hr.create", "hr.edit", "hr.delete"],
   },
   {
     title: "Tax Compliance",
