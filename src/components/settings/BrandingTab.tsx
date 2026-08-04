@@ -130,6 +130,10 @@ export function BrandingTab() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {Object.values(THEMES).map((t) => {
               const active = themeColor === t.key;
+              const palette = Array.isArray((t as { colors?: unknown }).colors)
+                ? (t as { colors: unknown[] }).colors.filter((color): color is string => typeof color === "string")
+                : [];
+              const previewColors = palette.length > 0 ? palette : [t.swatch];
               return (
                 <button
                   key={t.key}
@@ -154,7 +158,9 @@ export function BrandingTab() {
                     </span>
                   </span>
                   <span className="flex h-8 overflow-hidden rounded-md border">
-                    <span className="flex-1" style={{ backgroundColor: t.swatch }} />
+                    {previewColors.map((color, index) => (
+                      <span key={`${color}-${index}`} className="flex-1" style={{ backgroundColor: color }} />
+                    ))}
                   </span>
                   {active && (
                     <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
