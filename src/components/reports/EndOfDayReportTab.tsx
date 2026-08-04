@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,10 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Printer, Sun, ChevronDown } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Download, Printer, Sun, ChevronDown, RefreshCw, Pencil } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { toast } from "sonner";
 import { formatKES, downloadCSV } from "./reportUtils";
 import ReportTableScroll from "./ReportTableScroll";
 
@@ -18,10 +24,13 @@ const todayStr = () => new Date().toISOString().slice(0, 10);
 const ALL = "__all__";
 
 export default function EndOfDayReportTab() {
-  const { business, currentLocation } = useBusiness();
+  const { business, currentLocation, userRole } = useBusiness();
+  const queryClient = useQueryClient();
+  const canManageReconciliations = userRole === "admin";
   const [date, setDate] = useState(todayStr());
   const [cashierId, setCashierId] = useState<string>(ALL);
   const [drawerId, setDrawerId] = useState<string>(ALL);
+  const [rerunning, setRerunning] = useState(false);
 
   // Cashiers in this business
   const cashiersQ = useQuery({
@@ -63,7 +72,9 @@ export default function EndOfDayReportTab() {
 
       const salesQ = supabase
         .from("sales")
-        .select("id, invoice_number, status, subtotal, tax, discount, total, created_at, created_by, customers(name), payments(method, amount, reference, created_at), sale_items(quantity, unit_price, total, products(name, units(name)))")
+        .select(
+          "id, invoice_number, status, subtotal, tax, discount, total, created_at, created_by, customers(name), payments(method, amount, reference, created_at), sale_items(quantity, unit_price, total, products(name, units(name)))",
+        )
         .eq("business_id", business.id)
         .gte("created_at", start)
         .lte("created_at", end)
@@ -97,6 +108,87 @@ export default function EndOfDayReportTab() {
   });
 
   const data = dataQ.data;
+
+  const rerunReconciliation = async () => {
+    if (!business || !canManageReconciliations || !data?.sessions.length) return;
+    setRerunning(true);
+    try {
+      await Promise.all(
+        data.sessions.map(async (session: any) => {
+          const endAt = session.closed_at || `${date}T23:59:59`;
+          const { data: sessionSales, error } = await supabase
+            .from("sales")
+            .select("id, total, payments(method, amount)")
+            .eq("business_id", business.id)
+            .eq("location_id", session.location_id)
+            .eq("created_by", session.opened_by)
+            .eq("status", "final")
+            .gte("created_at", session.opened_at)
+            .lte("created_at", endAt);
+          if (error) throw error;
+          const totals = { sales: 0, cash: 0, mpesa: 0, card: 0, other: 0 };
+          (sessionSales || []).forEach((sale: any) => {
+            totals.sales += Number(sale.total || 0);
+            (sale.payments || []).forEach((payment: any) => {
+              const method = String(payment.method || "other").toLowerCase();
+              const amount = Number(payment.amount || 0);
+              if (method === "cash") totals.cash += amount;
+              else if (method === "mpesa") totals.mpesa += amount;
+              else if (method === "card") totals.card += amount;
+              else totals.other += amount;
+            });
+          });
+          const expected = Number(session.opening_float || 0) + totals.cash;
+          const counted = Number(session.closing_cash || 0);
+          const { error: updateError } = await supabase
+            .from("pos_sessions")
+            .update({
+              expected_cash: expected,
+              cash_difference: counted - expected,
+              total_sales: totals.sales,
+              total_transactions: (sessionSales || []).length,
+              payments_cash: totals.cash,
+              payments_mpesa: totals.mpesa,
+              payments_card: totals.card,
+              payments_other: totals.other,
+            })
+            .eq("id", session.id);
+          if (updateError) throw updateError;
+        }),
+      );
+      await queryClient.invalidateQueries({ queryKey: ["eod-report"] });
+      toast.success("Cash reconciliations recalculated from session sales.");
+    } catch (error: any) {
+      toast.error(error.message || "Could not rerun reconciliation.");
+    } finally {
+      setRerunning(false);
+    }
+  };
+
+  const editSubmittedReconciliation = async (session: any) => {
+    if (!canManageReconciliations) return;
+    const entered = window.prompt("Counted cash (KES)", String(Number(session.closing_cash || 0)));
+    if (entered === null) return;
+    const closingCash = Number(entered);
+    if (!Number.isFinite(closingCash) || closingCash < 0) {
+      toast.error("Enter a valid counted cash amount.");
+      return;
+    }
+    const expected = Number(session.expected_cash || 0);
+    const { error } = await supabase
+      .from("pos_sessions")
+      .update({
+        closing_cash: closingCash,
+        cash_difference: closingCash - expected,
+      })
+      .eq("id", session.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ["eod-report"] });
+    toast.success("Submitted cash reconciliation updated.");
+  };
 
   // When a drawer is chosen, restrict sales to the cashiers tied to that drawer's sessions.
   const filteredSales = useMemo(() => {
@@ -167,8 +259,10 @@ export default function EndOfDayReportTab() {
     };
   }, [filteredSales, data]);
 
-  const cashierName = cashierId === ALL ? "All cashiers" : cashiersQ.data?.find((c: any) => c.id === cashierId)?.full_name || "Cashier";
-  const drawerName = drawerId === ALL ? "All drawers" : drawersQ.data?.find((d: any) => d.id === drawerId)?.name || "Drawer";
+  const cashierName =
+    cashierId === ALL ? "All cashiers" : cashiersQ.data?.find((c: any) => c.id === cashierId)?.full_name || "Cashier";
+  const drawerName =
+    drawerId === ALL ? "All drawers" : drawersQ.data?.find((d: any) => d.id === drawerId)?.name || "Drawer";
 
   const exportCsv = () => {
     if (!summary.sales.length) return;
@@ -207,13 +301,26 @@ export default function EndOfDayReportTab() {
   const exportInvoiceCsv = () => {
     const filtered = summary.sales.filter((s: any) => s.status !== "cancelled" && s.status !== "voided");
     if (!filtered.length) return;
-    const headers = ["Invoice Date","Invoice Number","Customer Name","Is Inclusive Tax","Due Date","Balance","Item Name","Quantity","Item Total","Usage unit","Item Price","Sales person"];
+    const headers = [
+      "Invoice Date",
+      "Invoice Number",
+      "Customer Name",
+      "Is Inclusive Tax",
+      "Due Date",
+      "Balance",
+      "Item Name",
+      "Quantity",
+      "Item Total",
+      "Usage unit",
+      "Item Price",
+      "Sales person",
+    ];
     const rows: string[][] = [];
     for (const s of filtered) {
       const saleDate = String(s.created_at).slice(0, 10);
       const customer = s.customers?.name || "Walk-in Customer";
       const salesPerson = cashierMap.get(s.created_by) || "";
-      for (const li of (s.sale_items || [])) {
+      for (const li of s.sale_items || []) {
         rows.push([
           saleDate,
           s.invoice_number || "",
@@ -236,7 +343,24 @@ export default function EndOfDayReportTab() {
   const exportPaymentCsv = () => {
     const filtered = summary.sales.filter((s: any) => s.status !== "cancelled" && s.status !== "voided");
     if (!filtered.length) return;
-    const headers = ["Payment Number","Mode","Description","Exchange Rate","Amount","Reference Number","Currency Code","Payment Number Suffix","Customer Name","Payment Type","Date","Deposit To","Payment Status","Amount Applied to Invoice","Invoice Number","Invoice Date"];
+    const headers = [
+      "Payment Number",
+      "Mode",
+      "Description",
+      "Exchange Rate",
+      "Amount",
+      "Reference Number",
+      "Currency Code",
+      "Payment Number Suffix",
+      "Customer Name",
+      "Payment Type",
+      "Date",
+      "Deposit To",
+      "Payment Status",
+      "Amount Applied to Invoice",
+      "Invoice Number",
+      "Invoice Date",
+    ];
     const rows: string[][] = [];
     const ordered = [...filtered].sort((a: any, b: any) => +new Date(a.created_at) - +new Date(b.created_at));
     let n = 0;
@@ -247,16 +371,26 @@ export default function EndOfDayReportTab() {
       const pstatus = isRefund ? "Refunded" : "Paid";
       const customer = s.customers?.name || "Walk-in Customer";
       const sDate = fmtDMY(String(s.created_at).slice(0, 10));
-      const pays = (s.payments && s.payments.length) ? s.payments : [{ method: "Cash", amount: s.total, reference: "" }];
+      const pays = s.payments && s.payments.length ? s.payments : [{ method: "Cash", amount: s.total, reference: "" }];
       pays.forEach((p: any) => {
         n += 1;
         rows.push([
-          String(n), p.method || "", desc, "1",
+          String(n),
+          p.method || "",
+          desc,
+          "1",
           Number(p.amount ?? 0).toFixed(2),
-          p.reference || "", "KES", String(n),
-          customer, ptype, sDate, depositFor(p.method),
-          pstatus, Number(p.amount ?? 0).toFixed(2),
-          s.invoice_number || "", sDate,
+          p.reference || "",
+          "KES",
+          String(n),
+          customer,
+          ptype,
+          sDate,
+          depositFor(p.method),
+          pstatus,
+          Number(p.amount ?? 0).toFixed(2),
+          s.invoice_number || "",
+          sDate,
         ]);
       });
     });
@@ -295,11 +429,15 @@ export default function EndOfDayReportTab() {
           <div>
             <Label>Cashier</Label>
             <Select value={cashierId} onValueChange={setCashierId}>
-              <SelectTrigger className="w-52"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-52">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL}>All cashiers</SelectItem>
                 {(cashiersQ.data || []).map((c: any) => (
-                  <SelectItem key={c.id} value={c.id}>{c.full_name || c.email}</SelectItem>
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.full_name || c.email}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -307,18 +445,37 @@ export default function EndOfDayReportTab() {
           <div>
             <Label>Register (Drawer)</Label>
             <Select value={drawerId} onValueChange={setDrawerId}>
-              <SelectTrigger className="w-52"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-52">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL}>All drawers</SelectItem>
                 {(drawersQ.data || []).map((d: any) => (
-                  <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          <Badge variant="outline" className="h-8">{summary.txCount} sales</Badge>
+          <Badge variant="outline" className="h-8">
+            {summary.txCount} sales
+          </Badge>
           <div className="flex-1" />
-          <Button variant="outline" size="sm" onClick={exportCsv}><Download className="h-4 w-4 mr-1" /> Summary CSV</Button>
+          {canManageReconciliations && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={rerunReconciliation}
+              disabled={rerunning || !data?.sessions.length}
+            >
+              <RefreshCw className={`h-4 w-4 mr-1 ${rerunning ? "animate-spin" : ""}`} />
+              Rerun Reconciliation
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={exportCsv}>
+            <Download className="h-4 w-4 mr-1" /> Summary CSV
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
@@ -330,7 +487,9 @@ export default function EndOfDayReportTab() {
               <DropdownMenuItem onClick={exportPaymentCsv}>Payments CSV</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button variant="outline" size="sm" onClick={printReport}><Printer className="h-4 w-4 mr-1" /> Print</Button>
+          <Button variant="outline" size="sm" onClick={printReport}>
+            <Printer className="h-4 w-4 mr-1" /> Print
+          </Button>
         </CardContent>
       </Card>
 
@@ -341,7 +500,8 @@ export default function EndOfDayReportTab() {
               <Sun className="h-5 w-5" /> End of Day Report — {date}
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              {business?.name}{currentLocation ? ` · ${currentLocation.name}` : ""} · {cashierName} · {drawerName}
+              {business?.name}
+              {currentLocation ? ` · ${currentLocation.name}` : ""} · {cashierName} · {drawerName}
             </p>
           </CardHeader>
           <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -365,17 +525,33 @@ export default function EndOfDayReportTab() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>
-            <CardHeader><CardTitle className="text-base">Payments by Method</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-base">Payments by Method</CardTitle>
+            </CardHeader>
             <CardContent>
               <ReportTableScroll>
                 <Table>
-                  <TableHeader><TableRow><TableHead>Method</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Method</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>
                     {summary.byMethod.length === 0 ? (
-                      <TableRow><TableCell colSpan={2} className="text-sm text-muted-foreground">No payments.</TableCell></TableRow>
-                    ) : summary.byMethod.map(([m, t]) => (
-                      <TableRow key={m}><TableCell className="capitalize">{m}</TableCell><TableCell className="text-right">{formatKES(t)}</TableCell></TableRow>
-                    ))}
+                      <TableRow>
+                        <TableCell colSpan={2} className="text-sm text-muted-foreground">
+                          No payments.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      summary.byMethod.map(([m, t]) => (
+                        <TableRow key={m}>
+                          <TableCell className="capitalize">{m}</TableCell>
+                          <TableCell className="text-right">{formatKES(t)}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </ReportTableScroll>
@@ -383,20 +559,36 @@ export default function EndOfDayReportTab() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="text-base">Cash Reconciliation</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-base">Cash Reconciliation</CardTitle>
+            </CardHeader>
             <CardContent className="text-sm space-y-2">
-              <div className="flex justify-between"><span>Opening Float</span><span>{formatKES(summary.openingFloat)}</span></div>
-              <div className="flex justify-between"><span>+ Cash Sales</span><span>{formatKES(summary.cashSales)}</span></div>
-              <div className="flex justify-between font-medium border-t pt-2"><span>Expected Cash</span><span>{formatKES(summary.expectedCash)}</span></div>
-              <div className="flex justify-between"><span>Counted Cash</span><span>{formatKES(summary.closingCash)}</span></div>
+              <div className="flex justify-between">
+                <span>Opening Float</span>
+                <span>{formatKES(summary.openingFloat)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>+ Cash Sales</span>
+                <span>{formatKES(summary.cashSales)}</span>
+              </div>
+              <div className="flex justify-between font-medium border-t pt-2">
+                <span>Expected Cash</span>
+                <span>{formatKES(summary.expectedCash)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Counted Cash</span>
+                <span>{formatKES(summary.closingCash)}</span>
+              </div>
               <div className="flex justify-between font-bold border-t pt-2">
                 <span>Variance</span>
                 <span className={summary.variance >= 0 ? "text-emerald-600" : "text-destructive"}>
-                  {summary.variance >= 0 ? "+" : ""}{formatKES(summary.variance)}
+                  {summary.variance >= 0 ? "+" : ""}
+                  {formatKES(summary.variance)}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground pt-2">
-                Based on {summary.sessions.length} session{summary.sessions.length === 1 ? "" : "s"} for the selected filters.
+                Based on {summary.sessions.length} session{summary.sessions.length === 1 ? "" : "s"} for the selected
+                filters.
               </p>
             </CardContent>
           </Card>
@@ -404,21 +596,35 @@ export default function EndOfDayReportTab() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>
-            <CardHeader><CardTitle className="text-base">Sales by Cashier</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-base">Sales by Cashier</CardTitle>
+            </CardHeader>
             <CardContent>
               <ReportTableScroll>
                 <Table>
-                  <TableHeader><TableRow><TableHead>Cashier</TableHead><TableHead className="text-right">Sales</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Cashier</TableHead>
+                      <TableHead className="text-right">Sales</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>
                     {summary.byCashier.length === 0 ? (
-                      <TableRow><TableCell colSpan={3} className="text-sm text-muted-foreground">No data.</TableCell></TableRow>
-                    ) : summary.byCashier.map((c, i) => (
-                      <TableRow key={i}>
-                        <TableCell>{c.name}</TableCell>
-                        <TableCell className="text-right">{c.count}</TableCell>
-                        <TableCell className="text-right">{formatKES(c.total)}</TableCell>
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-sm text-muted-foreground">
+                          No data.
+                        </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      summary.byCashier.map((c, i) => (
+                        <TableRow key={i}>
+                          <TableCell>{c.name}</TableCell>
+                          <TableCell className="text-right">{c.count}</TableCell>
+                          <TableCell className="text-right">{formatKES(c.total)}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </ReportTableScroll>
@@ -426,34 +632,53 @@ export default function EndOfDayReportTab() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="text-base">Sessions</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-base">Sessions</CardTitle>
+            </CardHeader>
             <CardContent>
               <ReportTableScroll>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Cashier</TableHead><TableHead>Drawer</TableHead>
-                      <TableHead className="text-right">Float</TableHead><TableHead className="text-right">Counted</TableHead>
+                      <TableHead>Cashier</TableHead>
+                      <TableHead>Drawer</TableHead>
+                      <TableHead className="text-right">Float</TableHead>
+                      <TableHead className="text-right">Counted</TableHead>
                       <TableHead className="text-right">Variance</TableHead>
+                      {canManageReconciliations && <TableHead className="text-right">Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {summary.sessions.length === 0 ? (
-                      <TableRow><TableCell colSpan={5} className="text-sm text-muted-foreground">No sessions for the selected filters.</TableCell></TableRow>
-                    ) : summary.sessions.map((s: any) => {
-                      const diff = Number(s.cash_difference || 0);
-                      return (
-                        <TableRow key={s.id}>
-                          <TableCell>{cashierMap.get(s.opened_by) || "—"}</TableCell>
-                          <TableCell>{s.cash_account?.name || "—"}</TableCell>
-                          <TableCell className="text-right">{formatKES(Number(s.opening_float || 0))}</TableCell>
-                          <TableCell className="text-right">{formatKES(Number(s.closing_cash || 0))}</TableCell>
-                          <TableCell className={`text-right ${diff >= 0 ? "text-emerald-600" : "text-destructive"}`}>
-                            {diff >= 0 ? "+" : ""}{formatKES(diff)}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                      <TableRow>
+                        <TableCell colSpan={canManageReconciliations ? 6 : 5} className="text-sm text-muted-foreground">
+                          No sessions for the selected filters.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      summary.sessions.map((s: any) => {
+                        const diff = Number(s.cash_difference || 0);
+                        return (
+                          <TableRow key={s.id}>
+                            <TableCell>{cashierMap.get(s.opened_by) || "—"}</TableCell>
+                            <TableCell>{s.cash_account?.name || "—"}</TableCell>
+                            <TableCell className="text-right">{formatKES(Number(s.opening_float || 0))}</TableCell>
+                            <TableCell className="text-right">{formatKES(Number(s.closing_cash || 0))}</TableCell>
+                            <TableCell className={`text-right ${diff >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                              {diff >= 0 ? "+" : ""}
+                              {formatKES(diff)}
+                            </TableCell>
+                            {canManageReconciliations && (
+                              <TableCell className="text-right">
+                                <Button variant="ghost" size="sm" onClick={() => editSubmittedReconciliation(s)}>
+                                  <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+                                </Button>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        );
+                      })
+                    )}
                   </TableBody>
                 </Table>
               </ReportTableScroll>
@@ -463,32 +688,52 @@ export default function EndOfDayReportTab() {
 
         {summary.sessions.some((s: any) => s.notes) && (
           <Card>
-            <CardHeader><CardTitle className="text-base">Session Notes</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-base">Session Notes</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              {summary.sessions.filter((s: any) => s.notes).map((s: any) => (
-                <div key={s.id} className="border-l-2 border-primary/50 pl-3">
-                  <div className="text-xs text-muted-foreground">
-                    {cashierMap.get(s.opened_by) || "Cashier"} · {s.cash_account?.name || "Drawer"}
+              {summary.sessions
+                .filter((s: any) => s.notes)
+                .map((s: any) => (
+                  <div key={s.id} className="border-l-2 border-primary/50 pl-3">
+                    <div className="text-xs text-muted-foreground">
+                      {cashierMap.get(s.opened_by) || "Cashier"} · {s.cash_account?.name || "Drawer"}
+                    </div>
+                    <div>{s.notes}</div>
                   </div>
-                  <div>{s.notes}</div>
-                </div>
-              ))}
+                ))}
             </CardContent>
           </Card>
         )}
 
         <Card>
-          <CardHeader><CardTitle className="text-base">Expenses by Category</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-base">Expenses by Category</CardTitle>
+          </CardHeader>
           <CardContent>
             <ReportTableScroll>
               <Table>
-                <TableHeader><TableRow><TableHead>Category</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Category</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
                   {Object.keys(summary.expByCat).length === 0 ? (
-                    <TableRow><TableCell colSpan={2} className="text-sm text-muted-foreground">No expenses.</TableCell></TableRow>
-                  ) : Object.entries(summary.expByCat).map(([c, t]) => (
-                    <TableRow key={c}><TableCell>{c}</TableCell><TableCell className="text-right">{formatKES(t)}</TableCell></TableRow>
-                  ))}
+                    <TableRow>
+                      <TableCell colSpan={2} className="text-sm text-muted-foreground">
+                        No expenses.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    Object.entries(summary.expByCat).map(([c, t]) => (
+                      <TableRow key={c}>
+                        <TableCell>{c}</TableCell>
+                        <TableCell className="text-right">{formatKES(t)}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </ReportTableScroll>
@@ -496,27 +741,45 @@ export default function EndOfDayReportTab() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="text-base">Sales ({summary.txCount})</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-base">Sales ({summary.txCount})</CardTitle>
+          </CardHeader>
           <CardContent>
             <ReportTableScroll>
               <Table>
-                <TableHeader><TableRow>
-                  <TableHead>Time</TableHead><TableHead>Invoice</TableHead><TableHead>Cashier</TableHead><TableHead>Customer</TableHead>
-                  <TableHead className="text-right">Total</TableHead><TableHead>Status</TableHead>
-                </TableRow></TableHeader>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Time</TableHead>
+                    <TableHead>Invoice</TableHead>
+                    <TableHead>Cashier</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
                   {summary.sales.length === 0 ? (
-                    <TableRow><TableCell colSpan={6} className="text-sm text-muted-foreground">No sales for this day.</TableCell></TableRow>
-                  ) : summary.sales.map((s: any) => (
-                    <TableRow key={s.id}>
-                      <TableCell>{new Date(s.created_at).toLocaleTimeString()}</TableCell>
-                      <TableCell>{s.invoice_number || "—"}</TableCell>
-                      <TableCell>{cashierMap.get(s.created_by) || "—"}</TableCell>
-                      <TableCell>{s.customers?.name || "Walk-in"}</TableCell>
-                      <TableCell className="text-right">{formatKES(Number(s.total))}</TableCell>
-                      <TableCell><Badge variant="outline" className="capitalize">{s.status}</Badge></TableCell>
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-sm text-muted-foreground">
+                        No sales for this day.
+                      </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    summary.sales.map((s: any) => (
+                      <TableRow key={s.id}>
+                        <TableCell>{new Date(s.created_at).toLocaleTimeString()}</TableCell>
+                        <TableCell>{s.invoice_number || "—"}</TableCell>
+                        <TableCell>{cashierMap.get(s.created_by) || "—"}</TableCell>
+                        <TableCell>{s.customers?.name || "Walk-in"}</TableCell>
+                        <TableCell className="text-right">{formatKES(Number(s.total))}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="capitalize">
+                            {s.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </ReportTableScroll>
