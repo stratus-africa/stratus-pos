@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, Receipt, Wallet, Landmark, TrendingUp, ArrowDownToLine } from "lucide-react";
 
 interface DailyTotals {
@@ -24,7 +25,21 @@ interface AccountRecon {
   expected: number;
   currentBalance: number;
   variance: number;
+  transactions: BankTransaction[];
 }
+
+interface BankTransaction {
+  id: string;
+  type: string;
+  amount: number;
+  date: string;
+  reference: string | null;
+  description: string | null;
+  contact_name: string | null;
+}
+
+const INFLOW_TYPES = new Set(["payment_received", "transfer_in", "owner_deposit", "loan_disbursement_received"]);
+const isInflow = (type: string) => INFLOW_TYPES.has(type);
 
 const KES = (n: number) => `KES ${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
@@ -35,6 +50,7 @@ export default function CashierDashboard() {
   const [loading, setLoading] = useState(false);
   const [totals, setTotals] = useState<DailyTotals>({ totalSales: 0, txCount: 0, byMethod: {} });
   const [accountRecon, setAccountRecon] = useState<AccountRecon[]>([]);
+  const [selectedAccount, setSelectedAccount] = useState<AccountRecon | null>(null);
 
   useEffect(() => {
     if (!business || !user) return;
@@ -67,32 +83,49 @@ export default function CashierDashboard() {
 
       const { data: accounts } = await supabase
         .from("bank_accounts")
-        .select("id, name, account_type, balance")
+        .select("id, name, account_type, opening_balance")
         .eq("business_id", business.id)
         .eq("is_active", true)
         .order("name");
 
+      // The current account balance includes later days. Fetch transactions up to
+      // the selected day so Opening, Expected and Current all describe that day.
+      const allTransactions: Array<BankTransaction & { bank_account_id: string }> = [];
+      const pageSize = 1000;
+      for (let offset = 0; ; offset += pageSize) {
+        const { data: batch, error } = await supabase
+          .from("bank_transactions")
+          .select("id, bank_account_id, type, amount, date, reference, description, contact_name")
+          .eq("business_id", business.id)
+          .lte("date", date)
+          .order("date", { ascending: true })
+          .range(offset, offset + pageSize - 1);
+        if (error) throw error;
+        allTransactions.push(...((batch || []) as Array<BankTransaction & { bank_account_id: string }>));
+        if ((batch || []).length < pageSize) break;
+      }
+
       const recon: AccountRecon[] = [];
       for (const acc of accounts || []) {
-        const { data: txs } = await supabase
-          .from("bank_transactions")
-          .select("type, amount, date")
-          .eq("bank_account_id", acc.id)
-          .eq("date", date);
+        const accountTransactions = allTransactions.filter((transaction) => transaction.bank_account_id === acc.id);
+        const priorNet = accountTransactions
+          .filter((transaction) => transaction.date < date)
+          .reduce(
+            (sum, transaction) =>
+              sum + (isInflow(transaction.type) ? Number(transaction.amount || 0) : -Number(transaction.amount || 0)),
+            0,
+          );
+        const txs = accountTransactions.filter((transaction) => transaction.date === date);
         let inflow = 0,
           outflow = 0;
-        (txs || []).forEach((t: { type: string; amount: number }) => {
+        txs.forEach((t) => {
           const amt = Number(t.amount || 0);
-          // Keep this classification aligned with Banking and the balance trigger.
-          // Anything not explicitly credited to the account is an outflow.
-          if (["payment_received", "transfer_in", "owner_deposit", "loan_disbursement_received"].includes(t.type))
-            inflow += amt;
+          if (isInflow(t.type)) inflow += amt;
           else outflow += amt;
         });
-        const currentBalance = Number(acc.balance || 0);
-        const net = inflow - outflow;
-        const openingBalance = currentBalance - net;
+        const openingBalance = Number(acc.opening_balance || 0) + priorNet;
         const expected = openingBalance + inflow - outflow;
+        const currentBalance = expected;
         recon.push({
           id: acc.id,
           name: acc.name,
@@ -103,6 +136,7 @@ export default function CashierDashboard() {
           expected,
           currentBalance,
           variance: currentBalance - expected,
+          transactions: txs,
         });
       }
       setAccountRecon(recon);
@@ -111,6 +145,12 @@ export default function CashierDashboard() {
   }, [business, user, date]);
 
   const methodList = useMemo(() => Object.entries(totals.byMethod).sort((a, b) => b[1] - a[1]), [totals]);
+  const cashCollected = accountRecon
+    .filter((account) => account.type === "cash")
+    .reduce((sum, account) => sum + account.inflow, 0);
+  const mpesaCollected = accountRecon
+    .filter((account) => account.type === "mobile_money")
+    .reduce((sum, account) => sum + account.inflow, 0);
 
   return (
     <div className="space-y-6">
@@ -155,7 +195,7 @@ export default function CashierDashboard() {
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Cash Collected</p>
               <Wallet className="h-4 w-4 text-amber-500" />
             </div>
-            <p className="text-2xl font-bold mt-2">{KES(totals.byMethod["cash"] || 0)}</p>
+            <p className="text-2xl font-bold mt-2">{KES(cashCollected)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -164,7 +204,7 @@ export default function CashierDashboard() {
               <p className="text-xs uppercase tracking-wide text-muted-foreground">M-Pesa</p>
               <ArrowDownToLine className="h-4 w-4 text-emerald-600" />
             </div>
-            <p className="text-2xl font-bold mt-2">{KES(totals.byMethod["mpesa"] || 0)}</p>
+            <p className="text-2xl font-bold mt-2">{KES(mpesaCollected)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -274,7 +314,11 @@ export default function CashierDashboard() {
                 </TableHeader>
                 <TableBody>
                   {accountRecon.map((a) => (
-                    <TableRow key={a.id}>
+                    <TableRow
+                      key={a.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => setSelectedAccount(a)}
+                    >
                       <TableCell className="font-medium">{a.name}</TableCell>
                       <TableCell className="capitalize">{a.type}</TableCell>
                       <TableCell className="text-right">{KES(a.openingBalance)}</TableCell>
@@ -295,6 +339,59 @@ export default function CashierDashboard() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!selectedAccount} onOpenChange={(open) => !open && setSelectedAccount(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedAccount?.name} — {date}
+            </DialogTitle>
+            <DialogDescription>
+              Opening {KES(selectedAccount?.openingBalance || 0)} · Inflow {KES(selectedAccount?.inflow || 0)} · Outflow{" "}
+              {KES(selectedAccount?.outflow || 0)} · Closing {KES(selectedAccount?.currentBalance || 0)}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[55vh] overflow-auto rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Reference</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="text-right">Inflow</TableHead>
+                  <TableHead className="text-right">Outflow</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {!selectedAccount?.transactions.length ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                      No transactions recorded for this account on this day.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  selectedAccount.transactions.map((transaction) => {
+                    const amount = Number(transaction.amount || 0);
+                    return (
+                      <TableRow key={transaction.id}>
+                        <TableCell className="capitalize">{transaction.type.replaceAll("_", " ")}</TableCell>
+                        <TableCell>{transaction.reference || "—"}</TableCell>
+                        <TableCell>{transaction.description || transaction.contact_name || "—"}</TableCell>
+                        <TableCell className="text-right text-emerald-600">
+                          {isInflow(transaction.type) ? KES(amount) : "—"}
+                        </TableCell>
+                        <TableCell className="text-right text-rose-600">
+                          {isInflow(transaction.type) ? "—" : KES(amount)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
