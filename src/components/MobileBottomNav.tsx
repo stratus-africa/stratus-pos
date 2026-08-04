@@ -1,9 +1,29 @@
 import { useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "@/lib/router-compat";
 import {
-  LayoutDashboard, ShoppingCart, Package, Warehouse, TruckIcon, Receipt,
-  Users, Truck, CreditCard, BarChart3, Settings, Store, BookOpen, Landmark,
-  ShieldCheck, UserCircle, UserCog, Menu, LogOut, Check, RotateCcw, SlidersHorizontal,
+  LayoutDashboard,
+  ShoppingCart,
+  Package,
+  Warehouse,
+  TruckIcon,
+  Receipt,
+  Users,
+  Truck,
+  CreditCard,
+  BarChart3,
+  Settings,
+  Store,
+  BookOpen,
+  Landmark,
+  ChefHat,
+  ShieldCheck,
+  UserCircle,
+  UserCog,
+  Menu,
+  LogOut,
+  Check,
+  RotateCcw,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -24,7 +44,6 @@ import { Switch } from "@/components/ui/switch";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 
-
 type AppRole = "admin" | "manager" | "cashier" | "stores_manager";
 
 type Item = {
@@ -40,23 +59,150 @@ type Item = {
 
 // Flat mirror of AppSidebar navigation (children flattened).
 const NAV: Item[] = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin","manager","cashier"], featureKey: "dashboard", permission: "dashboard.view" },
-  { to: "/pos", label: "POS", icon: ShoppingCart, roles: ["admin","manager","cashier"], featureKey: "pos", permission: "pos.view" },
-  { to: "/sales", label: "My Transactions", icon: Receipt, roles: ["cashier"], featureKey: "sales", permission: "sales.view" },
-  { to: "/products", label: "Products", icon: Package, roles: ["admin","manager","cashier"], featureKey: "products", permission: "products.view" },
-  { to: "/inventory", label: "Inventory", icon: Warehouse, roles: ["admin","manager","cashier"], featureKey: "inventory", permission: "inventory.view" },
-  { to: "/sales", label: "Sales", icon: Receipt, roles: ["admin","manager"], featureKey: "sales", permission: "sales.view", hideForRoles: ["cashier"] },
-  { to: "/customers", label: "Customers", icon: Users, roles: ["admin","manager","cashier"], permission: "customers.view" },
-  { to: "/purchases", label: "Purchases", icon: TruckIcon, roles: ["admin","manager","cashier"], featureKey: "purchases", permission: "purchases.view" },
-  { to: "/suppliers", label: "Suppliers", icon: Truck, roles: ["admin","manager","cashier"], featureKey: "purchases", permission: "suppliers.view" },
-  { to: "/expenses", label: "Expenses", icon: CreditCard, roles: ["admin","manager","cashier"], featureKey: "expenses", permission: "expenses.view" },
-  { to: "/chart-of-accounts", label: "Accountant", icon: BookOpen, roles: ["admin"], featureKey: "chart_of_accounts", permission: "chart_of_accounts.view" },
-  { to: "/journal-entries", label: "Journals", icon: BookOpen, roles: ["admin"], featureKey: "chart_of_accounts", permission: "chart_of_accounts.view" },
-  { to: "/banking", label: "Banking", icon: Landmark, roles: ["admin"], featureKey: "banking", permission: "banking.view" },
-  { to: "/reports", label: "Reports", icon: BarChart3, roles: ["admin","manager","cashier","stores_manager"], featureKey: "reports", anyPermission: ["report.sales","report.purchases","report.expenses","report.inventory","report.pnl","report.audit"] },
-  { to: "/hr", label: "HR", icon: UserCog, roles: ["admin","manager","cashier","stores_manager"], featureKey: "hr", permission: "hr.view" },
-  { to: "/tax-compliance", label: "Tax", icon: ShieldCheck, roles: ["admin","manager"], featureKey: "digitax", permission: "settings.view" },
-  { to: "/profile", label: "Profile", icon: UserCircle, roles: ["admin","manager","cashier"] },
+  {
+    to: "/",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    roles: ["admin", "manager", "cashier"],
+    featureKey: "dashboard",
+    permission: "dashboard.view",
+  },
+  {
+    to: "/pos",
+    label: "POS",
+    icon: ShoppingCart,
+    roles: ["admin", "manager", "cashier"],
+    featureKey: "pos",
+    permission: "pos.view",
+  },
+  {
+    to: "/sales",
+    label: "My Transactions",
+    icon: Receipt,
+    roles: ["cashier"],
+    featureKey: "sales",
+    permission: "sales.view",
+  },
+  {
+    to: "/products",
+    label: "Products",
+    icon: Package,
+    roles: ["admin", "manager", "cashier"],
+    featureKey: "products",
+    permission: "products.view",
+  },
+  {
+    to: "/inventory",
+    label: "Inventory",
+    icon: Warehouse,
+    roles: ["admin", "manager", "cashier"],
+    featureKey: "inventory",
+    permission: "inventory.view",
+  },
+  {
+    to: "/bakery",
+    label: "Bakery",
+    icon: ChefHat,
+    roles: ["admin", "manager", "cashier", "stores_manager"],
+    featureKey: "bakery",
+    permission: "bakery.view",
+  },
+  {
+    to: "/sales",
+    label: "Sales",
+    icon: Receipt,
+    roles: ["admin", "manager"],
+    featureKey: "sales",
+    permission: "sales.view",
+    hideForRoles: ["cashier"],
+  },
+  {
+    to: "/customers",
+    label: "Customers",
+    icon: Users,
+    roles: ["admin", "manager", "cashier"],
+    permission: "customers.view",
+  },
+  {
+    to: "/purchases",
+    label: "Purchases",
+    icon: TruckIcon,
+    roles: ["admin", "manager", "cashier"],
+    featureKey: "purchases",
+    permission: "purchases.view",
+  },
+  {
+    to: "/suppliers",
+    label: "Suppliers",
+    icon: Truck,
+    roles: ["admin", "manager", "cashier"],
+    featureKey: "purchases",
+    permission: "suppliers.view",
+  },
+  {
+    to: "/expenses",
+    label: "Expenses",
+    icon: CreditCard,
+    roles: ["admin", "manager", "cashier"],
+    featureKey: "expenses",
+    permission: "expenses.view",
+  },
+  {
+    to: "/chart-of-accounts",
+    label: "Accountant",
+    icon: BookOpen,
+    roles: ["admin"],
+    featureKey: "chart_of_accounts",
+    permission: "chart_of_accounts.view",
+  },
+  {
+    to: "/journal-entries",
+    label: "Journals",
+    icon: BookOpen,
+    roles: ["admin"],
+    featureKey: "chart_of_accounts",
+    permission: "chart_of_accounts.view",
+  },
+  {
+    to: "/banking",
+    label: "Banking",
+    icon: Landmark,
+    roles: ["admin"],
+    featureKey: "banking",
+    permission: "banking.view",
+  },
+  {
+    to: "/reports",
+    label: "Reports",
+    icon: BarChart3,
+    roles: ["admin", "manager", "cashier", "stores_manager"],
+    featureKey: "reports",
+    anyPermission: [
+      "report.sales",
+      "report.purchases",
+      "report.expenses",
+      "report.inventory",
+      "report.pnl",
+      "report.audit",
+    ],
+  },
+  {
+    to: "/hr",
+    label: "HR",
+    icon: UserCog,
+    roles: ["admin", "manager", "cashier", "stores_manager"],
+    featureKey: "hr",
+    permission: "hr.view",
+  },
+  {
+    to: "/tax-compliance",
+    label: "Tax",
+    icon: ShieldCheck,
+    roles: ["admin", "manager"],
+    featureKey: "digitax",
+    permission: "settings.view",
+  },
+  { to: "/profile", label: "Profile", icon: UserCircle, roles: ["admin", "manager", "cashier"] },
   { to: "/settings", label: "Settings", icon: Settings, roles: ["admin"], permission: "settings.view" },
 ];
 
@@ -94,12 +240,13 @@ export function MobileBottomNav() {
 
   // Resolve the single best route match so deep links (e.g. /inventory/counts/123,
   // /settings/business) light up exactly one tab.
-  const activeTarget = bestMatch(items.map((i) => i.to), location.pathname);
+  const activeTarget = bestMatch(
+    items.map((i) => i.to),
+    location.pathname,
+  );
   const isActive = (to: string) => activeTarget === to && matchesRoute(to, location.pathname);
 
-  const chosen = selected
-    .map((k) => items.find((i) => keyOf(i) === k))
-    .filter((i): i is Item => Boolean(i));
+  const chosen = selected.map((k) => items.find((i) => keyOf(i) === k)).filter((i): i is Item => Boolean(i));
 
   // Quick tabs: user preference first, otherwise the first few available modules.
   // The active module is always surfaced so the pill never looks unselected.
@@ -116,10 +263,7 @@ export function MobileBottomNav() {
     return badges[root] ?? 0;
   };
   const quickBadged = quick.reduce((sum, i) => sum + badgeFor(i.to), 0);
-  const moreBadge =
-    prefs.enabled && prefs.rollUpHidden
-      ? Math.max(0, (badges.__total ?? 0) - quickBadged)
-      : 0;
+  const moreBadge = prefs.enabled && prefs.rollUpHidden ? Math.max(0, (badges.__total ?? 0) - quickBadged) : 0;
 
   const onTouchStart = (e: React.TouchEvent) => {
     const t = e.touches[0];
@@ -190,7 +334,6 @@ export function MobileBottomNav() {
                 >
                   {it.label}
                 </span>
-
               </Link>
             );
           })}
@@ -206,7 +349,6 @@ export function MobileBottomNav() {
                 {renderBadge(moreBadge)}
               </span>
               <span className="text-[11px] font-medium leading-none text-muted-foreground">More</span>
-
             </button>
           </SheetTrigger>
         </div>
@@ -353,5 +495,3 @@ export function MobileBottomNav() {
     </nav>
   );
 }
-
-
