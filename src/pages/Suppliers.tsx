@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Plus, Pencil, Trash2 } from "lucide-react";
@@ -10,6 +11,9 @@ import { usePurchases, useSuppliers, type Purchase, type Supplier } from "@/hook
 import { usePermissions } from "@/hooks/usePermissions";
 import { SupplierFormDialog } from "@/components/purchases/SupplierFormDialog";
 import { PurchaseDetailDialog } from "@/components/purchases/PurchaseDetailDialog";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const Suppliers = () => {
   const { hasPermission } = usePermissions();
@@ -17,12 +21,14 @@ const Suppliers = () => {
   const canEdit = hasPermission("suppliers.edit");
   const canDelete = hasPermission("suppliers.delete");
   const { query, create, update, remove } = useSuppliers();
+  const queryClient = useQueryClient();
   const { query: purchasesQuery } = usePurchases();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Supplier | null>(null);
   const [viewing, setViewing] = useState<Supplier | null>(null);
   const [viewingPurchase, setViewingPurchase] = useState<Purchase | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
 
   const suppliers = query.data ?? [];
   const filtered = suppliers.filter(
@@ -32,6 +38,58 @@ const Suppliers = () => {
   const supplierPurchases = viewing
     ? (purchasesQuery.data || []).filter((purchase) => purchase.supplier_id === viewing.id)
     : [];
+  const selectedSuppliers = filtered.filter((supplier) => selected.includes(supplier.id));
+  const normalize = (value: string | null | undefined) => (value || "").trim().toLowerCase().replace(/\s+/g, "");
+  const allSelected = filtered.length > 0 && filtered.every((supplier) => selected.includes(supplier.id));
+  const toggleSelected = (id: string, checked: boolean) =>
+    setSelected((current) => (checked ? [...new Set([...current, id])] : current.filter((item) => item !== id)));
+
+  const mergeSelected = async () => {
+    if (selectedSuppliers.length < 2) return;
+    const [primary, ...duplicates] = selectedSuppliers;
+    const matches = selectedSuppliers.every(
+      (supplier) =>
+        normalize(supplier.name) === normalize(primary.name) && normalize(supplier.phone) === normalize(primary.phone),
+    );
+    if (!matches) {
+      toast.error("Suppliers can only be merged when both name and phone number match.");
+      return;
+    }
+    try {
+      const duplicateIds = duplicates.map((supplier) => supplier.id);
+      await Promise.all([
+        supabase.from("purchases").update({ supplier_id: primary.id }).in("supplier_id", duplicateIds),
+        supabase.from("bank_transactions").update({ supplier_id: primary.id }).in("supplier_id", duplicateIds),
+      ]);
+      const combinedBalance = selectedSuppliers.reduce((sum, supplier) => sum + Number(supplier.balance || 0), 0);
+      const { error: balanceError } = await supabase
+        .from("suppliers")
+        .update({ balance: combinedBalance })
+        .eq("id", primary.id);
+      if (balanceError) throw balanceError;
+      const { error: deleteError } = await supabase.from("suppliers").delete().in("id", duplicateIds);
+      if (deleteError) throw deleteError;
+      setSelected([]);
+      await Promise.all(
+        ["suppliers", "purchases", "supplier_payments", "bank_transactions"].map((key) =>
+          queryClient.invalidateQueries({ queryKey: [key] }),
+        ),
+      );
+      toast.success("Duplicate suppliers merged.");
+    } catch (error: any) {
+      toast.error(error.message || "Could not merge suppliers.");
+    }
+  };
+
+  const deleteSelected = async () => {
+    if (!selectedSuppliers.length) return;
+    try {
+      await Promise.all(selectedSuppliers.map((supplier) => remove.mutateAsync(supplier.id)));
+      setSelected([]);
+    } catch {
+      /* individual mutation messages explain the failure */
+    }
+  };
 
   const formatKES = (n: number) =>
     new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(n);
@@ -69,11 +127,38 @@ const Suppliers = () => {
         </CardContent>
       </Card>
 
+      {selected.length > 0 && (
+        <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2">
+          <span className="text-sm font-medium">{selected.length} selected</span>
+          <div className="flex-1" />
+          {canEdit && (
+            <Button size="sm" variant="outline" onClick={mergeSelected} disabled={selected.length < 2}>
+              Merge
+            </Button>
+          )}
+          {canDelete && (
+            <Button size="sm" variant="destructive" onClick={deleteSelected}>
+              Delete
+            </Button>
+          )}
+          <Button size="sm" variant="ghost" onClick={() => setSelected([])}>
+            Clear
+          </Button>
+        </div>
+      )}
+
       <Card>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={allSelected}
+                    onCheckedChange={(checked) => setSelected(checked ? filtered.map((supplier) => supplier.id) : [])}
+                    aria-label="Select all suppliers"
+                  />
+                </TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead>Email</TableHead>
@@ -97,6 +182,13 @@ const Suppliers = () => {
               ) : (
                 filtered.map((s) => (
                   <TableRow key={s.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setViewing(s)}>
+                    <TableCell onClick={(event) => event.stopPropagation()}>
+                      <Checkbox
+                        checked={selected.includes(s.id)}
+                        onCheckedChange={(checked) => toggleSelected(s.id, !!checked)}
+                        aria-label={`Select ${s.name}`}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">{s.name}</TableCell>
                     <TableCell>{s.phone || "—"}</TableCell>
                     <TableCell>{s.email || "—"}</TableCell>
@@ -147,6 +239,9 @@ const Suppliers = () => {
           setEditing(null);
           setOpen(false);
         }}
+        isPhoneDuplicate={(phone) =>
+          suppliers.some((supplier) => supplier.id !== editing?.id && normalize(supplier.phone) === normalize(phone))
+        }
       />
 
       <Dialog open={!!viewing} onOpenChange={(open) => !open && setViewing(null)}>
