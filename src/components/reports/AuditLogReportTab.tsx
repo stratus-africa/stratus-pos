@@ -12,8 +12,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { format } from "date-fns";
 import { Search, Download, FileText, Printer, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import ReportTableScroll from "./ReportTableScroll";
 
 interface AuditLog {
@@ -97,7 +95,9 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
   };
 
   const formatKES = (n: number) =>
-    new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(Number(n || 0));
+    new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(
+      Number(n || 0),
+    );
 
   const hasSnapshot = (l: AuditLog) => !!(l.metadata && l.metadata.snapshot);
 
@@ -109,21 +109,30 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
     const payments = snap.payments || [];
     const win = window.open("", "_blank", "width=820,height=900");
     if (!win) return;
-    const rows = items.map((it: any) => `
+    const rows = items
+      .map(
+        (it: any) => `
       <tr>
         <td>${it.products?.name || "—"}${it.products?.sku ? ` <span style="color:#888">(${it.products.sku})</span>` : ""}</td>
         <td style="text-align:right">${Number(it.quantity || 0)}</td>
         <td style="text-align:right">${formatKES(Number(it.unit_cost || 0))}</td>
         <td style="text-align:right">${formatKES(Number(it.total || 0))}</td>
-      </tr>`).join("");
-    const payRows = payments.map((pay: any) => `
+      </tr>`,
+      )
+      .join("");
+    const payRows = payments
+      .map(
+        (pay: any) => `
       <tr>
         <td>${pay.date || ""}</td>
         <td>${pay.bank_accounts?.name || "—"}</td>
         <td>${pay.reference || ""}</td>
         <td style="text-align:right">${formatKES(Number(pay.amount || 0))}</td>
-      </tr>`).join("");
-    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Deleted Purchase ${p.invoice_number || ""}</title>
+      </tr>`,
+      )
+      .join("");
+    win.document
+      .write(`<!doctype html><html><head><meta charset="utf-8"><title>Deleted Purchase ${p.invoice_number || ""}</title>
       <style>
         body{font-family:ui-sans-serif,system-ui,Arial;color:#1e293b;padding:24px;max-width:780px;margin:auto}
         h1{font-size:18px;margin:0 0 4px}
@@ -156,22 +165,23 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
         <div>Tax: ${formatKES(Number(p.tax || 0))}</div>
         <div class="grand">Total: ${formatKES(Number(p.total || 0))}</div>
       </div>
-      ${payments.length ? `<h2>Linked Payments (reversed)</h2>
+      ${
+        payments.length
+          ? `<h2>Linked Payments (reversed)</h2>
       <table><thead><tr><th>Date</th><th>Account</th><th>Reference</th><th style="text-align:right">Amount</th></tr></thead>
-      <tbody>${payRows}</tbody></table>` : ""}
+      <tbody>${payRows}</tbody></table>`
+          : ""
+      }
       ${p.notes ? `<h2>Notes</h2><div style="font-size:12px;white-space:pre-wrap">${p.notes}</div>` : ""}
       <div style="margin-top:24px;font-size:10px;color:#94a3b8">Audit ID: ${l.id}</div>
       </body></html>`);
     win.document.close();
   };
 
-  const actions = useMemo(
-    () => Array.from(new Set(logs.map((l) => l.action))).sort(),
-    [logs]
-  );
+  const actions = useMemo(() => Array.from(new Set(logs.map((l) => l.action))).sort(), [logs]);
   const entities = useMemo(
     () => Array.from(new Set(logs.map((l) => l.entity_type).filter(Boolean) as string[])).sort(),
-    [logs]
+    [logs],
   );
 
   const filtered = useMemo(() => {
@@ -189,9 +199,7 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
   const buildRows = () =>
     filtered.map((l) => {
       const meta = l.metadata || {};
-      const extra = [meta.invoice_number, meta.total ? `Total: ${meta.total}` : null]
-        .filter(Boolean)
-        .join(" • ");
+      const extra = [meta.invoice_number, meta.total ? `Total: ${meta.total}` : null].filter(Boolean).join(" • ");
       const desc = [l.description, extra].filter(Boolean).join(" — ");
       return [
         format(new Date(l.created_at), "yyyy-MM-dd HH:mm:ss"),
@@ -206,9 +214,7 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
   const exportCsv = () => {
     const headers = ["Date", "User", "Email", "Action", "Entity", "Description"];
     const rows = buildRows();
-    const csv = [headers, ...rows]
-      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
-      .join("\n");
+    const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -218,7 +224,11 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
     URL.revokeObjectURL(url);
   };
 
-  const exportPdf = () => {
+  const exportPdf = async () => {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
     const doc = new jsPDF({ orientation: "landscape" });
     doc.setFontSize(14);
     doc.text("Audit Trail Report", 14, 15);
@@ -231,9 +241,7 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
       head: [["Date", "User", "Action", "Entity", "Description"]],
       body: filtered.map((l) => {
         const meta = l.metadata || {};
-        const extra = [meta.invoice_number, meta.total ? `Total: ${meta.total}` : null]
-          .filter(Boolean)
-          .join(" • ");
+        const extra = [meta.invoice_number, meta.total ? `Total: ${meta.total}` : null].filter(Boolean).join(" • ");
         const desc = [l.description, extra].filter(Boolean).join(" — ");
         return [
           format(new Date(l.created_at), "dd MMM yyyy HH:mm"),
@@ -257,23 +265,36 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
         <div className="flex flex-col sm:flex-row gap-2 flex-1">
           <div className="relative w-full sm:max-w-xs">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Search user, action..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input
+              className="pl-9"
+              placeholder="Search user, action..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
           <Select value={actionFilter} onValueChange={setActionFilter}>
-            <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="All actions" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-44">
+              <SelectValue placeholder="All actions" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All actions</SelectItem>
               {actions.map((a) => (
-                <SelectItem key={a} value={a} className="capitalize">{a.replace(/_/g, " ")}</SelectItem>
+                <SelectItem key={a} value={a} className="capitalize">
+                  {a.replace(/_/g, " ")}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Select value={entityFilter} onValueChange={setEntityFilter}>
-            <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="All entities" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-44">
+              <SelectValue placeholder="All entities" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All entities</SelectItem>
               {entities.map((e) => (
-                <SelectItem key={e} value={e} className="capitalize">{e}</SelectItem>
+                <SelectItem key={e} value={e} className="capitalize">
+                  {e}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -305,9 +326,17 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      Loading...
+                    </TableCell>
+                  </TableRow>
                 ) : filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No audit entries match filters</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      No audit entries match filters
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   filtered.map((l) => {
                     const meta = l.metadata || {};
@@ -320,24 +349,32 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
                       l.action === "inventory_recalculation_undone" && meta.restored_qty != null
                         ? `Restored to ${meta.restored_qty}`
                         : null,
-                    ].filter(Boolean).join(" • ");
+                    ]
+                      .filter(Boolean)
+                      .join(" • ");
                     const printable = hasSnapshot(l);
                     const undoable = canUndoLog(l);
                     return (
                       <TableRow key={l.id}>
-                        <TableCell className="text-xs whitespace-nowrap">{format(new Date(l.created_at), "dd MMM yyyy HH:mm")}</TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">
+                          {format(new Date(l.created_at), "dd MMM yyyy HH:mm")}
+                        </TableCell>
                         <TableCell>
                           <div className="text-sm font-medium">{l.user_name || "—"}</div>
                           <div className="text-xs text-muted-foreground">{l.user_email || ""}</div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={actionColor(l.action) as any} className="capitalize">{l.action.replace(/_/g, " ")}</Badge>
+                          <Badge variant={actionColor(l.action) as any} className="capitalize">
+                            {l.action.replace(/_/g, " ")}
+                          </Badge>
                         </TableCell>
                         <TableCell className="text-sm">
                           {l.entity_type ? <span className="capitalize">{l.entity_type}</span> : "—"}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground max-w-[400px]">
-                          <div className="truncate" title={l.description || ""}>{l.description || "—"}</div>
+                          <div className="truncate" title={l.description || ""}>
+                            {l.description || "—"}
+                          </div>
                           {extra && <div className="text-xs text-muted-foreground/80 mt-0.5">{extra}</div>}
                         </TableCell>
                         <TableCell className="text-right">
@@ -384,60 +421,88 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
           <DialogHeader>
             <DialogTitle>Deleted record preview</DialogTitle>
           </DialogHeader>
-          {previewLog && previewLog.metadata?.snapshot && (() => {
-            const snap = previewLog.metadata.snapshot;
-            const p = snap.purchase || {};
-            const items = snap.items || [];
-            const payments = snap.payments || [];
-            return (
-              <div className="space-y-3 text-sm">
-                <div className="rounded-md border border-destructive/40 bg-destructive/5 text-destructive px-3 py-2 text-xs">
-                  Deleted on {format(new Date(previewLog.created_at), "dd MMM yyyy HH:mm")} by {previewLog.user_name || previewLog.user_email || "—"}
-                </div>
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div><span className="text-muted-foreground">Invoice #</span><div className="font-medium">{p.invoice_number || "—"}</div></div>
-                  <div><span className="text-muted-foreground">Total</span><div className="font-medium">{formatKES(Number(p.total || 0))}</div></div>
-                  <div><span className="text-muted-foreground">Supplier</span><div className="font-medium">{p.suppliers?.name || "—"}</div></div>
-                  <div><span className="text-muted-foreground">Location</span><div className="font-medium">{p.locations?.name || "—"}</div></div>
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Items ({items.length})</div>
-                  <div className="max-h-48 overflow-auto rounded border">
-                    <table className="w-full text-xs">
-                      <thead className="bg-muted">
-                        <tr><th className="text-left p-1.5">Product</th><th className="text-right p-1.5">Qty</th><th className="text-right p-1.5">Unit</th><th className="text-right p-1.5">Total</th></tr>
-                      </thead>
-                      <tbody>
-                        {items.map((it: any, i: number) => (
-                          <tr key={i} className="border-t">
-                            <td className="p-1.5">{it.products?.name || "—"}</td>
-                            <td className="p-1.5 text-right">{Number(it.quantity || 0)}</td>
-                            <td className="p-1.5 text-right">{formatKES(Number(it.unit_cost || 0))}</td>
-                            <td className="p-1.5 text-right">{formatKES(Number(it.total || 0))}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+          {previewLog &&
+            previewLog.metadata?.snapshot &&
+            (() => {
+              const snap = previewLog.metadata.snapshot;
+              const p = snap.purchase || {};
+              const items = snap.items || [];
+              const payments = snap.payments || [];
+              return (
+                <div className="space-y-3 text-sm">
+                  <div className="rounded-md border border-destructive/40 bg-destructive/5 text-destructive px-3 py-2 text-xs">
+                    Deleted on {format(new Date(previewLog.created_at), "dd MMM yyyy HH:mm")} by{" "}
+                    {previewLog.user_name || previewLog.user_email || "—"}
                   </div>
-                </div>
-                {payments.length > 0 && (
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Invoice #</span>
+                      <div className="font-medium">{p.invoice_number || "—"}</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Total</span>
+                      <div className="font-medium">{formatKES(Number(p.total || 0))}</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Supplier</span>
+                      <div className="font-medium">{p.suppliers?.name || "—"}</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Location</span>
+                      <div className="font-medium">{p.locations?.name || "—"}</div>
+                    </div>
+                  </div>
                   <div>
-                    <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Payments reversed ({payments.length})</div>
-                    <ul className="text-xs space-y-1">
-                      {payments.map((pay: any, i: number) => (
-                        <li key={i} className="flex justify-between border-b py-1">
-                          <span>{pay.date} · {pay.bank_accounts?.name || "—"} {pay.reference ? `· ${pay.reference}` : ""}</span>
-                          <span className="font-medium">{formatKES(Number(pay.amount || 0))}</span>
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">
+                      Items ({items.length})
+                    </div>
+                    <div className="max-h-48 overflow-auto rounded border">
+                      <table className="w-full text-xs">
+                        <thead className="bg-muted">
+                          <tr>
+                            <th className="text-left p-1.5">Product</th>
+                            <th className="text-right p-1.5">Qty</th>
+                            <th className="text-right p-1.5">Unit</th>
+                            <th className="text-right p-1.5">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {items.map((it: any, i: number) => (
+                            <tr key={i} className="border-t">
+                              <td className="p-1.5">{it.products?.name || "—"}</td>
+                              <td className="p-1.5 text-right">{Number(it.quantity || 0)}</td>
+                              <td className="p-1.5 text-right">{formatKES(Number(it.unit_cost || 0))}</td>
+                              <td className="p-1.5 text-right">{formatKES(Number(it.total || 0))}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                )}
-              </div>
-            );
-          })()}
+                  {payments.length > 0 && (
+                    <div>
+                      <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">
+                        Payments reversed ({payments.length})
+                      </div>
+                      <ul className="text-xs space-y-1">
+                        {payments.map((pay: any, i: number) => (
+                          <li key={i} className="flex justify-between border-b py-1">
+                            <span>
+                              {pay.date} · {pay.bank_accounts?.name || "—"} {pay.reference ? `· ${pay.reference}` : ""}
+                            </span>
+                            <span className="font-medium">{formatKES(Number(pay.amount || 0))}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPreviewLog(null)}>Close</Button>
+            <Button variant="outline" onClick={() => setPreviewLog(null)}>
+              Close
+            </Button>
             <Button onClick={() => previewLog && printSnapshot(previewLog)}>
               <Printer className="h-4 w-4 mr-1" /> Print
             </Button>
