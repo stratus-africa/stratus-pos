@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,7 +35,13 @@ type OfflineSettings = {
 };
 
 export function OfflinePaymentDialog({
-  open, onOpenChange, packageId, packageName, billingInterval, amount, onSubmitted,
+  open,
+  onOpenChange,
+  packageId,
+  packageName,
+  billingInterval,
+  amount,
+  onSubmitted,
 }: Props) {
   const { user } = useAuth();
   const { business } = useBusiness();
@@ -41,7 +54,12 @@ export function OfflinePaymentDialog({
     if (!open) return;
     (async () => {
       const { data } = await (supabase as any).rpc("get_offline_payment_settings");
-      const s = (data as OfflineSettings) || { enabled: true, mpesa_enabled: true, cash_enabled: true, instructions: "" };
+      const s = (data as OfflineSettings) || {
+        enabled: true,
+        mpesa_enabled: true,
+        cash_enabled: true,
+        instructions: "",
+      };
       setSettings(s);
       // Auto-pick first enabled method
       if (s.mpesa_enabled) setMethod("mpesa");
@@ -95,24 +113,33 @@ export function OfflinePaymentDialog({
 
         <div className="space-y-4">
           {settings?.instructions && (
-            <div className="rounded-md border bg-muted/40 p-3 text-sm whitespace-pre-line">
-              {settings.instructions}
-            </div>
+            <div
+              className="rounded-md border bg-muted/40 p-3 text-sm [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5"
+              dangerouslySetInnerHTML={{ __html: instructionHtml(settings.instructions) }}
+            />
           )}
 
-          {(showMpesa || showCash) ? (
+          {showMpesa || showCash ? (
             <div>
               <Label className="mb-2 block">Payment method</Label>
-              <RadioGroup value={method} onValueChange={(v) => setMethod(v as "mpesa" | "cash")} className="grid grid-cols-2 gap-2">
+              <RadioGroup
+                value={method}
+                onValueChange={(v) => setMethod(v as "mpesa" | "cash")}
+                className="grid grid-cols-2 gap-2"
+              >
                 {showMpesa && (
-                  <label className={`flex items-center gap-2 border rounded-md p-3 cursor-pointer ${method === "mpesa" ? "border-primary bg-primary/5" : "border-border"}`}>
+                  <label
+                    className={`flex items-center gap-2 border rounded-md p-3 cursor-pointer ${method === "mpesa" ? "border-primary bg-primary/5" : "border-border"}`}
+                  >
                     <RadioGroupItem value="mpesa" />
                     <Smartphone className="h-4 w-4" />
                     <span className="text-sm font-medium">M-Pesa / Airtel</span>
                   </label>
                 )}
                 {showCash && (
-                  <label className={`flex items-center gap-2 border rounded-md p-3 cursor-pointer ${method === "cash" ? "border-primary bg-primary/5" : "border-border"}`}>
+                  <label
+                    className={`flex items-center gap-2 border rounded-md p-3 cursor-pointer ${method === "cash" ? "border-primary bg-primary/5" : "border-border"}`}
+                  >
                     <RadioGroupItem value="cash" />
                     <Banknote className="h-4 w-4" />
                     <span className="text-sm font-medium">Cash</span>
@@ -138,7 +165,9 @@ export function OfflinePaymentDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+            Cancel
+          </Button>
           <Button onClick={handleSubmit} disabled={saving || (!showMpesa && !showCash)}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Submit for approval
@@ -147,4 +176,9 @@ export function OfflinePaymentDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function instructionHtml(value: string) {
+  if (/<\/?[a-z][\s\S]*>/i.test(value)) return value;
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
 }
