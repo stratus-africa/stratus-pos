@@ -20,6 +20,7 @@ import {
   UserCircle,
   UserCog,
   ScanBarcode,
+  ChefHat,
 } from "lucide-react";
 import { useFeatureLimit } from "@/components/FeatureGate";
 import { useDigitaxEnabled } from "@/hooks/useDigitax";
@@ -47,11 +48,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronRight } from "lucide-react";
 
 type AppRole = "admin" | "manager" | "cashier" | "stores_manager";
@@ -74,52 +71,172 @@ interface NavItem {
 }
 
 const mainNav: NavItem[] = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["admin", "manager", "cashier"], featureKey: "dashboard", permission: "dashboard.view" },
-  { title: "POS", url: "/pos", icon: ShoppingCart, roles: ["admin", "manager", "cashier"], featureKey: "pos", permission: "pos.view" },
-  { title: "My Transactions", url: "/sales", icon: Receipt, roles: ["cashier"], featureKey: "sales", permission: "sales.view" },
+  {
+    title: "Dashboard",
+    url: "/",
+    icon: LayoutDashboard,
+    roles: ["admin", "manager", "cashier"],
+    featureKey: "dashboard",
+    permission: "dashboard.view",
+  },
+  {
+    title: "POS",
+    url: "/pos",
+    icon: ShoppingCart,
+    roles: ["admin", "manager", "cashier"],
+    featureKey: "pos",
+    permission: "pos.view",
+  },
+  {
+    title: "My Transactions",
+    url: "/sales",
+    icon: Receipt,
+    roles: ["cashier"],
+    featureKey: "sales",
+    permission: "sales.view",
+  },
 ];
 
 const inventoryNav: NavItem[] = [
   {
-    title: "Products", url: "/products", icon: Package, roles: ["admin", "manager", "cashier"], featureKey: "products", permission: "products.view",
+    title: "Products",
+    url: "/products",
+    icon: Package,
+    roles: ["admin", "manager", "cashier"],
+    featureKey: "products",
+    permission: "products.view",
     children: [
-      { title: "Barcode Mapping", url: "/barcode-mapping", icon: ScanBarcode, roles: ["admin", "manager"], featureKey: "products", permission: "products.edit" },
+      {
+        title: "Barcode Mapping",
+        url: "/barcode-mapping",
+        icon: ScanBarcode,
+        roles: ["admin", "manager"],
+        featureKey: "products",
+        permission: "products.edit",
+      },
     ],
   },
 
-  { title: "Inventory", url: "/inventory", icon: Warehouse, roles: ["admin", "manager", "cashier"], featureKey: "inventory", permission: "inventory.view" },
+  {
+    title: "Inventory",
+    url: "/inventory",
+    icon: Warehouse,
+    roles: ["admin", "manager", "cashier"],
+    featureKey: "inventory",
+    permission: "inventory.view",
+  },
+  { title: "Bakery Production", url: "/bakery", icon: ChefHat, roles: ["admin", "manager"], featureKey: "bakery" },
 ];
 
 const transactionNav: NavItem[] = [
   {
-    title: "Sales", url: "/sales", icon: Receipt, roles: ["admin", "manager"], featureKey: "sales", permission: "sales.view", hideForRoles: ["cashier"],
+    title: "Sales",
+    url: "/sales",
+    icon: Receipt,
+    roles: ["admin", "manager"],
+    featureKey: "sales",
+    permission: "sales.view",
+    hideForRoles: ["cashier"],
     children: [
-      { title: "Customers", url: "/customers", icon: Users, roles: ["admin", "manager", "cashier"], permission: "customers.view" },
+      {
+        title: "Customers",
+        url: "/customers",
+        icon: Users,
+        roles: ["admin", "manager", "cashier"],
+        permission: "customers.view",
+      },
     ],
   },
   {
-    title: "Purchases", url: "/purchases", icon: TruckIcon, roles: ["admin", "manager", "cashier"], featureKey: "purchases", permission: "purchases.view",
+    title: "Purchases",
+    url: "/purchases",
+    icon: TruckIcon,
+    roles: ["admin", "manager", "cashier"],
+    featureKey: "purchases",
+    permission: "purchases.view",
     children: [
-      { title: "Suppliers", url: "/suppliers", icon: Truck, roles: ["admin", "manager", "cashier"], featureKey: "purchases", permission: "suppliers.view" },
+      {
+        title: "Suppliers",
+        url: "/suppliers",
+        icon: Truck,
+        roles: ["admin", "manager", "cashier"],
+        featureKey: "purchases",
+        permission: "suppliers.view",
+      },
     ],
   },
-  { title: "Expenses", url: "/expenses", icon: CreditCard, roles: ["admin", "manager", "cashier"], featureKey: "expenses", permission: "expenses.view" },
+  {
+    title: "Expenses",
+    url: "/expenses",
+    icon: CreditCard,
+    roles: ["admin", "manager", "cashier"],
+    featureKey: "expenses",
+    permission: "expenses.view",
+  },
 ];
 
 const financeNav: NavItem[] = [
-  { title: "Accountant", url: "/chart-of-accounts", icon: BookOpen, roles: ["admin"], featureKey: "chart_of_accounts", permission: "chart_of_accounts.view" },
-  { title: "Journal Entries", url: "/journal-entries", icon: BookOpen, roles: ["admin"], featureKey: "chart_of_accounts", permission: "chart_of_accounts.view" },
-  { title: "Banking", url: "/banking", icon: Landmark, roles: ["admin"], featureKey: "banking", permission: "banking.view" },
+  {
+    title: "Accountant",
+    url: "/chart-of-accounts",
+    icon: BookOpen,
+    roles: ["admin"],
+    featureKey: "chart_of_accounts",
+    permission: "chart_of_accounts.view",
+  },
+  {
+    title: "Journal Entries",
+    url: "/journal-entries",
+    icon: BookOpen,
+    roles: ["admin"],
+    featureKey: "chart_of_accounts",
+    permission: "chart_of_accounts.view",
+  },
+  {
+    title: "Banking",
+    url: "/banking",
+    icon: Landmark,
+    roles: ["admin"],
+    featureKey: "banking",
+    permission: "banking.view",
+  },
 ];
 
 const systemNav: NavItem[] = [
-  { title: "Reports", url: "/reports", icon: BarChart3, roles: ["admin", "manager", "cashier", "stores_manager"], featureKey: "reports", anyPermission: ["report.sales", "report.purchases", "report.expenses", "report.inventory", "report.pnl", "report.audit"] },
-  { title: "HR", url: "/hr", icon: UserCog, roles: ["admin", "manager", "cashier", "stores_manager"], featureKey: "hr", permission: "hr.view" },
-  { title: "Tax Compliance", url: "/tax-compliance", icon: ShieldCheck, roles: ["admin", "manager"], featureKey: "digitax", permission: "settings.view" },
+  {
+    title: "Reports",
+    url: "/reports",
+    icon: BarChart3,
+    roles: ["admin", "manager", "cashier", "stores_manager"],
+    featureKey: "reports",
+    anyPermission: [
+      "report.sales",
+      "report.purchases",
+      "report.expenses",
+      "report.inventory",
+      "report.pnl",
+      "report.audit",
+    ],
+  },
+  {
+    title: "HR",
+    url: "/hr",
+    icon: UserCog,
+    roles: ["admin", "manager", "cashier", "stores_manager"],
+    featureKey: "hr",
+    permission: "hr.view",
+  },
+  {
+    title: "Tax Compliance",
+    url: "/tax-compliance",
+    icon: ShieldCheck,
+    roles: ["admin", "manager"],
+    featureKey: "digitax",
+    permission: "settings.view",
+  },
   { title: "Profile", url: "/profile", icon: UserCircle, roles: ["admin", "manager", "cashier"] },
   { title: "Settings", url: "/settings", icon: Settings, roles: ["admin"], permission: "settings.view" },
 ];
-
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -168,8 +285,7 @@ export function AppSidebar() {
     if (filtered.length === 0) return null;
 
     const isActiveUrl = (url: string) => currentPath === url;
-    const itemHasActiveChild = (item: NavItem) =>
-      !!item.children?.some((c) => isActiveUrl(c.url));
+    const itemHasActiveChild = (item: NavItem) => !!item.children?.some((c) => isActiveUrl(c.url));
 
     return (
       <SidebarGroup>
@@ -185,7 +301,12 @@ export function AppSidebar() {
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={isActiveUrl(item.url)}>
-                      <NavLink to={item.url} end className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-sidebar-primary font-medium">
+                      <NavLink
+                        to={item.url}
+                        end
+                        className="hover:bg-sidebar-accent/50"
+                        activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                      >
                         <item.icon className="mr-2 h-4 w-4" />
                         {!collapsed && <span>{item.title}</span>}
                       </NavLink>
@@ -200,7 +321,12 @@ export function AppSidebar() {
                   <SidebarMenuItem>
                     <div className="flex items-center w-full">
                       <SidebarMenuButton asChild isActive={isActiveUrl(item.url)} className="flex-1">
-                        <NavLink to={item.url} end className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-sidebar-primary font-medium">
+                        <NavLink
+                          to={item.url}
+                          end
+                          className="hover:bg-sidebar-accent/50"
+                          activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                        >
                           <item.icon className="mr-2 h-4 w-4" />
                           {!collapsed && <span className="flex-1">{item.title}</span>}
                         </NavLink>
@@ -253,11 +379,7 @@ export function AppSidebar() {
           {!collapsed && (
             <div className="flex flex-col min-w-0 leading-tight">
               <span className="text-base font-bold tracking-tight text-sidebar-foreground truncate">StratusPOS</span>
-              {business && (
-                <span className="text-xs text-muted-foreground truncate">
-                  {business.name}
-                </span>
-              )}
+              {business && <span className="text-xs text-muted-foreground truncate">{business.name}</span>}
             </div>
           )}
         </div>
@@ -283,7 +405,10 @@ export function AppSidebar() {
         )}
         {!collapsed && userRole && (
           <div className="px-2 pb-1">
-            <Badge variant="outline" className="text-xs capitalize w-full justify-center bg-white rounded-sm border-sidebar-border hover:bg-white/90">
+            <Badge
+              variant="outline"
+              className="text-xs capitalize w-full justify-center bg-white rounded-sm border-sidebar-border hover:bg-white/90"
+            >
               {userRole}
             </Badge>
           </div>
