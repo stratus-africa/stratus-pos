@@ -257,11 +257,11 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
 
       {isMobile && selectedMobileGroup && (
         <nav
-          className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_30px_-15px_hsl(var(--foreground)/0.2)] backdrop-blur"
+          className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2"
           aria-label="Super admin navigation"
         >
           {mobileMenuOpen && (
-            <div className="mx-auto mb-2 grid max-h-48 max-w-xl grid-cols-3 gap-2 overflow-y-auto rounded-xl border bg-background p-2 sm:grid-cols-4">
+            <div className="mx-auto mb-2 grid max-h-48 max-w-md grid-cols-3 gap-2 overflow-y-auto rounded-xl border bg-background p-2 shadow-lg sm:grid-cols-4">
               {selectedMobileGroup.items.map((item) => {
                 const active = isActive(item.url);
                 return (
@@ -281,7 +281,27 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
               })}
             </div>
           )}
-          <div className="mx-auto grid max-w-xl grid-cols-5 gap-1">
+          <div className="mx-auto grid max-w-md grid-cols-6 items-end rounded-[1.75rem] border border-border/60 bg-card/95 px-2 py-2 shadow-[0_10px_30px_-10px_hsl(var(--foreground)/0.25)] backdrop-blur">
+            <Link
+              to="/super-admin"
+              aria-current={isActive("/super-admin") ? "page" : undefined}
+              className={cn(
+                "group flex min-w-0 flex-col items-center justify-end gap-0.5 px-1 pt-1 text-[10px] font-medium",
+                isActive("/super-admin") ? "text-primary" : "text-muted-foreground",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex h-10 w-10 items-center justify-center rounded-full transition-all",
+                  isActive("/super-admin")
+                    ? "-translate-y-2 bg-primary text-primary-foreground shadow-lg shadow-primary/30 ring-4 ring-background"
+                    : "group-active:bg-muted",
+                )}
+              >
+                <LayoutDashboard className="h-4 w-4" />
+              </span>
+              <span className={cn("truncate", isActive("/super-admin") && "-mt-2 font-semibold")}>Dashboard</span>
+            </Link>
             {mobileNavGroups.map((group) => {
               const active = group.label === mobileSection;
               const Icon = group.items[0].icon;
@@ -298,12 +318,21 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
                     }
                   }}
                   className={cn(
-                    "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg px-1 text-[10px] font-medium transition-colors",
-                    active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
+                    "group flex min-w-0 flex-col items-center justify-end gap-0.5 px-1 pt-1 text-[10px] font-medium",
+                    active ? "text-primary" : "text-muted-foreground",
                   )}
                 >
-                  <Icon className="h-4 w-4" />
-                  <span className="truncate">{group.mobileLabel}</span>
+                  <span
+                    className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-full transition-all",
+                      active
+                        ? "-translate-y-2 bg-primary text-primary-foreground shadow-lg shadow-primary/30 ring-4 ring-background"
+                        : "group-active:bg-muted",
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className={cn("truncate", active && "-mt-2 font-semibold")}>{group.mobileLabel}</span>
                 </button>
               );
             })}
