@@ -12,8 +12,9 @@ export function BrandingTab() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const savedTheme = (business as { theme_color?: string })?.theme_color;
   const [themeColor, setThemeColor] = useState<ThemeKey>(
-    ((business as { theme_color?: ThemeKey })?.theme_color || DEFAULT_THEME) as ThemeKey
+    savedTheme && savedTheme in THEMES ? (savedTheme as ThemeKey) : DEFAULT_THEME,
   );
 
   if (!business) return null;
@@ -49,10 +50,7 @@ export function BrandingTab() {
         .upload(path, file, { upsert: true, cacheControl: "3600" });
       if (upErr) throw upErr;
       const { data: pub } = supabase.storage.from("product-images").getPublicUrl(path);
-      const { error } = await supabase
-        .from("businesses")
-        .update({ logo_url: pub.publicUrl })
-        .eq("id", business.id);
+      const { error } = await supabase.from("businesses").update({ logo_url: pub.publicUrl }).eq("id", business.id);
       if (error) throw error;
       toast.success("Logo updated");
       await refreshBusiness();
@@ -66,10 +64,7 @@ export function BrandingTab() {
 
   const handleLogoRemove = async () => {
     if (!window.confirm("Remove the business logo?")) return;
-    const { error } = await supabase
-      .from("businesses")
-      .update({ logo_url: null })
-      .eq("id", business.id);
+    const { error } = await supabase.from("businesses").update({ logo_url: null }).eq("id", business.id);
     if (error) return toast.error(error.message);
     toast.success("Logo removed");
     await refreshBusiness();
@@ -128,7 +123,7 @@ export function BrandingTab() {
             Appearance
           </CardTitle>
           <CardDescription>
-            Pick a brand color. It drives buttons, highlights, alternating table rows and the sidebar.
+            Pick a brand palette. It drives buttons, highlights, alternating table rows and the sidebar.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
@@ -140,7 +135,10 @@ export function BrandingTab() {
                   key={t.key}
                   type="button"
                   aria-pressed={active}
-                  onClick={() => { setThemeColor(t.key); applyTheme(t.key); }}
+                  onClick={() => {
+                    setThemeColor(t.key);
+                    applyTheme(t.key);
+                  }}
                   className={`group relative flex flex-col gap-2 rounded-xl border-2 p-3 text-left transition-all ${
                     active ? "border-primary shadow-md" : "border-border hover:border-primary/40 hover:shadow-sm"
                   }`}
@@ -155,16 +153,10 @@ export function BrandingTab() {
                       <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{t.swatch}</span>
                     </span>
                   </span>
-                  {/* Mini preview: sidebar + content */}
                   <span className="flex h-8 overflow-hidden rounded-md border">
-                    <span className="w-1/3 flex flex-col justify-center gap-1 px-1" style={{ backgroundColor: t.swatch }}>
-                      <span className="h-1 w-full rounded-full bg-white/80" />
-                      <span className="h-1 w-2/3 rounded-full bg-white/50" />
-                    </span>
-                    <span className="flex-1 bg-background flex flex-col justify-center gap-1 px-1">
-                      <span className="h-1 w-3/4 rounded-full bg-muted-foreground/30" />
-                      <span className="h-1 w-1/2 rounded-full" style={{ backgroundColor: t.swatch, opacity: 0.6 }} />
-                    </span>
+                    {t.colors.map((color) => (
+                      <span key={color} className="flex-1" style={{ backgroundColor: color }} />
+                    ))}
                   </span>
                   {active && (
                     <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
@@ -180,7 +172,6 @@ export function BrandingTab() {
           </p>
         </CardContent>
       </Card>
-
 
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={saving}>
