@@ -104,6 +104,15 @@ export const APP_MODULES: AppModule[] = [
     Icon: BarChart3,
     route: "/reports",
   },
+  {
+    key: "hr",
+    label: "Human Resources & Payroll",
+    description: "Employees, leave, payroll and payslips",
+    group: "premium",
+    Icon: Briefcase,
+    aliases: ["human_resources", "human_resources_payroll"],
+    route: "/hr",
+  },
 
   {
     key: "accounting",
@@ -192,6 +201,7 @@ export const APP_MODULES: AppModule[] = [
     description: "Recipes, batch production & ingredient costing",
     group: "premium",
     Icon: ChefHat,
+    aliases: ["bakery_production"],
     route: "/bakery",
   },
 ];
