@@ -1,101 +1,50 @@
 // Theme presets for StratusPOS.
-// Each theme defines:
-// - primary: HSL triplet used as --primary
-// - alt: HSL triplet used as --table-alt-row (lighter shade applied to alternating rows)
-// - label: human-readable name for settings UI
+// Each preset is based on a complete, selectable brand palette.
 
-export type ThemeKey =
-  | "carnelian-red"
-  | "chili-red"
-  | "forest-green"
-  | "jade-green"
-  | "cobalt-blue"
-  | "teal"
-  | "byzantium"
-  | "deep-sea-blue";
-
+export type ThemeKey = "frosty-ash" | "ocean-breeze" | "mystic-midnight";
 
 export interface ThemeDef {
   key: ThemeKey;
   label: string;
-  primary: string;       // HSL triplet "h s% l%"
-  primaryGlow: string;   // lighter shade for hover/glow
-  alt: string;           // very light shade used for alt-row tint
-  swatch: string;        // hex for picker swatches
+  primary: string;
+  primaryGlow: string;
+  alt: string;
+  swatch: string;
+  colors: string[];
 }
 
 export const THEMES: Record<ThemeKey, ThemeDef> = {
-  "carnelian-red": {
-    key: "carnelian-red",
-    label: "Carnelian Red",
-    primary: "0 70% 42%",
-    primaryGlow: "0 80% 55%",
-    alt: "0 70% 96%",
-    swatch: "#B22222",
+  "frosty-ash": {
+    key: "frosty-ash",
+    label: "Frosty Ash Shades",
+    primary: "210 3% 50%",
+    primaryGlow: "210 5% 67%",
+    alt: "210 17% 98%",
+    swatch: "#5F6266",
+    colors: ["#F8F9FA", "#CFD1D4", "#A5A9AE", "#5F6266", "#181B1E"],
   },
-  "chili-red": {
-    key: "chili-red",
-    label: "Chili Red",
-    primary: "8 85% 50%",
-    primaryGlow: "8 90% 62%",
-    alt: "8 85% 96%",
-    swatch: "#E52B16",
+  "ocean-breeze": {
+    key: "ocean-breeze",
+    label: "Ocean Breeze Blues",
+    primary: "209 71% 26%",
+    primaryGlow: "207 62% 45%",
+    alt: "210 15% 92%",
+    swatch: "#134470",
+    colors: ["#031A2D", "#134470", "#2C78BA", "#B0B7BA", "#E6EAED"],
   },
-  "forest-green": {
-    key: "forest-green",
-    label: "Forest Green",
-    primary: "140 60% 28%",
-    primaryGlow: "140 55% 40%",
-    alt: "140 50% 95%",
-    swatch: "#1F6F3D",
-  },
-  "jade-green": {
-    key: "jade-green",
-    label: "Jade Green",
-    primary: "162 65% 38%",
-    primaryGlow: "162 60% 50%",
-    alt: "162 60% 95%",
-    swatch: "#22A47A",
-  },
-  "cobalt-blue": {
-    key: "cobalt-blue",
-    label: "Cobalt Blue",
-    primary: "217 91% 50%",
-    primaryGlow: "217 91% 62%",
-    alt: "217 91% 96%",
-    swatch: "#1E66E0",
-  },
-  "teal": {
-    key: "teal",
-    label: "Teal",
-    primary: "180 70% 32%",
-    primaryGlow: "180 65% 44%",
-    alt: "180 60% 95%",
-    swatch: "#188F8F",
-  },
-  "deep-sea-blue": {
-    key: "deep-sea-blue",
-    label: "Deep Sea Blue",
-    primary: "203 98% 20%",
-    primaryGlow: "203 85% 32%",
-    alt: "203 70% 96%",
-    swatch: "#023047",
-  },
-  "byzantium": {
-    key: "byzantium",
-    label: "Byzantium",
-    primary: "317 51% 28%",
-    primaryGlow: "317 48% 42%",
-    alt: "317 50% 96%",
-    swatch: "#702963",
+  "mystic-midnight": {
+    key: "mystic-midnight",
+    label: "Mystic Midnight Blues",
+    primary: "223 65% 37%",
+    primaryGlow: "222 57% 32%",
+    alt: "216 58% 96%",
+    swatch: "#21439B",
+    colors: ["#EFF3FA", "#21439B", "#233D7F", "#253663", "#28292A"],
   },
 };
 
-export const DEFAULT_THEME: ThemeKey = "cobalt-blue";
+export const DEFAULT_THEME: ThemeKey = "ocean-breeze";
 
-/**
- * Parse "h s% l%" to numeric components for derived shades.
- */
 function parseHSL(triplet: string): { h: number; s: number; l: number } {
   const [h, s, l] = triplet.split(" ").map((v) => parseFloat(v));
   return { h, s, l };
@@ -106,13 +55,11 @@ export function applyTheme(themeKey: string | undefined | null) {
   const theme = THEMES[key] || THEMES[DEFAULT_THEME];
   const root = document.documentElement;
 
-  // Core primary tokens
   root.style.setProperty("--primary", theme.primary);
   root.style.setProperty("--primary-glow", theme.primaryGlow);
   root.style.setProperty("--ring", theme.primary);
   root.style.setProperty("--table-alt-row", theme.alt);
 
-  // Sidebar takes the brand color with white text
   const { h, s: sat, l } = parseHSL(theme.primary);
   const clamp = (v: number) => Math.max(6, Math.min(94, v));
   root.style.setProperty("--sidebar-background", `${h} ${sat}% ${clamp(l)}%`);
@@ -123,11 +70,9 @@ export function applyTheme(themeKey: string | undefined | null) {
   root.style.setProperty("--sidebar-accent-foreground", "0 0% 100%");
   root.style.setProperty("--sidebar-border", `${h} ${sat}% ${clamp(l - 8)}%`);
   root.style.setProperty("--sidebar-ring", "0 0% 100%");
-
   root.dataset.theme = key;
 }
 
-// Business types — drives industry-specific feature gating
 export type BusinessType = "general" | "minimart" | "liquor_store" | "pharmacy" | "clothing";
 
 export const BUSINESS_TYPE_OPTIONS: { value: BusinessType; label: string }[] = [
