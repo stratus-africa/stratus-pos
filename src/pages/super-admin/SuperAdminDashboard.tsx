@@ -228,9 +228,7 @@ export default function SuperAdminDashboard() {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
             {greeting}, {userName}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Welcome back! Here's an overview of your SaaS platform.
-          </p>
+          <p className="text-sm text-muted-foreground mt-1">Welcome back! Here's an overview of your SaaS platform.</p>
         </div>
         <div className="inline-flex items-center gap-2 h-8 px-3 rounded-full bg-white border border-border text-xs font-medium text-foreground/70">
           <CalendarDays className="h-3.5 w-3.5 text-emerald-500" />
@@ -239,31 +237,36 @@ export default function SuperAdminDashboard() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {statCards.map((card) => (
-          <Card key={card.label} className="p-5 bg-white border-border shadow-none hover:shadow-xs transition-shadow">
-            <div className={`h-10 w-10 rounded-lg ${card.iconBg} flex items-center justify-center mb-4`}>
-              <card.icon className={`h-5 w-5 ${card.iconColor}`} />
-            </div>
-            <div className="text-3xl font-bold tracking-tight">{card.value}</div>
-            <div className="text-[11px] uppercase tracking-wider text-muted-foreground mt-1 font-medium">
-              {card.label}
-            </div>
-            <div className="border-t border-border mt-4 pt-3">
-              <Link
-                to={card.link}
-                className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700"
-              >
-                {card.linkLabel}
-                <ArrowRight className="h-3 w-3" />
-              </Link>
+          <Card
+            key={card.label}
+            className="aspect-square bg-white border-border p-4 shadow-none transition-all hover:border-emerald-200 hover:bg-emerald-50/30"
+          >
+            <div className="flex h-full flex-col items-center justify-center text-center">
+              <div className={`h-10 w-10 rounded-lg ${card.iconBg} flex items-center justify-center mb-2`}>
+                <card.icon className={`h-5 w-5 ${card.iconColor}`} />
+              </div>
+              <div className="text-2xl font-bold tracking-tight sm:text-3xl">{card.value}</div>
+              <div className="mt-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                {card.label}
+              </div>
+              <div className="mt-2">
+                <Link
+                  to={card.link}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700"
+                >
+                  {card.linkLabel}
+                  <ArrowRight className="h-3 w-3" />
+                </Link>
+              </div>
             </div>
           </Card>
         ))}
       </div>
 
       {/* Charts row */}
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="hidden gap-4 lg:grid lg:grid-cols-3">
         {/* Tenants trend */}
         <Card className="lg:col-span-2 p-5 bg-white border-border shadow-none">
           <div className="flex items-center justify-between mb-4">
@@ -287,9 +290,7 @@ export default function SuperAdminDashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
                 <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{ borderRadius: 8, fontSize: 12, border: "1px solid hsl(var(--border))" }}
-                />
+                <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, border: "1px solid hsl(var(--border))" }} />
                 <Area
                   type="monotone"
                   dataKey="tenants"
@@ -305,7 +306,7 @@ export default function SuperAdminDashboard() {
         </Card>
 
         {/* Subscription status donut */}
-        <Card className="p-5 bg-white border-border shadow-none">
+        <Card className="hidden p-5 bg-white border-border shadow-none lg:block">
           <div className="flex items-center gap-2 mb-4">
             <PieChartIcon className="h-4 w-4 text-emerald-500" />
             <h3 className="text-sm font-semibold">Subscription status</h3>
@@ -351,15 +352,13 @@ export default function SuperAdminDashboard() {
       {/* Bottom row */}
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Subscriptions by plan */}
-        <Card className="p-5 bg-white border-border shadow-none">
+        <Card className="hidden p-5 bg-white border-border shadow-none lg:block">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <BarChart2 className="h-4 w-4 text-emerald-500" />
               <h3 className="text-sm font-semibold">Subscriptions by plan (top 5)</h3>
             </div>
-            <span className="text-[10px] px-2 py-1 rounded-full bg-muted text-muted-foreground font-medium">
-              Top 5
-            </span>
+            <span className="text-[10px] px-2 py-1 rounded-full bg-muted text-muted-foreground font-medium">Top 5</span>
           </div>
           <div className="h-[260px]">
             {planBuckets.length === 0 ? (
@@ -370,8 +369,17 @@ export default function SuperAdminDashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={planBuckets} layout="vertical" margin={{ left: 10, right: 30 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--foreground))" }} width={100} />
+                  <XAxis
+                    type="number"
+                    tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                    allowDecimals={false}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    tick={{ fontSize: 11, fill: "hsl(var(--foreground))" }}
+                    width={100}
+                  />
                   <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, border: "1px solid hsl(var(--border))" }} />
                   <Bar dataKey="count" fill="hsl(160 84% 45%)" radius={[0, 6, 6, 0]} barSize={32}>
                     {planBuckets.map((entry, i) => (
