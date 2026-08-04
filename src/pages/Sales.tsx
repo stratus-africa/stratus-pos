@@ -8,7 +8,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Eye, Trash2, Ban, RotateCcw, Pause, Play, X, RefreshCw, MoreHorizontal, Pencil } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useSales, Sale } from "@/hooks/useSales";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -51,8 +57,12 @@ const Sales = () => {
   });
   const [suspendedPage, setSuspendedPage] = useState(1);
 
-  useEffect(() => { localStorage.setItem("sales_page_size", String(pageSize)); }, [pageSize]);
-  useEffect(() => { localStorage.setItem("suspended_page_size", String(suspendedPageSize)); }, [suspendedPageSize]);
+  useEffect(() => {
+    localStorage.setItem("sales_page_size", String(pageSize));
+  }, [pageSize]);
+  useEffect(() => {
+    localStorage.setItem("suspended_page_size", String(suspendedPageSize));
+  }, [suspendedPageSize]);
 
   const sales = salesQuery.data ?? [];
 
@@ -94,7 +104,9 @@ const Sales = () => {
     () => filteredSales.slice((currentPage - 1) * pageSize, currentPage * pageSize),
     [filteredSales, currentPage, pageSize],
   );
-  useEffect(() => { setPage(1); }, [search, statusFilter, pageSize]);
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, pageSize]);
 
   const activeSales = sales.filter((s) => s.status !== "cancelled");
   const totalSales = activeSales.reduce((s, v) => s + Number(v.total), 0);
@@ -102,8 +114,13 @@ const Sales = () => {
   const suspended = suspendedQuery.data || [];
   const suspendedTotalPages = Math.max(1, Math.ceil(suspended.length / suspendedPageSize));
   const suspendedCurrentPage = Math.min(suspendedPage, suspendedTotalPages);
-  const paginatedSuspended = suspended.slice((suspendedCurrentPage - 1) * suspendedPageSize, suspendedCurrentPage * suspendedPageSize);
-  useEffect(() => { setSuspendedPage(1); }, [suspendedPageSize]);
+  const paginatedSuspended = suspended.slice(
+    (suspendedCurrentPage - 1) * suspendedPageSize,
+    suspendedCurrentPage * suspendedPageSize,
+  );
+  useEffect(() => {
+    setSuspendedPage(1);
+  }, [suspendedPageSize]);
 
   // Keep URL param synced with the current filter so the Dashboard's Credit Sales card lands correctly.
   useEffect(() => {
@@ -133,21 +150,35 @@ const Sales = () => {
     if (!business) return;
     const channel = supabase
       .channel(`sales-live-${business.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "sales", filter: `business_id=eq.${business.id}` }, () => {
-        qc.invalidateQueries({ queryKey: ["sales"] });
-      })
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "sales", filter: `business_id=eq.${business.id}` },
+        () => {
+          qc.invalidateQueries({ queryKey: ["sales"] });
+        },
+      )
       .on("postgres_changes", { event: "*", schema: "public", table: "sale_items" }, () => {
         qc.invalidateQueries({ queryKey: ["sales"] });
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "suspended_sales", filter: `business_id=eq.${business.id}` }, () => {
-        qc.invalidateQueries({ queryKey: ["suspended_sales_all"] });
-        qc.invalidateQueries({ queryKey: ["suspended_sales"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "digitax_invoice_queue", filter: `business_id=eq.${business.id}` }, () => {
-        qc.invalidateQueries({ queryKey: ["sales"] });
-      })
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "suspended_sales", filter: `business_id=eq.${business.id}` },
+        () => {
+          qc.invalidateQueries({ queryKey: ["suspended_sales_all"] });
+          qc.invalidateQueries({ queryKey: ["suspended_sales"] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "digitax_invoice_queue", filter: `business_id=eq.${business.id}` },
+        () => {
+          qc.invalidateQueries({ queryKey: ["sales"] });
+        },
+      )
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [business, qc]);
 
   const [refreshing, setRefreshing] = useState(false);
@@ -171,201 +202,287 @@ const Sales = () => {
         </Button>
       </div>
 
-
       <Tabs defaultValue="sales" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="sales"><Eye className="h-4 w-4 mr-1" /> Sales</TabsTrigger>
+          <TabsTrigger value="sales">
+            <Eye className="h-4 w-4 mr-1" /> Sales
+          </TabsTrigger>
           <TabsTrigger value="suspended">
             <Pause className="h-4 w-4 mr-1" /> Suspended
-            {suspended.length > 0 && <Badge variant="secondary" className="ml-2">{suspended.length}</Badge>}
+            {suspended.length > 0 && (
+              <Badge variant="secondary" className="ml-2">
+                {suspended.length}
+              </Badge>
+            )}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="sales" className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Total Sales</p>
-            <p className="text-2xl font-bold">KES {totalSales.toLocaleString()}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Transactions</p>
-            <p className="text-2xl font-bold">{sales.length}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Paid</p>
-            <p className="text-2xl font-bold text-primary">{paidSales} / {sales.length}</p>
-          </CardContent>
-        </Card>
-      </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground">Total Sales</p>
+                <p className="text-2xl font-bold">KES {totalSales.toLocaleString()}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground">Transactions</p>
+                <p className="text-2xl font-bold">{sales.length}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground">Paid</p>
+                <p className="text-2xl font-bold text-primary">
+                  {paidSales} / {sales.length}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
 
-      <div className="flex flex-col sm:flex-row gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search invoice or customer..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="paid">Paid</SelectItem>
-            <SelectItem value="unpaid">Unpaid</SelectItem>
-            <SelectItem value="partial">Partial</SelectItem>
-            <SelectItem value="credit">Credit (Outstanding)</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      {(dateFrom || dateTo) && (
-        <div className="flex items-center gap-2 text-sm">
-          <Badge variant="secondary">
-            Date: {dateFrom || "…"} → {dateTo || "…"}
-          </Badge>
-          <Button variant="ghost" size="sm" onClick={() => { searchParams.delete("from"); searchParams.delete("to"); setSearchParams(searchParams, { replace: true }); }}>
-            Clear date filter
-          </Button>
-        </div>
-      )}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search invoice or customer..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+                <SelectItem value="unpaid">Unpaid</SelectItem>
+                <SelectItem value="partial">Partial</SelectItem>
+                <SelectItem value="credit">Credit (Outstanding)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {(dateFrom || dateTo) && (
+            <div className="flex items-center gap-2 text-sm">
+              <Badge variant="secondary">
+                Date: {dateFrom || "…"} → {dateTo || "…"}
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  searchParams.delete("from");
+                  searchParams.delete("to");
+                  setSearchParams(searchParams, { replace: true });
+                }}
+              >
+                Clear date filter
+              </Button>
+            </div>
+          )}
 
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Invoice</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead>Payment</TableHead>
-                <TableHead>Fiscal</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {salesQuery.isLoading ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
-              ) : filteredSales.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No sales found. Create sales from the POS screen.</TableCell></TableRow>
-              ) : (
-                paginatedSales.map((sale) => (
-                  <TableRow key={sale.id}>
-                    <TableCell className="font-medium">{sale.invoice_number || "—"}</TableCell>
-                    <TableCell>{format(new Date(sale.created_at), "PP")}</TableCell>
-                    <TableCell>{sale.customers?.name || "Walk-in"}</TableCell>
-                    <TableCell>{sale.locations?.name}</TableCell>
-                    <TableCell className="text-right font-medium">KES {Number(sale.total).toLocaleString()}</TableCell>
-                    <TableCell>
-                      {sale.status === "cancelled" ? (
-                        <Badge variant="outline" className="border-destructive text-destructive">Cancelled</Badge>
-                      ) : (
-                        <Badge variant={sale.payment_status === "paid" ? "default" : sale.payment_status === "partial" ? "secondary" : "destructive"}>
-                          {sale.payment_status}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {sale.fiscal_status ? (
-                        <Badge
-                          variant="outline"
-                          className={
-                            sale.fiscal_status === "accepted" || sale.fiscal_status === "submitted"
-                              ? "border-emerald-500 text-emerald-700"
-                              : sale.fiscal_status === "failed"
-                                ? "border-destructive text-destructive"
-                                : "border-amber-500 text-amber-700"
-                          }
-                        >
-                          {sale.fiscal_status.replace("_", " ")}
-                        </Badge>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" aria-label="Actions">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem onClick={() => { setSelectedSale(sale); setDetailOpen(true); }}>
-                            <Eye className="h-4 w-4 mr-2" /> View
-                          </DropdownMenuItem>
-                          {canEdit && (
-                            <DropdownMenuItem onClick={() => { setSelectedSale(sale); setEditOpen(true); }}>
-                              <Pencil className="h-4 w-4 mr-2" /> Edit
-                            </DropdownMenuItem>
-                          )}
-                          {canCancel && sale.status !== "cancelled" && (
-                            <DropdownMenuItem
-                              onClick={() => {
-                                if (!confirm(`Cancel sale ${sale.invoice_number || ""}? Inventory will be restored and stock movement records removed.`)) return;
-                                cancelSale.mutate({ id: sale.id, cancel: true });
-                              }}
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Invoice</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead>Payment</TableHead>
+                    <TableHead>Fiscal</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {salesQuery.isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        Loading...
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredSales.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        No sales found. Create sales from the POS screen.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    paginatedSales.map((sale) => (
+                      <TableRow
+                        key={sale.id}
+                        className="cursor-pointer transition-colors hover:bg-muted/50"
+                        onClick={() => {
+                          setSelectedSale(sale);
+                          setDetailOpen(true);
+                        }}
+                      >
+                        <TableCell className="font-medium">{sale.invoice_number || "—"}</TableCell>
+                        <TableCell>{format(new Date(sale.created_at), "PP")}</TableCell>
+                        <TableCell>{sale.customers?.name || "Walk-in"}</TableCell>
+                        <TableCell>{sale.locations?.name}</TableCell>
+                        <TableCell className="text-right font-medium">
+                          KES {Number(sale.total).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          {sale.status === "cancelled" ? (
+                            <Badge variant="outline" className="border-destructive text-destructive">
+                              Cancelled
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant={
+                                sale.payment_status === "paid"
+                                  ? "default"
+                                  : sale.payment_status === "partial"
+                                    ? "secondary"
+                                    : "destructive"
+                              }
                             >
-                              <Ban className="h-4 w-4 mr-2 text-warning" /> Cancel
-                            </DropdownMenuItem>
+                              {sale.payment_status}
+                            </Badge>
                           )}
-                          {canCancel && sale.status === "cancelled" && (
-                            <DropdownMenuItem onClick={() => cancelSale.mutate({ id: sale.id, cancel: false })}>
-                              <RotateCcw className="h-4 w-4 mr-2" /> Reactivate
-                            </DropdownMenuItem>
+                        </TableCell>
+                        <TableCell>
+                          {sale.fiscal_status ? (
+                            <Badge
+                              variant="outline"
+                              className={
+                                sale.fiscal_status === "accepted" || sale.fiscal_status === "submitted"
+                                  ? "border-emerald-500 text-emerald-700"
+                                  : sale.fiscal_status === "failed"
+                                    ? "border-destructive text-destructive"
+                                    : "border-amber-500 text-amber-700"
+                              }
+                            >
+                              {sale.fiscal_status.replace("_", " ")}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
                           )}
-                          {canRetry && (sale.fiscal_status === "failed" || sale.fiscal_status === "retry_required") && (
-                            <DropdownMenuItem onClick={() => retryFiscalisation.mutate(sale.id)}>
-                              <RefreshCw className="h-4 w-4 mr-2 text-amber-600" /> Retry KRA submission
-                            </DropdownMenuItem>
-                          )}
-                          {canDelete && (
-                            <>
-                              <DropdownMenuSeparator />
+                        </TableCell>
+
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label="Actions"
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
                               <DropdownMenuItem
-                                className="text-destructive focus:text-destructive"
                                 onClick={() => {
-                                  if (!confirm("Delete this sale? Inventory will be restored.")) return;
-                                  deleteSale.mutate(sale.id);
+                                  setSelectedSale(sale);
+                                  setDetailOpen(true);
                                 }}
                               >
-                                <Trash2 className="h-4 w-4 mr-2" /> Delete
+                                <Eye className="h-4 w-4 mr-2" /> View
                               </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                              {canEdit && (
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedSale(sale);
+                                    setEditOpen(true);
+                                  }}
+                                >
+                                  <Pencil className="h-4 w-4 mr-2" /> Edit
+                                </DropdownMenuItem>
+                              )}
+                              {canCancel && sale.status !== "cancelled" && (
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    if (
+                                      !confirm(
+                                        `Cancel sale ${sale.invoice_number || ""}? Inventory will be restored and stock movement records removed.`,
+                                      )
+                                    )
+                                      return;
+                                    cancelSale.mutate({ id: sale.id, cancel: true });
+                                  }}
+                                >
+                                  <Ban className="h-4 w-4 mr-2 text-warning" /> Cancel
+                                </DropdownMenuItem>
+                              )}
+                              {canCancel && sale.status === "cancelled" && (
+                                <DropdownMenuItem onClick={() => cancelSale.mutate({ id: sale.id, cancel: false })}>
+                                  <RotateCcw className="h-4 w-4 mr-2" /> Reactivate
+                                </DropdownMenuItem>
+                              )}
+                              {canRetry &&
+                                (sale.fiscal_status === "failed" || sale.fiscal_status === "retry_required") && (
+                                  <DropdownMenuItem onClick={() => retryFiscalisation.mutate(sale.id)}>
+                                    <RefreshCw className="h-4 w-4 mr-2 text-amber-600" /> Retry KRA submission
+                                  </DropdownMenuItem>
+                                )}
+                              {canDelete && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={() => {
+                                      if (!confirm("Delete this sale? Inventory will be restored.")) return;
+                                      deleteSale.mutate(sale.id);
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" /> Delete
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
 
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-1">
-        <div className="text-sm text-muted-foreground">
-          Showing {filteredSales.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredSales.length)} of {filteredSales.length}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Rows per page</span>
-          <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
-            <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {[25, 50, 100, 200].map((n) => (
-                <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>Previous</Button>
-          <span className="text-sm">Page {currentPage} of {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)}>Next</Button>
-        </div>
-      </div>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-1">
+            <div className="text-sm text-muted-foreground">
+              Showing {filteredSales.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–
+              {Math.min(currentPage * pageSize, filteredSales.length)} of {filteredSales.length}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Rows per page</span>
+              <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                <SelectTrigger className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[25, 50, 100, 200].map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>
+                Previous
+              </Button>
+              <span className="text-sm">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage >= totalPages}
+                onClick={() => setPage(currentPage + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="suspended">
@@ -385,14 +502,25 @@ const Sales = () => {
                 </TableHeader>
                 <TableBody>
                   {suspendedQuery.isLoading ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        Loading…
+                      </TableCell>
+                    </TableRow>
                   ) : suspended.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No suspended sales.</TableCell></TableRow>
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        No suspended sales.
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     paginatedSuspended.map((s: any) => {
                       const cart = (s.cart || []) as any[];
                       const itemCount = cart.reduce((a, l) => a + Number(l.quantity || 0), 0);
-                      const total = cart.reduce((a, l) => a + Number(l.unit_price || 0) * Number(l.quantity || 0) - Number(l.discount || 0), 0);
+                      const total = cart.reduce(
+                        (a, l) => a + Number(l.unit_price || 0) * Number(l.quantity || 0) - Number(l.discount || 0),
+                        0,
+                      );
                       return (
                         <TableRow key={s.id}>
                           <TableCell>{format(new Date(s.created_at), "PPp")}</TableCell>
@@ -402,7 +530,12 @@ const Sales = () => {
                           <TableCell className="text-right">{itemCount}</TableCell>
                           <TableCell className="text-right">KES {total.toLocaleString()}</TableCell>
                           <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" title="Resume on POS" onClick={() => resumeSuspended(s)}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Resume on POS"
+                              onClick={() => resumeSuspended(s)}
+                            >
                               <Play className="h-4 w-4" />
                             </Button>
                             <Button variant="ghost" size="icon" title="Discard" onClick={() => cancelSuspended(s.id)}>
@@ -420,21 +553,42 @@ const Sales = () => {
 
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-1 mt-4">
             <div className="text-sm text-muted-foreground">
-              Showing {suspended.length === 0 ? 0 : (suspendedCurrentPage - 1) * suspendedPageSize + 1}–{Math.min(suspendedCurrentPage * suspendedPageSize, suspended.length)} of {suspended.length}
+              Showing {suspended.length === 0 ? 0 : (suspendedCurrentPage - 1) * suspendedPageSize + 1}–
+              {Math.min(suspendedCurrentPage * suspendedPageSize, suspended.length)} of {suspended.length}
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Rows per page</span>
               <Select value={String(suspendedPageSize)} onValueChange={(v) => setSuspendedPageSize(Number(v))}>
-                <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {[25, 50, 100, 200].map((n) => (
-                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                    <SelectItem key={n} value={String(n)}>
+                      {n}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="sm" disabled={suspendedCurrentPage <= 1} onClick={() => setSuspendedPage(suspendedCurrentPage - 1)}>Previous</Button>
-              <span className="text-sm">Page {suspendedCurrentPage} of {suspendedTotalPages}</span>
-              <Button variant="outline" size="sm" disabled={suspendedCurrentPage >= suspendedTotalPages} onClick={() => setSuspendedPage(suspendedCurrentPage + 1)}>Next</Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={suspendedCurrentPage <= 1}
+                onClick={() => setSuspendedPage(suspendedCurrentPage - 1)}
+              >
+                Previous
+              </Button>
+              <span className="text-sm">
+                Page {suspendedCurrentPage} of {suspendedTotalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={suspendedCurrentPage >= suspendedTotalPages}
+                onClick={() => setSuspendedPage(suspendedCurrentPage + 1)}
+              >
+                Next
+              </Button>
             </div>
           </div>
         </TabsContent>
