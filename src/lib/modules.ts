@@ -16,6 +16,7 @@ import {
   Wrench,
   Sparkles,
   FileCheck,
+  ChefHat,
 } from "lucide-react";
 
 export type ModuleGroup = "core" | "accounting" | "premium";
