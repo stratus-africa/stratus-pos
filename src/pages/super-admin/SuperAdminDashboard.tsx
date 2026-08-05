@@ -1,23 +1,22 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import {
   Building2,
-  CheckCircle2,
   Tag,
   PieChart as PieChartIcon,
   ArrowRight,
   CalendarDays,
   TrendingUp,
-  BarChart2,
   Zap,
   Plus,
   CreditCard,
   ExternalLink,
+  Activity,
 } from "lucide-react";
-import { format, subMonths, startOfMonth } from "date-fns";
+import { format, formatDistanceToNow, subMonths, startOfMonth } from "date-fns";
 import {
   AreaChart,
   Area,
@@ -26,20 +25,19 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar,
   PieChart,
   Pie,
   Cell,
 } from "recharts";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface PlatformStats {
   totalTenants: number;
-  activeTrial: number;
   activePlans: number;
   totalSubscriptions: number;
   activeSubs: number;
   trialSubs: number;
+  subscriptionRevenue: number;
 }
 
 interface MonthlyTenants {
@@ -47,23 +45,35 @@ interface MonthlyTenants {
   tenants: number;
 }
 
-interface PlanBucket {
+interface TenantOption {
+  id: string;
   name: string;
-  count: number;
+}
+
+interface RecentActivity {
+  id: string;
+  business_id: string;
+  action: string;
+  description: string | null;
+  entity_type: string | null;
+  user_name: string | null;
+  created_at: string;
 }
 
 export default function SuperAdminDashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState<PlatformStats>({
     totalTenants: 0,
-    activeTrial: 0,
     activePlans: 0,
     totalSubscriptions: 0,
     activeSubs: 0,
     trialSubs: 0,
+    subscriptionRevenue: 0,
   });
   const [tenantsTrend, setTenantsTrend] = useState<MonthlyTenants[]>([]);
-  const [planBuckets, setPlanBuckets] = useState<PlanBucket[]>([]);
+  const [tenants, setTenants] = useState<TenantOption[]>([]);
+  const [activities, setActivities] = useState<RecentActivity[]>([]);
+  const [tenantFilter, setTenantFilter] = useState("all");
   const [loading, setLoading] = useState(true);
 
   const userName = (user?.user_metadata as any)?.full_name || "Super Admin";
@@ -74,13 +84,29 @@ export default function SuperAdminDashboard() {
     return "Good evening";
   })();
 
+  const fetchActivities = useCallback(
+    async (businessId = tenantFilter) => {
+      let query = supabase
+        .from("audit_logs")
+        .select("id, business_id, action, description, entity_type, user_name, created_at")
+        .order("created_at", { ascending: false })
+        .limit(12);
+
+      if (businessId !== "all") query = query.eq("business_id", businessId);
+      const { data } = await query;
+      setActivities((data || []) as RecentActivity[]);
+    },
+    [tenantFilter],
+  );
+
   useEffect(() => {
     const fetchAll = async () => {
-      const [bizRes, packagesRes, subsRes, allBizRes] = await Promise.all([
+      const [bizRes, packagesRes, subsRes, allBizRes, revenueRes] = await Promise.all([
         supabase.from("businesses").select("id", { count: "exact", head: true }).eq("is_active", true),
         supabase.from("subscription_packages").select("id", { count: "exact", head: true }).eq("is_active", true),
         supabase.from("subscriptions").select("status, plan_code"),
-        supabase.from("businesses").select("id, created_at"),
+        supabase.from("businesses").select("id, name, created_at").order("name"),
+        supabase.from("offline_payment_requests").select("amount_kes").eq("status", "approved"),
       ]);
 
       const subs = subsRes.data || [];
@@ -89,12 +115,16 @@ export default function SuperAdminDashboard() {
 
       setStats({
         totalTenants: bizRes.count || 0,
-        activeTrial: activeSubs + trialSubs,
         activePlans: packagesRes.count || 0,
         totalSubscriptions: subs.length,
         activeSubs,
         trialSubs,
+        subscriptionRevenue: (revenueRes.data || []).reduce((sum, payment) => sum + Number(payment.amount_kes || 0), 0),
       });
+
+      setTenants(
+        (allBizRes.data || []).map((business) => ({ id: business.id, name: business.name || "Unnamed tenant" })),
+      );
 
       // Monthly tenants for last 6 months
       const monthMap = new Map<string, number>();
@@ -114,22 +144,25 @@ export default function SuperAdminDashboard() {
       });
       setTenantsTrend(trend);
 
-      // Subscriptions by plan (top 5)
-      const planMap = new Map<string, number>();
-      subs.forEach((s) => {
-        const key = s.plan_code || "Unassigned";
-        planMap.set(key, (planMap.get(key) || 0) + 1);
-      });
-      const buckets = Array.from(planMap.entries())
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5);
-      setPlanBuckets(buckets);
-
       setLoading(false);
     };
     fetchAll();
   }, []);
+
+  useEffect(() => {
+    fetchActivities();
+  }, [fetchActivities]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("super-admin-recent-activities")
+      .on("postgres_changes", { event: "*", schema: "public", table: "audit_logs" }, () => fetchActivities())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchActivities]);
 
   if (loading) {
     return (
@@ -150,13 +183,13 @@ export default function SuperAdminDashboard() {
       linkLabel: "View all tenants",
     },
     {
-      label: "Active / Trial",
-      value: stats.activeTrial,
-      icon: CheckCircle2,
+      label: "Revenue collected",
+      value: `KES ${stats.subscriptionRevenue.toLocaleString()}`,
+      icon: CreditCard,
       iconBg: "bg-emerald-50",
       iconColor: "text-emerald-500",
       link: "/super-admin/subscriptions",
-      linkLabel: "View subscriptions",
+      linkLabel: "Approved payments",
     },
     {
       label: "Active Plans",
@@ -241,13 +274,13 @@ export default function SuperAdminDashboard() {
         {statCards.map((card) => (
           <Card
             key={card.label}
-            className="aspect-square bg-white border-border p-4 shadow-none transition-all hover:border-emerald-200 hover:bg-emerald-50/30"
+            className="min-h-[152px] bg-white border-border p-4 shadow-none transition-all hover:border-emerald-200 hover:bg-emerald-50/30"
           >
             <div className="flex h-full flex-col items-center justify-center text-center">
               <div className={`h-10 w-10 rounded-lg ${card.iconBg} flex items-center justify-center mb-2`}>
                 <card.icon className={`h-5 w-5 ${card.iconColor}`} />
               </div>
-              <div className="text-2xl font-bold tracking-tight sm:text-3xl">{card.value}</div>
+              <div className="text-xl font-bold tracking-tight sm:text-2xl">{card.value}</div>
               <div className="mt-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 {card.label}
               </div>
@@ -351,47 +384,6 @@ export default function SuperAdminDashboard() {
 
       {/* Bottom row */}
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* Subscriptions by plan */}
-        <Card className="hidden p-5 bg-white border-border shadow-none lg:block">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <BarChart2 className="h-4 w-4 text-emerald-500" />
-              <h3 className="text-sm font-semibold">Subscriptions by plan (top 5)</h3>
-            </div>
-            <span className="text-[10px] px-2 py-1 rounded-full bg-muted text-muted-foreground font-medium">Top 5</span>
-          </div>
-          <div className="h-[260px]">
-            {planBuckets.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-                No subscriptions yet
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={planBuckets} layout="vertical" margin={{ left: 10, right: 30 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-                  <XAxis
-                    type="number"
-                    tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                    allowDecimals={false}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    tick={{ fontSize: 11, fill: "hsl(var(--foreground))" }}
-                    width={100}
-                  />
-                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, border: "1px solid hsl(var(--border))" }} />
-                  <Bar dataKey="count" fill="hsl(160 84% 45%)" radius={[0, 6, 6, 0]} barSize={32}>
-                    {planBuckets.map((entry, i) => (
-                      <Cell key={i} fill="hsl(160 70% 50%)" />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </Card>
-
         {/* Quick actions */}
         <Card className="p-5 bg-white border-border shadow-none">
           <div className="flex items-center gap-2 mb-4">
@@ -412,6 +404,58 @@ export default function SuperAdminDashboard() {
                 <div className="text-[11px] text-muted-foreground mt-0.5">{qa.description}</div>
               </Link>
             ))}
+          </div>
+        </Card>
+
+        {/* Recent tenant activity */}
+        <Card className="p-5 bg-white border-border shadow-none">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-emerald-500" />
+              <h3 className="text-sm font-semibold">Recent activity</h3>
+            </div>
+            <Select value={tenantFilter} onValueChange={setTenantFilter}>
+              <SelectTrigger className="h-8 w-[150px] text-xs">
+                <SelectValue placeholder="All tenants" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All tenants</SelectItem>
+                {tenants.map((tenant) => (
+                  <SelectItem key={tenant.id} value={tenant.id}>
+                    {tenant.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="h-[260px] space-y-3 overflow-y-auto pr-1">
+            {activities.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                No recent activity
+              </div>
+            ) : (
+              activities.map((activity) => {
+                const tenantName =
+                  tenants.find((tenant) => tenant.id === activity.business_id)?.name || "Unknown tenant";
+                return (
+                  <div key={activity.id} className="flex gap-3 border-b border-border pb-3 last:border-0 last:pb-0">
+                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50">
+                      <Activity className="h-4 w-4 text-emerald-500" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{activity.description || activity.action}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {tenantName}
+                        {activity.user_name ? ` · ${activity.user_name}` : ""}
+                      </p>
+                    </div>
+                    <time className="shrink-0 text-[11px] text-muted-foreground" dateTime={activity.created_at}>
+                      {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })}
+                    </time>
+                  </div>
+                );
+              })
+            )}
           </div>
         </Card>
       </div>
