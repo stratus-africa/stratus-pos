@@ -1,15 +1,36 @@
 import { useState, useEffect, useMemo } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Sunset, Loader2, Landmark, Wallet, AlertTriangle, ShieldCheck, ArrowRight, Info, MapPin, FileSpreadsheet, Download, CheckCircle2 } from "lucide-react";
+import {
+  Sunset,
+  Loader2,
+  Landmark,
+  Wallet,
+  AlertTriangle,
+  ShieldCheck,
+  ArrowRight,
+  Info,
+  MapPin,
+  FileSpreadsheet,
+  Download,
+  CheckCircle2,
+} from "lucide-react";
 import { useBankAccounts, BankAccount } from "@/hooks/useBankAccounts";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { downloadCSV } from "@/components/reports/reportUtils";
 import type { POSSession } from "@/hooks/usePOSSession";
@@ -41,7 +62,8 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
   const [exportedPayments, setExportedPayments] = useState(false);
   const [exportingCsv, setExportingCsv] = useState<null | "invoice" | "payments">(null);
   const { data: bankAccounts = [] } = useBankAccounts();
-  const { business, currentLocation, locations } = useBusiness();
+  const { business, currentLocation, locations, userRole } = useBusiness();
+  const { user } = useAuth();
   const multipleTills = locations.length > 1;
   const zohoReportsEnabled = !!(business as { zoho_reports_enabled?: boolean })?.zoho_reports_enabled;
 
@@ -53,23 +75,22 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
       setLoadingExpected(true);
 
       // Get all finalized sales during this session
-      const { data: salesData } = await supabase
+      let salesQuery = supabase
         .from("sales")
         .select("id")
         .eq("business_id", business.id)
         .eq("location_id", currentLocation.id)
         .gte("created_at", session.opened_at)
         .eq("status", "final");
+      if (userRole === "cashier" && user) salesQuery = salesQuery.eq("created_by", user.id);
+      const { data: salesData } = await salesQuery;
 
       const saleIds = (salesData || []).map((s) => s.id);
 
       let paymentsByMethod: Record<string, number> = { cash: 0, mpesa: 0, card: 0, other: 0 };
 
       if (saleIds.length > 0) {
-        const { data: paymentsData } = await supabase
-          .from("payments")
-          .select("method, amount")
-          .in("sale_id", saleIds);
+        const { data: paymentsData } = await supabase.from("payments").select("method, amount").in("sale_id", saleIds);
 
         (paymentsData || []).forEach((p) => {
           const amt = Number(p.amount);
@@ -100,13 +121,11 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
       // Cash account: prefer the session's assigned cash account (set at Start of Day),
       // fall back to the business-level payment_method_accounts mapping.
       const cashAccountId =
-        (session as POSSession & { cash_account_id?: string | null }).cash_account_id ||
-        methodToAccount.get("cash");
+        (session as POSSession & { cash_account_id?: string | null }).cash_account_id || methodToAccount.get("cash");
 
       for (const [method, amount] of Object.entries(paymentsByMethod)) {
         if (amount === 0) continue;
-        const accountId =
-          method === "cash" ? cashAccountId : methodToAccount.get(method);
+        const accountId = method === "cash" ? cashAccountId : methodToAccount.get(method);
         if (accountId) {
           const current = accountExpected.get(accountId) || 0;
           accountExpected.set(accountId, current + amount);
@@ -185,7 +204,7 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
     };
 
     calculateExpected();
-  }, [open, business, currentLocation, session, bankAccounts]);
+  }, [open, business, currentLocation, session, bankAccounts, user, userRole]);
 
   const totalVariance = useMemo(() => {
     return reconciliations.reduce((sum, r) => {
@@ -203,16 +222,17 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
   }, [reconciliations]);
 
   const allFilled = useMemo(() => {
-    return reconciliations.length > 0 && reconciliations.every((r) => {
-      const v = parseFloat(r.actualAmount);
-      return !isNaN(v) && v >= 0;
-    });
+    return (
+      reconciliations.length > 0 &&
+      reconciliations.every((r) => {
+        const v = parseFloat(r.actualAmount);
+        return !isNaN(v) && v >= 0;
+      })
+    );
   }, [reconciliations]);
 
   const updateActual = (accountId: string, value: string) => {
-    setReconciliations((prev) =>
-      prev.map((r) => (r.accountId === accountId ? { ...r, actualAmount: value } : r))
-    );
+    setReconciliations((prev) => prev.map((r) => (r.accountId === accountId ? { ...r, actualAmount: value } : r)));
   };
 
   const handleClose = async () => {
@@ -320,14 +340,18 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
 
   const fetchSessionSales = async () => {
     if (!business || !currentLocation || !session) return [] as any[];
-    const { data, error } = await supabase
+    let salesQuery = supabase
       .from("sales")
-      .select(`*, customers(name), payments(method, amount, reference),
-        sale_items(quantity, unit_price, total, products(name, units(name)))`)
+      .select(
+        `*, customers(name), payments(method, amount, reference),
+        sale_items(quantity, unit_price, total, products(name, units(name)))`,
+      )
       .eq("business_id", business.id)
       .eq("location_id", currentLocation.id)
       .gte("created_at", session.opened_at)
       .order("created_at", { ascending: true });
+    if (userRole === "cashier" && user) salesQuery = salesQuery.eq("created_by", user.id);
+    const { data, error } = await salesQuery;
     if (error) {
       toast.error("Failed to load sales for export: " + error.message);
       return [];
@@ -336,7 +360,10 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
     const ids = Array.from(new Set((data || []).map((s: any) => s.created_by).filter(Boolean)));
     let cashierMap = new Map<string, string>();
     if (ids.length) {
-      const { data: profs } = await supabase.from("profiles").select("id, full_name, email").in("id", ids as string[]);
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", ids as string[]);
       (profs || []).forEach((p: any) => cashierMap.set(p.id, p.full_name || p.email || ""));
     }
     return (data || []).map((s: any) => ({ ...s, _cashier: cashierMap.get(s.created_by) || "" }));
@@ -353,16 +380,34 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
       setExportingCsv(null);
       return;
     }
-    const headers = ["Invoice Date","Invoice Number","Customer Name","Is Inclusive Tax","Due Date","Balance","Item Name","Quantity","Item Total","Usage unit","Item Price","Sales person"];
+    const headers = [
+      "Invoice Date",
+      "Invoice Number",
+      "Customer Name",
+      "Is Inclusive Tax",
+      "Due Date",
+      "Balance",
+      "Item Name",
+      "Quantity",
+      "Item Total",
+      "Usage unit",
+      "Item Price",
+      "Sales person",
+    ];
     const rows: string[][] = [];
     for (const s of filtered) {
       const saleDate = String(s.created_at).slice(0, 10);
       const customer = s.customers?.name || "Walk-in Customer";
-      for (const li of (s.sale_items || [])) {
+      for (const li of s.sale_items || []) {
         rows.push([
-          saleDate, s.invoice_number || "", customer, "true", saleDate,
+          saleDate,
+          s.invoice_number || "",
+          customer,
+          "true",
+          saleDate,
           Number(s.total).toFixed(2),
-          li.products?.name || "", String(li.quantity ?? ""),
+          li.products?.name || "",
+          String(li.quantity ?? ""),
           Number(li.total ?? 0).toFixed(2),
           li.products?.units?.name || "pcs",
           Number(li.unit_price ?? 0).toFixed(2),
@@ -385,7 +430,24 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
       setExportingCsv(null);
       return;
     }
-    const headers = ["Payment Number","Mode","Description","Exchange Rate","Amount","Reference Number","Currency Code","Payment Number Suffix","Customer Name","Payment Type","Date","Deposit To","Payment Status","Amount Applied to Invoice","Invoice Number","Invoice Date"];
+    const headers = [
+      "Payment Number",
+      "Mode",
+      "Description",
+      "Exchange Rate",
+      "Amount",
+      "Reference Number",
+      "Currency Code",
+      "Payment Number Suffix",
+      "Customer Name",
+      "Payment Type",
+      "Date",
+      "Deposit To",
+      "Payment Status",
+      "Amount Applied to Invoice",
+      "Invoice Number",
+      "Invoice Date",
+    ];
     const rows: string[][] = [];
     let n = 0;
     filtered.forEach((s: any) => {
@@ -395,16 +457,26 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
       const pstatus = isRefund ? "Refunded" : "Paid";
       const customer = s.customers?.name || "Walk-in Customer";
       const sDate = fmtDMY(String(s.created_at).slice(0, 10));
-      const pays = (s.payments && s.payments.length) ? s.payments : [{ method: "Cash", amount: s.total, reference: "" }];
+      const pays = s.payments && s.payments.length ? s.payments : [{ method: "Cash", amount: s.total, reference: "" }];
       pays.forEach((p: any) => {
         n += 1;
         rows.push([
-          String(n), p.method || "", desc, "1",
+          String(n),
+          p.method || "",
+          desc,
+          "1",
           Number(p.amount ?? 0).toFixed(2),
-          p.reference || "", "KES", String(n),
-          customer, ptype, sDate, depositFor(p.method),
-          pstatus, Number(p.amount ?? 0).toFixed(2),
-          s.invoice_number || "", sDate,
+          p.reference || "",
+          "KES",
+          String(n),
+          customer,
+          ptype,
+          sDate,
+          depositFor(p.method),
+          pstatus,
+          Number(p.amount ?? 0).toFixed(2),
+          s.invoice_number || "",
+          sDate,
         ]);
       });
     });
@@ -413,7 +485,6 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
     setExportingCsv(null);
     toast.success("Payments CSV exported");
   };
-
 
   const handleOpenChange = (val: boolean) => {
     if (!val) resetState();
@@ -428,9 +499,7 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
             <Sunset className="h-5 w-5 text-orange-500" />
             End of Day Reconciliation
           </DialogTitle>
-          <DialogDescription>
-            Count cash and verify each account. Variances require admin approval.
-          </DialogDescription>
+          <DialogDescription>Count cash and verify each account. Variances require admin approval.</DialogDescription>
         </DialogHeader>
 
         {!adminApprovalStep ? (
@@ -473,9 +542,7 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
                     </div>
                     <div>
                       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Counted</div>
-                      <div className="font-semibold">
-                        {hasCount ? `KES ${counted.toLocaleString()}` : "—"}
-                      </div>
+                      <div className="font-semibold">{hasCount ? `KES ${counted.toLocaleString()}` : "—"}</div>
                     </div>
                     <div>
                       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Variance</div>
@@ -484,10 +551,10 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
                           !hasCount
                             ? "text-muted-foreground"
                             : variance === 0
-                            ? "text-emerald-600"
-                            : variance > 0
-                            ? "text-blue-600"
-                            : "text-destructive"
+                              ? "text-emerald-600"
+                              : variance > 0
+                                ? "text-blue-600"
+                                : "text-destructive"
                         }`}
                       >
                         {hasCount ? `${variance > 0 ? "+" : ""}KES ${variance.toLocaleString()}` : "—"}
@@ -505,9 +572,8 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
                 <div className="space-y-1">
                   <p className="font-medium text-blue-900">All tills settle to one cash account</p>
                   <p className="text-blue-800/80">
-                    Cash counted at every till across this business is consolidated into the same
-                    configured cash account. The single line below represents that consolidated
-                    cash settlement.
+                    Cash counted at every till across this business is consolidated into the same configured cash
+                    account. The single line below represents that consolidated cash settlement.
                   </p>
                 </div>
               </div>
@@ -543,7 +609,9 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
                             )}
                             <span className="font-medium text-sm">{r.accountName}</span>
                           </div>
-                          <Badge variant="outline" className="text-xs capitalize">{r.accountType}</Badge>
+                          <Badge variant="outline" className="text-xs capitalize">
+                            {r.accountType}
+                          </Badge>
                         </div>
 
                         <div className="grid grid-cols-3 gap-2 text-sm">
@@ -573,8 +641,8 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
                                   variance === 0
                                     ? "text-emerald-600"
                                     : variance > 0
-                                    ? "text-blue-600"
-                                    : "text-destructive"
+                                      ? "text-blue-600"
+                                      : "text-destructive"
                                 }`}
                               >
                                 {variance > 0 ? "+" : ""}KES {variance.toLocaleString()}
@@ -595,9 +663,7 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
             {allFilled && (
               <div
                 className={`rounded-lg border p-3 flex items-center justify-between ${
-                  hasVariance
-                    ? "bg-destructive/5 border-destructive/20"
-                    : "bg-emerald-500/5 border-emerald-200"
+                  hasVariance ? "bg-destructive/5 border-destructive/20" : "bg-emerald-500/5 border-emerald-200"
                 }`}
               >
                 <div className="flex items-center gap-2">
@@ -612,11 +678,7 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
                 </div>
                 <span
                   className={`font-bold text-sm ${
-                    totalVariance === 0
-                      ? "text-emerald-600"
-                      : totalVariance > 0
-                      ? "text-blue-600"
-                      : "text-destructive"
+                    totalVariance === 0 ? "text-emerald-600" : totalVariance > 0 ? "text-blue-600" : "text-destructive"
                   }`}
                 >
                   {totalVariance > 0 ? "+" : ""}KES {totalVariance.toLocaleString()}
@@ -644,7 +706,8 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-emerald-800">Export Zoho Reports</p>
                     <p className="text-xs text-emerald-700/80 mt-0.5">
-                      Download the Invoice CSV and Payments CSV for this session before closing the register. Files are Zoho Books compatible.
+                      Download the Invoice CSV and Payments CSV for this session before closing the register. Files are
+                      Zoho Books compatible.
                     </p>
                   </div>
                 </div>
@@ -753,11 +816,7 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
               <Button variant="outline" onClick={() => setAdminApprovalStep(false)}>
                 Back
               </Button>
-              <Button
-                onClick={handleAdminApproval}
-                disabled={verifyingAdmin || !adminPin.trim()}
-                variant="destructive"
-              >
+              <Button onClick={handleAdminApproval} disabled={verifyingAdmin || !adminPin.trim()} variant="destructive">
                 {verifyingAdmin ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
