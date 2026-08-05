@@ -29,7 +29,7 @@ export interface POSSession {
 }
 
 export function usePOSSession() {
-  const { business, currentLocation } = useBusiness();
+  const { business, currentLocation, userRole } = useBusiness();
   const { user } = useAuth();
   const [activeSession, setActiveSession] = useState<POSSession | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,29 +41,26 @@ export function usePOSSession() {
       return;
     }
 
-    const { data } = await supabase
+    let sessionQuery = supabase
       .from("pos_sessions")
       .select("*")
       .eq("business_id", business.id)
       .eq("location_id", currentLocation.id)
       .eq("status", "open")
       .order("opened_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
+    if (userRole === "cashier" && user) sessionQuery = sessionQuery.eq("opened_by", user.id);
+    const { data } = await sessionQuery.maybeSingle();
 
     setActiveSession(data as POSSession | null);
     setLoading(false);
-  }, [business, currentLocation]);
+  }, [business, currentLocation, user, userRole]);
 
   useEffect(() => {
     fetchActiveSession();
   }, [fetchActiveSession]);
 
-  const startDay = async (
-    openingFloat: number,
-    locationIdOverride?: string,
-    cashAccountId?: string
-  ) => {
+  const startDay = async (openingFloat: number, locationIdOverride?: string, cashAccountId?: string) => {
     const targetLocationId = locationIdOverride || currentLocation?.id;
     if (!business || !targetLocationId || !user) return null;
 
@@ -94,33 +91,42 @@ export function usePOSSession() {
     if (!activeSession || !user || !business || !currentLocation) return null;
 
     // Calculate session totals from sales made during this session
-    const { data: salesData } = await supabase
+    let salesQuery = supabase
       .from("sales")
       .select("id, total, status")
       .eq("business_id", business.id)
       .eq("location_id", currentLocation.id)
       .gte("created_at", activeSession.opened_at)
       .eq("status", "final");
+    if (userRole === "cashier") salesQuery = salesQuery.eq("created_by", user.id);
+    const { data: salesData } = await salesQuery;
 
     const saleIds = (salesData || []).map((s) => s.id);
     const totalSales = (salesData || []).reduce((sum, s) => sum + Number(s.total), 0);
     const totalTransactions = salesData?.length || 0;
 
     // Get payment breakdown
-    let paymentsCash = 0, paymentsMpesa = 0, paymentsCard = 0, paymentsOther = 0;
+    let paymentsCash = 0,
+      paymentsMpesa = 0,
+      paymentsCard = 0,
+      paymentsOther = 0;
     if (saleIds.length > 0) {
-      const { data: paymentsData } = await supabase
-        .from("payments")
-        .select("method, amount")
-        .in("sale_id", saleIds);
+      const { data: paymentsData } = await supabase.from("payments").select("method, amount").in("sale_id", saleIds);
 
       (paymentsData || []).forEach((p) => {
         const amt = Number(p.amount);
         switch (p.method) {
-          case "cash": paymentsCash += amt; break;
-          case "mpesa": paymentsMpesa += amt; break;
-          case "card": paymentsCard += amt; break;
-          default: paymentsOther += amt;
+          case "cash":
+            paymentsCash += amt;
+            break;
+          case "mpesa":
+            paymentsMpesa += amt;
+            break;
+          case "card":
+            paymentsCard += amt;
+            break;
+          default:
+            paymentsOther += amt;
         }
       });
     }
@@ -163,13 +169,15 @@ export function usePOSSession() {
   const fetchSessionHistory = async (limit = 30) => {
     if (!business || !currentLocation) return [];
 
-    const { data } = await supabase
+    let historyQuery = supabase
       .from("pos_sessions")
       .select("*")
       .eq("business_id", business.id)
       .eq("location_id", currentLocation.id)
       .order("opened_at", { ascending: false })
       .limit(limit);
+    if (userRole === "cashier" && user) historyQuery = historyQuery.eq("opened_by", user.id);
+    const { data } = await historyQuery;
 
     return (data || []) as POSSession[];
   };
