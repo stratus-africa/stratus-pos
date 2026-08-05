@@ -163,7 +163,7 @@ const Suppliers = () => {
                 <TableHead>Name</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead className="text-right">Balance</TableHead>
-                {(canEdit || canDelete) && <TableHead className="text-right">Actions</TableHead>}
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -192,7 +192,7 @@ const Suppliers = () => {
                     <TableCell className="font-medium">{s.name}</TableCell>
                     <TableCell>{s.phone || "—"}</TableCell>
                     <TableCell className="text-right">{formatKES(s.balance)}</TableCell>
-                    {(canEdit || canDelete) && (
+                    {(
                       <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
