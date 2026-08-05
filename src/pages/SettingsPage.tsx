@@ -1,6 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Building2, MapPin, Users, Receipt, CreditCard, ShieldCheck, Wallet, Smartphone, Palette, Hash, Plug, FileCheck2, Printer, MonitorSmartphone, Calculator } from "lucide-react";
-import CashDrawerTab from "@/components/settings/CashDrawerTab";
 import CustomerDisplayTab from "@/components/settings/CustomerDisplayTab";
 import { BusinessProfileTab } from "@/components/settings/BusinessProfileTab";
 import { BrandingTab } from "@/components/settings/BrandingTab";
@@ -68,7 +67,6 @@ const SettingsPage = () => {
     ) },
     { key: "accounting", label: "Accounting", icon: <Calculator className="h-4 w-4" />, permission: "settings.edit", render: () => <AccountingTab /> },
     { key: "numbering", label: "Numbering", icon: <Hash className="h-4 w-4" />, permission: "settings.edit", render: () => <NumberSeriesTab /> },
-    { key: "cash-drawer", label: "Cash Drawer", icon: <Printer className="h-4 w-4" />, permission: "settings.edit", render: () => <CashDrawerTab /> },
     { key: "customer-display", label: "Customer Display", icon: <MonitorSmartphone className="h-4 w-4" />, permission: "settings.edit", render: () => <CustomerDisplayTab /> },
     { key: "integrations", label: "Integrations", icon: <Plug className="h-4 w-4" />, permission: "settings.edit", render: () => <IntegrationsTab /> },
     { key: "digitax", label: "Tax Compliance", icon: <FileCheck2 className="h-4 w-4" />, permission: "settings.edit", featureKey: "digitax", render: () => (
