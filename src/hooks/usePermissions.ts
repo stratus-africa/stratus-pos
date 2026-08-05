@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { cashierDeniedPermissions, defaultRolePermissions, moduleCatalog, type AppRole } from "@/lib/permissions";
+import { CONFIGURED_MARKER, cashierDeniedPermissions, defaultRolePermissions, moduleCatalog, type AppRole } from "@/lib/permissions";
 
 
 /**

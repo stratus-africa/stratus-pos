@@ -23,6 +23,7 @@ import {
   defaultRolePermissions,
   roleDescriptions,
   type AppRole,
+  CONFIGURED_MARKER,
   type ModuleDef,
 } from "@/lib/permissions";
 
@@ -210,8 +211,8 @@ export function RolesPermissionsTab() {
     try {
       const { error: delErr } = await (supabase as any).from("role_permissions").delete().eq("business_id", business.id).eq("role", editingRole);
       if (delErr) throw delErr;
-      if (editPerms.length > 0) {
-        const rows = editPerms.map((permission) => ({ business_id: business.id, role: editingRole, permission }));
+      {
+        const rows = [...editPerms, CONFIGURED_MARKER].map((permission) => ({ business_id: business.id, role: editingRole, permission }));
         const { error: insErr } = await (supabase as any).from("role_permissions").insert(rows);
         if (insErr) throw insErr;
       }
