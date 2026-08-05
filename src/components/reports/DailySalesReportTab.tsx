@@ -1,16 +1,28 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TrendingUp, ShoppingCart } from "lucide-react";
+import { Loader2, RefreshCw, TrendingUp, ShoppingCart } from "lucide-react";
 import SaleDetailDialog from "@/components/sales/SaleDetailDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { formatKES, downloadCSV } from "./reportUtils";
 import ReportTableScroll from "./ReportTableScroll";
+import { toast } from "sonner";
 
 interface Props {
   from: string;
@@ -31,7 +43,10 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 }
 
 export default function DailySalesReportTab({ from, to, onRegisterExport }: Props) {
-  const { business, currentLocation } = useBusiness();
+  const { business, currentLocation, userRole } = useBusiness();
+  const queryClient = useQueryClient();
+  const [recalculating, setRecalculating] = useState(false);
+  const canRecalculate = userRole === "admin" || userRole === "manager";
 
   const query = useQuery({
     queryKey: ["daily-sales-report", business?.id, currentLocation?.id, from, to],
@@ -67,6 +82,38 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
   });
 
   const sales = query.data || [];
+
+  const recalculatePayments = async () => {
+    if (!business || recalculating) return;
+    setRecalculating(true);
+    try {
+      const { data, error } = await (supabase as any).rpc("recalculate_sale_payment_amounts", {
+        _business_id: business.id,
+        _from_date: from,
+        _to_date: to,
+        _location_id: currentLocation?.id ?? null,
+      });
+      if (error) throw error;
+      const result = Array.isArray(data) ? data[0] : data;
+      const updated = Number(result?.payments_updated || 0);
+      const removed = Number(result?.amount_removed || 0);
+      await Promise.all([
+        query.refetch(),
+        queryClient.invalidateQueries({ queryKey: ["bank_accounts"] }),
+        queryClient.invalidateQueries({ queryKey: ["bank_transactions"] }),
+        queryClient.invalidateQueries({ queryKey: ["sales"] }),
+      ]);
+      toast.success(
+        updated > 0
+          ? `Corrected ${updated} payment record${updated === 1 ? "" : "s"}; removed KES ${removed.toLocaleString()} of change.`
+          : "All payment amounts in this range are already correct.",
+      );
+    } catch (error: any) {
+      toast.error(error.message || "Could not recalculate sale payments");
+    } finally {
+      setRecalculating(false);
+    }
+  };
 
   // Cashier list for the filter — names resolved from profiles in this business.
   const cashiersQuery = useQuery({
@@ -263,6 +310,38 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
           >
             Clear filters
           </Button>
+        )}
+        {canRecalculate && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" disabled={recalculating || sales.length === 0}>
+                {recalculating ? (
+                  <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-1 h-4 w-4" />
+                )}
+                Recalculate payments
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Recalculate sales payments?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This corrects every non-cancelled sale from {from} to {to}
+                  {currentLocation ? ` at ${currentLocation.name}` : ""}. Change given to customers will be removed from
+                  payment and cash totals. For example, a KES 1,000 cash tender on a KES 305 sale will be recorded as
+                  KES 305.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={recalculating}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={recalculatePayments} disabled={recalculating}>
+                  {recalculating && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                  Recalculate
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
       </div>
 
