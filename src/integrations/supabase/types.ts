@@ -2486,6 +2486,124 @@ export type Database = {
         }
         Relationships: []
       }
+      production_items: {
+        Row: {
+          actual_qty: number
+          cost: number
+          created_at: string
+          id: string
+          item_id: string
+          planned_qty: number
+          production_id: string
+          unit_cost: number
+        }
+        Insert: {
+          actual_qty: number
+          cost?: number
+          created_at?: string
+          id?: string
+          item_id: string
+          planned_qty: number
+          production_id: string
+          unit_cost?: number
+        }
+        Update: {
+          actual_qty?: number
+          cost?: number
+          created_at?: string
+          id?: string
+          item_id?: string
+          planned_qty?: number
+          production_id?: string
+          unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_items_production_id_fkey"
+            columns: ["production_id"]
+            isOneToOne: false
+            referencedRelation: "productions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      productions: {
+        Row: {
+          business_id: string
+          created_at: string
+          created_by: string
+          id: string
+          location_id: string
+          multiplier: number
+          notes: string | null
+          production_date: string
+          production_no: string
+          quantity_produced: number
+          recipe_id: string
+          status: string
+          total_cost: number
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          location_id: string
+          multiplier: number
+          notes?: string | null
+          production_date?: string
+          production_no: string
+          quantity_produced: number
+          recipe_id: string
+          status?: string
+          total_cost?: number
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          location_id?: string
+          multiplier?: number
+          notes?: string | null
+          production_date?: string
+          production_no?: string
+          quantity_produced?: number
+          recipe_id?: string
+          status?: string
+          total_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "productions_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "productions_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "productions_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           allow_decimal_quantity: boolean
@@ -2837,6 +2955,105 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recipe_items: {
+        Row: {
+          created_at: string
+          id: string
+          item_id: string
+          quantity: number
+          recipe_id: string
+          unit: string | null
+          waste_percent: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_id: string
+          quantity: number
+          recipe_id: string
+          unit?: string | null
+          waste_percent?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_id?: string
+          quantity?: number
+          recipe_id?: string
+          unit?: string | null
+          waste_percent?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_items_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recipes: {
+        Row: {
+          batch_size: number
+          business_id: string
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          product_id: string
+          production_unit: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          batch_size: number
+          business_id: string
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          product_id: string
+          production_unit?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          batch_size?: number
+          business_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          product_id?: string
+          production_unit?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipes_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]
@@ -4091,6 +4308,16 @@ export type Database = {
       clear_user_login_barcode: {
         Args: { _user_id: string }
         Returns: undefined
+      }
+      complete_production: {
+        Args: {
+          p_date: string
+          p_location_id: string
+          p_notes?: string
+          p_quantity: number
+          p_recipe_id: string
+        }
+        Returns: string
       }
       create_vault_secret: {
         Args: { _name: string; _secret: string }
