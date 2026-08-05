@@ -42,12 +42,15 @@ export function usePermissions() {
 
   const stored = data ?? [];
   const defaults = role ? defaultRolePermissions[role] : [];
+  // A role saved by the current Roles editor always carries this marker. When it
+  // is present the stored set is authoritative: anything the admin unchecked
+  // (including whole modules) stays denied.
+  const explicitlyConfigured = stored.includes(CONFIGURED_MARKER);
   let effective = stored.length > 0 ? [...stored] : [...defaults];
 
-  // Newly-introduced modules (e.g. HR) won't exist in role_permissions rows saved
-  // before the module shipped. When a module has no stored entry at all, fall back
-  // to the role's default grants for that module so the feature isn't invisible.
-  if (stored.length > 0) {
+  // Legacy configs saved before a module shipped (e.g. HR) have no rows for it,
+  // so fall back to the role defaults for those modules only.
+  if (stored.length > 0 && !explicitlyConfigured) {
     for (const mod of moduleCatalog) {
       const prefix = `${mod.key}.`;
       if (!stored.some((p) => p.startsWith(prefix))) {
@@ -55,6 +58,7 @@ export function usePermissions() {
       }
     }
   }
+
   const set = new Set(effective);
 
   // Hard role-level denial: cashiers never get accounting or stock movement access.
