@@ -6,7 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Plus, Pencil, Trash2 } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, MoreHorizontal, Eye } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { usePurchases, useSuppliers, type Purchase, type Supplier } from "@/hooks/usePurchases";
 import { usePermissions } from "@/hooks/usePermissions";
 import { SupplierFormDialog } from "@/components/purchases/SupplierFormDialog";
@@ -161,7 +162,6 @@ const Suppliers = () => {
                 </TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Phone</TableHead>
-                <TableHead>Email</TableHead>
                 <TableHead className="text-right">Balance</TableHead>
                 {(canEdit || canDelete) && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
@@ -191,27 +191,31 @@ const Suppliers = () => {
                     </TableCell>
                     <TableCell className="font-medium">{s.name}</TableCell>
                     <TableCell>{s.phone || "—"}</TableCell>
-                    <TableCell>{s.email || "—"}</TableCell>
                     <TableCell className="text-right">{formatKES(s.balance)}</TableCell>
                     {(canEdit || canDelete) && (
                       <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
-                        {canEdit && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setEditing(s);
-                              setOpen(true);
-                            }}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {canDelete && (
-                          <Button variant="ghost" size="icon" onClick={() => remove.mutate(s.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" aria-label="Supplier actions">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setViewing(s)}>
+                              <Eye className="mr-2 h-4 w-4" /> View
+                            </DropdownMenuItem>
+                            {canEdit && (
+                              <DropdownMenuItem onClick={() => { setEditing(s); setOpen(true); }}>
+                                <Pencil className="mr-2 h-4 w-4" /> Edit
+                              </DropdownMenuItem>
+                            )}
+                            {canDelete && (
+                              <DropdownMenuItem className="text-destructive" onClick={() => remove.mutate(s.id)}>
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     )}
                   </TableRow>
