@@ -441,7 +441,6 @@ const POS = () => {
       }
     }
 
-    }
   };
 
   const handleStartDay = async (openingFloat: number, locationId: string, cashAccountId: string) => {
