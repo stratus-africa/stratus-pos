@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -43,15 +44,17 @@ const KES = (n: number) => `KES ${Number(n || 0).toLocaleString(undefined, { max
 
 export default function CashierDashboard() {
   const { business, currentLocation } = useBusiness();
+  const { user } = useAuth();
   const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [loading, setLoading] = useState(false);
   const [totals, setTotals] = useState<DailyTotals>({ totalSales: 0, txCount: 0 });
   const [accountRecon, setAccountRecon] = useState<AccountRecon[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<AccountRecon | null>(null);
   const [paymentAccountIds, setPaymentAccountIds] = useState<Record<string, string>>({});
+  const [paymentTotals, setPaymentTotals] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    if (!business) return;
+    if (!business || !user) return;
     (async () => {
       setLoading(true);
       // A new date starts with a clean reconciliation; never display a prior
@@ -59,27 +62,46 @@ export default function CashierDashboard() {
       setTotals({ totalSales: 0, txCount: 0 });
       setAccountRecon([]);
       setPaymentAccountIds({});
+      setPaymentTotals({});
       setSelectedAccount(null);
       const start = `${date}T00:00:00.000Z`;
       const end = `${date}T23:59:59.999Z`;
 
-      const { data: salesRows } = await supabase
+      let salesQuery = supabase
         .from("sales")
         .select("id, total")
         .eq("business_id", business.id)
+        .eq("created_by", user.id)
         .eq("status", "final")
         .gte("created_at", start)
         .lte("created_at", end);
+      if (currentLocation) salesQuery = salesQuery.eq("location_id", currentLocation.id);
+      const { data: salesRows, error: salesError } = await salesQuery;
+      if (salesError) throw salesError;
 
       const saleIds = (salesRows || []).map((s) => s.id);
       const totalSales = (salesRows || []).reduce((sum, s) => sum + Number(s.total), 0);
 
       setTotals({ totalSales, txCount: saleIds.length });
 
+      const paymentsByMethod: Record<string, number> = {};
+      if (saleIds.length > 0) {
+        const { data: paymentRows, error: paymentsError } = await supabase
+          .from("payments")
+          .select("method, amount")
+          .in("sale_id", saleIds);
+        if (paymentsError) throw paymentsError;
+        (paymentRows || []).forEach((payment) => {
+          const method = String(payment.method || "other").toLowerCase();
+          paymentsByMethod[method] = (paymentsByMethod[method] || 0) + Number(payment.amount || 0);
+        });
+      }
+      setPaymentTotals(paymentsByMethod);
+
       const [accountsResult, mappingsResult] = await Promise.all([
         supabase
           .from("bank_accounts")
-          .select("id, name, account_type, opening_balance")
+          .select("id, name, account_type")
           .eq("business_id", business.id)
           .eq("is_active", true)
           .order("name"),
@@ -95,34 +117,21 @@ export default function CashierDashboard() {
       });
       setPaymentAccountIds(mappings);
 
-      // The current account balance includes later days. Fetch transactions up to
-      // the selected day so Opening, Expected and Current all describe that day.
-      const allTransactions: Array<BankTransaction & { bank_account_id: string }> = [];
-      const pageSize = 1000;
-      for (let offset = 0; ; offset += pageSize) {
-        const { data: batch, error } = await supabase
-          .from("bank_transactions")
-          .select("id, bank_account_id, type, amount, date, reference, description, contact_name")
-          .eq("business_id", business.id)
-          .lte("date", date)
-          .order("date", { ascending: true })
-          .range(offset, offset + pageSize - 1);
-        if (error) throw error;
-        allTransactions.push(...((batch || []) as Array<BankTransaction & { bank_account_id: string }>));
-        if ((batch || []).length < pageSize) break;
-      }
+      // This is a personal, daily view. Do not carry forward another cashier's
+      // account balance or a previous day's activity into the reconciliation.
+      const { data: transactions, error: transactionsError } = await supabase
+        .from("bank_transactions")
+        .select("id, bank_account_id, type, amount, date, reference, description, contact_name")
+        .eq("business_id", business.id)
+        .eq("created_by", user.id)
+        .eq("date", date)
+        .order("created_at", { ascending: true });
+      if (transactionsError) throw transactionsError;
+      const dailyTransactions = (transactions || []) as Array<BankTransaction & { bank_account_id: string }>;
 
       const recon: AccountRecon[] = [];
       for (const acc of accounts || []) {
-        const accountTransactions = allTransactions.filter((transaction) => transaction.bank_account_id === acc.id);
-        const priorNet = accountTransactions
-          .filter((transaction) => transaction.date < date)
-          .reduce(
-            (sum, transaction) =>
-              sum + (isInflow(transaction.type) ? Number(transaction.amount || 0) : -Number(transaction.amount || 0)),
-            0,
-          );
-        const txs = accountTransactions.filter((transaction) => transaction.date === date);
+        const txs = dailyTransactions.filter((transaction) => transaction.bank_account_id === acc.id);
         let inflow = 0,
           outflow = 0;
         txs.forEach((t) => {
@@ -130,7 +139,7 @@ export default function CashierDashboard() {
           if (isInflow(t.type)) inflow += amt;
           else outflow += amt;
         });
-        const openingBalance = Number(acc.opening_balance || 0) + priorNet;
+        const openingBalance = 0;
         const expected = openingBalance + inflow - outflow;
         const currentBalance = expected;
         recon.push({
@@ -149,32 +158,26 @@ export default function CashierDashboard() {
       setAccountRecon(recon);
       setLoading(false);
     })();
-  }, [business, date]);
+  }, [business, currentLocation, date, user]);
 
-  const dailyInflow = accountRecon.reduce((sum, account) => sum + account.inflow, 0);
+  const totalPayments = Object.values(paymentTotals).reduce((sum, amount) => sum + amount, 0);
   const methodList = useMemo(() => {
-    const accountInflows = new Map(accountRecon.map((account) => [account.id, account.inflow]));
-    const methodsByAccount = new Map<string, string[]>();
-    Object.entries(paymentAccountIds).forEach(([method, accountId]) => {
-      methodsByAccount.set(accountId, [...(methodsByAccount.get(accountId) || []), method]);
-    });
-    const mappedAccounts = new Set(methodsByAccount.keys());
-    const methods = [...methodsByAccount.entries()].map(
-      ([accountId, paymentMethods]) =>
-        [paymentMethods.join(" / "), accountInflows.get(accountId) || 0] as [string, number],
-    );
-    const unmappedInflow = accountRecon
-      .filter((account) => !mappedAccounts.has(account.id))
-      .reduce((sum, account) => sum + account.inflow, 0);
-    if (unmappedInflow !== 0) methods.push(["unassigned", unmappedInflow]);
-    return methods.sort((a, b) => b[1] - a[1]);
-  }, [accountRecon, paymentAccountIds]);
-  const cashCollected = accountRecon
-    .filter((account) => account.type === "cash")
-    .reduce((sum, account) => sum + account.inflow, 0);
-  const mpesaCollected = accountRecon
-    .filter((account) => account.type === "mobile_money")
-    .reduce((sum, account) => sum + account.inflow, 0);
+    const methods = new Set([
+      "cash",
+      "mpesa",
+      "card",
+      ...Object.keys(paymentAccountIds),
+      ...Object.keys(paymentTotals),
+    ]);
+    return [...methods]
+      .map((method) => [method, paymentTotals[method] || 0] as [string, number])
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }, [paymentAccountIds, paymentTotals]);
+  const cashCollected = paymentTotals.cash || 0;
+  const mpesaCollected = paymentTotals.mpesa || 0;
+  const cardOrOtherCollected = Object.entries(paymentTotals)
+    .filter(([method]) => !["cash", "mpesa"].includes(method))
+    .reduce((sum, [, amount]) => sum + amount, 0);
 
   return (
     <div className="space-y-6">
@@ -237,20 +240,14 @@ export default function CashierDashboard() {
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Card / Other</p>
               <Landmark className="h-4 w-4 text-blue-500" />
             </div>
-            <p className="text-2xl font-bold mt-2">
-              {KES(
-                accountRecon
-                  .filter((account) => !["cash", "mobile_money"].includes(account.type))
-                  .reduce((sum, account) => sum + account.inflow, 0),
-              )}
-            </p>
+            <p className="text-2xl font-bold mt-2">{KES(cardOrOtherCollected)}</p>
           </CardContent>
         </Card>
       </div>
 
       {(() => {
-        const paymentsTotal = dailyInflow;
-        const diff = totals.totalSales - dailyInflow;
+        const paymentsTotal = totalPayments;
+        const diff = totals.totalSales - totalPayments;
         const matched = Math.abs(diff) < 0.01;
         return (
           <Card className={matched ? "" : "border-amber-500/60"}>
@@ -269,8 +266,8 @@ export default function CashierDashboard() {
               </CardTitle>
               <CardDescription>
                 {matched
-                  ? "Today's sales total matches today's Banking inflow."
-                  : `Today's sales and Banking inflow differ by ${KES(Math.abs(diff))}. This does not include any previous-day balance.`}
+                  ? "Your sales total matches your payments recorded for this day."
+                  : `Your sales and payments differ by ${KES(Math.abs(diff))}.`}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -280,7 +277,7 @@ export default function CashierDashboard() {
                   <p className="font-semibold">{KES(totals.totalSales)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Today's inflow</p>
+                  <p className="text-xs text-muted-foreground">Payments recorded</p>
                   <p className="font-semibold">{KES(paymentsTotal)}</p>
                 </div>
                 <div>
@@ -293,24 +290,22 @@ export default function CashierDashboard() {
         );
       })()}
 
-      {methodList.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Payment Methods</CardTitle>
-            <CardDescription>Selected-day Banking inflows, grouped by their mapped payment account.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-lg border divide-y">
-              {methodList.map(([method, amount]) => (
-                <div key={method} className="flex items-center justify-between px-3 py-2 text-sm">
-                  <span className="capitalize">{method}</span>
-                  <span className="font-medium">{KES(amount)}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Payment Methods</CardTitle>
+          <CardDescription>Your payments recorded for the selected day.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-lg border divide-y">
+            {methodList.map(([method, amount]) => (
+              <div key={method} className="flex items-center justify-between px-3 py-2 text-sm">
+                <span className="capitalize">{method}</span>
+                <span className="font-medium">{KES(amount)}</span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
