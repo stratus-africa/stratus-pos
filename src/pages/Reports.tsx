@@ -36,7 +36,7 @@ import StockAgingReportTab from "@/components/reports/StockAgingReportTab";
 import StockLedgerTab from "@/components/inventory/StockLedgerTab";
 import { DateRangeFilter } from "@/components/reports/DateRangeFilter";
 import { useFeatureLimit, RequireFeature } from "@/components/FeatureGate";
-import { useAccountingSettings, financialYearRange, financialYearLabel } from "@/hooks/useAccountingSettings";
+import { useAccountingSettings, financialYearLabel } from "@/hooks/useAccountingSettings";
 
 const today = new Date().toISOString().split("T")[0];
 const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
@@ -117,7 +117,8 @@ const Reports = () => {
       }
       return all;
     },
-    enabled: !!business && canSales,
+    // The P&L tab also uses detailed sales rows to calculate COGS.
+    enabled: !!business && canSales && (activeTab === "sales" || activeTab === "pnl"),
   });
 
   const inventoryReport = useQuery({
@@ -153,7 +154,7 @@ const Reports = () => {
         _batches: batchesByProduct.get(row.product_id) || [],
       }));
     },
-    enabled: !!business && !!currentLocation && canInventory,
+    enabled: !!business && !!currentLocation && canInventory && activeTab === "inventory",
   });
 
   const expensesReport = useQuery({
@@ -170,7 +171,7 @@ const Reports = () => {
       if (error) throw error;
       return data;
     },
-    enabled: !!business && canExpenses,
+    enabled: !!business && canExpenses && (activeTab === "expenses" || activeTab === "pnl"),
   });
 
   const purchasesReport = useQuery({
@@ -188,7 +189,7 @@ const Reports = () => {
       if (error) throw error;
       return data;
     },
-    enabled: !!business && canPurchases,
+    enabled: !!business && canPurchases && activeTab === "purchases",
   });
 
   const pnlExtras = useQuery({
@@ -223,7 +224,7 @@ const Reports = () => {
       );
       return { purchasesCost, adjustmentsCost };
     },
-    enabled: !!business && canPnL,
+    enabled: !!business && canPnL && activeTab === "pnl",
   });
 
   const auditReport = useQuery({
@@ -241,7 +242,7 @@ const Reports = () => {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!business && canAudit,
+    enabled: !!business && canAudit && activeTab === "audit",
   });
 
   const sales = salesReport.data || [];
@@ -251,8 +252,6 @@ const Reports = () => {
   const auditLogs = auditReport.data || [];
 
   const totalRevenue = sales.reduce((s, r) => s + Number(r.total), 0);
-  const totalTax = sales.reduce((s, r) => s + Number(r.tax), 0);
-  const totalDiscount = sales.reduce((s, r) => s + Number(r.discount), 0);
   const totalCOGS = sales.reduce((s, sale) => {
     const items = (sale as any).sale_items || [];
     return (
@@ -269,34 +268,15 @@ const Reports = () => {
     expenseByCategory[cat] = (expenseByCategory[cat] || 0) + Number(e.amount);
   });
 
-  const productRevenue: Record<string, { name: string; qty: number; revenue: number; cost: number }> = {};
-  sales.forEach((sale: any) => {
-    ((sale as any).sale_items || []).forEach((item: any) => {
-      const name = item.products?.name || "Unknown";
-      if (!productRevenue[name]) productRevenue[name] = { name, qty: 0, revenue: 0, cost: 0 };
-      productRevenue[name].qty += Number(item.quantity);
-      productRevenue[name].revenue += Number(item.total);
-      productRevenue[name].cost += Number(item.quantity) * Number(item.products?.purchase_price || 0);
-    });
-  });
-  const topProducts = Object.values(productRevenue)
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 10);
-
   const { settings: accounting } = useAccountingSettings();
   const fyMonth = accounting.financial_year_start_month || 1;
-  const applyFY = (offsetYears: number) => {
-    const ref = new Date();
-    ref.setFullYear(ref.getFullYear() + offsetYears);
-    const { start, end } = financialYearRange(fyMonth, ref);
-    const iso = (d: Date) =>
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    setFrom(iso(start));
-    setTo(iso(end));
-  };
 
   const loading =
-    salesReport.isLoading || inventoryReport.isLoading || expensesReport.isLoading || purchasesReport.isLoading;
+    (activeTab === "sales" && salesReport.isLoading) ||
+    (activeTab === "purchases" && purchasesReport.isLoading) ||
+    (activeTab === "expenses" && expensesReport.isLoading) ||
+    (activeTab === "inventory" && inventoryReport.isLoading) ||
+    (activeTab === "pnl" && (salesReport.isLoading || expensesReport.isLoading || pnlExtras.isLoading));
 
   return (
     <div className="space-y-4">
@@ -314,9 +294,11 @@ const Reports = () => {
               setTo(t);
             }}
           />
-          <Badge variant="outline" className="h-8" title={`Financial year: ${financialYearLabel(fyMonth)}`}>
-            {sales.length} sales in period
-          </Badge>
+          {activeTab === "sales" && (
+            <Badge variant="outline" className="h-8" title={`Financial year: ${financialYearLabel(fyMonth)}`}>
+              {sales.length} sales in period
+            </Badge>
+          )}
           <div className="flex-1" />
           {exporter && (
             <Button size="sm" variant="outline" onClick={() => exporter()}>
@@ -431,7 +413,7 @@ const Reports = () => {
                   adjustmentsCost={pnlExtras.data?.adjustmentsCost || 0}
                   from={from}
                   to={to}
-                  loading={loading || pnlExtras.isLoading}
+                  loading={loading}
                 />
               </RequireFeature>
             </TabsContent>
