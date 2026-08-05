@@ -11,8 +11,6 @@ import { ensureCanPost } from "@/lib/postingGuard";
 import { loadCartDraft, saveCartDraft, clearCartDraft } from "@/lib/cartPersistence";
 import { enqueueSale, isOnline } from "@/lib/offlineSales";
 
-
-
 export interface CartItem {
   product: Product;
   quantity: number;
@@ -23,12 +21,11 @@ export interface CartItem {
 }
 
 export interface VatBreakdownRow {
-  rate: number;      // percent (e.g. 16)
-  label: string;     // display label (e.g. "VAT 16%")
-  taxable: number;   // net (excl. VAT)
-  vat: number;       // VAT amount
+  rate: number; // percent (e.g. 16)
+  label: string; // display label (e.g. "VAT 16%")
+  taxable: number; // net (excl. VAT)
+  vat: number; // VAT amount
 }
-
 
 export interface HeldSale {
   id: string;
@@ -45,6 +42,40 @@ export interface PaymentEntry {
   reference: string;
 }
 
+/**
+ * Converts tendered payments into the amounts that settle the sale. Cash is
+ * applied after electronic payments, so any overpayment is treated as change
+ * rather than as cash income. The original tendered amounts remain available
+ * for the receipt/customer display.
+ */
+export function applyPaymentsToSaleTotal(payments: PaymentEntry[], total: number): PaymentEntry[] {
+  let remaining = Math.max(0, Math.round(Number(total || 0) * 100) / 100);
+  const applied = payments.map((payment) => ({
+    ...payment,
+    amount: Math.max(0, Math.round(Number(payment.amount || 0) * 100) / 100),
+  }));
+
+  // Electronic payments cannot be returned as till change, so settle them
+  // first. Any remaining cash tender is then limited to the balance due.
+  for (const method of ["mpesa", "card"] as const) {
+    for (const payment of applied) {
+      if (payment.method !== method) continue;
+      const amount = Math.min(payment.amount, remaining);
+      payment.amount = amount;
+      remaining = Math.max(0, Math.round((remaining - amount) * 100) / 100);
+    }
+  }
+
+  for (const payment of applied) {
+    if (payment.method !== "cash") continue;
+    const amount = Math.min(payment.amount, remaining);
+    payment.amount = amount;
+    remaining = Math.max(0, Math.round((remaining - amount) * 100) / 100);
+  }
+
+  return applied.filter((payment) => payment.amount > 0);
+}
+
 export function usePOS() {
   const { business, currentLocation } = useBusiness();
   const { user } = useAuth();
@@ -55,7 +86,6 @@ export function usePOS() {
   const [customerName, setCustomerName] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const completingRef = useRef(false);
-
 
   // Persisted suspended sales (DB-backed, scoped to business + location)
   const heldQuery = useQuery({
@@ -109,46 +139,49 @@ export function usePOS() {
     [inventoryRows],
   );
 
-
-  const addToCart = useCallback((product: Product) => {
-    setCart((prev) => {
-      const existing = prev.find((i) => i.product.id === product.id);
-      const newQty = existing ? existing.quantity + 1 : 1;
-      if (preventOverselling) {
-        const available = stockOf(product.id);
-        if (newQty > available) {
-          toast.error(`Only ${available} ${product.name} in stock`);
-          return prev;
-        }
-      }
-      if (existing) {
-        return prev.map((i) =>
-          i.product.id === product.id ? { ...i, quantity: newQty } : i
-        );
-      }
-      return [...prev, { product, quantity: 1, unit_price: product.selling_price, discount: 0 }];
-    });
-  }, [preventOverselling, inventoryRows]);
-
-  const updateCartItem = useCallback((productId: string, updates: Partial<CartItem>) => {
-    setCart((prev) =>
-      prev.map((i) => {
-        if (i.product.id !== productId) return i;
-        const next = { ...i, ...updates };
-        if (preventOverselling && updates.quantity !== undefined) {
-          const available = stockOf(productId);
-          if (next.quantity > available) {
-            toast.error(`Only ${available} ${i.product.name} in stock`);
-            return { ...i, quantity: available };
+  const addToCart = useCallback(
+    (product: Product) => {
+      setCart((prev) => {
+        const existing = prev.find((i) => i.product.id === product.id);
+        const newQty = existing ? existing.quantity + 1 : 1;
+        if (preventOverselling) {
+          const available = stockOf(product.id);
+          if (newQty > available) {
+            toast.error(`Only ${available} ${product.name} in stock`);
+            return prev;
           }
         }
-        if (!i.product.allow_decimal_quantity && updates.quantity !== undefined) {
-          next.quantity = Math.floor(next.quantity);
+        if (existing) {
+          return prev.map((i) => (i.product.id === product.id ? { ...i, quantity: newQty } : i));
         }
-        return next;
-      })
-    );
-  }, [preventOverselling, inventoryRows]);
+        return [...prev, { product, quantity: 1, unit_price: product.selling_price, discount: 0 }];
+      });
+    },
+    [preventOverselling, inventoryRows],
+  );
+
+  const updateCartItem = useCallback(
+    (productId: string, updates: Partial<CartItem>) => {
+      setCart((prev) =>
+        prev.map((i) => {
+          if (i.product.id !== productId) return i;
+          const next = { ...i, ...updates };
+          if (preventOverselling && updates.quantity !== undefined) {
+            const available = stockOf(productId);
+            if (next.quantity > available) {
+              toast.error(`Only ${available} ${i.product.name} in stock`);
+              return { ...i, quantity: available };
+            }
+          }
+          if (!i.product.allow_decimal_quantity && updates.quantity !== undefined) {
+            next.quantity = Math.floor(next.quantity);
+          }
+          return next;
+        }),
+      );
+    },
+    [preventOverselling, inventoryRows],
+  );
 
   const removeFromCart = useCallback((productId: string) => {
     setCart((prev) => prev.filter((i) => i.product.id !== productId));
@@ -196,7 +229,6 @@ export function usePOS() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart, customerId, customerName, business?.id, currentLocation?.id, user?.id]);
 
-
   // VAT rates for per-line selection.
   const taxRatesQuery = useQuery({
     queryKey: ["tax_rates", "pos", business?.id],
@@ -211,7 +243,13 @@ export function usePOS() {
     },
     enabled: !!business?.id,
   });
-  const activeTaxRates = (taxRatesQuery.data || []) as { id: string; name: string; rate: number; is_default: boolean; is_active: boolean }[];
+  const activeTaxRates = (taxRatesQuery.data || []) as {
+    id: string;
+    name: string;
+    rate: number;
+    is_default: boolean;
+    is_active: boolean;
+  }[];
   const defaultTaxRate = activeTaxRates.find((r) => r.is_default) || null;
 
   const vatEnabled = (business as { vat_enabled?: boolean } | null)?.vat_enabled ?? true;
@@ -252,7 +290,7 @@ export function usePOS() {
       }
       return acc;
     },
-    { subtotal: 0, tax: 0, total: 0 }
+    { subtotal: 0, tax: 0, total: 0 },
   );
   const cartSubtotal = totals.subtotal;
   const cartTax = totals.tax;
@@ -281,49 +319,54 @@ export function usePOS() {
     return Array.from(map.values()).sort((a, b) => a.rate - b.rate);
   })();
 
-
   // Hold current sale — persist to suspended_sales table so it survives reload & syncs across devices
-  const holdSale = useCallback(async (customLabel?: string) => {
-    if (!business || !currentLocation || !user || cart.length === 0) return;
-    const label =
-      (customLabel && customLabel.trim()) ||
-      customerName ||
-      `Sale ${new Date().toLocaleTimeString()}`;
-    const { error } = await supabase.from("suspended_sales").insert({
-      business_id: business.id,
-      location_id: currentLocation.id,
-      label,
-      customer_id: customerId,
-      customer_name: customerName,
-      cart: cart as any,
-      created_by: user.id,
-    });
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    queryClient.invalidateQueries({ queryKey: ["suspended_sales"] });
-    clearCart();
-    toast.info(`Sale parked: ${label}`);
-  }, [cart, customerId, customerName, business, currentLocation, user, queryClient, clearCart]);
+  const holdSale = useCallback(
+    async (customLabel?: string) => {
+      if (!business || !currentLocation || !user || cart.length === 0) return;
+      const label = (customLabel && customLabel.trim()) || customerName || `Sale ${new Date().toLocaleTimeString()}`;
+      const { error } = await supabase.from("suspended_sales").insert({
+        business_id: business.id,
+        location_id: currentLocation.id,
+        label,
+        customer_id: customerId,
+        customer_name: customerName,
+        cart: cart as any,
+        created_by: user.id,
+      });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["suspended_sales"] });
+      clearCart();
+      toast.info(`Sale parked: ${label}`);
+    },
+    [cart, customerId, customerName, business, currentLocation, user, queryClient, clearCart],
+  );
 
   // Resume a held sale
-  const resumeSale = useCallback(async (id: string) => {
-    const held = heldSales.find((h) => h.id === id);
-    if (!held) return;
-    if (cart.length > 0) await holdSale();
-    setCart(held.cart);
-    setCustomerId(held.customerId);
-    setCustomerName(held.customerName);
-    await supabase.from("suspended_sales").delete().eq("id", id);
-    queryClient.invalidateQueries({ queryKey: ["suspended_sales"] });
-  }, [heldSales, cart, holdSale, queryClient]);
+  const resumeSale = useCallback(
+    async (id: string) => {
+      const held = heldSales.find((h) => h.id === id);
+      if (!held) return;
+      if (cart.length > 0) await holdSale();
+      setCart(held.cart);
+      setCustomerId(held.customerId);
+      setCustomerName(held.customerName);
+      await supabase.from("suspended_sales").delete().eq("id", id);
+      queryClient.invalidateQueries({ queryKey: ["suspended_sales"] });
+    },
+    [heldSales, cart, holdSale, queryClient],
+  );
 
-  const removeHeldSale = useCallback(async (id: string) => {
-    const { error } = await supabase.from("suspended_sales").delete().eq("id", id);
-    if (error) toast.error(error.message);
-    queryClient.invalidateQueries({ queryKey: ["suspended_sales"] });
-  }, [queryClient]);
+  const removeHeldSale = useCallback(
+    async (id: string) => {
+      const { error } = await supabase.from("suspended_sales").delete().eq("id", id);
+      if (error) toast.error(error.message);
+      queryClient.invalidateQueries({ queryKey: ["suspended_sales"] });
+    },
+    [queryClient],
+  );
 
   // Complete sale
   const completeSale = async (
@@ -338,8 +381,6 @@ export function usePOS() {
     if (completingRef.current) return null;
     completingRef.current = true;
     setProcessing(true);
-
-
 
     if (preventOverselling) {
       const productIds = cart.map((i) => i.product.id);
@@ -357,7 +398,6 @@ export function usePOS() {
           setProcessing(false);
           return null;
         }
-
       }
     }
 
@@ -367,7 +407,9 @@ export function usePOS() {
       const effectiveDiscount = cartDiscountBase + loyaltyDiscount;
       const effectiveTotal = Math.max(0, cartTotal - loyaltyDiscount);
 
-      const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
+      const totalTendered = payments.reduce((s, p) => s + Math.max(0, Number(p.amount || 0)), 0);
+      const appliedPayments = applyPaymentsToSaleTotal(payments, effectiveTotal);
+      const totalPaid = appliedPayments.reduce((s, p) => s + p.amount, 0);
       const paymentStatus = totalPaid >= effectiveTotal ? "paid" : totalPaid > 0 ? "partial" : "unpaid";
 
       const invoiceNumber = consumeNext(business.id, "receipts");
@@ -408,9 +450,12 @@ export function usePOS() {
             notes: [opts.loyaltyNote, "Recorded offline"].filter(Boolean).join(" | "),
           },
           items: offlineItems,
-          payments: payments
-            .filter((p) => p.amount > 0)
-            .map((p) => ({ sale_id: saleId, method: p.method, amount: p.amount, reference: p.reference || null })),
+          payments: appliedPayments.map((p) => ({
+            sale_id: saleId,
+            method: p.method,
+            amount: p.amount,
+            reference: p.reference || null,
+          })),
           // Stock movements are derived from the sale document itself — no mirror
           // adjustment rows (they duplicated every stock transaction).
           adjustments: [],
@@ -419,7 +464,7 @@ export function usePOS() {
                 business_id: business.id,
                 bank_account_id: bankAccountId,
                 type: "payment_received",
-                amount: Math.min(totalPaid, effectiveTotal),
+                amount: totalPaid,
                 date: new Date().toISOString().split("T")[0],
                 reference: invoiceNumber,
                 description: `Sale ${invoiceNumber} (offline)`,
@@ -445,8 +490,8 @@ export function usePOS() {
           discount: effectiveDiscount,
           total: effectiveTotal,
           payments,
-          totalPaid,
-          change: Math.max(0, totalPaid - effectiveTotal),
+          totalPaid: totalTendered,
+          change: Math.max(0, totalTendered - effectiveTotal),
           customerName,
           locationName: currentLocation.name,
           businessName: business.name,
@@ -466,8 +511,6 @@ export function usePOS() {
 
         return offlineResult;
       }
-
-
 
       const { error: saleErr } = await supabase.from("sales").insert({
         id: saleId,
@@ -520,7 +563,6 @@ export function usePOS() {
           batch_id: batchId,
           tax_rate_id: vatEnabled ? resolvedTaxRateId : null,
         });
-
       }
       const { error: itemsErr } = await supabase.from("sale_items").insert(saleItems);
       if (itemsErr) throw itemsErr;
@@ -528,13 +570,13 @@ export function usePOS() {
       if (batchDeductions.length > 0) {
         await Promise.all(
           batchDeductions.map((p) =>
-            supabase.rpc("decrement_batch_quantity" as any, { _batch_id: p.batch_id, _qty: p.quantity })
-          )
+            supabase.rpc("decrement_batch_quantity" as any, { _batch_id: p.batch_id, _qty: p.quantity }),
+          ),
         );
       }
 
       if (payments.length > 0) {
-        const paymentRows = payments.filter((p) => p.amount > 0).map((p) => ({
+        const paymentRows = appliedPayments.map((p) => ({
           sale_id: saleId,
           method: p.method,
           amount: p.amount,
@@ -555,7 +597,7 @@ export function usePOS() {
             .eq("location_id", currentLocation.id)
             .maybeSingle();
           return { item, inv };
-        })
+        }),
       );
 
       await Promise.all(
@@ -565,20 +607,19 @@ export function usePOS() {
             supabase
               .from("inventory")
               .update({ quantity: inv!.quantity - item.quantity })
-              .eq("id", inv!.id)
-          )
+              .eq("id", inv!.id),
+          ),
       );
 
       // No mirror stock_adjustments row: the sale document is the stock movement.
       // The Inventory Movement ledger reads sales/purchases directly.
-
 
       if (bankAccountId) {
         const { error: btErr } = await supabase.from("bank_transactions").insert({
           business_id: business.id,
           bank_account_id: bankAccountId,
           type: "payment_received",
-          amount: Math.min(totalPaid, effectiveTotal),
+          amount: totalPaid,
           date: new Date().toISOString().split("T")[0],
           reference: invoiceNumber,
           description: `Sale ${invoiceNumber}`,
@@ -623,15 +664,14 @@ export function usePOS() {
               const body = await (ctx as Response).clone().json();
               if (body?.error) msg = body.error;
             }
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
           fiscalError = msg;
           fiscal = { fiscal_status: "failed", fiscal_error: msg } as Record<string, unknown>;
           toast.error(`eTIMS push failed: ${msg}`, { duration: 8000 });
         }
       }
-
-
-
 
       const result = {
         saleId,
@@ -642,8 +682,8 @@ export function usePOS() {
         discount: effectiveDiscount,
         total: effectiveTotal,
         payments,
-        totalPaid,
-        change: Math.max(0, totalPaid - effectiveTotal),
+        totalPaid: totalTendered,
+        change: Math.max(0, totalTendered - effectiveTotal),
         customerName,
         locationName: currentLocation.name,
         businessName: business.name,
@@ -655,7 +695,6 @@ export function usePOS() {
         loyaltyDiscount,
       };
 
-
       clearCart();
       toast.success("Sale completed!");
       return result;
@@ -665,19 +704,34 @@ export function usePOS() {
     } finally {
       completingRef.current = false;
       setProcessing(false);
-
     }
   };
 
   return {
-    cart, addToCart, updateCartItem, removeFromCart, clearCart,
-    customerId, setCustomerId, customerName, setCustomerName,
-    cartSubtotal, cartTax, cartTotal, vatBreakdown, taxInclusive, vatEnabled,
-    activeTaxRates, defaultTaxRate,
-    heldSales, holdSale, resumeSale, removeHeldSale,
-    completeSale, processing,
-    stockOf, preventOverselling,
-
+    cart,
+    addToCart,
+    updateCartItem,
+    removeFromCart,
+    clearCart,
+    customerId,
+    setCustomerId,
+    customerName,
+    setCustomerName,
+    cartSubtotal,
+    cartTax,
+    cartTotal,
+    vatBreakdown,
+    taxInclusive,
+    vatEnabled,
+    activeTaxRates,
+    defaultTaxRate,
+    heldSales,
+    holdSale,
+    resumeSale,
+    removeHeldSale,
+    completeSale,
+    processing,
+    stockOf,
+    preventOverselling,
   };
 }
-
