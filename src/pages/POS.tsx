@@ -439,13 +439,8 @@ const POS = () => {
         window.setTimeout(() => { void displayThankYou(displayCfg); }, 4000);
         lastCartKey.current = "";
       }
-      // Auto-open cash drawer if configured
-      try {
-        const { loadCashDrawerConfig, openCashDrawer } = await import("@/lib/cashDrawer");
-        const cfg = loadCashDrawerConfig();
-        if (cfg.autoOpen && cfg.mode !== "off") void openCashDrawer(cfg);
-      } catch { /* noop */ }
     }
+
   };
 
   const handleStartDay = async (openingFloat: number, locationId: string, cashAccountId: string) => {

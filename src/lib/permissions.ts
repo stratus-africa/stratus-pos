@@ -43,6 +43,9 @@ export const reportsCatalog = [
   { key: "report.audit", label: "Audit Trail Report" },
 ];
 
+/** Marker row written by the Roles editor so saved configs are treated as authoritative. */
+export const CONFIGURED_MARKER = "__configured__";
+
 export const permKey = (moduleKey: string, action: string) => `${moduleKey}.${action}`;
 export const allModulePerms = moduleCatalog.flatMap((m) => m.actions.map((a) => permKey(m.key, a)));
 export const allReportPerms = reportsCatalog.map((r) => r.key);
