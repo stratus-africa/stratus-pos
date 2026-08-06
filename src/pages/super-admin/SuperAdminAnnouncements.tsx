@@ -8,9 +8,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Plus, MoreHorizontal, Pencil, Trash2, Megaphone } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Plus, MoreHorizontal, Pencil, Trash2, Megaphone, Eye } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -22,6 +35,7 @@ interface Announcement {
   is_active: boolean;
   starts_at: string | null;
   ends_at: string | null;
+  schedule_timezone: string;
   created_at: string;
 }
 
@@ -33,10 +47,66 @@ type Draft = {
   is_active: boolean;
   starts_at: string;
   ends_at: string;
+  schedule_timezone: string;
 };
 
-const empty = (): Draft => ({ title: "", body: "", version_label: "", is_active: true, starts_at: "", ends_at: "" });
-const toLocalInput = (iso: string | null) => (iso ? new Date(iso).toISOString().slice(0, 16) : "");
+const empty = (): Draft => ({
+  title: "",
+  body: "",
+  version_label: "",
+  is_active: true,
+  starts_at: "",
+  ends_at: "",
+  schedule_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+});
+const timezones =
+  typeof Intl.supportedValuesOf === "function"
+    ? Intl.supportedValuesOf("timeZone")
+    : ["UTC", "Africa/Nairobi", "Europe/London", "America/New_York"];
+const toLocalInput = (iso: string | null, timezone: string) =>
+  iso
+    ? new Intl.DateTimeFormat("sv-SE", {
+        timeZone: timezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      })
+        .format(new Date(iso))
+        .replace(" ", "T")
+    : "";
+const zonedToUtc = (local: string, timezone: string) => {
+  if (!local) return null;
+  const target = new Date(`${local}:00Z`);
+  const offset = (date: Date) => {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(date)
+      .reduce<Record<string, string>>((out, part) => ({ ...out, [part.type]: part.value }), {});
+    return (
+      Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second) - date.getTime()
+    );
+  };
+  let utc = new Date(target.getTime() - offset(target));
+  utc = new Date(target.getTime() - offset(utc));
+  return utc.toISOString();
+};
+const displayInZone = (iso: string | null, timezone: string) =>
+  iso
+    ? new Intl.DateTimeFormat(undefined, { timeZone: timezone, dateStyle: "medium", timeStyle: "short" }).format(
+        new Date(iso),
+      )
+    : "No limit";
 
 export default function SuperAdminAnnouncements() {
   const [rows, setRows] = useState<Announcement[]>([]);
@@ -44,6 +114,8 @@ export default function SuperAdminAnnouncements() {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>(empty());
   const [saving, setSaving] = useState(false);
+  const [tenants, setTenants] = useState<{ id: string; name: string; timezone: string | null }[]>([]);
+  const [previewTenantId, setPreviewTenantId] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -58,6 +130,10 @@ export default function SuperAdminAnnouncements() {
 
   useEffect(() => {
     void load();
+    void (async () => {
+      const { data } = await (supabase as any).from("businesses").select("id, name, timezone").order("name");
+      setTenants(data || []);
+    })();
   }, []);
 
   const save = async () => {
@@ -71,8 +147,9 @@ export default function SuperAdminAnnouncements() {
       body: draft.body.trim(),
       version_label: draft.version_label.trim() || null,
       is_active: draft.is_active,
-      starts_at: draft.starts_at ? new Date(draft.starts_at).toISOString() : null,
-      ends_at: draft.ends_at ? new Date(draft.ends_at).toISOString() : null,
+      starts_at: zonedToUtc(draft.starts_at, draft.schedule_timezone),
+      ends_at: zonedToUtc(draft.ends_at, draft.schedule_timezone),
+      schedule_timezone: draft.schedule_timezone,
     };
     const { error } = draft.id
       ? await (supabase as any).from("system_announcements").update(payload).eq("id", draft.id)
@@ -109,9 +186,7 @@ export default function SuperAdminAnnouncements() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">Announcements</h1>
-          <p className="text-sm text-muted-foreground">
-            Push "What's new" messages that tenants see at start of day.
-          </p>
+          <p className="text-sm text-muted-foreground">Push "What's new" messages that tenants see at start of day.</p>
         </div>
         <Button
           onClick={() => {
@@ -145,7 +220,9 @@ export default function SuperAdminAnnouncements() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">Loading…</TableCell>
+                    <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                      Loading…
+                    </TableCell>
                   </TableRow>
                 ) : rows.length === 0 ? (
                   <TableRow>
@@ -162,7 +239,7 @@ export default function SuperAdminAnnouncements() {
                       </TableCell>
                       <TableCell>{row.version_label || "—"}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {row.starts_at ? format(new Date(row.starts_at), "dd MMM yyyy") : "Always"}
+                        {row.starts_at ? format(new Date(row.starts_at), "dd MMM yyyy HH:mm") : "Always"}
                         {" → "}
                         {row.ends_at ? format(new Date(row.ends_at), "dd MMM yyyy") : "No end"}
                       </TableCell>
@@ -187,8 +264,9 @@ export default function SuperAdminAnnouncements() {
                                   body: row.body,
                                   version_label: row.version_label || "",
                                   is_active: row.is_active,
-                                  starts_at: toLocalInput(row.starts_at),
-                                  ends_at: toLocalInput(row.ends_at),
+                                  starts_at: toLocalInput(row.starts_at, row.schedule_timezone || "UTC"),
+                                  ends_at: toLocalInput(row.ends_at, row.schedule_timezone || "UTC"),
+                                  schedule_timezone: row.schedule_timezone || "UTC",
                                 });
                                 setOpen(true);
                               }}
@@ -222,16 +300,29 @@ export default function SuperAdminAnnouncements() {
           <div className="space-y-3">
             <div>
               <Label>Title</Label>
-              <Input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="New stock take workflow" />
+              <Input
+                value={draft.title}
+                onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+                placeholder="New stock take workflow"
+              />
             </div>
             <div>
               <Label>Message</Label>
-              <Textarea rows={5} value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} placeholder="Describe the improvements…" />
+              <Textarea
+                rows={5}
+                value={draft.body}
+                onChange={(e) => setDraft({ ...draft, body: e.target.value })}
+                placeholder="Describe the improvements…"
+              />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <Label>Version label (optional)</Label>
-                <Input value={draft.version_label} onChange={(e) => setDraft({ ...draft, version_label: e.target.value })} placeholder="v2.4" />
+                <Input
+                  value={draft.version_label}
+                  onChange={(e) => setDraft({ ...draft, version_label: e.target.value })}
+                  placeholder="v2.4"
+                />
               </div>
               <div className="flex items-end gap-3 pb-1">
                 <Switch checked={draft.is_active} onCheckedChange={(v) => setDraft({ ...draft, is_active: v })} />
@@ -239,17 +330,76 @@ export default function SuperAdminAnnouncements() {
               </div>
               <div>
                 <Label>Show from (optional)</Label>
-                <Input type="datetime-local" value={draft.starts_at} onChange={(e) => setDraft({ ...draft, starts_at: e.target.value })} />
+                <Input
+                  type="datetime-local"
+                  value={draft.starts_at}
+                  onChange={(e) => setDraft({ ...draft, starts_at: e.target.value })}
+                />
               </div>
               <div>
                 <Label>Show until (optional)</Label>
-                <Input type="datetime-local" value={draft.ends_at} onChange={(e) => setDraft({ ...draft, ends_at: e.target.value })} />
+                <Input
+                  type="datetime-local"
+                  value={draft.ends_at}
+                  onChange={(e) => setDraft({ ...draft, ends_at: e.target.value })}
+                />
               </div>
+              <div className="sm:col-span-2">
+                <Label>Schedule timezone</Label>
+                <Select
+                  value={draft.schedule_timezone}
+                  onValueChange={(schedule_timezone) => setDraft({ ...draft, schedule_timezone })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {timezones.map((timezone) => (
+                      <SelectItem key={timezone} value={timezone}>
+                        {timezone}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+              <div className="mb-2 flex items-center gap-2 font-medium">
+                <Eye className="h-4 w-4" /> Tenant preview
+              </div>
+              <Select value={previewTenantId} onValueChange={setPreviewTenantId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a tenant to preview their local time" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tenants.map((tenant) => (
+                    <SelectItem key={tenant.id} value={tenant.id}>
+                      {tenant.name} ({tenant.timezone || "UTC"})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {previewTenantId &&
+                (() => {
+                  const tenant = tenants.find((item) => item.id === previewTenantId);
+                  const zone = tenant?.timezone || "UTC";
+                  return (
+                    <p className="mt-2 text-muted-foreground">
+                      {tenant?.name} sees it from{" "}
+                      <strong>{displayInZone(zonedToUtc(draft.starts_at, draft.schedule_timezone), zone)}</strong> until{" "}
+                      <strong>{displayInZone(zonedToUtc(draft.ends_at, draft.schedule_timezone), zone)}</strong>.
+                    </p>
+                  );
+                })()}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={save} disabled={saving}>
+              {saving ? "Saving…" : "Save"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
