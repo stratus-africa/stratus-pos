@@ -40,5 +40,14 @@ export function useBakery() {
     mutationFn: async (v: { recipe_id: string; location_id: string; date: string; quantity: number; notes?: string }) => { assertCanPost(); const { data, error } = await db.rpc("complete_production", { p_recipe_id: v.recipe_id, p_location_id: v.location_id, p_date: v.date, p_quantity: v.quantity, p_notes: v.notes || null }); if (error) throw error; return data as string; },
     onSuccess: () => { client.invalidateQueries({ queryKey: ["bakery-productions"] }); client.invalidateQueries({ queryKey: ["inventory"] }); toast.success("Production completed and stock updated"); }, onError: (e: Error) => toast.error(e.message),
   });
-  return { recipesQuery, productionsQuery, saveRecipe, completeProduction };
+  const deleteRecipe = useMutation({
+    mutationFn: async (id: string) => {
+      const { error: itemsErr } = await db.from("recipe_items").delete().eq("recipe_id", id);
+      if (itemsErr) throw itemsErr;
+      const { error } = await db.from("recipes").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { client.invalidateQueries({ queryKey: ["bakery-recipes"] }); toast.success("Recipe deleted"); }, onError: (e: Error) => toast.error(e.message),
+  });
+  return { recipesQuery, productionsQuery, saveRecipe, deleteRecipe, completeProduction };
 }
