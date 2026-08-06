@@ -4644,6 +4644,19 @@ export type Database = {
         }
         Returns: number
       }
+      recalculate_sale_payment_amounts: {
+        Args: {
+          _business_id: string
+          _from_date: string
+          _location_id?: string
+          _to_date: string
+        }
+        Returns: {
+          amount_removed: number
+          payments_updated: number
+          sales_recalculated: number
+        }[]
+      }
       recompute_bank_account_balance: {
         Args: { _account_id: string }
         Returns: undefined
