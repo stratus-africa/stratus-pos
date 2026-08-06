@@ -25,6 +25,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import PaymentDialog, { LoyaltyPayload } from "@/components/pos/PaymentDialog";
 import ReceiptDialog from "@/components/pos/ReceiptDialog";
 import StartDayDialog from "@/components/pos/StartDayDialog";
+import WhatsNewDialog from "@/components/announcements/WhatsNewDialog";
 import ManagerApprovalDialog from "@/components/pos/ManagerApprovalDialog";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { CartTable } from "@/components/pos/CartTable";
@@ -590,6 +591,8 @@ const POS = () => {
   }
 
   return (
+    <>
+    <WhatsNewDialog trigger={!!session.activeSession} />
     <div
       ref={splitRef}
       className={`flex flex-col lg:flex-row gap-4 h-[calc(100dvh-6rem)] lg:h-[calc(100vh-6rem)] pb-[env(safe-area-inset-bottom)] ${dragging ? "select-none cursor-col-resize" : ""}`}
