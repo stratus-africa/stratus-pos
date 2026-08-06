@@ -7,6 +7,7 @@ import { Search, Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-
 import { useCustomers, Customer } from "@/hooks/useSales";
 import { usePermissions } from "@/hooks/usePermissions";
 import CustomerFormDialog from "@/components/sales/CustomerFormDialog";
+import CustomerDetailDialog from "@/components/sales/CustomerDetailDialog";
 
 const PAGE_SIZE = 25;
 
@@ -29,6 +30,7 @@ const Customers = () => {
   const { query, create, update, remove } = useCustomers({ page, pageSize: PAGE_SIZE, search: debounced });
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
+  const [viewing, setViewing] = useState<Customer | null>(null);
 
   const rows = query.data?.rows ?? [];
   const total = query.data?.total ?? 0;
@@ -68,14 +70,18 @@ const Customers = () => {
               ) : rows.length === 0 ? (
                 <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No customers found.</TableCell></TableRow>
               ) : (
-                rows.map((c) => (
-                  <TableRow key={c.id}>
+                rows.map((c, i) => (
+                  <TableRow
+                    key={c.id}
+                    className={`cursor-pointer ${i % 2 ? "bg-muted/30" : ""}`}
+                    onClick={() => setViewing(c)}
+                  >
                     <TableCell className="font-medium">{c.name}</TableCell>
                     <TableCell>{c.phone || "—"}</TableCell>
                     <TableCell>{c.email || "—"}</TableCell>
                     <TableCell className="text-right">KES {Number(c.balance).toLocaleString()}</TableCell>
                     {(canEdit || canDelete) && (
-                      <TableCell className="text-right">
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         {canEdit && (
                           <Button variant="ghost" size="icon" onClick={() => { setEditing(c); setOpen(true); }}>
                             <Pencil className="h-4 w-4" />
@@ -110,6 +116,8 @@ const Customers = () => {
           </Button>
         </div>
       </div>
+
+      <CustomerDetailDialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)} customer={viewing} />
 
       <CustomerFormDialog
         open={open}

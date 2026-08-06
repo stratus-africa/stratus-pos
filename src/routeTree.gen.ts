@@ -46,6 +46,7 @@ import { Route as AppPurchasesIndexRouteImport } from './routes/_app.purchases.i
 import { Route as AppPurchasesNewRouteImport } from './routes/_app.purchases.new'
 import { Route as SuperSuperAdminIndexRouteImport } from './routes/_super.super-admin.index'
 import { Route as SuperSuperAdminActivityRouteImport } from './routes/_super.super-admin.activity'
+import { Route as SuperSuperAdminAnnouncementsRouteImport } from './routes/_super.super-admin.announcements'
 import { Route as SuperSuperAdminLandingRouteImport } from './routes/_super.super-admin.landing'
 import { Route as SuperSuperAdminModulesRouteImport } from './routes/_super.super-admin.modules'
 import { Route as SuperSuperAdminNotificationsRouteImport } from './routes/_super.super-admin.notifications'
@@ -255,6 +256,12 @@ const SuperSuperAdminActivityRoute = SuperSuperAdminActivityRouteImport.update({
   path: '/super-admin/activity',
   getParentRoute: () => SuperRoute,
 } as any)
+const SuperSuperAdminAnnouncementsRoute =
+  SuperSuperAdminAnnouncementsRouteImport.update({
+    id: '/super-admin/announcements',
+    path: '/super-admin/announcements',
+    getParentRoute: () => SuperRoute,
+  } as any)
 const SuperSuperAdminLandingRoute = SuperSuperAdminLandingRouteImport.update({
   id: '/super-admin/landing',
   path: '/super-admin/landing',
@@ -431,6 +438,7 @@ export interface FileRoutesByFullPath {
   '/super-admin/login': typeof SuperAdminLoginRoute
   '/purchases/new': typeof AppPurchasesNewRoute
   '/super-admin/activity': typeof SuperSuperAdminActivityRoute
+  '/super-admin/announcements': typeof SuperSuperAdminAnnouncementsRoute
   '/super-admin/landing': typeof SuperSuperAdminLandingRoute
   '/super-admin/modules': typeof SuperSuperAdminModulesRoute
   '/super-admin/notifications': typeof SuperSuperAdminNotificationsRoute
@@ -493,6 +501,7 @@ export interface FileRoutesByTo {
   '/super-admin/login': typeof SuperAdminLoginRoute
   '/purchases/new': typeof AppPurchasesNewRoute
   '/super-admin/activity': typeof SuperSuperAdminActivityRoute
+  '/super-admin/announcements': typeof SuperSuperAdminAnnouncementsRoute
   '/super-admin/landing': typeof SuperSuperAdminLandingRoute
   '/super-admin/modules': typeof SuperSuperAdminModulesRoute
   '/super-admin/notifications': typeof SuperSuperAdminNotificationsRoute
@@ -558,6 +567,7 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/_app/purchases/new': typeof AppPurchasesNewRoute
   '/_super/super-admin/activity': typeof SuperSuperAdminActivityRoute
+  '/_super/super-admin/announcements': typeof SuperSuperAdminAnnouncementsRoute
   '/_super/super-admin/landing': typeof SuperSuperAdminLandingRoute
   '/_super/super-admin/modules': typeof SuperSuperAdminModulesRoute
   '/_super/super-admin/notifications': typeof SuperSuperAdminNotificationsRoute
@@ -622,6 +632,7 @@ export interface FileRouteTypes {
     | '/super-admin/login'
     | '/purchases/new'
     | '/super-admin/activity'
+    | '/super-admin/announcements'
     | '/super-admin/landing'
     | '/super-admin/modules'
     | '/super-admin/notifications'
@@ -684,6 +695,7 @@ export interface FileRouteTypes {
     | '/super-admin/login'
     | '/purchases/new'
     | '/super-admin/activity'
+    | '/super-admin/announcements'
     | '/super-admin/landing'
     | '/super-admin/modules'
     | '/super-admin/notifications'
@@ -748,6 +760,7 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/_app/purchases/new'
     | '/_super/super-admin/activity'
+    | '/_super/super-admin/announcements'
     | '/_super/super-admin/landing'
     | '/_super/super-admin/modules'
     | '/_super/super-admin/notifications'
@@ -1054,6 +1067,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SuperSuperAdminActivityRouteImport
       parentRoute: typeof SuperRoute
     }
+    '/_super/super-admin/announcements': {
+      id: '/_super/super-admin/announcements'
+      path: '/super-admin/announcements'
+      fullPath: '/super-admin/announcements'
+      preLoaderRoute: typeof SuperSuperAdminAnnouncementsRouteImport
+      parentRoute: typeof SuperRoute
+    }
     '/_super/super-admin/landing': {
       id: '/_super/super-admin/landing'
       path: '/super-admin/landing'
@@ -1288,6 +1308,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 interface SuperRouteChildren {
   SuperSuperAdminActivityRoute: typeof SuperSuperAdminActivityRoute
+  SuperSuperAdminAnnouncementsRoute: typeof SuperSuperAdminAnnouncementsRoute
   SuperSuperAdminLandingRoute: typeof SuperSuperAdminLandingRoute
   SuperSuperAdminModulesRoute: typeof SuperSuperAdminModulesRoute
   SuperSuperAdminNotificationsRoute: typeof SuperSuperAdminNotificationsRoute
@@ -1317,6 +1338,7 @@ interface SuperRouteChildren {
 
 const SuperRouteChildren: SuperRouteChildren = {
   SuperSuperAdminActivityRoute: SuperSuperAdminActivityRoute,
+  SuperSuperAdminAnnouncementsRoute: SuperSuperAdminAnnouncementsRoute,
   SuperSuperAdminLandingRoute: SuperSuperAdminLandingRoute,
   SuperSuperAdminModulesRoute: SuperSuperAdminModulesRoute,
   SuperSuperAdminNotificationsRoute: SuperSuperAdminNotificationsRoute,

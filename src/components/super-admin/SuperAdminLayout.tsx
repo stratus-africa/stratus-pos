@@ -35,6 +35,7 @@ import {
   Bell,
   Menu,
   Zap,
+  Megaphone,
   Settings2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -90,7 +91,10 @@ const navGroups: NavGroup[] = [
   },
   {
     label: "System",
-    items: [{ title: "General Settings", url: "/super-admin/settings", icon: Settings2 }],
+    items: [
+      { title: "General Settings", url: "/super-admin/settings", icon: Settings2 },
+      { title: "Announcements", url: "/super-admin/announcements", icon: Megaphone },
+    ],
   },
 ];
 

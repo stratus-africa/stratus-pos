@@ -7,6 +7,7 @@ import { DashboardStatCards } from "@/components/dashboard/DashboardStatCards";
 import { DashboardCharts } from "@/components/dashboard/DashboardCharts";
 import { DashboardBottomRow } from "@/components/dashboard/DashboardBottomRow";
 import { ReminderBanner } from "@/components/dashboard/ReminderBanner";
+import { SubscriptionReminderDialog } from "@/components/subscription/SubscriptionReminderDialog";
 import { CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -89,6 +90,8 @@ const Dashboard = () => {
           </DropdownMenu>
         </div>
       </div>
+
+      <SubscriptionReminderDialog />
 
       <ReminderBanner />
 

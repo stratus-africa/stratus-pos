@@ -254,7 +254,7 @@ export default function SuperAdminDashboard() {
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="w-full min-w-0 space-y-5 overflow-x-hidden">
       {/* Greeting */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
@@ -270,11 +270,11 @@ export default function SuperAdminDashboard() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-4">
         {statCards.map((card) => (
           <Card
             key={card.label}
-            className="min-h-[152px] bg-white border-border p-4 shadow-none transition-all hover:border-emerald-200 hover:bg-emerald-50/30"
+            className="min-w-0 min-h-[152px] bg-white border-border p-4 shadow-none transition-all hover:border-emerald-200 hover:bg-emerald-50/30"
           >
             <div className="flex h-full flex-col items-center justify-center text-center">
               <div className={`h-10 w-10 rounded-lg ${card.iconBg} flex items-center justify-center mb-2`}>
@@ -383,39 +383,39 @@ export default function SuperAdminDashboard() {
       </div>
 
       {/* Bottom row */}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-2">
         {/* Quick actions */}
-        <Card className="p-5 bg-white border-border shadow-none">
+        <Card className="min-w-0 p-4 sm:p-5 bg-white border-border shadow-none">
           <div className="flex items-center gap-2 mb-4">
             <Zap className="h-4 w-4 text-emerald-500" />
             <h3 className="text-sm font-semibold">Quick actions</h3>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             {quickActions.map((qa) => (
               <Link
                 key={qa.title}
                 to={qa.link}
-                className="group p-4 rounded-lg border border-border hover:border-emerald-200 hover:bg-emerald-50/30 transition-all flex flex-col items-center text-center"
+                className="group min-w-0 p-3 sm:p-4 rounded-lg border border-border hover:border-emerald-200 hover:bg-emerald-50/30 transition-all flex flex-col items-center text-center"
               >
                 <div className={`h-10 w-10 rounded-lg ${qa.iconBg} flex items-center justify-center mb-2`}>
                   <qa.icon className={`h-5 w-5 ${qa.iconColor}`} />
                 </div>
-                <div className="text-sm font-semibold">{qa.title}</div>
-                <div className="text-[11px] text-muted-foreground mt-0.5">{qa.description}</div>
+                <div className="w-full break-words text-xs sm:text-sm font-semibold">{qa.title}</div>
+                <div className="w-full break-words text-[10px] sm:text-[11px] text-muted-foreground mt-0.5">{qa.description}</div>
               </Link>
             ))}
           </div>
         </Card>
 
         {/* Recent tenant activity */}
-        <Card className="p-5 bg-white border-border shadow-none">
-          <div className="mb-4 flex items-center justify-between gap-3">
+        <Card className="min-w-0 p-4 sm:p-5 bg-white border-border shadow-none">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Activity className="h-4 w-4 text-emerald-500" />
               <h3 className="text-sm font-semibold">Recent activity</h3>
             </div>
             <Select value={tenantFilter} onValueChange={setTenantFilter}>
-              <SelectTrigger className="h-8 w-[150px] text-xs">
+              <SelectTrigger className="h-8 w-full max-w-[160px] text-xs sm:w-[150px]">
                 <SelectValue placeholder="All tenants" />
               </SelectTrigger>
               <SelectContent>
@@ -449,7 +449,7 @@ export default function SuperAdminDashboard() {
                         {activity.user_name ? ` · ${activity.user_name}` : ""}
                       </p>
                     </div>
-                    <time className="shrink-0 text-[11px] text-muted-foreground" dateTime={activity.created_at}>
+                    <time className="shrink-0 whitespace-nowrap text-[10px] text-muted-foreground sm:text-[11px]" dateTime={activity.created_at}>
                       {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })}
                     </time>
                   </div>
