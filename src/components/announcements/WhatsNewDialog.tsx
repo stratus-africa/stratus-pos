@@ -1,0 +1,94 @@
+import { useEffect, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { Sparkles } from "lucide-react";
+
+interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  version_label: string | null;
+}
+
+/**
+ * Shows active platform announcements ("What's New") once per user per
+ * announcement. Rendered at start of day after the POS register is opened.
+ */
+export default function WhatsNewDialog({ trigger }: { trigger: boolean }) {
+  const { user } = useAuth();
+  const [items, setItems] = useState<Announcement[]>([]);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!trigger || !user) return;
+    let cancelled = false;
+    (async () => {
+      const nowIso = new Date().toISOString();
+      const { data: anns } = await (supabase as any)
+        .from("system_announcements")
+        .select("id, title, body, version_label, starts_at, ends_at")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      const live = ((anns as any[]) || []).filter(
+        (a) => (!a.starts_at || a.starts_at <= nowIso) && (!a.ends_at || a.ends_at >= nowIso),
+      );
+      if (live.length === 0) return;
+      const { data: dismissed } = await (supabase as any)
+        .from("announcement_dismissals")
+        .select("announcement_id")
+        .eq("user_id", user.id);
+      const seen = new Set(((dismissed as any[]) || []).map((d) => d.announcement_id));
+      const pending = live.filter((a) => !seen.has(a.id));
+      if (!cancelled && pending.length > 0) {
+        setItems(pending);
+        setOpen(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [trigger, user?.id]);
+
+  const close = async () => {
+    setOpen(false);
+    if (!user || items.length === 0) return;
+    await (supabase as any)
+      .from("announcement_dismissals")
+      .upsert(items.map((a) => ({ announcement_id: a.id, user_id: user.id })), {
+        onConflict: "announcement_id,user_id",
+      });
+  };
+
+  if (items.length === 0) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && close()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" /> What's new
+          </DialogTitle>
+          <DialogDescription>Recent improvements to your system.</DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[55vh] space-y-4 overflow-y-auto">
+          {items.map((a) => (
+            <div key={a.id} className="rounded-lg border p-4">
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold">{a.title}</h3>
+                {a.version_label && <Badge variant="secondary">{a.version_label}</Badge>}
+              </div>
+              <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{a.body}</p>
+            </div>
+          ))}
+        </div>
+        <DialogFooter>
+          <Button onClick={close}>Got it</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
