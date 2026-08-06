@@ -7,6 +7,7 @@ import { Search, Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-
 import { useCustomers, Customer } from "@/hooks/useSales";
 import { usePermissions } from "@/hooks/usePermissions";
 import CustomerFormDialog from "@/components/sales/CustomerFormDialog";
+import CustomerDetailDialog from "@/components/sales/CustomerDetailDialog";
 
 const PAGE_SIZE = 25;
 
@@ -29,6 +30,7 @@ const Customers = () => {
   const { query, create, update, remove } = useCustomers({ page, pageSize: PAGE_SIZE, search: debounced });
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
+  const [viewing, setViewing] = useState<Customer | null>(null);
 
   const rows = query.data?.rows ?? [];
   const total = query.data?.total ?? 0;
@@ -114,6 +116,8 @@ const Customers = () => {
           </Button>
         </div>
       </div>
+
+      <CustomerDetailDialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)} customer={viewing} />
 
       <CustomerFormDialog
         open={open}
