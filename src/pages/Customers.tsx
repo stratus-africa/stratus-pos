@@ -68,14 +68,18 @@ const Customers = () => {
               ) : rows.length === 0 ? (
                 <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No customers found.</TableCell></TableRow>
               ) : (
-                rows.map((c) => (
-                  <TableRow key={c.id}>
+                rows.map((c, i) => (
+                  <TableRow
+                    key={c.id}
+                    className={`cursor-pointer ${i % 2 ? "bg-muted/30" : ""}`}
+                    onClick={() => setViewing(c)}
+                  >
                     <TableCell className="font-medium">{c.name}</TableCell>
                     <TableCell>{c.phone || "—"}</TableCell>
                     <TableCell>{c.email || "—"}</TableCell>
                     <TableCell className="text-right">KES {Number(c.balance).toLocaleString()}</TableCell>
                     {(canEdit || canDelete) && (
-                      <TableCell className="text-right">
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         {canEdit && (
                           <Button variant="ghost" size="icon" onClick={() => { setEditing(c); setOpen(true); }}>
                             <Pencil className="h-4 w-4" />
