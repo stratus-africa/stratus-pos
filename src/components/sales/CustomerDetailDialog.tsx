@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -7,6 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Customer, Sale } from "@/hooks/useSales";
 import SaleDetailDialog from "@/components/sales/SaleDetailDialog";
 import { format } from "date-fns";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -20,6 +23,11 @@ export default function CustomerDetailDialog({ open, onOpenChange, customer }: P
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Sale | null>(null);
+  const [search, setSearch] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("all");
+  const [paymentStatus, setPaymentStatus] = useState("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   useEffect(() => {
     if (!open || !customer) return;
@@ -27,7 +35,7 @@ export default function CustomerDetailDialog({ open, onOpenChange, customer }: P
     (async () => {
       const { data } = await supabase
         .from("sales")
-        .select("*")
+        .select("*, payments(method)")
         .eq("customer_id", customer.id)
         .order("created_at", { ascending: false })
         .limit(200);
@@ -36,13 +44,41 @@ export default function CustomerDetailDialog({ open, onOpenChange, customer }: P
     })();
   }, [open, customer?.id]);
 
-  if (!customer) return null;
-
   const totalSales = sales.reduce((s, x) => s + Number((x as any).total || 0), 0);
   const outstanding = sales.reduce(
     (s, x) => s + Math.max(0, Number((x as any).total || 0) - Number((x as any).amount_paid || 0)),
     0,
   );
+  const methods = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          sales.flatMap((sale: any) => (sale.payments || []).map((payment: any) => payment.method).filter(Boolean)),
+        ),
+      ),
+    [sales],
+  );
+  const filteredSales = useMemo(
+    () =>
+      sales.filter((sale: any) => {
+        const created = sale.created_at ? new Date(sale.created_at) : null;
+        const matchesSearch =
+          !search.trim() ||
+          `${sale.sale_number || ""} ${sale.invoice_number || ""} ${sale.id}`
+            .toLowerCase()
+            .includes(search.trim().toLowerCase());
+        const saleMethods = (sale.payments || []).map((payment: any) => payment.method);
+        const matchesMethod = paymentMethod === "all" || saleMethods.includes(paymentMethod);
+        const matchesStatus =
+          paymentStatus === "all" || sale.payment_status === paymentStatus || sale.status === paymentStatus;
+        const matchesFrom = !fromDate || (created && created >= new Date(`${fromDate}T00:00:00`));
+        const matchesTo = !toDate || (created && created <= new Date(`${toDate}T23:59:59.999`));
+        return matchesSearch && matchesMethod && matchesStatus && matchesFrom && matchesTo;
+      }),
+    [sales, search, paymentMethod, paymentStatus, fromDate, toDate],
+  );
+
+  if (!customer) return null;
 
   return (
     <>
@@ -72,6 +108,50 @@ export default function CustomerDetailDialog({ open, onOpenChange, customer }: P
             </TabsContent>
 
             <TabsContent value="transactions" className="pt-4">
+              <div className="mb-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                <div className="relative sm:col-span-2">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-9"
+                    placeholder="Search invoice or sale…"
+                  />
+                </div>
+                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Payment method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All methods</SelectItem>
+                    {methods.map((method) => (
+                      <SelectItem key={method} value={method}>
+                        {method}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={paymentStatus} onValueChange={setPaymentStatus}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="partial">Partial</SelectItem>
+                    <SelectItem value="unpaid">Unpaid</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    type="date"
+                    aria-label="From date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                  />
+                  <Input type="date" aria-label="To date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                </div>
+              </div>
               <div className="rounded-md border">
                 <Table>
                   <TableHeader>
@@ -86,27 +166,39 @@ export default function CustomerDetailDialog({ open, onOpenChange, customer }: P
                   <TableBody>
                     {loading ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading…</TableCell>
+                        <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                          Loading…
+                        </TableCell>
                       </TableRow>
-                    ) : sales.length === 0 ? (
+                    ) : filteredSales.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
                           No transactions for this customer yet.
                         </TableCell>
                       </TableRow>
                     ) : (
-                      sales.map((s: any, i) => (
+                      filteredSales.map((s: any, i) => (
                         <TableRow
                           key={s.id}
                           className={`cursor-pointer ${i % 2 ? "bg-muted/30" : ""}`}
                           onClick={() => setSelected(s as Sale)}
                         >
-                          <TableCell>{s.created_at ? format(new Date(s.created_at), "dd MMM yyyy HH:mm") : "—"}</TableCell>
+                          <TableCell>
+                            {s.created_at ? format(new Date(s.created_at), "dd MMM yyyy HH:mm") : "—"}
+                          </TableCell>
                           <TableCell className="font-mono text-xs">{s.sale_number || s.id.slice(0, 8)}</TableCell>
                           <TableCell className="text-right">{money(s.total)}</TableCell>
                           <TableCell className="text-right">{money(s.amount_paid)}</TableCell>
                           <TableCell>
-                            <Badge variant={s.payment_status === "paid" ? "default" : s.payment_status === "partial" ? "secondary" : "destructive"}>
+                            <Badge
+                              variant={
+                                s.payment_status === "paid"
+                                  ? "default"
+                                  : s.payment_status === "partial"
+                                    ? "secondary"
+                                    : "destructive"
+                              }
+                            >
                               {s.payment_status}
                             </Badge>
                           </TableCell>
