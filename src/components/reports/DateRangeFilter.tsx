@@ -3,36 +3,16 @@ import { Filter } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { financialYearRange } from "@/hooks/useAccountingSettings";
 
-export type DatePresetKey =
-  | "today"
-  | "this_week"
-  | "this_month"
-  | "this_quarter"
-  | "this_year"
-  | "yesterday"
-  | "previous_week"
-  | "previous_month"
-  | "previous_quarter"
-  | "previous_year"
-  | "this_financial_year"
-  | "last_financial_year"
-  | "custom";
+export type DatePresetKey = "today" | "yesterday" | "this_week" | "last_week" | "this_month" | "this_year" | "custom";
 
 export const DATE_PRESETS: { key: DatePresetKey; label: string }[] = [
   { key: "today", label: "Today" },
-  { key: "this_week", label: "This Week" },
-  { key: "this_month", label: "This Month" },
-  { key: "this_quarter", label: "This Quarter" },
-  { key: "this_year", label: "This Year" },
   { key: "yesterday", label: "Yesterday" },
-  { key: "previous_week", label: "Previous Week" },
-  { key: "previous_month", label: "Previous Month" },
-  { key: "previous_quarter", label: "Previous Quarter" },
-  { key: "previous_year", label: "Previous Year" },
-  { key: "this_financial_year", label: "This Financial Year" },
-  { key: "last_financial_year", label: "Last Financial Year" },
+  { key: "this_week", label: "This Week" },
+  { key: "last_week", label: "Last Week" },
+  { key: "this_month", label: "This Month" },
+  { key: "this_year", label: "This Year" },
   { key: "custom", label: "Custom" },
 ];
 
@@ -47,7 +27,7 @@ const startOfWeek = (d: Date) => {
 };
 
 /** Resolves a preset key into an inclusive { from, to } ISO date range. */
-export function resolvePreset(key: DatePresetKey, fyStartMonth = 1): { from: string; to: string } | null {
+export function resolvePreset(key: DatePresetKey): { from: string; to: string } | null {
   const now = new Date();
   const y = now.getFullYear();
   const m = now.getMonth();
@@ -66,7 +46,7 @@ export function resolvePreset(key: DatePresetKey, fyStartMonth = 1): { from: str
       e.setDate(s.getDate() + 6);
       return { from: isoDate(s), to: isoDate(e) };
     }
-    case "previous_week": {
+    case "last_week": {
       const s = startOfWeek(now);
       s.setDate(s.getDate() - 7);
       const e = new Date(s);
@@ -75,30 +55,8 @@ export function resolvePreset(key: DatePresetKey, fyStartMonth = 1): { from: str
     }
     case "this_month":
       return { from: isoDate(new Date(y, m, 1)), to: isoDate(new Date(y, m + 1, 0)) };
-    case "previous_month":
-      return { from: isoDate(new Date(y, m - 1, 1)), to: isoDate(new Date(y, m, 0)) };
-    case "this_quarter": {
-      const q = Math.floor(m / 3) * 3;
-      return { from: isoDate(new Date(y, q, 1)), to: isoDate(new Date(y, q + 3, 0)) };
-    }
-    case "previous_quarter": {
-      const q = Math.floor(m / 3) * 3 - 3;
-      return { from: isoDate(new Date(y, q, 1)), to: isoDate(new Date(y, q + 3, 0)) };
-    }
     case "this_year":
       return { from: isoDate(new Date(y, 0, 1)), to: isoDate(new Date(y, 11, 31)) };
-    case "previous_year":
-      return { from: isoDate(new Date(y - 1, 0, 1)), to: isoDate(new Date(y - 1, 11, 31)) };
-    case "this_financial_year": {
-      const { start, end } = financialYearRange(fyStartMonth, now);
-      return { from: isoDate(start), to: isoDate(end) };
-    }
-    case "last_financial_year": {
-      const ref = new Date(now);
-      ref.setFullYear(ref.getFullYear() - 1);
-      const { start, end } = financialYearRange(fyStartMonth, ref);
-      return { from: isoDate(start), to: isoDate(end) };
-    }
     default:
       return null;
   }
@@ -108,8 +66,6 @@ interface DateRangeFilterProps {
   from: string;
   to: string;
   onChange: (range: { from: string; to: string }) => void;
-  /** Financial-year start month (1-12) for the financial year presets. */
-  fyStartMonth?: number;
   /** Initial preset selection. Defaults to "custom" so existing values are kept. */
   defaultPreset?: DatePresetKey;
   className?: string;
@@ -119,20 +75,13 @@ interface DateRangeFilterProps {
  * Shared "As of" date range filter used across all reports. Presets set the
  * range automatically; "Custom" reveals From/To inputs for a manual range.
  */
-export function DateRangeFilter({
-  from,
-  to,
-  onChange,
-  fyStartMonth = 1,
-  defaultPreset = "custom",
-  className,
-}: DateRangeFilterProps) {
+export function DateRangeFilter({ from, to, onChange, defaultPreset = "custom", className }: DateRangeFilterProps) {
   const [preset, setPreset] = useState<DatePresetKey>(defaultPreset);
 
   // Apply the initial preset once when no range is set yet (skipped for "custom").
   useEffect(() => {
     if (from || to) return;
-    const range = resolvePreset(defaultPreset, fyStartMonth);
+    const range = resolvePreset(defaultPreset);
     if (range) onChange(range);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -142,19 +91,19 @@ export function DateRangeFilter({
     if (!from && !to) return;
     for (const p of DATE_PRESETS) {
       if (p.key === "custom") continue;
-      const range = resolvePreset(p.key, fyStartMonth);
+      const range = resolvePreset(p.key);
       if (range?.from === from && range?.to === to) {
         setPreset(p.key);
         return;
       }
     }
     setPreset("custom");
-  }, [from, to, fyStartMonth]);
+  }, [from, to]);
 
   const handlePreset = (value: string) => {
     const key = value as DatePresetKey;
     setPreset(key);
-    const range = resolvePreset(key, fyStartMonth);
+    const range = resolvePreset(key);
     if (range) onChange(range);
   };
 
