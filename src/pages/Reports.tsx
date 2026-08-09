@@ -125,31 +125,48 @@ const Reports = () => {
     queryKey: ["report-inventory", business?.id, currentLocation?.id],
     queryFn: async () => {
       if (!business || !currentLocation) return [];
-      const [invRes, batchRes] = await Promise.all([
-        supabase
+      const pageSize = 1000;
+      const inventoryRows: any[] = [];
+      const batchRows: any[] = [];
+
+      for (let offset = 0; ; offset += pageSize) {
+        const { data, error } = await supabase
           .from("inventory")
           .select("*, products(name, sku, purchase_price, selling_price, categories(name), brands(name))")
-          .eq("location_id", currentLocation.id),
-        supabase
+          .eq("location_id", currentLocation.id)
+          .range(offset, offset + pageSize - 1);
+        if (error) throw error;
+        const page = data || [];
+        inventoryRows.push(...page);
+        if (page.length < pageSize) break;
+      }
+
+      for (let offset = 0; ; offset += pageSize) {
+        const { data, error } = await supabase
           .from("product_batches")
           .select("product_id, batch_number, expiry_date, quantity")
           .eq("business_id", business.id)
           .eq("location_id", currentLocation.id)
           .eq("is_active", true)
           .gt("quantity", 0)
-          .order("expiry_date", { ascending: true, nullsFirst: false }),
-      ]);
-      if (invRes.error) throw invRes.error;
+          .order("expiry_date", { ascending: true, nullsFirst: false })
+          .range(offset, offset + pageSize - 1);
+        if (error) throw error;
+        const page = data || [];
+        batchRows.push(...page);
+        if (page.length < pageSize) break;
+      }
+
       const batchesByProduct = new Map<
         string,
         { batch_number: string; expiry_date: string | null; quantity: number }[]
       >();
-      (batchRes.data || []).forEach((b: any) => {
+      batchRows.forEach((b: any) => {
         const arr = batchesByProduct.get(b.product_id) || [];
         arr.push({ batch_number: b.batch_number, expiry_date: b.expiry_date, quantity: Number(b.quantity) });
         batchesByProduct.set(b.product_id, arr);
       });
-      return (invRes.data || []).map((row: any) => ({
+      return inventoryRows.map((row: any) => ({
         ...row,
         _batches: batchesByProduct.get(row.product_id) || [],
       }));
@@ -287,7 +304,6 @@ const Reports = () => {
           <DateRangeFilter
             from={from}
             to={to}
-            fyStartMonth={fyMonth}
             defaultPreset="this_month"
             onChange={({ from: f, to: t }) => {
               setFrom(f);
@@ -391,7 +407,6 @@ const Reports = () => {
                 locationId={currentLocation?.id}
                 from={from}
                 to={to}
-                fyStartMonth={fyMonth}
                 onDateChange={({ from: f, to: t }) => {
                   setFrom(f);
                   setTo(t);
