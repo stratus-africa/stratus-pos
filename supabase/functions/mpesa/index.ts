@@ -1,8 +1,4 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 import {
   initiateSTKPush,
   querySTKPushStatus,
@@ -11,6 +7,11 @@ import {
   type MpesaCreds,
   type MpesaEnv,
 } from "../_shared/mpesa.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
@@ -21,65 +22,74 @@ interface BusinessMpesaConfig {
 }
 
 async function loadBusinessMpesaConfig(businessId: string | undefined): Promise<BusinessMpesaConfig> {
-  const fallback: BusinessMpesaConfig = { creds: {}, environment: "live", accountType: "paybill" };
-  if (!businessId) return fallback;
-  try {
-    const [{ data: row }, { data: business, error: businessError }] = await Promise.all([
-      supabase
-        .from("business_payment_credentials")
-        .select("has_credentials, vault_secret_names")
-        .eq("business_id", businessId)
-        .eq("provider", "mpesa")
-        .maybeSingle(),
-      supabase
-        .from("businesses")
-        .select("mpesa_shortcode, mpesa_environment, mpesa_paybill_or_till")
-        .eq("id", businessId)
-        .maybeSingle(),
-    ]);
+  if (!businessId) throw new Error("A business is required for M-Pesa payments");
 
-    if (businessError) throw businessError;
-    const environment: MpesaEnv = business?.mpesa_environment === "sandbox" ? "sandbox" : "live";
-    const accountType = business?.mpesa_paybill_or_till === "till" ? "till" : "paybill";
-    const shortcode = business?.mpesa_shortcode?.replace(/\D/g, "") || undefined;
+  const [{ data: credentials, error: credentialsError }, { data: business, error: businessError }] = await Promise.all([
+    supabase
+      .from("business_payment_credentials")
+      .select("has_credentials, vault_secret_names")
+      .eq("business_id", businessId)
+      .eq("provider", "mpesa")
+      .maybeSingle(),
+    supabase
+      .from("businesses")
+      .select("mpesa_shortcode, mpesa_environment, mpesa_paybill_or_till")
+      .eq("id", businessId)
+      .maybeSingle(),
+  ]);
 
-    if (!row?.has_credentials || !row.vault_secret_names) {
-      return { creds: { shortcode }, environment, accountType };
-    }
-    const names = row.vault_secret_names as {
-      consumer_key?: string;
-      consumer_secret?: string;
-      passkey?: string;
-    };
-    const wanted = [names.consumer_key, names.consumer_secret, names.passkey].filter(Boolean) as string[];
-    if (wanted.length === 0) return { creds: { shortcode }, environment, accountType };
+  if (credentialsError) throw credentialsError;
+  if (businessError) throw businessError;
+  if (!business) throw new Error("Business M-Pesa settings were not found");
 
-    const byName: Record<string, string> = {};
-    await Promise.all(
-      wanted.map(async (n) => {
-        const { data, error } = await supabase.rpc("read_vault_secret", { _name: n });
-        if (error) {
-          console.warn("read_vault_secret failed for", n, error.message);
-          return;
-        }
-        if (typeof data === "string") byName[n] = data;
-      }),
-    );
+  const environment: MpesaEnv = business.mpesa_environment === "sandbox" ? "sandbox" : "live";
+  const accountType = business.mpesa_paybill_or_till === "till" ? "till" : "paybill";
+  const shortcode = business.mpesa_shortcode?.replace(/\D/g, "") || undefined;
 
-    return {
-      creds: {
-        consumerKey: names.consumer_key ? byName[names.consumer_key] : undefined,
-        consumerSecret: names.consumer_secret ? byName[names.consumer_secret] : undefined,
-        passkey: names.passkey ? byName[names.passkey] : undefined,
-        shortcode,
-      },
-      environment,
-      accountType,
-    };
-  } catch (e) {
-    console.warn("loadBusinessMpesaConfig failed", e);
-    return fallback;
+  if (!shortcode) throw new Error("M-Pesa shortcode is not configured for this business");
+  if (!credentials?.has_credentials || !credentials.vault_secret_names) {
+    throw new Error("M-Pesa credentials are not configured for this business");
   }
+
+  const names = credentials.vault_secret_names as {
+    consumer_key?: string;
+    consumer_secret?: string;
+    passkey?: string;
+  };
+
+  if (!names.consumer_key || !names.consumer_secret || !names.passkey) {
+    throw new Error("M-Pesa credential configuration is incomplete");
+  }
+
+  const secretNames = [names.consumer_key, names.consumer_secret, names.passkey];
+  const secrets: Record<string, string> = {};
+
+  await Promise.all(
+    secretNames.map(async (name) => {
+      const { data, error } = await supabase.rpc("read_vault_secret", {
+        _name: name,
+      });
+      if (error) {
+        throw new Error(`Could not read stored M-Pesa credentials: ${error.message}`);
+      }
+      if (typeof data === "string") secrets[name] = data;
+    }),
+  );
+
+  if (!secrets[names.consumer_key] || !secrets[names.consumer_secret] || !secrets[names.passkey]) {
+    throw new Error("Stored M-Pesa credentials are incomplete. Save them again in Settings.");
+  }
+
+  return {
+    creds: {
+      consumerKey: secrets[names.consumer_key],
+      consumerSecret: secrets[names.consumer_secret],
+      passkey: secrets[names.passkey],
+      shortcode,
+    },
+    environment,
+    accountType,
+  };
 }
 
 Deno.serve(async (req) => {
@@ -88,7 +98,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Authenticate user
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -103,16 +112,16 @@ Deno.serve(async (req) => {
 
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
+
     if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const userId = claimsData.claims.sub;
 
-    const url = new URL(req.url);
-    const action = url.searchParams.get("action");
+    const userId = claimsData.claims.sub;
+    const action = new URL(req.url).searchParams.get("action");
     const body = await req.json();
 
     const callbackBaseUrl = Deno.env.get("MPESA_CALLBACK_BASE_URL") || `${Deno.env.get("SUPABASE_URL")}/functions/v1`;
@@ -127,23 +136,20 @@ Deno.serve(async (req) => {
         });
       }
 
-      const callbackUrl = `${callbackBaseUrl}/mpesa-callback?type=stk`;
       const config = await loadBusinessMpesaConfig(businessId);
-
       const result = await initiateSTKPush(
         {
           phoneNumber,
           amount,
           accountReference: accountReference || "Payment",
           transactionDesc: `Payment for ${accountReference || "sale"}`,
-          callbackUrl,
+          callbackUrl: `${callbackBaseUrl}/mpesa-callback?type=stk`,
           accountType: config.accountType,
         },
         config.environment,
         config.creds,
       );
 
-      // Record in DB
       await supabase.from("mpesa_transactions").insert({
         business_id: businessId,
         sale_id: saleId || null,
@@ -168,7 +174,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "stk-query") {
-      const { checkoutRequestId, businessId: qBusinessId } = body;
+      const { checkoutRequestId, businessId } = body;
       if (!checkoutRequestId) {
         return new Response(JSON.stringify({ error: "checkoutRequestId is required" }), {
           status: 400,
@@ -176,16 +182,17 @@ Deno.serve(async (req) => {
         });
       }
 
-      let bizId = qBusinessId as string | undefined;
-      if (!bizId) {
-        const { data: txn } = await supabase
+      let resolvedBusinessId = businessId;
+      if (!resolvedBusinessId) {
+        const { data: transaction } = await supabase
           .from("mpesa_transactions")
           .select("business_id")
           .eq("checkout_request_id", checkoutRequestId)
           .maybeSingle();
-        bizId = (txn as any)?.business_id;
+        resolvedBusinessId = transaction?.business_id;
       }
-      const config = await loadBusinessMpesaConfig(bizId);
+
+      const config = await loadBusinessMpesaConfig(resolvedBusinessId);
       const result = await querySTKPushStatus(checkoutRequestId, config.environment, config.creds);
 
       return new Response(JSON.stringify(result), {
@@ -203,17 +210,14 @@ Deno.serve(async (req) => {
         });
       }
 
-      const resultUrl = `${callbackBaseUrl}/mpesa-callback?type=b2c`;
-      const timeoutUrl = `${callbackBaseUrl}/mpesa-callback?type=b2c-timeout`;
       const config = await loadBusinessMpesaConfig(businessId);
-
       const result = await initiateB2C(
         {
           phoneNumber,
           amount,
           remarks: remarks || "B2C Payment",
-          resultUrl,
-          timeoutUrl,
+          resultUrl: `${callbackBaseUrl}/mpesa-callback?type=b2c`,
+          timeoutUrl: `${callbackBaseUrl}/mpesa-callback?type=b2c-timeout`,
         },
         config.environment,
         config.creds,
@@ -240,13 +244,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    return new Response(JSON.stringify({ error: "Invalid action. Use ?action=stk-push, stk-query, or b2c" }), {
+    return new Response(JSON.stringify({ error: "Invalid action. Use stk-push, stk-query, or b2c." }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("M-Pesa error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("M-Pesa error:", error);
+
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
