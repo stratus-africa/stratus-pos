@@ -1,230 +1,339 @@
-// Shared M-Pesa Daraja API utilities
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Smartphone, Save, Loader2, KeyRound, Trash2, ShieldCheck, PlugZap } from "lucide-react";
+import { useBusiness } from "@/contexts/BusinessContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  checkMpesaCredentials,
+  deleteMpesaCredentials,
+  setMpesaCredentials,
+  testMpesaCredentials,
+} from "@/lib/mpesaCredentials.functions";
 
-const DARAJA_SANDBOX_URL = "https://sandbox.safaricom.co.ke";
-const DARAJA_LIVE_URL = "https://api.safaricom.co.ke";
+export function PaymentGatewaysTab() {
+  const { business, refreshBusiness } = useBusiness();
+  const checkMpesaCredentialsFn = useServerFn(checkMpesaCredentials);
+  const setMpesaCredentialsFn = useServerFn(setMpesaCredentials);
+  const deleteMpesaCredentialsFn = useServerFn(deleteMpesaCredentials);
+  const testMpesaCredentialsFn = useServerFn(testMpesaCredentials);
 
-export type MpesaEnv = "sandbox" | "live";
+  // Public M-Pesa config (lives on businesses)
+  const [enabled, setEnabled] = useState((business as any)?.mpesa_enabled ?? false);
+  const [environment, setEnvironment] = useState((business as any)?.mpesa_environment ?? "sandbox");
+  const [shortcode, setShortcode] = useState((business as any)?.mpesa_shortcode ?? "");
+  const [paybillOrTill, setPaybillOrTill] = useState((business as any)?.mpesa_paybill_or_till ?? "paybill");
+  const [callbackUrl, setCallbackUrl] = useState((business as any)?.mpesa_callback_url ?? "");
+  const [accountReference, setAccountReference] = useState((business as any)?.mpesa_account_reference ?? "");
+  const [savingPublic, setSavingPublic] = useState(false);
 
-export interface MpesaCreds {
-  consumerKey?: string;
-  consumerSecret?: string;
-  shortcode?: string;
-  passkey?: string;
-  initiatorName?: string;
-  securityCredential?: string;
-}
+  // Secret credentials (lives in Vault)
+  const [hasCreds, setHasCreds] = useState(false);
+  const [credsUpdatedAt, setCredsUpdatedAt] = useState<string | null>(null);
+  const [consumerKey, setConsumerKey] = useState("");
+  const [consumerSecret, setConsumerSecret] = useState("");
+  const [passkey, setPasskey] = useState("");
+  const [savingSecrets, setSavingSecrets] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [testing, setTesting] = useState(false);
 
-function getBaseUrl(env: MpesaEnv): string {
-  return env === "live" ? DARAJA_LIVE_URL : DARAJA_SANDBOX_URL;
-}
+  useEffect(() => {
+    if (!business) return;
+    (async () => {
+      try {
+        const data = await checkMpesaCredentialsFn({ data: { business_id: business.id } });
+        setHasCreds(!!data.has_credentials);
+        setCredsUpdatedAt(data.updated_at ?? null);
+      } catch {
+        // ignore
+      }
+    })();
+  }, [business]);
 
-function resolveCreds(creds?: MpesaCreds): Required<Pick<MpesaCreds, "consumerKey" | "consumerSecret">> & MpesaCreds {
-  const consumerKey = creds?.consumerKey || Deno.env.get("MPESA_CONSUMER_KEY") || "";
-  const consumerSecret = creds?.consumerSecret || Deno.env.get("MPESA_CONSUMER_SECRET") || "";
-  return {
-    ...creds,
-    consumerKey,
-    consumerSecret,
-    shortcode: creds?.shortcode || Deno.env.get("MPESA_SHORTCODE") || undefined,
-    passkey: creds?.passkey || Deno.env.get("MPESA_PASSKEY") || undefined,
-    initiatorName: creds?.initiatorName || Deno.env.get("MPESA_B2C_INITIATOR_NAME") || undefined,
-    securityCredential: creds?.securityCredential || Deno.env.get("MPESA_B2C_SECURITY_CREDENTIAL") || undefined,
-  };
-}
-
-export async function getAccessToken(env: MpesaEnv = "sandbox", creds?: MpesaCreds): Promise<string> {
-  const c = resolveCreds(creds);
-
-  if (!c.consumerKey || !c.consumerSecret) {
-    throw new Error("M-Pesa consumer credentials not configured. Add them in Settings → Payments.");
-  }
-
-  const credentials = btoa(`${c.consumerKey}:${c.consumerSecret}`);
-  const baseUrl = getBaseUrl(env);
-
-  const response = await fetch(
-    `${baseUrl}/oauth/v1/generate?grant_type=client_credentials`,
-    {
-      headers: { Authorization: `Basic ${credentials}` },
+  const savePublic = async () => {
+    if (!business) return;
+    const normalizedShortcode = shortcode.replace(/\D/g, "");
+    if (enabled && !/^\d{5,8}$/.test(normalizedShortcode)) {
+      toast.error("Enter a valid numeric M-Pesa shortcode before enabling STK Push");
+      return;
     }
+    setSavingPublic(true);
+    const { error } = await supabase
+      .from("businesses")
+      .update({
+        mpesa_enabled: enabled,
+        mpesa_environment: environment,
+        mpesa_shortcode: normalizedShortcode || null,
+        mpesa_paybill_or_till: paybillOrTill,
+        mpesa_callback_url: callbackUrl.trim() || null,
+        mpesa_account_reference: accountReference.trim() || null,
+      } as never)
+      .eq("id", business.id);
+    setSavingPublic(false);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("M-Pesa configuration saved");
+      await refreshBusiness();
+    }
+  };
+
+  const saveSecrets = async () => {
+    if (!business) return;
+    if (!consumerKey || !consumerSecret || !passkey) {
+      toast.error("All credential fields are required");
+      return;
+    }
+    setSavingSecrets(true);
+    try {
+      await setMpesaCredentialsFn({
+        data: {
+          business_id: business.id,
+          consumer_key: consumerKey,
+          consumer_secret: consumerSecret,
+          passkey,
+        },
+      });
+      toast.success("Credentials encrypted & stored");
+      setHasCreds(true);
+      setCredsUpdatedAt(new Date().toISOString());
+      setConsumerKey("");
+      setConsumerSecret("");
+      setPasskey("");
+    } catch (e: any) {
+      toast.error("Failed to save credentials: " + (e?.message || "Unknown error"));
+    } finally {
+      setSavingSecrets(false);
+    }
+  };
+
+  const removeSecrets = async () => {
+    if (!business) return;
+    setRemoving(true);
+    try {
+      await deleteMpesaCredentialsFn({ data: { business_id: business.id } });
+      toast.success("Credentials removed");
+      setHasCreds(false);
+      setCredsUpdatedAt(null);
+    } catch (e: any) {
+      toast.error(e?.message || "Unknown error");
+    } finally {
+      setRemoving(false);
+    }
+  };
+
+  const testCredentials = async () => {
+    if (!business) return;
+    if (!hasCreds && (!consumerKey || !consumerSecret)) {
+      toast.error("Enter consumer key and secret first");
+      return;
+    }
+    setTesting(true);
+    let data: Awaited<ReturnType<typeof testMpesaCredentialsFn>> | undefined;
+    try {
+      data = await testMpesaCredentialsFn({
+        data: {
+          business_id: business.id,
+          environment,
+          consumer_key: consumerKey || undefined,
+          consumer_secret: consumerSecret || undefined,
+        },
+      });
+    } catch (e: any) {
+      setTesting(false);
+      toast.error("Test failed: " + (e?.message || "Unknown error"));
+      return;
+    }
+    setTesting(false);
+    if (data?.ok) {
+      toast.success(`Daraja ${data.environment} OK`, {
+        description: `Access token received in ${data.took_ms}ms${data.expires_in ? ` (expires in ${data.expires_in}s)` : ""}`,
+      });
+    } else {
+      toast.error(`Daraja ${data?.environment ?? environment} rejected credentials`, {
+        description: data?.error || `HTTP ${data?.status ?? "?"}`,
+      });
+    }
+  };
+
+  if (!business) return null;
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Smartphone className="h-5 w-5 text-emerald-600" /> M-Pesa Daraja
+            {hasCreds && enabled && (
+              <Badge variant="default" className="ml-2 bg-emerald-600">
+                Active
+              </Badge>
+            )}
+            {hasCreds && !enabled && (
+              <Badge variant="secondary" className="ml-2">
+                Configured
+              </Badge>
+            )}
+          </CardTitle>
+          <CardDescription>
+            Connect your own Safaricom Daraja account for STK push payments. Credentials are encrypted at rest.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base">Enable M-Pesa for this business</Label>
+              <p className="text-sm text-muted-foreground">When off, customers won't see M-Pesa as a payment option.</p>
+            </div>
+            <Switch checked={enabled} onCheckedChange={setEnabled} />
+          </div>
+
+          <Separator />
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Environment</Label>
+              <Select value={environment} onValueChange={setEnvironment}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sandbox">Sandbox (testing)</SelectItem>
+                  <SelectItem value="live">Live (production)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Account Type</Label>
+              <Select value={paybillOrTill} onValueChange={setPaybillOrTill}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="paybill">Pay Bill</SelectItem>
+                  <SelectItem value="till">Till Number (Buy Goods)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Shortcode</Label>
+              <Input
+                value={shortcode}
+                onChange={(e) => setShortcode(e.target.value)}
+                inputMode="numeric"
+                placeholder="e.g. 174379"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Account Reference</Label>
+              <Input
+                value={accountReference}
+                onChange={(e) => setAccountReference(e.target.value)}
+                placeholder="Shown on customer prompt"
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Callback URL</Label>
+              <Input
+                value={callbackUrl}
+                onChange={(e) => setCallbackUrl(e.target.value)}
+                placeholder="https://your-callback-handler"
+              />
+              <p className="text-xs text-muted-foreground">Daraja will POST payment results here.</p>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={savePublic} disabled={savingPublic}>
+              {savingPublic ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+              Save Configuration
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <KeyRound className="h-5 w-5" />
+            API Credentials
+          </CardTitle>
+          <CardDescription>
+            From your Daraja portal. These are stored encrypted in Vault and never shown again after saving.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {hasCreds && (
+            <div className="flex items-center gap-2 p-3 rounded-md bg-emerald-50 border border-emerald-200 text-sm">
+              <ShieldCheck className="h-4 w-4 text-emerald-600" />
+              <span>Credentials are configured.</span>
+              {credsUpdatedAt && (
+                <span className="text-muted-foreground ml-auto text-xs">
+                  Updated {new Date(credsUpdatedAt).toLocaleString()}
+                </span>
+              )}
+            </div>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Consumer Key</Label>
+              <Input
+                type="password"
+                value={consumerKey}
+                onChange={(e) => setConsumerKey(e.target.value)}
+                placeholder={hasCreds ? "•••••• (replace)" : ""}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Consumer Secret</Label>
+              <Input
+                type="password"
+                value={consumerSecret}
+                onChange={(e) => setConsumerSecret(e.target.value)}
+                placeholder={hasCreds ? "•••••• (replace)" : ""}
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Passkey (Lipa na M-Pesa)</Label>
+              <Input
+                type="password"
+                value={passkey}
+                onChange={(e) => setPasskey(e.target.value)}
+                placeholder={hasCreds ? "•••••• (replace)" : ""}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap justify-between gap-2">
+            {hasCreds ? (
+              <Button variant="outline" onClick={removeSecrets} disabled={removing}>
+                {removing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                Remove Credentials
+              </Button>
+            ) : (
+              <span />
+            )}
+            <div className="flex gap-2 ml-auto">
+              <Button variant="outline" onClick={testCredentials} disabled={testing}>
+                {testing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <PlugZap className="h-4 w-4 mr-2" />}
+                Test credentials
+              </Button>
+              <Button onClick={saveSecrets} disabled={savingSecrets}>
+                {savingSecrets ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                {hasCreds ? "Replace Credentials" : "Save Credentials"}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    const hint = response.status === 400
-      ? " (Daraja returns 400 when the consumer key/secret are invalid or don't match the selected environment.)"
-      : "";
-    throw new Error(`Failed to get M-Pesa access token: ${response.status}${text ? ` ${text}` : ""}${hint}`);
-  }
-
-  const data = await response.json();
-  return data.access_token;
-}
-
-export function generateTimestamp(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  const hours = String(now.getHours()).padStart(2, "0");
-  const minutes = String(now.getMinutes()).padStart(2, "0");
-  const seconds = String(now.getSeconds()).padStart(2, "0");
-  return `${year}${month}${day}${hours}${minutes}${seconds}`;
-}
-
-export function generatePassword(shortcode: string, passkey: string, timestamp: string): string {
-  return btoa(`${shortcode}${passkey}${timestamp}`);
-}
-
-export function formatPhoneNumber(phone: string): string {
-  let cleaned = phone.replace(/[^0-9]/g, "");
-  if (cleaned.startsWith("0")) {
-    cleaned = "254" + cleaned.substring(1);
-  } else if (cleaned.startsWith("+254")) {
-    cleaned = cleaned.substring(1);
-  } else if (!cleaned.startsWith("254")) {
-    cleaned = "254" + cleaned;
-  }
-  return cleaned;
-}
-
-export interface STKPushParams {
-  phoneNumber: string;
-  amount: number;
-  accountReference: string;
-  transactionDesc: string;
-  callbackUrl: string;
-}
-
-export async function initiateSTKPush(
-  params: STKPushParams,
-  env: MpesaEnv = "sandbox",
-  creds?: MpesaCreds
-): Promise<any> {
-  const c = resolveCreds(creds);
-  if (!c.shortcode || !c.passkey) {
-    throw new Error("M-Pesa shortcode or passkey not configured");
-  }
-
-  const accessToken = await getAccessToken(env, c);
-  const timestamp = generateTimestamp();
-  const password = generatePassword(c.shortcode, c.passkey, timestamp);
-  const formattedPhone = formatPhoneNumber(params.phoneNumber);
-  const baseUrl = getBaseUrl(env);
-
-  const response = await fetch(`${baseUrl}/mpesa/stkpush/v1/processrequest`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      BusinessShortCode: c.shortcode,
-      Password: password,
-      Timestamp: timestamp,
-      TransactionType: "CustomerPayBillOnline",
-      Amount: Math.round(params.amount),
-      PartyA: formattedPhone,
-      PartyB: c.shortcode,
-      PhoneNumber: formattedPhone,
-      CallBackURL: params.callbackUrl,
-      AccountReference: params.accountReference,
-      TransactionDesc: params.transactionDesc,
-    }),
-  });
-
-  const data = await response.json();
-  if (!response.ok || data.errorCode) {
-    throw new Error(
-      `STK Push failed: ${data.errorMessage || data.errorCode || JSON.stringify(data)}`
-    );
-  }
-
-  return data;
-}
-
-export interface B2CParams {
-  phoneNumber: string;
-  amount: number;
-  remarks: string;
-  occasion?: string;
-  resultUrl: string;
-  timeoutUrl: string;
-}
-
-export async function initiateB2C(
-  params: B2CParams,
-  env: MpesaEnv = "sandbox",
-  creds?: MpesaCreds
-): Promise<any> {
-  const c = resolveCreds(creds);
-  if (!c.shortcode || !c.initiatorName || !c.securityCredential) {
-    throw new Error("M-Pesa B2C credentials not configured");
-  }
-
-  const accessToken = await getAccessToken(env, c);
-  const formattedPhone = formatPhoneNumber(params.phoneNumber);
-  const baseUrl = getBaseUrl(env);
-
-  const response = await fetch(`${baseUrl}/mpesa/b2c/v3/paymentrequest`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      OriginatorConversationID: crypto.randomUUID(),
-      InitiatorName: c.initiatorName,
-      SecurityCredential: c.securityCredential,
-      CommandID: "BusinessPayment",
-      Amount: Math.round(params.amount),
-      PartyA: c.shortcode,
-      PartyB: formattedPhone,
-      Remarks: params.remarks,
-      Occasion: params.occasion || "",
-      QueueTimeOutURL: params.timeoutUrl,
-      ResultURL: params.resultUrl,
-    }),
-  });
-
-  const data = await response.json();
-  if (!response.ok || data.errorCode) {
-    throw new Error(
-      `B2C failed: ${data.errorMessage || data.errorCode || JSON.stringify(data)}`
-    );
-  }
-
-  return data;
-}
-
-export async function querySTKPushStatus(
-  checkoutRequestId: string,
-  env: MpesaEnv = "sandbox",
-  creds?: MpesaCreds
-): Promise<any> {
-  const c = resolveCreds(creds);
-  if (!c.shortcode || !c.passkey) {
-    throw new Error("M-Pesa shortcode or passkey not configured");
-  }
-
-  const accessToken = await getAccessToken(env, c);
-  const timestamp = generateTimestamp();
-  const password = generatePassword(c.shortcode, c.passkey, timestamp);
-  const baseUrl = getBaseUrl(env);
-
-  const response = await fetch(`${baseUrl}/mpesa/stkpushquery/v1/query`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      BusinessShortCode: c.shortcode,
-      Password: password,
-      Timestamp: timestamp,
-      CheckoutRequestID: checkoutRequestId,
-    }),
-  });
-
-  return await response.json();
 }
