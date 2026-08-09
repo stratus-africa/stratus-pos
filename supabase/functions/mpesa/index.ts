@@ -1,33 +1,58 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-import { initiateSTKPush, querySTKPushStatus, initiateB2C, formatPhoneNumber, type MpesaCreds } from "../_shared/mpesa.ts";
+import {
+  initiateSTKPush,
+  querySTKPushStatus,
+  initiateB2C,
+  formatPhoneNumber,
+  type MpesaCreds,
+  type MpesaEnv,
+} from "../_shared/mpesa.ts";
 
-const supabase = createClient(
-  Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-);
+const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-async function loadBusinessCreds(businessId: string | undefined): Promise<MpesaCreds> {
-  if (!businessId) return {};
+interface BusinessMpesaConfig {
+  creds: MpesaCreds;
+  environment: MpesaEnv;
+  accountType: "paybill" | "till";
+}
+
+async function loadBusinessMpesaConfig(businessId: string | undefined): Promise<BusinessMpesaConfig> {
+  const fallback: BusinessMpesaConfig = { creds: {}, environment: "live", accountType: "paybill" };
+  if (!businessId) return fallback;
   try {
-    const { data: row } = await supabase
-      .from("business_payment_credentials")
-      .select("has_credentials, vault_secret_names")
-      .eq("business_id", businessId)
-      .eq("provider", "mpesa")
-      .maybeSingle();
+    const [{ data: row }, { data: business, error: businessError }] = await Promise.all([
+      supabase
+        .from("business_payment_credentials")
+        .select("has_credentials, vault_secret_names")
+        .eq("business_id", businessId)
+        .eq("provider", "mpesa")
+        .maybeSingle(),
+      supabase
+        .from("businesses")
+        .select("mpesa_shortcode, mpesa_environment, mpesa_paybill_or_till")
+        .eq("id", businessId)
+        .maybeSingle(),
+    ]);
 
-    if (!row?.has_credentials || !row.vault_secret_names) return {};
+    if (businessError) throw businessError;
+    const environment: MpesaEnv = business?.mpesa_environment === "sandbox" ? "sandbox" : "live";
+    const accountType = business?.mpesa_paybill_or_till === "till" ? "till" : "paybill";
+    const shortcode = business?.mpesa_shortcode?.replace(/\D/g, "") || undefined;
+
+    if (!row?.has_credentials || !row.vault_secret_names) {
+      return { creds: { shortcode }, environment, accountType };
+    }
     const names = row.vault_secret_names as {
       consumer_key?: string;
       consumer_secret?: string;
       passkey?: string;
     };
     const wanted = [names.consumer_key, names.consumer_secret, names.passkey].filter(Boolean) as string[];
-    if (wanted.length === 0) return {};
+    if (wanted.length === 0) return { creds: { shortcode }, environment, accountType };
 
     const byName: Record<string, string> = {};
     await Promise.all(
@@ -38,17 +63,22 @@ async function loadBusinessCreds(businessId: string | undefined): Promise<MpesaC
           return;
         }
         if (typeof data === "string") byName[n] = data;
-      })
+      }),
     );
 
     return {
-      consumerKey: names.consumer_key ? byName[names.consumer_key] : undefined,
-      consumerSecret: names.consumer_secret ? byName[names.consumer_secret] : undefined,
-      passkey: names.passkey ? byName[names.passkey] : undefined,
+      creds: {
+        consumerKey: names.consumer_key ? byName[names.consumer_key] : undefined,
+        consumerSecret: names.consumer_secret ? byName[names.consumer_secret] : undefined,
+        passkey: names.passkey ? byName[names.passkey] : undefined,
+        shortcode,
+      },
+      environment,
+      accountType,
     };
   } catch (e) {
-    console.warn("loadBusinessCreds failed", e);
-    return {};
+    console.warn("loadBusinessMpesaConfig failed", e);
+    return fallback;
   }
 }
 
@@ -67,11 +97,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const anonClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    const anonClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
@@ -87,21 +115,20 @@ Deno.serve(async (req) => {
     const action = url.searchParams.get("action");
     const body = await req.json();
 
-    const callbackBaseUrl = Deno.env.get("MPESA_CALLBACK_BASE_URL") ||
-      `${Deno.env.get("SUPABASE_URL")}/functions/v1`;
+    const callbackBaseUrl = Deno.env.get("MPESA_CALLBACK_BASE_URL") || `${Deno.env.get("SUPABASE_URL")}/functions/v1`;
 
     if (action === "stk-push") {
       const { phoneNumber, amount, businessId, saleId, accountReference } = body;
 
       if (!phoneNumber || !amount || !businessId) {
-        return new Response(
-          JSON.stringify({ error: "phoneNumber, amount, and businessId are required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "phoneNumber, amount, and businessId are required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       const callbackUrl = `${callbackBaseUrl}/mpesa-callback?type=stk`;
-      const creds = await loadBusinessCreds(businessId);
+      const config = await loadBusinessMpesaConfig(businessId);
 
       const result = await initiateSTKPush(
         {
@@ -110,9 +137,10 @@ Deno.serve(async (req) => {
           accountReference: accountReference || "Payment",
           transactionDesc: `Payment for ${accountReference || "sale"}`,
           callbackUrl,
+          accountType: config.accountType,
         },
-        "live",
-        creds
+        config.environment,
+        config.creds,
       );
 
       // Record in DB
@@ -135,17 +163,17 @@ Deno.serve(async (req) => {
           merchantRequestId: result.MerchantRequestID,
           responseDescription: result.ResponseDescription,
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     if (action === "stk-query") {
       const { checkoutRequestId, businessId: qBusinessId } = body;
       if (!checkoutRequestId) {
-        return new Response(
-          JSON.stringify({ error: "checkoutRequestId is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "checkoutRequestId is required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       let bizId = qBusinessId as string | undefined;
@@ -157,9 +185,8 @@ Deno.serve(async (req) => {
           .maybeSingle();
         bizId = (txn as any)?.business_id;
       }
-      const creds = await loadBusinessCreds(bizId);
-      const result = await querySTKPushStatus(checkoutRequestId, "live", creds);
-
+      const config = await loadBusinessMpesaConfig(bizId);
+      const result = await querySTKPushStatus(checkoutRequestId, config.environment, config.creds);
 
       return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -170,15 +197,15 @@ Deno.serve(async (req) => {
       const { phoneNumber, amount, businessId, remarks } = body;
 
       if (!phoneNumber || !amount || !businessId) {
-        return new Response(
-          JSON.stringify({ error: "phoneNumber, amount, and businessId are required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "phoneNumber, amount, and businessId are required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       const resultUrl = `${callbackBaseUrl}/mpesa-callback?type=b2c`;
       const timeoutUrl = `${callbackBaseUrl}/mpesa-callback?type=b2c-timeout`;
-      const b2cCreds = await loadBusinessCreds(businessId);
+      const config = await loadBusinessMpesaConfig(businessId);
 
       const result = await initiateB2C(
         {
@@ -188,8 +215,8 @@ Deno.serve(async (req) => {
           resultUrl,
           timeoutUrl,
         },
-        "live",
-        b2cCreds
+        config.environment,
+        config.creds,
       );
 
       await supabase.from("mpesa_transactions").insert({
@@ -209,14 +236,14 @@ Deno.serve(async (req) => {
           conversationId: result.ConversationID,
           responseDescription: result.ResponseDescription,
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    return new Response(
-      JSON.stringify({ error: "Invalid action. Use ?action=stk-push, stk-query, or b2c" }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Invalid action. Use ?action=stk-push, stk-query, or b2c" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error) {
     console.error("M-Pesa error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
