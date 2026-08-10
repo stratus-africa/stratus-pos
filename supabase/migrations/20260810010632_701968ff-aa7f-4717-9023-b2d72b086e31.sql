@@ -1,0 +1,2 @@
+REVOKE ALL ON FUNCTION public.apply_mpesa_stk_result(text, integer, text, numeric, text, text, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.apply_mpesa_stk_result(text, integer, text, numeric, text, text, text) TO service_role;
