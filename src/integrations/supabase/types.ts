@@ -3857,7 +3857,8 @@ export type Database = {
           ends_at: string | null
           id: string
           is_active: boolean
-          starts_at: string
+          schedule_timezone: string
+          starts_at: string | null
           title: string
           updated_at: string
           version_label: string | null
@@ -3869,7 +3870,8 @@ export type Database = {
           ends_at?: string | null
           id?: string
           is_active?: boolean
-          starts_at?: string
+          schedule_timezone?: string
+          starts_at?: string | null
           title: string
           updated_at?: string
           version_label?: string | null
@@ -3881,7 +3883,8 @@ export type Database = {
           ends_at?: string | null
           id?: string
           is_active?: boolean
-          starts_at?: string
+          schedule_timezone?: string
+          starts_at?: string | null
           title?: string
           updated_at?: string
           version_label?: string | null
@@ -4109,6 +4112,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_notification_preferences: {
+        Row: {
+          receipt_delivery: string
+          subscription_reminder_last_dismissed_at: string | null
+          subscription_reminders: boolean
+          updated_at: string
+          user_id: string
+          whats_new_frequency: string
+          whats_new_last_seen_at: string | null
+        }
+        Insert: {
+          receipt_delivery?: string
+          subscription_reminder_last_dismissed_at?: string | null
+          subscription_reminders?: boolean
+          updated_at?: string
+          user_id: string
+          whats_new_frequency?: string
+          whats_new_last_seen_at?: string | null
+        }
+        Update: {
+          receipt_delivery?: string
+          subscription_reminder_last_dismissed_at?: string | null
+          subscription_reminders?: boolean
+          updated_at?: string
+          user_id?: string
+          whats_new_frequency?: string
+          whats_new_last_seen_at?: string | null
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -4690,6 +4723,10 @@ export type Database = {
       start_trial: {
         Args: { _environment?: string; _package_id: string }
         Returns: Json
+      }
+      subscription_allows_posting: {
+        Args: { _business_id: string }
+        Returns: boolean
       }
       super_admin_business_sales_summary: {
         Args: never
