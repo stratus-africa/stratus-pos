@@ -104,35 +104,57 @@ export async function initiateSTKPush(
   const password = btoa(`${c.shortcode}${c.passkey}${timestamp}`);
   const phoneNumber = formatPhoneNumber(params.phoneNumber);
 
-  const response = await fetch(`${getBaseUrl(env)}/mpesa/stkpush/v1/processrequest`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      BusinessShortCode: c.shortcode,
-      Password: password,
-      Timestamp: timestamp,
-      TransactionType: params.accountType === "till" ? "CustomerBuyGoodsOnline" : "CustomerPayBillOnline",
-      Amount: Math.round(params.amount),
-      PartyA: phoneNumber,
-      PartyB: c.shortcode,
-      PhoneNumber: phoneNumber,
-      CallBackURL: params.callbackUrl,
-      AccountReference: params.accountReference,
-      TransactionDesc: params.transactionDesc,
-    }),
-  });
+  // Sandbox only supports CustomerPayBillOnline. On live, till numbers use
+  // CustomerBuyGoodsOnline. If Daraja rejects the type, retry with the other one.
+  const primaryType =
+    env === "sandbox"
+      ? "CustomerPayBillOnline"
+      : params.accountType === "till"
+        ? "CustomerBuyGoodsOnline"
+        : "CustomerPayBillOnline";
+  const fallbackType =
+    primaryType === "CustomerPayBillOnline" ? "CustomerBuyGoodsOnline" : "CustomerPayBillOnline";
 
-  const data = await response.json();
+  const send = async (transactionType: string) => {
+    const response = await fetch(`${getBaseUrl(env)}/mpesa/stkpush/v1/processrequest`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        BusinessShortCode: c.shortcode,
+        Password: password,
+        Timestamp: timestamp,
+        TransactionType: transactionType,
+        Amount: Math.round(params.amount),
+        PartyA: phoneNumber,
+        PartyB: c.shortcode,
+        PhoneNumber: phoneNumber,
+        CallBackURL: params.callbackUrl,
+        AccountReference: params.accountReference,
+        TransactionDesc: params.transactionDesc,
+      }),
+    });
+    const data = await response.json();
+    return { ok: response.ok && !data.errorCode, data };
+  };
 
-  if (!response.ok || data.errorCode) {
-    throw new Error(`STK Push failed: ${data.errorMessage || data.errorCode || JSON.stringify(data)}`);
+  let { ok, data } = await send(primaryType);
+
+  if (!ok && String(data?.errorMessage || "").toLowerCase().includes("transactiontype")) {
+    ({ ok, data } = await send(fallbackType));
+  }
+
+  if (!ok) {
+    throw new Error(
+      `STK Push failed: ${data.errorMessage || data.errorCode || JSON.stringify(data)}`,
+    );
   }
 
   return data;
 }
+
 
 export async function querySTKPushStatus(
   checkoutRequestId: string,
