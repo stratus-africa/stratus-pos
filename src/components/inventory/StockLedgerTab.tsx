@@ -317,7 +317,7 @@ export default function StockLedgerTab({ locationId, from, to, onDateChange, fyS
             <DateRangeFilter
               from={from}
               to={to}
-              fyStartMonth={fyStartMonth}
+              
               defaultPreset="custom"
               onChange={({ from: f, to: t }) => {
                 onDateChange({ from: f, to: t });
