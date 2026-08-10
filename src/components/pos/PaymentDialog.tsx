@@ -31,6 +31,10 @@ interface Props {
   onConfirm: (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean, loyalty: LoyaltyPayload | null) => void;
   processing: boolean;
   initialMethod?: "cash" | "mpesa" | "card";
+  /** Reserves the sale (status "pending") so an STK prompt can be linked to it. */
+  onPrepareSale?: (loyalty: LoyaltyPayload | null) => Promise<{ saleId: string; total: number } | null>;
+  /** Drops an unpaid reservation when the cashier abandons the payment. */
+  onCancelPendingSale?: () => void | Promise<void>;
 }
 
 const METHODS = [
@@ -41,7 +45,8 @@ const METHODS = [
 
 type MpesaStatus = "idle" | "sending" | "waiting" | "completed" | "failed";
 
-export default function PaymentDialog({ open, onOpenChange, total, onConfirm, processing, initialMethod = "cash" }: Props) {
+export default function PaymentDialog({ open, onOpenChange, total, onConfirm, processing, initialMethod = "cash", onPrepareSale, onCancelPendingSale }: Props) {
+
   const [payments, setPayments] = useState<PaymentEntry[]>([{ method: initialMethod, amount: total, reference: "" }]);
   const [bankAccountId, setBankAccountId] = useState<string>("none");
   const [bankAccountTouched, setBankAccountTouched] = useState(false);
