@@ -352,6 +352,14 @@ const POS = () => {
   );
 
 
+  // Reserve the sale before an M-Pesa STK prompt so the Daraja callback can
+  // settle the correct invoice with the database-authoritative amount.
+  const handlePrepareSale = async (loyalty: LoyaltyPayload | null) =>
+    pos.createPendingSale({
+      loyaltyDiscount: loyalty?.redemptionValue ?? 0,
+      loyaltyNote: loyalty ? `Redeemed ${loyalty.redeemPoints} pts` : null,
+    });
+
 
   const handlePaymentConfirm = async (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean, loyalty: LoyaltyPayload | null) => {
     let loyaltyCtx: {
