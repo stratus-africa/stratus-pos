@@ -125,9 +125,19 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
       setLoyaltyLookup(null);
       setRedeemPoints(0);
       if (pollRef.current) clearInterval(pollRef.current);
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    } else {
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = null;
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+      // Abandoned before the money arrived — release the reserved sale.
+      if (mpesaStatus !== "completed") void onCancelPendingSale?.();
     }
     onOpenChange(v);
   };
+
 
   // Sync first payment row to adjusted total whenever redemption / total / method changes
   useEffect(() => {
