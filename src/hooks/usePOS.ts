@@ -481,9 +481,12 @@ export function usePOS() {
       const totalPaid = appliedPayments.reduce((s, p) => s + p.amount, 0);
       const paymentStatus = totalPaid >= effectiveTotal ? "paid" : totalPaid > 0 ? "partial" : "unpaid";
 
-      const invoiceNumber = consumeNext(business.id, "receipts");
+      // An M-Pesa sale was already reserved (and possibly already paid by the
+      // callback) — finalise that row instead of creating a second one.
+      const reserved = pendingSaleRef.current;
+      const invoiceNumber = reserved?.invoiceNumber ?? consumeNext(business.id, "receipts");
+      const saleId = reserved?.saleId ?? crypto.randomUUID();
 
-      const saleId = crypto.randomUUID();
 
       // --- Offline path -----------------------------------------------------
       // No connection: queue the whole sale locally (sale id doubles as the
