@@ -373,6 +373,66 @@ export function usePOS() {
     [queryClient],
   );
 
+  /**
+   * Reserve the sale before an M-Pesa STK prompt goes out.
+   *
+   * The row is written as status "pending" / payment_status "unpaid" so the
+   * accounting triggers do not post anything yet, but the Daraja callback has a
+   * real sale_id (and an authoritative total) to settle against.
+   */
+  const createPendingSale = useCallback(
+    async (opts: { loyaltyDiscount?: number; loyaltyNote?: string | null } = {}) => {
+      if (!business || !currentLocation || !user || cart.length === 0) return null;
+      if (!ensureCanPost()) return null;
+
+      const loyaltyDiscount = Math.max(0, Number(opts.loyaltyDiscount || 0));
+      const effectiveTotal = Math.max(0, cartTotal - loyaltyDiscount);
+      const existing = pendingSaleRef.current;
+
+      // Reuse the reservation when the customer retries after a failed prompt.
+      if (existing && Math.abs(existing.total - effectiveTotal) < 0.01) return existing;
+      if (existing) await cancelPendingSale();
+
+      const saleId = crypto.randomUUID();
+      const invoiceNumber = consumeNext(business.id, "receipts");
+
+      const { error } = await supabase.from("sales").insert({
+        id: saleId,
+        idempotency_key: saleId,
+        business_id: business.id,
+        location_id: currentLocation.id,
+        customer_id: customerId,
+        invoice_number: invoiceNumber,
+        subtotal: cartSubtotal,
+        tax: Math.round(cartTax * 100) / 100,
+        discount: cart.reduce((s, i) => s + i.discount, 0) + loyaltyDiscount,
+        total: effectiveTotal,
+        payment_status: "unpaid",
+        status: "pending",
+        created_by: user.id,
+        notes: opts.loyaltyNote || null,
+      });
+      if (error) {
+        toast.error(`Could not start the M-Pesa payment: ${error.message}`);
+        return null;
+      }
+
+      const reserved = { saleId, invoiceNumber, total: effectiveTotal };
+      pendingSaleRef.current = reserved;
+      return reserved;
+    },
+    [business, currentLocation, user, cart, cartTotal, cartSubtotal, cartTax, customerId, ensureCanPost],
+  );
+
+  /** Drop an unpaid reservation when the cashier abandons the M-Pesa payment. */
+  const cancelPendingSale = useCallback(async () => {
+    const pending = pendingSaleRef.current;
+    if (!pending) return;
+    pendingSaleRef.current = null;
+    await supabase.from("sales").delete().eq("id", pending.saleId).eq("status", "pending");
+  }, []);
+
+
   // Complete sale
   const completeSale = async (
     payments: PaymentEntry[],
