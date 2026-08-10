@@ -391,7 +391,11 @@ export function usePOS() {
 
       // Reuse the reservation when the customer retries after a failed prompt.
       if (existing && Math.abs(existing.total - effectiveTotal) < 0.01) return existing;
-      if (existing) await cancelPendingSale();
+      if (existing) {
+        pendingSaleRef.current = null;
+        await supabase.from("sales").delete().eq("id", existing.saleId).eq("status", "pending");
+      }
+
 
       const saleId = crypto.randomUUID();
       const invoiceNumber = consumeNext(business.id, "receipts");
