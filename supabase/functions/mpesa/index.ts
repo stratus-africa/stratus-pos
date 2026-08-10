@@ -143,23 +143,83 @@ Deno.serve(async (req) => {
 
     const callbackBaseUrl = Deno.env.get("MPESA_CALLBACK_BASE_URL") || `${Deno.env.get("SUPABASE_URL")}/functions/v1`;
 
-    if (action === "stk-push") {
-      const { phoneNumber, amount, businessId, saleId, accountReference } = body;
+    const jsonRes = (payload: unknown, status = 200) =>
+      new Response(JSON.stringify(payload), {
+        status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
 
-      if (!phoneNumber || !amount || !businessId) {
-        return new Response(JSON.stringify({ error: "phoneNumber, amount, and businessId are required" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+    if (action === "stk-push") {
+      const { phoneNumber, saleId, accountReference } = body;
+
+      if (!phoneNumber) return jsonRes({ error: "phoneNumber is required" }, 400);
+      if (!saleId) return jsonRes({ error: "saleId is required" }, 400);
+
+      const msisdn = formatPhoneNumber(String(phoneNumber));
+      if (!isValidKenyanPhone(msisdn)) {
+        return jsonRes({ error: "Enter a valid Kenyan mobile number, e.g. 07XX XXX XXX" }, 400);
       }
 
-      const config = await loadBusinessMpesaConfig(businessId);
+      // Tenant isolation: the sale determines the business. A businessId sent
+      // by the browser is never trusted.
+      const { data: sale, error: saleError } = await supabase
+        .from("sales")
+        .select("id, business_id, total, status, payment_status, invoice_number")
+        .eq("id", saleId)
+        .maybeSingle();
+
+      if (saleError) throw saleError;
+      if (!sale) return jsonRes({ error: "Sale not found" }, 404);
+      if (sale.status === "cancelled") return jsonRes({ error: "This sale was cancelled" }, 409);
+      if (sale.payment_status === "paid") return jsonRes({ error: "This sale is already paid" }, 409);
+
+      const resolvedBusinessId = sale.business_id as string;
+
+      const [{ data: profile }, { data: isSuperAdmin }] = await Promise.all([
+        supabase.from("profiles").select("business_id").eq("id", userId).maybeSingle(),
+        supabase.rpc("is_super_admin", { _user_id: userId }),
+      ]);
+
+      if (profile?.business_id !== resolvedBusinessId && !isSuperAdmin) {
+        return jsonRes({ error: "Forbidden" }, 403);
+      }
+
+      // Amount comes from the database, never from the browser.
+      const { data: paidRows } = await supabase.from("payments").select("amount").eq("sale_id", saleId);
+      const alreadyPaid = (paidRows || []).reduce((s: number, p: { amount: number }) => s + Number(p.amount || 0), 0);
+      const chargeAmount = Math.round((Number(sale.total || 0) - alreadyPaid) * 100) / 100;
+      if (!(chargeAmount > 0)) return jsonRes({ error: "Nothing left to pay on this sale" }, 400);
+
+      // Refuse a second prompt while one is still live (5 minute window).
+      const since = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const { data: active } = await supabase
+        .from("mpesa_transactions")
+        .select("id, checkout_request_id")
+        .eq("sale_id", saleId)
+        .eq("type", "stk_push")
+        .eq("status", "pending")
+        .gte("created_at", since)
+        .maybeSingle();
+
+      if (active) {
+        return jsonRes(
+          {
+            error: "An M-Pesa prompt for this sale is still pending. Wait for it to time out before retrying.",
+            checkoutRequestId: active.checkout_request_id,
+          },
+          409,
+        );
+      }
+
+      const config = await loadBusinessMpesaConfig(resolvedBusinessId);
+      const reference = String(accountReference || sale.invoice_number || "POS Sale").slice(0, 12);
+
       const result = await initiateSTKPush(
         {
-          phoneNumber,
-          amount,
-          accountReference: accountReference || "Payment",
-          transactionDesc: `Payment for ${accountReference || "sale"}`,
+          phoneNumber: msisdn,
+          amount: chargeAmount,
+          accountReference: reference,
+          transactionDesc: `Payment for ${reference}`,
           callbackUrl: `${callbackBaseUrl}/mpesa-callback?type=stk`,
           accountType: config.accountType,
         },
@@ -167,28 +227,28 @@ Deno.serve(async (req) => {
         config.creds,
       );
 
-      await supabase.from("mpesa_transactions").insert({
-        business_id: businessId,
-        sale_id: saleId || null,
-        phone_number: formatPhoneNumber(phoneNumber),
-        amount,
+      const { error: insertError } = await supabase.from("mpesa_transactions").insert({
+        business_id: resolvedBusinessId,
+        sale_id: saleId,
+        phone_number: msisdn,
+        amount: chargeAmount,
         type: "stk_push",
         status: "pending",
         checkout_request_id: result.CheckoutRequestID,
         merchant_request_id: result.MerchantRequestID,
         created_by: userId,
       });
+      if (insertError) throw insertError;
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          checkoutRequestId: result.CheckoutRequestID,
-          merchantRequestId: result.MerchantRequestID,
-          responseDescription: result.ResponseDescription,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return jsonRes({
+        success: true,
+        checkoutRequestId: result.CheckoutRequestID,
+        merchantRequestId: result.MerchantRequestID,
+        amount: chargeAmount,
+        responseDescription: result.ResponseDescription,
+      });
     }
+
 
     if (action === "stk-query") {
       const { checkoutRequestId, businessId } = body;
