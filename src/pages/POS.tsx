@@ -1161,7 +1161,10 @@ const POS = () => {
         onConfirm={handlePaymentConfirm}
         processing={pos.processing}
         initialMethod={initialPaymentMethod}
+        onPrepareSale={handlePrepareSale}
+        onCancelPendingSale={pos.cancelPendingSale}
       />
+
 
       <ReceiptDialog
         open={receiptOpen}
