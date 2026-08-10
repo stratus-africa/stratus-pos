@@ -46,6 +46,11 @@ export async function getAccessToken(env: MpesaEnv = "sandbox", creds?: MpesaCre
   });
 
   if (!response.ok) {
+    if (response.status === 400 || response.status === 401) {
+      throw new Error(
+        `M-Pesa rejected the credentials for the "${env}" environment. Open Settings > Payment gateways, confirm the environment matches your Daraja app, and re-enter the consumer key and secret.`,
+      );
+    }
     const text = await response.text().catch(() => "");
     throw new Error(`Failed to get M-Pesa access token: ${response.status}${text ? ` ${text}` : ""}`);
   }
