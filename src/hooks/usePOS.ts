@@ -672,16 +672,32 @@ export function usePOS() {
       }
 
       if (payments.length > 0) {
-        const paymentRows = appliedPayments.map((p) => ({
+        let paymentRows = appliedPayments.map((p) => ({
           sale_id: saleId,
           method: p.method,
           amount: p.amount,
           reference: p.reference || null,
         }));
+
+        if (reserved) {
+          // The M-Pesa callback already wrote its own payment row — don't double it.
+          const { data: existingPayments } = await supabase
+            .from("payments")
+            .select("method, reference, amount")
+            .eq("sale_id", saleId);
+          const seen = new Set(
+            (existingPayments || []).map((p) => `${p.method}|${p.reference ?? ""}|${Number(p.amount).toFixed(2)}`),
+          );
+          paymentRows = paymentRows.filter(
+            (p) => !seen.has(`${p.method}|${p.reference ?? ""}|${Number(p.amount).toFixed(2)}`),
+          );
+        }
+
         if (paymentRows.length > 0) {
           const { error: payErr } = await supabase.from("payments").insert(paymentRows);
           if (payErr) throw payErr;
         }
+
       }
 
       const inventoryUpdates = await Promise.all(
