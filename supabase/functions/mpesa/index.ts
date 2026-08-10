@@ -58,7 +58,8 @@ async function loadBusinessMpesaConfig(businessId: string | undefined): Promise<
 
   const environment: MpesaEnv = business.mpesa_environment === "sandbox" ? "sandbox" : "live";
   const accountType = business.mpesa_paybill_or_till === "till" ? "till" : "paybill";
-  const shortcode = business.mpesa_shortcode?.replace(/\D/g, "") || undefined;
+  const shortcode =
+    business.mpesa_shortcode?.replace(/\D/g, "") || (environment === "sandbox" ? SANDBOX_SHORTCODE : undefined);
 
   if (!shortcode) throw new Error("M-Pesa shortcode is not configured for this business");
   if (!credentials?.has_credentials || !credentials.vault_secret_names) {
@@ -71,11 +72,11 @@ async function loadBusinessMpesaConfig(businessId: string | undefined): Promise<
     passkey?: string;
   };
 
-  if (!names.consumer_key || !names.consumer_secret || !names.passkey) {
+  if (!names.consumer_key || !names.consumer_secret) {
     throw new Error("M-Pesa credential configuration is incomplete");
   }
 
-  const secretNames = [names.consumer_key, names.consumer_secret, names.passkey];
+  const secretNames = [names.consumer_key, names.consumer_secret, names.passkey].filter(Boolean) as string[];
   const secrets: Record<string, string> = {};
 
   await Promise.all(
@@ -90,21 +91,23 @@ async function loadBusinessMpesaConfig(businessId: string | undefined): Promise<
     }),
   );
 
-  if (!secrets[names.consumer_key] || !secrets[names.consumer_secret] || !secrets[names.passkey]) {
+  const consumerKey = secrets[names.consumer_key];
+  const consumerSecret = secrets[names.consumer_secret];
+  const passkey =
+    (names.passkey ? secrets[names.passkey] : undefined) || (environment === "sandbox" ? SANDBOX_PASSKEY : undefined);
+
+  if (!consumerKey || !consumerSecret) {
     throw new Error("Stored M-Pesa credentials are incomplete. Save them again in Settings.");
   }
+  if (!passkey) throw new Error("M-Pesa passkey is not configured for this business");
 
   return {
-    creds: {
-      consumerKey: secrets[names.consumer_key],
-      consumerSecret: secrets[names.consumer_secret],
-      passkey: secrets[names.passkey],
-      shortcode,
-    },
+    creds: { consumerKey, consumerSecret, passkey, shortcode },
     environment,
     accountType,
   };
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
