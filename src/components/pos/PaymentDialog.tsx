@@ -74,6 +74,7 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
   const [mpesaStatus, setMpesaStatus] = useState<MpesaStatus>("idle");
   const [mpesaCheckoutId, setMpesaCheckoutId] = useState("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const totalPaid = payments.reduce((s, p) => s + (p.amount || 0), 0);
   const change = Math.max(0, totalPaid - adjustedTotal);
@@ -81,12 +82,14 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
 
   const hasMpesaPayment = payments.some(p => p.method === "mpesa");
 
-  // Cleanup polling on unmount
+  // Cleanup polling / realtime on unmount
   useEffect(() => {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
     };
   }, []);
+
 
   const addPayment = () => {
     setPayments((p) => [...p, { method: "cash", amount: remaining, reference: "" }]);
