@@ -553,22 +553,12 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>Cancel</Button>
           <Button
             onClick={() => {
-              const loyalty: LoyaltyPayload | null =
-                loyaltyEnabled && loyaltyPhoneClean.length >= 6
-                  ? {
-                      phone: loyaltyPhoneClean,
-                      name: (loyaltyLookup?.name || loyaltyName).trim(),
-                      existingCustomerId: loyaltyLookup?.id ?? null,
-                      redeemPoints,
-                      redemptionValue,
-                      pointsBalance: loyaltyLookup?.points ?? 0,
-                    }
-                  : null;
-              onConfirm(payments, bankAccountId === "none" ? null : bankAccountId, digitaxEnabled && pushToEtims, loyalty);
+              onConfirm(payments, bankAccountId === "none" ? null : bankAccountId, digitaxEnabled && pushToEtims, buildLoyalty());
             }}
+
             disabled={
               totalPaid <= 0 ||
               processing ||
