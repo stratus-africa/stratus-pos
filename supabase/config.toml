@@ -17,3 +17,6 @@ verify_jwt = false
 # Authentication is enforced inside the function so browser CORS preflight
 # requests can receive the required headers before a JWT is checked.
 verify_jwt = false
+
+[functions.migrate-helper]
+verify_jwt = false
