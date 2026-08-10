@@ -127,13 +127,14 @@ Deno.serve(async (req) => {
     const environment: MpesaEnv = business.mpesa_environment === "live" ? "live" : "sandbox";
     const reference = String(input?.accountReference || sale.invoice_number || "POS Sale").slice(0, 12);
     const callbackBase = Deno.env.get("MPESA_CALLBACK_BASE_URL") || `${Deno.env.get("SUPABASE_URL")}/functions/v1`;
+    const callbackUrl = business.mpesa_callback_url?.trim() || `${callbackBase}/mpesa-callback`;
     const result = await initiateSTKPush(
       {
         phoneNumber: msisdn,
         amount: chargeAmount,
         accountReference: reference,
         transactionDesc: `Payment for ${reference}`,
-        callbackUrl: `${callbackBase}/mpesa-callback`,
+        callbackUrl,
         accountType: business.mpesa_paybill_or_till === "till" ? "till" : "paybill",
       },
       environment,
