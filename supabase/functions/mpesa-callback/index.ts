@@ -1,11 +1,29 @@
+// Public Daraja webhook. Safaricom cannot send an Authorization header, so this
+// function must stay unauthenticated (verify_jwt = false in supabase/config.toml).
+// It is safe because it never trusts the payload for money: the amount is checked
+// against the stored transaction and all financial writes happen inside the
+// atomic `apply_mpesa_stk_result` database function.
 import { createClient } from "npm:@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
 
+/** Safaricom always expects this shape, even when we could not process the event. */
+const accepted = () =>
+  new Response(JSON.stringify({ ResultCode: 0, ResultDesc: "Accepted" }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
@@ -23,112 +41,78 @@ Deno.serve(async (req) => {
       await handleB2CCallback(body);
     } else if (type === "b2c-timeout") {
       await handleB2CTimeout(body);
+    } else {
+      console.error("Unknown M-Pesa callback type:", type);
     }
 
-    return new Response(JSON.stringify({ ResultCode: 0, ResultDesc: "Accepted" }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    return accepted();
   } catch (error) {
     console.error("Callback error:", error);
-    return new Response(JSON.stringify({ ResultCode: 0, ResultDesc: "Accepted" }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    return accepted();
   }
 });
 
+function readMetadata(callbackMetadata: any) {
+  const out: { amount: number | null; receipt: string | null; phone: string | null; date: string | null } = {
+    amount: null,
+    receipt: null,
+    phone: null,
+    date: null,
+  };
+  const items = callbackMetadata?.Item;
+  if (!Array.isArray(items)) return out;
+
+  for (const item of items) {
+    switch (item?.Name) {
+      case "Amount":
+        out.amount = Number(item.Value);
+        break;
+      case "MpesaReceiptNumber":
+        out.receipt = item.Value != null ? String(item.Value) : null;
+        break;
+      case "TransactionDate":
+        out.date = item.Value != null ? String(item.Value) : null;
+        break;
+      case "PhoneNumber":
+        out.phone = item.Value != null ? String(item.Value) : null;
+        break;
+    }
+  }
+  return out;
+}
+
 async function handleSTKCallback(body: any) {
   const stkCallback = body?.Body?.stkCallback;
-  if (!stkCallback) {
+  if (!stkCallback?.CheckoutRequestID) {
     console.error("Invalid STK callback body");
     return;
   }
 
-  const { MerchantRequestID, CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata } = stkCallback;
+  const { CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata } = stkCallback;
+  const meta = readMetadata(CallbackMetadata);
+  const resultCode = Number(ResultCode);
 
-  let mpesaReceiptNumber: string | null = null;
-  let transactionDate: string | null = null;
-  let phoneNumber: string | null = null;
-
-  if (CallbackMetadata?.Item) {
-    for (const item of CallbackMetadata.Item) {
-      if (item.Name === "MpesaReceiptNumber") mpesaReceiptNumber = item.Value;
-      if (item.Name === "TransactionDate") transactionDate = String(item.Value);
-      if (item.Name === "PhoneNumber") phoneNumber = String(item.Value);
-    }
-  }
-
-  const status = ResultCode === 0 ? "completed" : "failed";
-
-  const { data: updated, error } = await supabase
-    .from("mpesa_transactions")
-    .update({
-      status,
-      result_code: ResultCode,
-      result_description: ResultDesc,
-      mpesa_receipt_number: mpesaReceiptNumber,
-    })
-    .eq("checkout_request_id", CheckoutRequestID)
-    .select("id, sale_id, amount, mpesa_receipt_number")
-    .maybeSingle();
+  // One atomic, idempotent database call performs: amount verification,
+  // transaction status update, single payment insert and sale settlement.
+  const { data, error } = await supabase.rpc("apply_mpesa_stk_result", {
+    _checkout_request_id: String(CheckoutRequestID),
+    _result_code: Number.isFinite(resultCode) ? resultCode : -1,
+    _result_desc: ResultDesc ? String(ResultDesc) : null,
+    _amount: meta.amount,
+    _receipt: meta.receipt,
+    _phone: meta.phone,
+    _transaction_date: meta.date,
+  });
 
   if (error) {
-    console.error("Error updating STK transaction:", error);
+    console.error("apply_mpesa_stk_result failed:", error);
     return;
   }
 
-  console.log(`STK transaction ${CheckoutRequestID} updated to ${status}`);
-
-  if (status === "completed" && updated?.sale_id) {
-    await reconcileSalePayment(updated.sale_id, Number(updated.amount), updated.mpesa_receipt_number ?? CheckoutRequestID);
-  }
+  console.log(`STK ${CheckoutRequestID} processed:`, JSON.stringify(data));
 }
 
-/**
- * Records the M-Pesa receipt against the sale and flips the sale's
- * payment_status once the recorded payments cover the sale total.
- */
-async function reconcileSalePayment(saleId: string, amount: number, reference: string) {
-  try {
-    const { data: existing } = await supabase
-      .from("payments")
-      .select("id, amount, reference")
-      .eq("sale_id", saleId);
 
-    const already = (existing || []).some((p: any) => p.reference && p.reference === reference);
-    if (!already) {
-      const { error: payErr } = await supabase
-        .from("payments")
-        .insert({ sale_id: saleId, method: "mpesa", amount, reference });
-      if (payErr) {
-        console.error("Error inserting payment:", payErr);
-        return;
-      }
-    }
-
-    const { data: sale } = await supabase
-      .from("sales")
-      .select("id, total, payment_status")
-      .eq("id", saleId)
-      .maybeSingle();
-    if (!sale) return;
-
-    const paid =
-      (existing || []).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0) +
-      (already ? 0 : amount);
-
-    const nextStatus = paid + 0.01 >= Number(sale.total) ? "paid" : "partial";
-    if (sale.payment_status !== nextStatus) {
-      const { error: saleErr } = await supabase
-        .from("sales")
-        .update({ payment_status: nextStatus })
-        .eq("id", saleId);
-      if (saleErr) console.error("Error updating sale payment_status:", saleErr);
-      else console.log(`Sale ${saleId} marked ${nextStatus} (paid ${paid} of ${sale.total})`);
-    }
-  } catch (e) {
-    console.error("reconcileSalePayment failed:", e);
-  }
-}
 
 
 async function handleB2CCallback(body: any) {

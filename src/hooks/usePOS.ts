@@ -86,6 +86,11 @@ export function usePOS() {
   const [customerName, setCustomerName] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const completingRef = useRef(false);
+  // A sale reserved (status = "pending") before an M-Pesa STK prompt is sent so
+  // the Daraja callback can settle the correct sale. Finalising reuses this row
+  // instead of inserting a second one.
+  const pendingSaleRef = useRef<{ saleId: string; invoiceNumber: string; total: number } | null>(null);
+
 
   // Persisted suspended sales (DB-backed, scoped to business + location)
   const heldQuery = useQuery({
@@ -368,6 +373,70 @@ export function usePOS() {
     [queryClient],
   );
 
+  /**
+   * Reserve the sale before an M-Pesa STK prompt goes out.
+   *
+   * The row is written as status "pending" / payment_status "unpaid" so the
+   * accounting triggers do not post anything yet, but the Daraja callback has a
+   * real sale_id (and an authoritative total) to settle against.
+   */
+  const createPendingSale = useCallback(
+    async (opts: { loyaltyDiscount?: number; loyaltyNote?: string | null } = {}) => {
+      if (!business || !currentLocation || !user || cart.length === 0) return null;
+      if (!ensureCanPost()) return null;
+
+      const loyaltyDiscount = Math.max(0, Number(opts.loyaltyDiscount || 0));
+      const effectiveTotal = Math.max(0, cartTotal - loyaltyDiscount);
+      const existing = pendingSaleRef.current;
+
+      // Reuse the reservation when the customer retries after a failed prompt.
+      if (existing && Math.abs(existing.total - effectiveTotal) < 0.01) return existing;
+      if (existing) {
+        pendingSaleRef.current = null;
+        await supabase.from("sales").delete().eq("id", existing.saleId).eq("status", "pending");
+      }
+
+
+      const saleId = crypto.randomUUID();
+      const invoiceNumber = consumeNext(business.id, "receipts");
+
+      const { error } = await supabase.from("sales").insert({
+        id: saleId,
+        idempotency_key: saleId,
+        business_id: business.id,
+        location_id: currentLocation.id,
+        customer_id: customerId,
+        invoice_number: invoiceNumber,
+        subtotal: cartSubtotal,
+        tax: Math.round(cartTax * 100) / 100,
+        discount: cart.reduce((s, i) => s + i.discount, 0) + loyaltyDiscount,
+        total: effectiveTotal,
+        payment_status: "unpaid",
+        status: "pending",
+        created_by: user.id,
+        notes: opts.loyaltyNote || null,
+      });
+      if (error) {
+        toast.error(`Could not start the M-Pesa payment: ${error.message}`);
+        return null;
+      }
+
+      const reserved = { saleId, invoiceNumber, total: effectiveTotal };
+      pendingSaleRef.current = reserved;
+      return reserved;
+    },
+    [business, currentLocation, user, cart, cartTotal, cartSubtotal, cartTax, customerId, ensureCanPost],
+  );
+
+  /** Drop an unpaid reservation when the cashier abandons the M-Pesa payment. */
+  const cancelPendingSale = useCallback(async () => {
+    const pending = pendingSaleRef.current;
+    if (!pending) return;
+    pendingSaleRef.current = null;
+    await supabase.from("sales").delete().eq("id", pending.saleId).eq("status", "pending");
+  }, []);
+
+
   // Complete sale
   const completeSale = async (
     payments: PaymentEntry[],
@@ -412,9 +481,12 @@ export function usePOS() {
       const totalPaid = appliedPayments.reduce((s, p) => s + p.amount, 0);
       const paymentStatus = totalPaid >= effectiveTotal ? "paid" : totalPaid > 0 ? "partial" : "unpaid";
 
-      const invoiceNumber = consumeNext(business.id, "receipts");
+      // An M-Pesa sale was already reserved (and possibly already paid by the
+      // callback) — finalise that row instead of creating a second one.
+      const reserved = pendingSaleRef.current;
+      const invoiceNumber = reserved?.invoiceNumber ?? consumeNext(business.id, "receipts");
+      const saleId = reserved?.saleId ?? crypto.randomUUID();
 
-      const saleId = crypto.randomUUID();
 
       // --- Offline path -----------------------------------------------------
       // No connection: queue the whole sale locally (sale id doubles as the
@@ -512,33 +584,57 @@ export function usePOS() {
         return offlineResult;
       }
 
-      const { error: saleErr } = await supabase.from("sales").insert({
-        id: saleId,
-        // Server-side idempotency: a replayed finalize hits the unique index
-        // (business_id, idempotency_key) and is rejected instead of duplicating.
-        idempotency_key: saleId,
-        business_id: business.id,
-        location_id: currentLocation.id,
-        customer_id: customerId,
-        invoice_number: invoiceNumber,
-        subtotal: cartSubtotal,
-        tax: Math.round(cartTax * 100) / 100,
-        discount: effectiveDiscount,
-        total: effectiveTotal,
-        payment_status: paymentStatus,
-        status: "final",
-        created_by: user.id,
-        notes: opts.loyaltyNote || null,
-      });
-      if (saleErr) {
-        // 23505 = the same finalize was already committed (duplicate click / retry).
-        if ((saleErr as { code?: string }).code === "23505") {
-          toast.info("This sale was already recorded");
-          clearCart();
-          return null;
+      if (reserved) {
+        // The callback may already have settled it; never downgrade a paid sale.
+        const { data: current } = await supabase
+          .from("sales")
+          .select("payment_status")
+          .eq("id", saleId)
+          .maybeSingle();
+        const { error: updErr } = await supabase
+          .from("sales")
+          .update({
+            customer_id: customerId,
+            subtotal: cartSubtotal,
+            tax: Math.round(cartTax * 100) / 100,
+            discount: effectiveDiscount,
+            total: effectiveTotal,
+            payment_status: current?.payment_status === "paid" ? "paid" : paymentStatus,
+            status: "final",
+            notes: opts.loyaltyNote || null,
+          })
+          .eq("id", saleId);
+        if (updErr) throw updErr;
+      } else {
+        const { error: saleErr } = await supabase.from("sales").insert({
+          id: saleId,
+          // Server-side idempotency: a replayed finalize hits the unique index
+          // (business_id, idempotency_key) and is rejected instead of duplicating.
+          idempotency_key: saleId,
+          business_id: business.id,
+          location_id: currentLocation.id,
+          customer_id: customerId,
+          invoice_number: invoiceNumber,
+          subtotal: cartSubtotal,
+          tax: Math.round(cartTax * 100) / 100,
+          discount: effectiveDiscount,
+          total: effectiveTotal,
+          payment_status: paymentStatus,
+          status: "final",
+          created_by: user.id,
+          notes: opts.loyaltyNote || null,
+        });
+        if (saleErr) {
+          // 23505 = the same finalize was already committed (duplicate click / retry).
+          if ((saleErr as { code?: string }).code === "23505") {
+            toast.info("This sale was already recorded");
+            clearCart();
+            return null;
+          }
+          throw saleErr;
         }
-        throw saleErr;
       }
+
 
       const isPharmacy = (business as any)?.business_type === "pharmacy";
       const saleItems: any[] = [];
@@ -576,16 +672,32 @@ export function usePOS() {
       }
 
       if (payments.length > 0) {
-        const paymentRows = appliedPayments.map((p) => ({
+        let paymentRows = appliedPayments.map((p) => ({
           sale_id: saleId,
           method: p.method,
           amount: p.amount,
           reference: p.reference || null,
         }));
+
+        if (reserved) {
+          // The M-Pesa callback already wrote its own payment row — don't double it.
+          const { data: existingPayments } = await supabase
+            .from("payments")
+            .select("method, reference, amount")
+            .eq("sale_id", saleId);
+          const seen = new Set(
+            (existingPayments || []).map((p) => `${p.method}|${p.reference ?? ""}|${Number(p.amount).toFixed(2)}`),
+          );
+          paymentRows = paymentRows.filter(
+            (p) => !seen.has(`${p.method}|${p.reference ?? ""}|${Number(p.amount).toFixed(2)}`),
+          );
+        }
+
         if (paymentRows.length > 0) {
           const { error: payErr } = await supabase.from("payments").insert(paymentRows);
           if (payErr) throw payErr;
         }
+
       }
 
       const inventoryUpdates = await Promise.all(
@@ -695,8 +807,10 @@ export function usePOS() {
         loyaltyDiscount,
       };
 
+      pendingSaleRef.current = null;
       clearCart();
       toast.success("Sale completed!");
+
       return result;
     } catch (err: any) {
       toast.error(err.message);
@@ -730,6 +844,9 @@ export function usePOS() {
     resumeSale,
     removeHeldSale,
     completeSale,
+    createPendingSale,
+    cancelPendingSale,
+
     processing,
     stockOf,
     preventOverselling,

@@ -4382,6 +4382,18 @@ export type Database = {
         Args: { _business_id: string; _note: string }
         Returns: undefined
       }
+      apply_mpesa_stk_result: {
+        Args: {
+          _amount?: number
+          _checkout_request_id: string
+          _phone?: string
+          _receipt?: string
+          _result_code: number
+          _result_desc: string
+          _transaction_date?: string
+        }
+        Returns: Json
+      }
       apply_purchase_item_inventory: {
         Args: { _delta: number; _location_id: string; _product_id: string }
         Returns: undefined

@@ -31,6 +31,10 @@ interface Props {
   onConfirm: (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean, loyalty: LoyaltyPayload | null) => void;
   processing: boolean;
   initialMethod?: "cash" | "mpesa" | "card";
+  /** Reserves the sale (status "pending") so an STK prompt can be linked to it. */
+  onPrepareSale?: (loyalty: LoyaltyPayload | null) => Promise<{ saleId: string; total: number } | null>;
+  /** Drops an unpaid reservation when the cashier abandons the payment. */
+  onCancelPendingSale?: () => void | Promise<void>;
 }
 
 const METHODS = [
@@ -41,7 +45,8 @@ const METHODS = [
 
 type MpesaStatus = "idle" | "sending" | "waiting" | "completed" | "failed";
 
-export default function PaymentDialog({ open, onOpenChange, total, onConfirm, processing, initialMethod = "cash" }: Props) {
+export default function PaymentDialog({ open, onOpenChange, total, onConfirm, processing, initialMethod = "cash", onPrepareSale, onCancelPendingSale }: Props) {
+
   const [payments, setPayments] = useState<PaymentEntry[]>([{ method: initialMethod, amount: total, reference: "" }]);
   const [bankAccountId, setBankAccountId] = useState<string>("none");
   const [bankAccountTouched, setBankAccountTouched] = useState(false);
@@ -69,6 +74,7 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
   const [mpesaStatus, setMpesaStatus] = useState<MpesaStatus>("idle");
   const [mpesaCheckoutId, setMpesaCheckoutId] = useState("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const totalPaid = payments.reduce((s, p) => s + (p.amount || 0), 0);
   const change = Math.max(0, totalPaid - adjustedTotal);
@@ -76,12 +82,14 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
 
   const hasMpesaPayment = payments.some(p => p.method === "mpesa");
 
-  // Cleanup polling on unmount
+  // Cleanup polling / realtime on unmount
   useEffect(() => {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
     };
   }, []);
+
 
   const addPayment = () => {
     setPayments((p) => [...p, { method: "cash", amount: remaining, reference: "" }]);
@@ -117,9 +125,19 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
       setLoyaltyLookup(null);
       setRedeemPoints(0);
       if (pollRef.current) clearInterval(pollRef.current);
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    } else {
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = null;
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+      // Abandoned before the money arrived — release the reserved sale.
+      if (mpesaStatus !== "completed") void onCancelPendingSale?.();
     }
     onOpenChange(v);
   };
+
 
   // Sync first payment row to adjusted total whenever redemption / total / method changes
   useEffect(() => {
@@ -160,19 +178,64 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
   const requiresName = loyaltyEnabled && loyaltyPhoneClean.length >= 6 && loyaltyLookup && !loyaltyLookup.id && !loyaltyName.trim();
 
 
+  const buildLoyalty = (): LoyaltyPayload | null =>
+    loyaltyEnabled && loyaltyPhoneClean.length >= 6
+      ? {
+          phone: loyaltyPhoneClean,
+          name: (loyaltyLookup?.name || loyaltyName).trim(),
+          existingCustomerId: loyaltyLookup?.id ?? null,
+          redeemPoints,
+          redemptionValue,
+          pointsBalance: loyaltyLookup?.points ?? 0,
+        }
+      : null;
+
+  const stopWatching = () => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = null;
+    if (channelRef.current) supabase.removeChannel(channelRef.current);
+    channelRef.current = null;
+  };
+
+  const settle = (receipt: string | null, checkoutId: string) => {
+    stopWatching();
+    setMpesaStatus("completed");
+    setPayments((prev) =>
+      prev.map((p) => (p.method === "mpesa" ? { ...p, reference: receipt || checkoutId } : p)),
+    );
+    toast.success("M-Pesa payment confirmed!");
+  };
+
+  const fail = (message: string) => {
+    stopWatching();
+    setMpesaStatus("failed");
+    toast.error(message);
+  };
+
   const sendSTKPush = async () => {
     if (!mpesaPhone || !business) return;
 
-    const mpesaPayment = payments.find(p => p.method === "mpesa");
+    const mpesaPayment = payments.find((p) => p.method === "mpesa");
     if (!mpesaPayment || !mpesaPayment.amount) {
       toast.error("Set M-Pesa payment amount first");
+      return;
+    }
+    if (!onPrepareSale) {
+      toast.error("M-Pesa is not available on this screen");
       return;
     }
 
     setMpesaStatus("sending");
 
     try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      // The sale must exist before the prompt goes out so the Daraja callback
+      // can settle it. The edge function reads the amount from that sale row.
+      const reserved = await onPrepareSale(buildLoyalty());
+      if (!reserved) {
+        setMpesaStatus("idle");
+        return;
+      }
+
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const session = (await supabase.auth.getSession()).data.session;
 
@@ -180,12 +243,11 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${session?.access_token}`,
+          Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({
           phoneNumber: mpesaPhone,
-          amount: mpesaPayment.amount,
-          businessId: business.id,
+          saleId: reserved.saleId,
           accountReference: "POS Sale",
         }),
       });
@@ -193,49 +255,51 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
       const data = await res.json();
       if (!res.ok || data?.error) throw new Error(data?.error || "STK Push failed");
 
-      setMpesaCheckoutId(data.checkoutRequestId);
+      const checkoutId: string = data.checkoutRequestId;
+      setMpesaCheckoutId(checkoutId);
       setMpesaStatus("waiting");
       toast.success("STK Push sent! Check your phone.");
 
-      // Poll for completion
+      // Primary confirmation: realtime on the transaction row, driven by the
+      // Daraja callback (the only trustworthy source of truth).
+      const channel = supabase
+        .channel(`mpesa-stk-${checkoutId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "mpesa_transactions",
+            filter: `checkout_request_id=eq.${checkoutId}`,
+          },
+          (payload) => {
+            const row = payload.new as { status?: string; mpesa_receipt_number?: string | null; result_description?: string | null };
+            if (row.status === "completed") settle(row.mpesa_receipt_number ?? null, checkoutId);
+            else if (row.status && row.status !== "pending") {
+              fail(row.result_description || "M-Pesa payment failed");
+            }
+          },
+        )
+        .subscribe();
+      channelRef.current = channel;
+
+      // Fallback only: realtime can drop, so re-read the row every 5s.
       let attempts = 0;
       pollRef.current = setInterval(async () => {
         attempts++;
-        if (attempts > 30) {
-          if (pollRef.current) clearInterval(pollRef.current);
-          setMpesaStatus("failed");
-          toast.error("M-Pesa payment timed out");
+        if (attempts > 36) {
+          fail("M-Pesa payment timed out");
           return;
         }
-
-        try {
-          const queryRes = await fetch(`${supabaseUrl}/functions/v1/mpesa?action=stk-query`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${session?.access_token}`,
-            },
-            body: JSON.stringify({ checkoutRequestId: data.checkoutRequestId }),
-          });
-          const queryData = await queryRes.json();
-
-          if (queryData?.ResultCode === "0" || queryData?.ResultCode === 0) {
-            if (pollRef.current) clearInterval(pollRef.current);
-            setMpesaStatus("completed");
-
-            // Auto-fill M-Pesa reference
-            const mpesaIdx = payments.findIndex(p => p.method === "mpesa");
-            if (mpesaIdx >= 0) {
-              updatePayment(mpesaIdx, { reference: data.checkoutRequestId });
-            }
-            toast.success("M-Pesa payment confirmed!");
-          } else if (queryData?.ResultCode && queryData.ResultCode !== "0") {
-            if (pollRef.current) clearInterval(pollRef.current);
-            setMpesaStatus("failed");
-            toast.error(queryData.ResultDesc || "M-Pesa payment failed");
-          }
-        } catch {
-          // Keep polling
+        const { data: row } = await supabase
+          .from("mpesa_transactions")
+          .select("status, mpesa_receipt_number, result_description")
+          .eq("checkout_request_id", checkoutId)
+          .maybeSingle();
+        if (!row) return;
+        if (row.status === "completed") settle(row.mpesa_receipt_number ?? null, checkoutId);
+        else if (row.status && row.status !== "pending") {
+          fail(row.result_description || "M-Pesa payment failed");
         }
       }, 5000);
     } catch (e: any) {
@@ -243,6 +307,7 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
       toast.error(e.message || "Failed to send STK Push");
     }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -488,22 +553,12 @@ export default function PaymentDialog({ open, onOpenChange, total, onConfirm, pr
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>Cancel</Button>
           <Button
             onClick={() => {
-              const loyalty: LoyaltyPayload | null =
-                loyaltyEnabled && loyaltyPhoneClean.length >= 6
-                  ? {
-                      phone: loyaltyPhoneClean,
-                      name: (loyaltyLookup?.name || loyaltyName).trim(),
-                      existingCustomerId: loyaltyLookup?.id ?? null,
-                      redeemPoints,
-                      redemptionValue,
-                      pointsBalance: loyaltyLookup?.points ?? 0,
-                    }
-                  : null;
-              onConfirm(payments, bankAccountId === "none" ? null : bankAccountId, digitaxEnabled && pushToEtims, loyalty);
+              onConfirm(payments, bankAccountId === "none" ? null : bankAccountId, digitaxEnabled && pushToEtims, buildLoyalty());
             }}
+
             disabled={
               totalPaid <= 0 ||
               processing ||

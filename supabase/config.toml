@@ -6,3 +6,8 @@ verify_jwt = true
 
 [functions.public-invoice]
 verify_jwt = false
+
+# Safaricom cannot send an Authorization header to the Daraja callback URL.
+[functions.mpesa-callback]
+verify_jwt = false
+
