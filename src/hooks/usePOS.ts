@@ -86,6 +86,11 @@ export function usePOS() {
   const [customerName, setCustomerName] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const completingRef = useRef(false);
+  // A sale reserved (status = "pending") before an M-Pesa STK prompt is sent so
+  // the Daraja callback can settle the correct sale. Finalising reuses this row
+  // instead of inserting a second one.
+  const pendingSaleRef = useRef<{ saleId: string; invoiceNumber: string; total: number } | null>(null);
+
 
   // Persisted suspended sales (DB-backed, scoped to business + location)
   const heldQuery = useQuery({
