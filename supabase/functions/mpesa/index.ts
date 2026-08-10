@@ -11,7 +11,21 @@ import {
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
 };
+
+// Safaricom's public sandbox till. Only used when a tenant is on sandbox and
+// has not set their own shortcode/passkey. Consumer key/secret are never
+// defaulted — they always come from the tenant's vault entries.
+const SANDBOX_SHORTCODE = "174379";
+const SANDBOX_PASSKEY = "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919";
+
+/** 2547XXXXXXXX / 2541XXXXXXXX */
+function isValidKenyanPhone(msisdn: string): boolean {
+  return /^254(7|1)\d{8}$/.test(msisdn);
+}
+
 
 const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
