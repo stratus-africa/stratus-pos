@@ -24,6 +24,7 @@ import {
   Check,
   RotateCcw,
   SlidersHorizontal,
+  Smartphone,
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -184,6 +185,14 @@ const NAV: Item[] = [
       "report.pnl",
       "report.audit",
     ],
+  },
+  {
+    to: "/reports?tab=mpesa",
+    label: "M-PESA",
+    icon: Smartphone,
+    roles: ["admin", "manager", "cashier", "stores_manager"],
+    featureKey: "reports",
+    anyPermission: ["report.sales", "report.audit"],
   },
   { to: "/hr", label: "HR", icon: UserCog, roles: ["admin", "manager", "cashier", "stores_manager"], featureKey: "hr" },
   {
