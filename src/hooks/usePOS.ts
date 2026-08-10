@@ -584,33 +584,57 @@ export function usePOS() {
         return offlineResult;
       }
 
-      const { error: saleErr } = await supabase.from("sales").insert({
-        id: saleId,
-        // Server-side idempotency: a replayed finalize hits the unique index
-        // (business_id, idempotency_key) and is rejected instead of duplicating.
-        idempotency_key: saleId,
-        business_id: business.id,
-        location_id: currentLocation.id,
-        customer_id: customerId,
-        invoice_number: invoiceNumber,
-        subtotal: cartSubtotal,
-        tax: Math.round(cartTax * 100) / 100,
-        discount: effectiveDiscount,
-        total: effectiveTotal,
-        payment_status: paymentStatus,
-        status: "final",
-        created_by: user.id,
-        notes: opts.loyaltyNote || null,
-      });
-      if (saleErr) {
-        // 23505 = the same finalize was already committed (duplicate click / retry).
-        if ((saleErr as { code?: string }).code === "23505") {
-          toast.info("This sale was already recorded");
-          clearCart();
-          return null;
+      if (reserved) {
+        // The callback may already have settled it; never downgrade a paid sale.
+        const { data: current } = await supabase
+          .from("sales")
+          .select("payment_status")
+          .eq("id", saleId)
+          .maybeSingle();
+        const { error: updErr } = await supabase
+          .from("sales")
+          .update({
+            customer_id: customerId,
+            subtotal: cartSubtotal,
+            tax: Math.round(cartTax * 100) / 100,
+            discount: effectiveDiscount,
+            total: effectiveTotal,
+            payment_status: current?.payment_status === "paid" ? "paid" : paymentStatus,
+            status: "final",
+            notes: opts.loyaltyNote || null,
+          })
+          .eq("id", saleId);
+        if (updErr) throw updErr;
+      } else {
+        const { error: saleErr } = await supabase.from("sales").insert({
+          id: saleId,
+          // Server-side idempotency: a replayed finalize hits the unique index
+          // (business_id, idempotency_key) and is rejected instead of duplicating.
+          idempotency_key: saleId,
+          business_id: business.id,
+          location_id: currentLocation.id,
+          customer_id: customerId,
+          invoice_number: invoiceNumber,
+          subtotal: cartSubtotal,
+          tax: Math.round(cartTax * 100) / 100,
+          discount: effectiveDiscount,
+          total: effectiveTotal,
+          payment_status: paymentStatus,
+          status: "final",
+          created_by: user.id,
+          notes: opts.loyaltyNote || null,
+        });
+        if (saleErr) {
+          // 23505 = the same finalize was already committed (duplicate click / retry).
+          if ((saleErr as { code?: string }).code === "23505") {
+            toast.info("This sale was already recorded");
+            clearCart();
+            return null;
+          }
+          throw saleErr;
         }
-        throw saleErr;
       }
+
 
       const isPharmacy = (business as any)?.business_type === "pharmacy";
       const saleItems: any[] = [];
