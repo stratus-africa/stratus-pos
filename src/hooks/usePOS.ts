@@ -807,8 +807,10 @@ export function usePOS() {
         loyaltyDiscount,
       };
 
+      pendingSaleRef.current = null;
       clearCart();
       toast.success("Sale completed!");
+
       return result;
     } catch (err: any) {
       toast.error(err.message);
