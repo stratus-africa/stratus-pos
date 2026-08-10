@@ -16,13 +16,18 @@ function getBaseUrl(env: MpesaEnv): string {
   return env === "live" ? DARAJA_LIVE_URL : DARAJA_SANDBOX_URL;
 }
 
+function clean(v?: string | null): string | undefined {
+  const t = v?.trim();
+  return t ? t : undefined;
+}
+
 function resolveCreds(creds?: MpesaCreds): Required<Pick<MpesaCreds, "consumerKey" | "consumerSecret">> & MpesaCreds {
   return {
     ...creds,
-    consumerKey: creds?.consumerKey || Deno.env.get("MPESA_CONSUMER_KEY") || "",
-    consumerSecret: creds?.consumerSecret || Deno.env.get("MPESA_CONSUMER_SECRET") || "",
-    shortcode: creds?.shortcode || Deno.env.get("MPESA_SHORTCODE") || undefined,
-    passkey: creds?.passkey || Deno.env.get("MPESA_PASSKEY") || undefined,
+    consumerKey: clean(creds?.consumerKey) || clean(Deno.env.get("MPESA_CONSUMER_KEY")) || "",
+    consumerSecret: clean(creds?.consumerSecret) || clean(Deno.env.get("MPESA_CONSUMER_SECRET")) || "",
+    shortcode: clean(creds?.shortcode) || clean(Deno.env.get("MPESA_SHORTCODE")),
+    passkey: clean(creds?.passkey) || clean(Deno.env.get("MPESA_PASSKEY")),
     initiatorName: creds?.initiatorName || Deno.env.get("MPESA_B2C_INITIATOR_NAME") || undefined,
     securityCredential: creds?.securityCredential || Deno.env.get("MPESA_B2C_SECURITY_CREDENTIAL") || undefined,
   };
@@ -41,6 +46,11 @@ export async function getAccessToken(env: MpesaEnv = "sandbox", creds?: MpesaCre
   });
 
   if (!response.ok) {
+    if (response.status === 400 || response.status === 401) {
+      throw new Error(
+        `M-Pesa rejected the credentials for the "${env}" environment. Open Settings > Payment gateways, confirm the environment matches your Daraja app, and re-enter the consumer key and secret.`,
+      );
+    }
     const text = await response.text().catch(() => "");
     throw new Error(`Failed to get M-Pesa access token: ${response.status}${text ? ` ${text}` : ""}`);
   }

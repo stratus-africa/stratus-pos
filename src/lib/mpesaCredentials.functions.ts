@@ -40,9 +40,9 @@ export const setMpesaCredentials = createServerFn({ method: 'POST' })
     const names = vaultNames(data.business_id);
 
     try {
-      await vaultUpsert(supabaseAdmin, names.consumer_key, data.consumer_key);
-      await vaultUpsert(supabaseAdmin, names.consumer_secret, data.consumer_secret);
-      await vaultUpsert(supabaseAdmin, names.passkey, data.passkey);
+      await vaultUpsert(supabaseAdmin, names.consumer_key, data.consumer_key.trim());
+      await vaultUpsert(supabaseAdmin, names.consumer_secret, data.consumer_secret.trim());
+      await vaultUpsert(supabaseAdmin, names.passkey, data.passkey.trim());
     } catch (e) {
       console.error('Vault write failed', e);
       throw new Error('Vault not available. Please contact support to enable secret storage.');
