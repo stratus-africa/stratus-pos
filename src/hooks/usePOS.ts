@@ -844,6 +844,9 @@ export function usePOS() {
     resumeSale,
     removeHeldSale,
     completeSale,
+    createPendingSale,
+    cancelPendingSale,
+
     processing,
     stockOf,
     preventOverselling,
