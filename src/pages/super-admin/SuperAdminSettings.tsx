@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "@/lib/router-compat";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
@@ -19,16 +19,11 @@ import {
   Check,
   ChevronRight,
   Banknote,
-  Bold,
-  Italic,
-  Underline,
-  List,
-  ListOrdered,
+  Smartphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { THEMES, DEFAULT_THEME, applyTheme } from "@/lib/themes";
 
-type TabKey = "general" | "branding" | "appearance" | "company" | "payments" | "offline";
+type TabKey = "general" | "branding" | "appearance" | "company" | "payments" | "mpesa" | "offline";
 
 interface AppSettings {
   app_name?: string;
@@ -55,6 +50,7 @@ const TABS: { key: TabKey; label: string; icon: any }[] = [
   { key: "appearance", label: "Appearance", icon: Brush },
   { key: "company", label: "Company", icon: Building2 },
   { key: "payments", label: "Payments", icon: CreditCard },
+  { key: "mpesa", label: "M-Pesa", icon: Smartphone },
   { key: "offline", label: "Offline Payments", icon: Banknote },
 ];
 
@@ -162,7 +158,7 @@ export default function SuperAdminSettings() {
     );
   }
 
-  const showSaveButton = tab !== "payments";
+  const showSaveButton = !["payments", "mpesa"].includes(tab);
 
   return (
     <div className="space-y-6">
@@ -173,23 +169,27 @@ export default function SuperAdminSettings() {
         </p>
       </div>
 
-      <div className="space-y-5">
-        {/* Section selector */}
-        <Select value={tab} onValueChange={(v) => setTab(v as TabKey)}>
-          <SelectTrigger className="w-full sm:w-72">
-            <SelectValue placeholder="Select a section" />
-          </SelectTrigger>
-          <SelectContent>
+      <div className="grid gap-5 md:grid-cols-[240px_1fr]">
+        {/* Tabs */}
+        <Card className="p-2 h-fit">
+          <nav className="flex flex-col gap-0.5">
             {TABS.map(({ key, label, icon: Icon }) => (
-              <SelectItem key={key} value={key}>
-                <span className="flex items-center gap-2">
-                  <Icon className="h-4 w-4" />
-                  {label}
-                </span>
-              </SelectItem>
+              <button
+                key={key}
+                onClick={() => setTab(key)}
+                className={cn(
+                  "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors text-left",
+                  tab === key
+                    ? "bg-emerald-50 text-emerald-700 font-medium"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {label}
+              </button>
             ))}
-          </SelectContent>
-        </Select>
+          </nav>
+        </Card>
 
         {/* Panel */}
         <Card className="p-6">
@@ -263,18 +263,18 @@ export default function SuperAdminSettings() {
                     placeholder="https://..."
                   />
                 </Field>
-                <ThemePalettePicker
-                  value={s.theme_color}
-                  onChange={(theme) => {
-                    set("theme_color", theme);
-                    applyTheme(theme);
-                  }}
-                />
               </div>
             )}
 
             {tab === "appearance" && (
-              <p className="text-sm text-muted-foreground">Choose the application palette from the Branding section.</p>
+              <Field label="Primary Theme Color" help="Used for buttons, highlights, and accents (hex value).">
+                <Input
+                  type="text"
+                  value={s.theme_color ?? ""}
+                  placeholder="#2563eb"
+                  onChange={(e) => set("theme_color", e.target.value)}
+                />
+              </Field>
             )}
 
             {tab === "company" && (
@@ -342,6 +342,24 @@ export default function SuperAdminSettings() {
               </div>
             )}
 
+            {tab === "mpesa" && (
+              <div className="space-y-5">
+                <div className="rounded-lg border border-dashed bg-muted/30 p-5">
+                  <h3 className="text-base font-semibold">M-Pesa Tenant Settings</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Configure Daraja credentials, environment, shortcode, and callback settings for tenant M-Pesa
+                    payments.
+                  </p>
+                  <Button
+                    onClick={() => navigate("/super-admin/settings/payments/mpesa")}
+                    className="mt-4 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    Open M-Pesa settings
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {tab === "offline" && (
               <div className="space-y-5">
                 <Field
@@ -380,9 +398,10 @@ export default function SuperAdminSettings() {
                   </Field>
                 </div>
                 <Field label="Payment instructions" help="Shown to tenants inside the offline payment dialog.">
-                  <RichTextEditor
+                  <Textarea
+                    rows={4}
                     value={offline.instructions}
-                    onChange={(instructions) => setOff("instructions", instructions)}
+                    onChange={(e) => setOff("instructions", e.target.value)}
                   />
                 </Field>
               </div>
@@ -406,6 +425,8 @@ function describe(tab: TabKey) {
       return "Your company contact information for invoices and emails.";
     case "payments":
       return "Choose and configure your payment providers.";
+    case "mpesa":
+      return "Open the M-Pesa tenant configuration for Daraja credentials and callbacks.";
     case "offline":
       return "Configure offline payment methods and instructions shown to tenants.";
   }
@@ -430,135 +451,6 @@ function Field({
       </Label>
       {children}
       {help && <p className="text-xs text-muted-foreground">{help}</p>}
-    </div>
-  );
-}
-
-function ThemePalettePicker({ value, onChange }: { value?: string; onChange: (theme: string) => void }) {
-  return (
-    <Field label="Brand palette" help="Used for buttons, highlights, table rows, and navigation accents.">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {Object.values(THEMES).map((theme) => {
-          const active = (value || DEFAULT_THEME) === theme.key;
-          const colors = Array.isArray((theme as { colors?: unknown }).colors)
-            ? (theme as { colors: unknown[] }).colors.filter((color): color is string => typeof color === "string")
-            : [];
-          return (
-            <button
-              key={theme.key}
-              type="button"
-              aria-pressed={active}
-              onClick={() => onChange(theme.key)}
-              className={cn(
-                "relative rounded-xl border-2 p-3 text-left transition-all",
-                active ? "border-primary shadow-sm" : "border-border hover:border-primary/40",
-              )}
-            >
-              <span className="mb-2 flex h-8 overflow-hidden rounded-md border">
-                {(colors.length > 0 ? colors : [theme.swatch]).map((color, index) => (
-                  <span key={`${color}-${index}`} className="flex-1" style={{ backgroundColor: color }} />
-                ))}
-              </span>
-              <span className="block text-sm font-medium">{theme.label}</span>
-              <span className="block text-xs text-muted-foreground">{theme.swatch}</span>
-              {active && <Check className="absolute right-2 top-2 h-4 w-4 text-primary" />}
-            </button>
-          );
-        })}
-      </div>
-    </Field>
-  );
-}
-
-function RichTextEditor({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const editorRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    const html = /<\/?[a-z][\s\S]*>/i.test(value)
-      ? value
-      : value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
-    if (editor.innerHTML !== html) editor.innerHTML = html;
-  }, [value]);
-
-  const applyFormat = (command: string) => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    editor.focus();
-    document.execCommand(command, false);
-    onChange(editor.innerHTML);
-  };
-
-  return (
-    <div className="overflow-hidden rounded-md border bg-background">
-      <div className="flex flex-wrap gap-1 border-b bg-muted/30 p-1.5">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          aria-label="Bold"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => applyFormat("bold")}
-        >
-          <Bold className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          aria-label="Italic"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => applyFormat("italic")}
-        >
-          <Italic className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          aria-label="Underline"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => applyFormat("underline")}
-        >
-          <Underline className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          aria-label="Bulleted list"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => applyFormat("insertUnorderedList")}
-        >
-          <List className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          aria-label="Numbered list"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => applyFormat("insertOrderedList")}
-        >
-          <ListOrdered className="h-4 w-4" />
-        </Button>
-      </div>
-      <div
-        ref={editorRef}
-        contentEditable
-        role="textbox"
-        aria-multiline="true"
-        suppressContentEditableWarning
-        onInput={(event) => onChange(event.currentTarget.innerHTML)}
-        className="min-h-32 p-3 text-sm outline-none empty:before:pointer-events-none empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)]"
-        data-placeholder="Enter payment instructions..."
-      />
     </div>
   );
 }
