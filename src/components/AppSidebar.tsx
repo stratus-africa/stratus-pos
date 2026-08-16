@@ -227,14 +227,6 @@ const systemNav: NavItem[] = [
     ],
   },
   {
-    title: "M-PESA Reconciliation",
-    url: "/reports?tab=mpesa",
-    icon: Smartphone,
-    roles: ["admin", "manager", "cashier", "stores_manager"],
-    featureKey: "reports",
-    anyPermission: ["report.sales", "report.audit"],
-  },
-  {
     title: "HR",
     url: "/hr",
     icon: UserCog,
