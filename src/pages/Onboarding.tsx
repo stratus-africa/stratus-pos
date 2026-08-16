@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { validateSignupEmail } from "@/lib/disposableEmails";
+import { Link, Navigate, useNavigate } from "@/lib/router-compat";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
@@ -197,6 +198,12 @@ const RegistrationForm = ({ hasUser }: { hasUser: boolean }) => {
 
     // Step 1: create the auth account if we don't have one yet
     if (!hasUser) {
+      const emailError = validateSignupEmail(email);
+      if (emailError) {
+        toast.error(emailError);
+        setSubmitting(false);
+        return;
+      }
       if (password !== confirm) {
         toast.error("Passwords do not match");
         setSubmitting(false);
@@ -247,16 +254,10 @@ const RegistrationForm = ({ hasUser }: { hasUser: boolean }) => {
     }
 
     // Link profile
-    const { error: profileError } = await supabase
+    await supabase
       .from("profiles")
       .update({ business_id: businessId, full_name: contactPerson.trim() })
       .eq("id", currentUser.id);
-
-    if (profileError) {
-      toast.error("Failed to link profile: " + profileError.message);
-      setSubmitting(false);
-      return;
-    }
 
     // Sign out — user must wait for approval before signing in
     await signOut();
