@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { validateSignupEmail } from "@/lib/disposableEmails";
-import { Link, Navigate, useNavigate } from "@/lib/router-compat";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
@@ -11,8 +10,22 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  Box, CheckCircle2, ArrowLeft, ArrowRight,
-  Mail, Lock, Eye, EyeOff, Building2, Zap, Loader2, CreditCard, User, Phone, FileText, Hash,
+  Box,
+  CheckCircle2,
+  ArrowLeft,
+  ArrowRight,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  Building2,
+  Zap,
+  Loader2,
+  CreditCard,
+  User,
+  Phone,
+  FileText,
+  Hash,
 } from "lucide-react";
 
 interface Plan {
@@ -58,19 +71,25 @@ const Onboarding = () => {
     <div className="min-h-screen grid lg:grid-cols-[1fr_minmax(420px,560px)] bg-white">
       <aside className="relative hidden lg:flex flex-col items-center justify-center p-12 overflow-hidden bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-600 text-white">
         <div className="absolute -top-32 -left-32 w-[450px] h-[450px] rounded-full bg-white/15 blur-2xl" aria-hidden />
-        <div className="absolute -bottom-40 -right-20 w-[500px] h-[500px] rounded-full bg-white/10 blur-3xl" aria-hidden />
+        <div
+          className="absolute -bottom-40 -right-20 w-[500px] h-[500px] rounded-full bg-white/10 blur-3xl"
+          aria-hidden
+        />
         <div className="relative max-w-md">
           <div className="h-14 w-14 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/20 flex items-center justify-center mb-8 shadow-md">
             <Box className="h-7 w-7" />
           </div>
           <h1 className="text-4xl lg:text-5xl font-bold leading-tight tracking-tight mb-5">
-            Register your<br />business
+            Register your
+            <br />
+            business
           </h1>
           <p className="text-white/85 leading-relaxed mb-10 text-base">
-            Submit your business details. Our team will review and activate your workspace, then email you when you can sign in.
+            Submit your business details. Our team will review and activate your workspace, then email you when you can
+            sign in.
           </p>
           <ul className="space-y-4 pt-8 border-t border-white/25">
-            {HIGHLIGHTS.map(h => (
+            {HIGHLIGHTS.map((h) => (
               <li key={h} className="flex items-center gap-3 text-white">
                 <span className="h-7 w-7 rounded-full bg-white/15 border border-white/25 flex items-center justify-center shrink-0">
                   <CheckCircle2 className="h-4 w-4" />
@@ -84,7 +103,10 @@ const Onboarding = () => {
 
       <main className="flex items-center justify-center p-6 sm:p-10">
         <div className="w-full max-w-md space-y-6">
-          <Link to="/landing" className="lg:hidden inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+          <Link
+            to="/landing"
+            className="lg:hidden inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          >
             <ArrowLeft className="h-4 w-4" /> Back
           </Link>
 
@@ -98,7 +120,9 @@ const Onboarding = () => {
           <RegistrationForm hasUser={!!user} />
 
           <Button asChild variant="outline" className="w-full h-11 rounded-lg font-medium">
-            <Link to="/landing"><ArrowLeft className="mr-2 h-4 w-4" /> Back to homepage</Link>
+            <Link to="/landing">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to homepage
+            </Link>
           </Button>
 
           <p className="text-xs text-center text-muted-foreground">
@@ -134,13 +158,17 @@ const RegistrationForm = ({ hasUser }: { hasUser: boolean }) => {
     (async () => {
       const { data } = await (supabase as any).rpc("get_public_subscription_packages");
       const list = ((data as any[]) || []).map((p) => ({
-        id: p.id, name: p.name,
-        monthly_price_kes: p.monthly_price_kes, yearly_price_kes: p.yearly_price_kes,
-        trial_days: p.trial_days, max_products: p.max_products,
-        max_users: p.max_users, max_locations: p.max_locations,
+        id: p.id,
+        name: p.name,
+        monthly_price_kes: p.monthly_price_kes,
+        yearly_price_kes: p.yearly_price_kes,
+        trial_days: p.trial_days,
+        max_products: p.max_products,
+        max_users: p.max_users,
+        max_locations: p.max_locations,
       })) as Plan[];
       setPlans(list);
-      const def = list.find(p => Number(p.monthly_price_kes) === 0) || list[0];
+      const def = list.find((p) => Number(p.monthly_price_kes) === 0) || list[0];
       if (def) setSelectedPlanId(def.id);
       setPlansLoading(false);
     })();
@@ -148,7 +176,7 @@ const RegistrationForm = ({ hasUser }: { hasUser: boolean }) => {
 
   const filled = useMemo(
     () => [!!companyName, !!contactPerson, !!contactPhone, !!email, password.length >= 8].filter(Boolean).length,
-    [companyName, contactPerson, contactPhone, email, password]
+    [companyName, contactPerson, contactPhone, email, password],
   );
 
   const submitRegistration = async () => {
@@ -169,13 +197,23 @@ const RegistrationForm = ({ hasUser }: { hasUser: boolean }) => {
 
     // Step 1: create the auth account if we don't have one yet
     if (!hasUser) {
-      const emailError = validateSignupEmail(email);
-      if (emailError) { toast.error(emailError); setSubmitting(false); return; }
-      if (password !== confirm) { toast.error("Passwords do not match"); setSubmitting(false); return; }
-      if (password.length < 8) { toast.error("Password must be at least 8 characters"); setSubmitting(false); return; }
+      if (password !== confirm) {
+        toast.error("Passwords do not match");
+        setSubmitting(false);
+        return;
+      }
+      if (password.length < 8) {
+        toast.error("Password must be at least 8 characters");
+        setSubmitting(false);
+        return;
+      }
 
       const { error: signUpErr } = await signUp(email, password, contactPerson);
-      if (signUpErr) { toast.error(signUpErr.message); setSubmitting(false); return; }
+      if (signUpErr) {
+        toast.error(signUpErr.message);
+        setSubmitting(false);
+        return;
+      }
     }
 
     // Wait briefly for auth session / profile row to exist
@@ -202,10 +240,23 @@ const RegistrationForm = ({ hasUser }: { hasUser: boolean }) => {
       is_active: false,
     } as any);
 
-    if (bizError) { toast.error(bizError.message); setSubmitting(false); return; }
+    if (bizError) {
+      toast.error(bizError.message);
+      setSubmitting(false);
+      return;
+    }
 
     // Link profile
-    await supabase.from("profiles").update({ business_id: businessId, full_name: contactPerson.trim() }).eq("id", currentUser.id);
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ business_id: businessId, full_name: contactPerson.trim() })
+      .eq("id", currentUser.id);
+
+    if (profileError) {
+      toast.error("Failed to link profile: " + profileError.message);
+      setSubmitting(false);
+      return;
+    }
 
     // Sign out — user must wait for approval before signing in
     await signOut();
@@ -214,7 +265,10 @@ const RegistrationForm = ({ hasUser }: { hasUser: boolean }) => {
     setSubmitting(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); void submitRegistration(); };
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void submitRegistration();
+  };
 
   return (
     <>
@@ -226,58 +280,127 @@ const RegistrationForm = ({ hasUser }: { hasUser: boolean }) => {
       </div>
 
       <div className="flex gap-2">
-        {[0, 1, 2, 3, 4].map(i => (
-          <div key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${
-            i < filled ? "bg-gradient-to-r from-emerald-500 to-teal-600" : "bg-muted"
-          }`} />
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div
+            key={i}
+            className={`h-1.5 flex-1 rounded-full transition-colors ${
+              i < filled ? "bg-gradient-to-r from-emerald-500 to-teal-600" : "bg-muted"
+            }`}
+          />
         ))}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <IconField id="company" label="Business name *" icon={Building2}>
-          <Input id="company" value={companyName} onChange={(e) => setCompanyName(e.target.value)} required className="pl-10 h-11" placeholder="Acme Retail Ltd" />
+          <Input
+            id="company"
+            value={companyName}
+            onChange={(e) => setCompanyName(e.target.value)}
+            required
+            className="pl-10 h-11"
+            placeholder="Acme Retail Ltd"
+          />
         </IconField>
 
         <div className="grid grid-cols-2 gap-3">
           <IconField id="contact" label="Contact person *" icon={User}>
-            <Input id="contact" value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} required className="pl-10 h-11" placeholder="Jane Doe" />
+            <Input
+              id="contact"
+              value={contactPerson}
+              onChange={(e) => setContactPerson(e.target.value)}
+              required
+              className="pl-10 h-11"
+              placeholder="Jane Doe"
+            />
           </IconField>
           <IconField id="phone" label="Phone *" icon={Phone}>
-            <Input id="phone" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} required className="pl-10 h-11" placeholder="+254 700 000 000" />
+            <Input
+              id="phone"
+              value={contactPhone}
+              onChange={(e) => setContactPhone(e.target.value)}
+              required
+              className="pl-10 h-11"
+              placeholder="+254 700 000 000"
+            />
           </IconField>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <IconField id="kra" label="KRA PIN" icon={Hash}>
-            <Input id="kra" value={kraPin} onChange={(e) => setKraPin(e.target.value.toUpperCase())} className="pl-10 h-11" placeholder="A123456789Z" />
+            <Input
+              id="kra"
+              value={kraPin}
+              onChange={(e) => setKraPin(e.target.value.toUpperCase())}
+              className="pl-10 h-11"
+              placeholder="A123456789Z"
+            />
           </IconField>
           <IconField id="reg" label="Business Reg. No." icon={FileText}>
-            <Input id="reg" value={businessRegNo} onChange={(e) => setBusinessRegNo(e.target.value)} className="pl-10 h-11" placeholder="Optional" />
+            <Input
+              id="reg"
+              value={businessRegNo}
+              onChange={(e) => setBusinessRegNo(e.target.value)}
+              className="pl-10 h-11"
+              placeholder="Optional"
+            />
           </IconField>
         </div>
 
         <IconField id="email" label="Admin email *" icon={Mail}>
-          <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={hasUser} className="pl-10 h-11" placeholder="you@company.com" />
+          <Input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            disabled={hasUser}
+            className="pl-10 h-11"
+            placeholder="you@company.com"
+          />
         </IconField>
 
         {!hasUser && (
           <div className="grid grid-cols-2 gap-3">
             <IconField id="pwd" label="Password *" icon={Lock}>
               <div className="relative">
-                <Input id="pwd" type={showPwd ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} className="pl-10 pr-9 h-11" placeholder="Min. 8 chars" />
-                <button type="button" onClick={() => setShowPwd(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <Input
+                  id="pwd"
+                  type={showPwd ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  className="pl-10 pr-9 h-11"
+                  placeholder="Min. 8 chars"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPwd((s) => !s)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
                   {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </IconField>
             <IconField id="confirm" label="Confirm *" icon={CheckCircle2}>
-              <Input id="confirm" type={showPwd ? "text" : "password"} value={confirm} onChange={(e) => setConfirm(e.target.value)} required minLength={8} className="pl-10 h-11" placeholder="Repeat" />
+              <Input
+                id="confirm"
+                type={showPwd ? "text" : "password"}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                required
+                minLength={8}
+                className="pl-10 h-11"
+                placeholder="Repeat"
+              />
             </IconField>
           </div>
         )}
 
         <div className="space-y-1.5">
-          <Label htmlFor="plan" className="text-sm font-medium">Plan *</Label>
+          <Label htmlFor="plan" className="text-sm font-medium">
+            Plan *
+          </Label>
           {plansLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground py-3">
               <Loader2 className="h-4 w-4 animate-spin" /> Loading plans…
@@ -291,13 +414,20 @@ const RegistrationForm = ({ hasUser }: { hasUser: boolean }) => {
                 </SelectTrigger>
                 <SelectContent>
                   {plans.length === 0 ? (
-                    <SelectItem value="__none" disabled>No plans available</SelectItem>
+                    <SelectItem value="__none" disabled>
+                      No plans available
+                    </SelectItem>
                   ) : (
-                    plans.map(p => {
+                    plans.map((p) => {
                       const monthly = Number(p.monthly_price_kes || 0);
                       const label = monthly === 0 ? "Free" : fmtKes(monthly) + "/mo";
                       const trial = p.trial_days > 0 ? ` · ${p.trial_days}-day trial` : "";
-                      return <SelectItem key={p.id} value={p.id}>{p.name} — {label}{trial}</SelectItem>;
+                      return (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} — {label}
+                          {trial}
+                        </SelectItem>
+                      );
                     })
                   )}
                 </SelectContent>
@@ -306,15 +436,26 @@ const RegistrationForm = ({ hasUser }: { hasUser: boolean }) => {
           )}
         </div>
 
-        <Button type="submit" disabled={submitting}
-          className="w-full h-11 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-sm font-semibold shadow-md shadow-emerald-500/20">
-          {submitting ? "Submitting…" : (<>Submit registration <ArrowRight className="ml-2 h-4 w-4" /></>)}
+        <Button
+          type="submit"
+          disabled={submitting}
+          className="w-full h-11 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-sm font-semibold shadow-md shadow-emerald-500/20"
+        >
+          {submitting ? (
+            "Submitting…"
+          ) : (
+            <>
+              Submit registration <ArrowRight className="ml-2 h-4 w-4" />
+            </>
+          )}
         </Button>
 
         {!hasUser && (
           <p className="text-xs text-center text-muted-foreground">
             Already have an account?{" "}
-            <Link to="/sign-in" className="text-emerald-600 font-medium hover:underline">Sign in</Link>
+            <Link to="/sign-in" className="text-emerald-600 font-medium hover:underline">
+              Sign in
+            </Link>
           </p>
         )}
       </form>
@@ -322,9 +463,21 @@ const RegistrationForm = ({ hasUser }: { hasUser: boolean }) => {
   );
 };
 
-const IconField = ({ id, label, icon: Icon, children }: { id: string; label: string; icon: any; children: React.ReactNode }) => (
+const IconField = ({
+  id,
+  label,
+  icon: Icon,
+  children,
+}: {
+  id: string;
+  label: string;
+  icon: any;
+  children: React.ReactNode;
+}) => (
   <div className="space-y-1.5">
-    <Label htmlFor={id} className="text-sm font-medium">{label}</Label>
+    <Label htmlFor={id} className="text-sm font-medium">
+      {label}
+    </Label>
     <div className="relative">
       <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
       {children}
