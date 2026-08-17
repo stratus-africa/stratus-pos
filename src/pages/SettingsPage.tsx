@@ -29,7 +29,7 @@ import { DigitaxSettingsTab } from "@/components/settings/DigitaxSettingsTab";
 import { BackupTab } from "@/components/settings/BackupTab";
 import { useFeatureLimit } from "@/components/FeatureGate";
 
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "@/lib/router-compat";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useMemo } from "react";
 
