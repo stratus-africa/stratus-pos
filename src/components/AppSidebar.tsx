@@ -1,30 +1,6 @@
-import {
-  LayoutDashboard,
-  ShoppingCart,
-  Package,
-  Warehouse,
-  TruckIcon,
-  Receipt,
-  Users,
-  Truck,
-  CreditCard,
-  BarChart3,
-  Settings,
-  LogOut,
-  Store,
-  Shield,
-  BookOpen,
-  Landmark,
-  Lock,
-  ShieldCheck,
-  UserCircle,
-  UserCog,
-  ScanBarcode,
-  ChefHat,
-} from "lucide-react";
-import { useFeatureLimit } from "@/components/FeatureGate";
-import { useDigitaxEnabled } from "@/hooks/useDigitax";
+import { LogOut, Shield, Store } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useSubscription } from "@/hooks/useSubscription";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, Link } from "@/lib/router-compat";
 import { useAuth } from "@/contexts/AuthContext";
@@ -50,200 +26,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronRight } from "lucide-react";
+import { APP_MODULES, moduleCategoryLabels, resolveModuleAccess } from "@/lib/modules";
 
-type AppRole = "admin" | "manager" | "cashier" | "stores_manager";
-
-interface NavItem {
-  title: string;
-  url: string;
-  icon: any;
-  roles: AppRole[];
-  /** Feature key from package_features. Item is locked when the user's plan doesn't have it. */
-  featureKey?: string;
-  /** Granular permission key (e.g. "products.view") required to see this item. */
-  permission?: string;
-  /** Show the item when ANY of these permissions is granted (used for hubs like Reports). */
-  anyPermission?: string[];
-  /** Hide for these roles even if permission is granted (used to avoid duplicates with role-specific aliases). */
-  hideForRoles?: AppRole[];
-  /** Optional sub-items rendered under this item as a collapsible submenu. */
-  children?: NavItem[];
-}
-
-const mainNav: NavItem[] = [
-  {
-    title: "Dashboard",
-    url: "/",
-    icon: LayoutDashboard,
-    roles: ["admin", "manager", "cashier"],
-    featureKey: "dashboard",
-    permission: "dashboard.view",
-  },
-  {
-    title: "POS",
-    url: "/pos",
-    icon: ShoppingCart,
-    roles: ["admin", "manager", "cashier"],
-    featureKey: "pos",
-    permission: "pos.view",
-  },
-  {
-    title: "My Transactions",
-    url: "/sales",
-    icon: Receipt,
-    roles: ["cashier"],
-    featureKey: "sales",
-    permission: "sales.view",
-  },
-];
-
-const inventoryNav: NavItem[] = [
-  {
-    title: "Products",
-    url: "/products",
-    icon: Package,
-    roles: ["admin", "manager", "cashier"],
-    featureKey: "products",
-    permission: "products.view",
-    children: [
-      {
-        title: "Barcode Mapping",
-        url: "/barcode-mapping",
-        icon: ScanBarcode,
-        roles: ["admin", "manager"],
-        featureKey: "products",
-        permission: "products.edit",
-      },
-    ],
-  },
-
-  {
-    title: "Inventory",
-    url: "/inventory",
-    icon: Warehouse,
-    roles: ["admin", "manager", "cashier"],
-    featureKey: "inventory",
-    permission: "inventory.view",
-  },
-  {
-    title: "Bakery Production",
-    url: "/bakery",
-    icon: ChefHat,
-    roles: ["admin", "manager", "cashier", "stores_manager"],
-    featureKey: "bakery",
-    permission: "bakery.view",
-  },
-];
-
-const transactionNav: NavItem[] = [
-  {
-    title: "Sales",
-    url: "/sales",
-    icon: Receipt,
-    roles: ["admin", "manager"],
-    featureKey: "sales",
-    permission: "sales.view",
-    hideForRoles: ["cashier"],
-    children: [
-      {
-        title: "Customers",
-        url: "/customers",
-        icon: Users,
-        roles: ["admin", "manager", "cashier"],
-        permission: "customers.view",
-      },
-    ],
-  },
-  {
-    title: "Purchases",
-    url: "/purchases",
-    icon: TruckIcon,
-    roles: ["admin", "manager", "cashier"],
-    featureKey: "purchases",
-    permission: "purchases.view",
-    children: [
-      {
-        title: "Suppliers",
-        url: "/suppliers",
-        icon: Truck,
-        roles: ["admin", "manager", "cashier"],
-        featureKey: "purchases",
-        permission: "suppliers.view",
-      },
-    ],
-  },
-  {
-    title: "Expenses",
-    url: "/expenses",
-    icon: CreditCard,
-    roles: ["admin", "manager", "cashier"],
-    featureKey: "expenses",
-    permission: "expenses.view",
-  },
-];
-
-const financeNav: NavItem[] = [
-  {
-    title: "Accountant",
-    url: "/chart-of-accounts",
-    icon: BookOpen,
-    roles: ["admin"],
-    featureKey: "chart_of_accounts",
-    permission: "chart_of_accounts.view",
-  },
-  {
-    title: "Journal Entries",
-    url: "/journal-entries",
-    icon: BookOpen,
-    roles: ["admin"],
-    featureKey: "chart_of_accounts",
-    permission: "chart_of_accounts.view",
-  },
-  {
-    title: "Banking",
-    url: "/banking",
-    icon: Landmark,
-    roles: ["admin"],
-    featureKey: "banking",
-    permission: "banking.view",
-  },
-];
-
-const systemNav: NavItem[] = [
-  {
-    title: "Reports",
-    url: "/reports",
-    icon: BarChart3,
-    roles: ["admin", "manager", "cashier", "stores_manager"],
-    featureKey: "reports",
-    anyPermission: [
-      "report.sales",
-      "report.purchases",
-      "report.expenses",
-      "report.inventory",
-      "report.pnl",
-      "report.audit",
-    ],
-  },
-  {
-    title: "HR",
-    url: "/hr",
-    icon: UserCog,
-    roles: ["admin", "manager", "cashier", "stores_manager"],
-    featureKey: "hr",
-    permission: "hr.view",
-  },
-  {
-    title: "Tax Compliance",
-    url: "/tax-compliance",
-    icon: ShieldCheck,
-    roles: ["admin", "manager"],
-    featureKey: "digitax",
-    permission: "settings.view",
-  },
-  { title: "Profile", url: "/profile", icon: UserCircle, roles: ["admin", "manager", "cashier"] },
-  { title: "Settings", url: "/settings", icon: Settings, roles: ["admin"], permission: "settings.view" },
-];
+const categoryOrder = ["dashboard", "operations", "finance", "people", "compliance", "tools", "settings"] as const;
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -252,129 +37,103 @@ export function AppSidebar() {
   const { signOut } = useAuth();
   const { business, userRole } = useBusiness();
   const { isSuperAdmin } = useSuperAdmin();
-  const { hasFeatureKey } = useFeatureLimit();
-  const { hasPermission } = usePermissions();
-  const { enabled: digitaxEnabled } = useDigitaxEnabled();
+  const { hasPermission, permissions } = usePermissions();
+  const { hasFeatureKey } = useSubscription();
   const currentPath = location.pathname;
 
-  // Permission-first: an item with a permission key is shown when that permission
-  // is granted, regardless of the user's role. Items without a permission key
-  // (role-specific aliases like "My Dashboard") still fall back to the role list.
-  const isVisible = (item: NavItem) => {
-    if (item.featureKey && !hasFeatureKey(item.featureKey)) return false;
-    // Tax Compliance nav is only shown when DigiTax is turned on in settings.
-    if (item.url === "/tax-compliance" && !digitaxEnabled) return false;
-    if (userRole && item.hideForRoles?.includes(userRole)) return false;
-    if (item.anyPermission && item.anyPermission.length > 0) return item.anyPermission.some((p) => hasPermission(p));
-    if (item.permission) return hasPermission(item.permission);
-    return !!userRole && item.roles.includes(userRole);
-  };
+  const visibleModules = APP_MODULES.filter((module) => {
+    const access = resolveModuleAccess(module.key, {
+      role: userRole,
+      permissions,
+      featureKey: hasFeatureKey,
+      moduleEnabled: () => true,
+      dependenciesReady: () => true,
+      setupComplete: () => true,
+      subscriptions: new Set(),
+    });
+    return access.allowed;
+  });
 
-  // Filter items by visibility. If a parent is hidden but its children are
-  // visible (e.g. cashier has customers.view but not sales.view), promote the
-  // visible children to top-level entries so the user can still reach them.
-  const filterByRole = (items: NavItem[]) => {
-    const out: NavItem[] = [];
-    for (const item of items) {
-      const parentVisible = isVisible(item);
-      const visibleChildren = item.children?.filter(isVisible) ?? [];
-      if (parentVisible) {
-        out.push({ ...item, children: visibleChildren });
-      } else if (visibleChildren.length > 0) {
-        for (const child of visibleChildren) out.push({ ...child, children: [] });
-      }
+  const renderModule = (module: (typeof APP_MODULES)[number]) => {
+    const navItems = module.navigation.filter((item) => !item.permission || hasPermission(item.permission));
+    const targetRoute = module.route ?? navItems[0]?.route ?? "/";
+    const visibleChildren = navItems.filter((item) => item.route !== targetRoute && item.route !== currentPath);
+    const hasChildren = visibleChildren.length > 0;
+    const parentActive = currentPath === targetRoute || visibleChildren.some((item) => currentPath === item.route);
+
+    const SidebarIcon = module.Icon;
+
+    if (!hasChildren) {
+      return (
+        <SidebarMenuItem key={module.key}>
+          <SidebarMenuButton asChild isActive={currentPath === targetRoute}>
+            <NavLink
+              to={targetRoute}
+              end
+              className="hover:bg-sidebar-accent/50"
+              activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+            >
+              <SidebarIcon className="mr-2 h-4 w-4" />
+              {!collapsed && <span>{module.label}</span>}
+            </NavLink>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      );
     }
-    return out;
-  };
-
-  const renderNav = (items: NavItem[], label: string) => {
-    const filtered = filterByRole(items);
-    if (filtered.length === 0) return null;
-
-    const isActiveUrl = (url: string) => currentPath === url;
-    const itemHasActiveChild = (item: NavItem) => !!item.children?.some((c) => isActiveUrl(c.url));
 
     return (
-      <SidebarGroup>
-        <SidebarGroupLabel>{label}</SidebarGroupLabel>
-        <SidebarGroupContent>
-          <SidebarMenu>
-            {filtered.map((item) => {
-              const visibleChildren = item.children || [];
-              const hasChildren = visibleChildren.length > 0;
-              const parentActive = isActiveUrl(item.url) || itemHasActiveChild(item);
-
-              if (!hasChildren) {
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={isActiveUrl(item.url)}>
-                      <NavLink
-                        to={item.url}
-                        end
-                        className="hover:bg-sidebar-accent/50"
-                        activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
-                      >
-                        <item.icon className="mr-2 h-4 w-4" />
-                        {!collapsed && <span>{item.title}</span>}
+      <Collapsible key={module.key} defaultOpen={parentActive} className="group/collapsible">
+        <SidebarMenuItem>
+          <div className="flex items-center w-full">
+            <SidebarMenuButton asChild isActive={currentPath === targetRoute} className="flex-1">
+              <NavLink
+                to={targetRoute}
+                end
+                className="hover:bg-sidebar-accent/50"
+                activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+              >
+                <SidebarIcon className="mr-2 h-4 w-4" />
+                {!collapsed && <span className="flex-1">{module.label}</span>}
+              </NavLink>
+            </SidebarMenuButton>
+            {!collapsed && (
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={`Toggle ${module.label} submenu`}
+                  className="ml-1 p-1.5 rounded hover:bg-sidebar-accent/70 text-sidebar-foreground/70"
+                >
+                  <ChevronRight className="h-3.5 w-3.5 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                </button>
+              </CollapsibleTrigger>
+            )}
+          </div>
+          {!collapsed && (
+            <CollapsibleContent>
+              <SidebarMenuSub>
+                {visibleChildren.map((child) => (
+                  <SidebarMenuSubItem key={`${module.key}-${child.key}`}>
+                    <SidebarMenuSubButton asChild isActive={currentPath === child.route}>
+                      <NavLink to={child.route} end className="hover:bg-sidebar-accent/50">
+                        <span>{child.label}</span>
                       </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              }
-
-              // Item with children -> collapsible submenu
-              return (
-                <Collapsible key={item.title} defaultOpen={parentActive} className="group/collapsible">
-                  <SidebarMenuItem>
-                    <div className="flex items-center w-full">
-                      <SidebarMenuButton asChild isActive={isActiveUrl(item.url)} className="flex-1">
-                        <NavLink
-                          to={item.url}
-                          end
-                          className="hover:bg-sidebar-accent/50"
-                          activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
-                        >
-                          <item.icon className="mr-2 h-4 w-4" />
-                          {!collapsed && <span className="flex-1">{item.title}</span>}
-                        </NavLink>
-                      </SidebarMenuButton>
-                      {!collapsed && (
-                        <CollapsibleTrigger asChild>
-                          <button
-                            type="button"
-                            aria-label={`Toggle ${item.title} submenu`}
-                            className="ml-1 p-1.5 rounded hover:bg-sidebar-accent/70 text-sidebar-foreground/70"
-                          >
-                            <ChevronRight className="h-3.5 w-3.5 transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                          </button>
-                        </CollapsibleTrigger>
-                      )}
-                    </div>
-                    {!collapsed && (
-                      <CollapsibleContent>
-                        <SidebarMenuSub>
-                          {visibleChildren.map((child) => (
-                            <SidebarMenuSubItem key={child.title}>
-                              <SidebarMenuSubButton asChild isActive={isActiveUrl(child.url)}>
-                                <NavLink to={child.url} end className="hover:bg-sidebar-accent/50">
-                                  <child.icon className="mr-2 h-3.5 w-3.5" />
-                                  <span>{child.title}</span>
-                                </NavLink>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
-                          ))}
-                        </SidebarMenuSub>
-                      </CollapsibleContent>
-                    )}
-                  </SidebarMenuItem>
-                </Collapsible>
-              );
-            })}
-          </SidebarMenu>
-        </SidebarGroupContent>
-      </SidebarGroup>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                ))}
+              </SidebarMenuSub>
+            </CollapsibleContent>
+          )}
+        </SidebarMenuItem>
+      </Collapsible>
     );
   };
+
+  const groupedModules = categoryOrder
+    .map((category) => ({
+      category,
+      modules: visibleModules.filter((module) => module.category === category),
+    }))
+    .filter((group) => group.modules.length > 0);
 
   return (
     <Sidebar collapsible="icon">
@@ -393,11 +152,16 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {renderNav(mainNav, "Main")}
-        {renderNav(inventoryNav, "Inventory")}
-        {renderNav(transactionNav, "Transactions")}
-        {renderNav(financeNav, "Finance")}
-        {renderNav(systemNav, "System")}
+        {groupedModules.map((group) => (
+          <SidebarGroup key={group.category}>
+            <SidebarGroupLabel>
+              {group.category === "dashboard" ? "Dashboard" : moduleCategoryLabels[group.category]}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>{group.modules.map(renderModule)}</SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-2">
