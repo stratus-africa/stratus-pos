@@ -4,9 +4,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { supabase } from "@/integrations/supabase/client";
-import { buildBackupPayload, downloadBackupFile, parseBackupFile, restoreBackupPayload } from "@/lib/backup";
+import {
+  buildBackupPayload,
+  buildBackupRestorePreview,
+  downloadBackupFile,
+  parseBackupFile,
+  restoreBackupPayload,
+  type BackupRestorePreview,
+} from "@/lib/backup";
 import { toast } from "sonner";
-import { Download, Loader2, DatabaseBackup, Upload } from "lucide-react";
+import { Download, Loader2, DatabaseBackup, Upload, ShieldAlert } from "lucide-react";
 
 const TABLES_TO_EXPORT = [
   "businesses",
@@ -47,6 +54,7 @@ export function BackupTab() {
   const { business } = useBusiness();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [restorePreview, setRestorePreview] = useState<BackupRestorePreview | null>(null);
 
   const canExport = !!business?.id;
 
@@ -87,7 +95,7 @@ export function BackupTab() {
     }
   };
 
-  const handleRestore = async (event: ChangeEvent<HTMLInputElement>) => {
+  const handleRestoreSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (!selectedFile) return;
 
@@ -97,20 +105,54 @@ export function BackupTab() {
       return;
     }
 
-    setIsImporting(true);
-
     try {
       const payload = await parseBackupFile(selectedFile);
-      const result = await restoreBackupPayload(payload, supabase, business.id);
-      toast.success(
-        `Backup restored successfully (${result.rowsRestored} rows across ${result.tablesRestored} tables).`,
+      const preview = buildBackupRestorePreview(payload, business.id);
+      setRestorePreview(preview);
+      toast.info(
+        `Backup preview ready: ${preview.totalRows} rows across ${preview.tablesWithRows} tables. Review and confirm before restoring.`,
       );
     } catch (error) {
       console.error(error);
       toast.error(error instanceof Error ? error.message : "Backup restoration failed.");
     } finally {
-      setIsImporting(false);
       event.target.value = "";
+    }
+  };
+
+  const handleRestoreConfirm = async () => {
+    if (!restorePreview || !business?.id) {
+      toast.error("No valid backup preview is ready to restore.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Restore ${restorePreview.totalRows} rows across ${restorePreview.tablesWithRows} tables into business ${business.name || business.id}?\n\n` +
+        restorePreview.tableSummaries
+          .filter(({ rowCount }) => rowCount > 0)
+          .map(({ table, rowCount }) => `${table}: ${rowCount}`)
+          .join("\n") +
+        "\n\nThis will write data to Supabase.",
+    );
+
+    if (!confirmed) {
+      toast.info("Restore cancelled before writing to Supabase.");
+      return;
+    }
+
+    setIsImporting(true);
+
+    try {
+      const result = await restoreBackupPayload(restorePreview.payload, supabase, business.id);
+      toast.success(
+        `Backup restored successfully (${result.rowsRestored} rows across ${result.tablesRestored} tables).`,
+      );
+      setRestorePreview(null);
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "Backup restoration failed.");
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -147,13 +189,53 @@ export function BackupTab() {
           <Input
             type="file"
             accept=".json,application/json"
-            onChange={handleRestore}
+            onChange={handleRestoreSelection}
             disabled={!canExport || isImporting || isExporting}
             aria-label="Restore from backup file"
           />
           <p className="text-xs text-muted-foreground">
             Import a JSON backup created by this system to overwrite or rehydrate the current business records.
           </p>
+
+          {restorePreview && (
+            <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+              <div className="mb-2 flex items-center gap-2 font-medium text-amber-700 dark:text-amber-300">
+                <ShieldAlert className="h-4 w-4" />
+                Restore preview
+              </div>
+
+              <div className="mb-3 space-y-1 text-xs text-muted-foreground">
+                <p>Target business: {restorePreview.targetBusinessId}</p>
+                <p>Total rows to restore: {restorePreview.totalRows}</p>
+                <p>Tables with rows: {restorePreview.tablesWithRows}</p>
+              </div>
+
+              <div className="max-h-48 overflow-auto rounded-md border bg-background/60 p-2">
+                {restorePreview.tableSummaries.map(({ table, rowCount }) => (
+                  <div key={table} className="flex items-center justify-between gap-3 py-1 text-xs">
+                    <span className="font-mono">{table}</span>
+                    <span className="rounded bg-muted px-2 py-0.5">{rowCount} rows</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 flex gap-2">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setRestorePreview(null)}
+                  disabled={isImporting}
+                >
+                  Cancel
+                </Button>
+                <Button type="button" size="sm" onClick={handleRestoreConfirm} disabled={isImporting} className="gap-2">
+                  {isImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  {isImporting ? "Restoring..." : "Proceed with restore"}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
