@@ -132,7 +132,7 @@ export async function handleCreateBusiness(admin: any, body: CreateBusinessInput
         user_id: newUserId,
         environment: env,
         status: "active",
-        product_id: pkg.id,
+        product_id: pkg.id.toString(),
         price_id: "manual_assign",
         current_period_start: new Date().toISOString(),
         current_period_end: periodEnd.toISOString(),
@@ -579,7 +579,7 @@ export async function handleAssignTenantSubscription(admin: any, body: AssignTen
     const { error } = await admin
       .from("subscriptions")
       .update({
-        product_id: pkg.id,
+        product_id: pkg.id.toString(),
         status: "active",
         current_period_start: periodStart.toISOString(),
         current_period_end: periodEnd.toISOString(),
@@ -593,7 +593,7 @@ export async function handleAssignTenantSubscription(admin: any, body: AssignTen
       user_id: biz.owner_id,
       environment: env,
       status: "active",
-      product_id: pkg.id,
+      product_id: pkg.id.toString(),
       price_id: "manual_assign",
       current_period_start: periodStart.toISOString(),
       current_period_end: periodEnd.toISOString(),
