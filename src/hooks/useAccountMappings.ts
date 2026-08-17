@@ -4,15 +4,26 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { toast } from "sonner";
 
 export const ACCOUNT_MAPPING_KEYS = [
-  { key: "sales_income", label: "Sales Revenue", help: "Credited with the net value of every sale.", types: ["income"] },
-  { key: "tax_payable", label: "VAT Payable", help: "Credited with VAT charged on sales.", types: ["liability"] },
-  { key: "cash", label: "Cash / Bank Received", help: "Debited when a sale is paid immediately.", types: ["asset"] },
-  { key: "accounts_receivable", label: "Accounts Receivable", help: "Debited when a sale is unpaid or on credit.", types: ["asset"] },
-  { key: "cogs", label: "Cost of Goods Sold", help: "Debited with the value of purchases marked received.", types: ["expense"] },
-  { key: "accounts_payable", label: "Accounts Payable", help: "Credited with the value of purchases marked received.", types: ["liability"] },
-  { key: "inventory", label: "Inventory", help: "Used as the balancing account for stock adjustments.", types: ["asset"] },
-  { key: "inventory_adjustment", label: "Inventory Adjustments", help: "Stock write-offs and gains hit this expense account.", types: ["expense"] },
-  { key: "operating_expense", label: "Operating Expenses", help: "Default account for general expenses.", types: ["expense"] },
+  { key: "sales_income", label: "Sales Revenue", help: "Net revenue from sales.", types: ["income"] },
+  { key: "sales_discounts", label: "Sales Discounts", help: "Contra-revenue account for discounts.", types: ["income", "expense"] },
+  { key: "sales_returns", label: "Sales Returns", help: "Contra-revenue reversal account for refunds and returns.", types: ["income", "expense"] },
+  { key: "cogs", label: "Cost of Goods Sold", help: "Inventory cost of goods sold.", types: ["expense"] },
+  { key: "inventory", label: "Inventory", help: "Inventory asset control account.", types: ["asset"] },
+  { key: "inventory_adjustment", label: "Inventory Adjustments", help: "Write-offs and adjustments.", types: ["expense"] },
+  { key: "inventory_writeoff", label: "Inventory Write-offs", help: "Explicit stock write-off expense account.", types: ["expense"] },
+  { key: "accounts_receivable", label: "Accounts Receivable", help: "Customer receivables control account.", types: ["asset"] },
+  { key: "accounts_payable", label: "Accounts Payable", help: "Supplier payables control account.", types: ["liability"] },
+  { key: "cash", label: "Cash on Hand", help: "Cash transactions control account.", types: ["asset"] },
+  { key: "bank", label: "Bank", help: "Bank account for electronic payments.", types: ["asset"] },
+  { key: "mpesa", label: "M-Pesa", help: "M-Pesa transaction control account.", types: ["asset"] },
+  { key: "output_vat", label: "Output VAT", help: "VAT collected on sales.", types: ["liability"] },
+  { key: "input_vat", label: "Input VAT", help: "VAT recovered on purchases and expenses.", types: ["asset", "liability"] },
+  { key: "owner_capital", label: "Owner Capital", help: "Owner contributions.", types: ["equity"] },
+  { key: "owner_drawings", label: "Owner Drawings", help: "Owner withdrawals or drawings.", types: ["equity"] },
+  { key: "retained_earnings", label: "Retained Earnings", help: "Accumulated prior-period earnings.", types: ["equity"] },
+  { key: "other_income", label: "Other Income", help: "Non-core income.", types: ["income"] },
+  { key: "operating_expense", label: "Operating Expenses", help: "Default expense account.", types: ["expense"] },
+  { key: "tax_payable", label: "VAT Payable", help: "Legacy VAT payable alias mapping.", types: ["liability"] },
 ] as const;
 
 export type AccountMappingKey = (typeof ACCOUNT_MAPPING_KEYS)[number]["key"];
@@ -90,9 +101,19 @@ export function useAccountMappings() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const isConfigured = ["sales_income", "cogs", "inventory", "inventory_adjustment"].every(
-    (k) => !!mappings.data?.[k],
-  );
+  const isConfigured = [
+    "sales_income",
+    "cogs",
+    "inventory",
+    "accounts_receivable",
+    "accounts_payable",
+    "cash",
+    "bank",
+    "mpesa",
+    "output_vat",
+    "input_vat",
+    "inventory_adjustment",
+  ].every((k) => !!mappings.data?.[k] || !!mappings.data?.[k === "output_vat" ? "tax_payable" : k]);
 
   return { accounts, mappings, setMapping, seedDefaults, isConfigured };
 }
