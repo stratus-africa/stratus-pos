@@ -9,63 +9,22 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import {
-  LayoutDashboard,
-  ShoppingCart,
-  Package,
-  Warehouse,
-  Receipt,
-  Users,
-  TruckIcon,
-  Truck,
-  CreditCard,
-  BarChart3,
-  Settings,
-  BookOpen,
-  Landmark,
-  UserCircle,
-  Bell,
-  ShieldCheck,
-  Store,
-  Bookmark,
-} from "lucide-react";
+import { Store, Users, Package, CreditCard, BookOpen } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { APP_MODULES, resolveModuleAccess } from "@/lib/modules";
+import { useSubscription } from "@/hooks/useSubscription";
 
 type NavEntry = {
   label: string;
   url: string;
   icon: React.ComponentType<{ className?: string }>;
   permission?: string;
-  group: "Navigate" | "Actions" | "Admin";
+  group: "Navigate" | "Admin";
   keywords?: string;
 };
-
-const ENTRIES: NavEntry[] = [
-  { label: "Dashboard", url: "/", icon: LayoutDashboard, group: "Navigate", permission: "dashboard.view" },
-  { label: "POS / Sell", url: "/pos", icon: ShoppingCart, group: "Navigate", permission: "pos.view", keywords: "checkout sell register" },
-  { label: "Products", url: "/products", icon: Package, group: "Navigate", permission: "products.view" },
-  { label: "Inventory", url: "/inventory", icon: Warehouse, group: "Navigate", permission: "inventory.view", keywords: "stock" },
-  { label: "Sales / Transactions", url: "/sales", icon: Receipt, group: "Navigate", permission: "sales.view", keywords: "invoices" },
-  { label: "Customers", url: "/customers", icon: Users, group: "Navigate", permission: "customers.view" },
-  { label: "Purchases", url: "/purchases", icon: TruckIcon, group: "Navigate", permission: "purchases.view" },
-  { label: "Suppliers", url: "/suppliers", icon: Truck, group: "Navigate", permission: "suppliers.view" },
-  { label: "Expenses", url: "/expenses", icon: CreditCard, group: "Navigate", permission: "expenses.view" },
-  { label: "Reports", url: "/reports", icon: BarChart3, group: "Navigate", permission: "report.sales" },
-  { label: "Banking", url: "/banking", icon: Landmark, group: "Navigate", permission: "banking.view" },
-  { label: "Chart of Accounts", url: "/chart-of-accounts", icon: BookOpen, group: "Navigate", permission: "chart_of_accounts.view" },
-  { label: "Journal Entries", url: "/journal-entries", icon: Bookmark, group: "Navigate", permission: "chart_of_accounts.view" },
-  { label: "Tax Compliance", url: "/tax-compliance", icon: ShieldCheck, group: "Navigate", permission: "settings.view" },
-  { label: "Notifications", url: "/notifications", icon: Bell, group: "Navigate" },
-  { label: "Profile", url: "/profile", icon: UserCircle, group: "Navigate" },
-  { label: "Settings", url: "/settings", icon: Settings, group: "Navigate", permission: "settings.view" },
-
-  { label: "New Sale", url: "/pos", icon: ShoppingCart, group: "Actions", permission: "pos.view", keywords: "create checkout" },
-  { label: "New Purchase Order", url: "/purchases/new", icon: TruckIcon, group: "Actions", permission: "purchases.create", keywords: "receive stock" },
-  { label: "New Journal Entry", url: "/journal-entries?new=1", icon: BookOpen, group: "Actions", permission: "chart_of_accounts.view" },
-];
 
 const SUPER_ADMIN_ENTRIES: NavEntry[] = [
   { label: "Super Admin Dashboard", url: "/super-admin", icon: Store, group: "Admin" },
@@ -80,9 +39,10 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { hasPermission } = usePermissions();
+  const { permissions, hasPermission } = usePermissions();
   const { isSuperAdmin } = useSuperAdmin();
   const { userRole } = useBusiness();
+  const { hasFeatureKey } = useSubscription();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -97,9 +57,27 @@ export function CommandPalette() {
 
   if (!user) return null;
 
-  const visible = ENTRIES.filter((e) => !e.permission || hasPermission(e.permission));
-  const nav = visible.filter((e) => e.group === "Navigate");
-  const actions = visible.filter((e) => e.group === "Actions");
+  const nav = APP_MODULES.filter((module) => {
+    if (!module.route) return false;
+    const access = resolveModuleAccess(module.key, {
+      role: userRole,
+      permissions,
+      featureKey: hasFeatureKey,
+      moduleEnabled: () => true,
+      dependenciesReady: () => true,
+      setupComplete: () => true,
+      subscriptions: new Set(),
+    });
+    return access.allowed;
+  }).map((module) => ({
+    label: module.label,
+    url: module.route!,
+    icon: module.Icon,
+    group: "Navigate" as const,
+    keywords: `${module.label} ${module.description}`,
+    permission: module.permissions[0],
+  }));
+
   const admin = isSuperAdmin ? SUPER_ADMIN_ENTRIES : [];
 
   const go = (url: string) => {
@@ -115,25 +93,16 @@ export function CommandPalette() {
         {nav.length > 0 && (
           <CommandGroup heading="Navigate">
             {nav.map((e) => (
-              <CommandItem key={"n:" + e.url + e.label} value={`${e.label} ${e.keywords ?? ""}`} onSelect={() => go(e.url)}>
+              <CommandItem
+                key={"n:" + e.url + e.label}
+                value={`${e.label} ${e.keywords ?? ""}`}
+                onSelect={() => go(e.url)}
+              >
                 <e.icon className="mr-2 h-4 w-4" />
                 {e.label}
               </CommandItem>
             ))}
           </CommandGroup>
-        )}
-        {actions.length > 0 && (
-          <>
-            <CommandSeparator />
-            <CommandGroup heading="Actions">
-              {actions.map((e) => (
-                <CommandItem key={"a:" + e.url + e.label} value={`${e.label} ${e.keywords ?? ""}`} onSelect={() => go(e.url)}>
-                  <e.icon className="mr-2 h-4 w-4" />
-                  {e.label}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </>
         )}
         {admin.length > 0 && (
           <>
