@@ -9,6 +9,10 @@ export const Route = createFileRoute("/_app/inventory")({
 
 function RouteComponent() {
   return (
-    <PermissionGuard permission="inventory.view"><FeatureGate featureKey="inventory"><Inventory /></FeatureGate></PermissionGuard>
+    <PermissionGuard moduleKey="inventory" route="/inventory" permission="inventory.view">
+      <FeatureGate featureKey="inventory">
+        <Inventory />
+      </FeatureGate>
+    </PermissionGuard>
   );
 }
