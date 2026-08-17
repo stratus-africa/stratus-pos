@@ -2,29 +2,51 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
-import { adminManageUser, } from "@/lib/adminUsers.functions";
-import { superAdminResetTenant } from "@/lib/superAdmin.functions";
+import { adminManageUser } from "@/lib/adminUsers.functions";
+import { superAdminDeleteTenant, superAdminResetTenant } from "@/lib/superAdmin.functions";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label as UILabel } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
-  ChevronRight, Pencil, PauseCircle, XCircle, Trash2, Info,
-  Package, Users as UsersIcon, Warehouse, ShoppingCart, Truck, CheckCircle2, Loader2, Mail,
-  UserPlus, Key, RotateCcw, AlertTriangle,
+  ChevronRight,
+  Pencil,
+  PauseCircle,
+  XCircle,
+  Trash2,
+  Info,
+  Package,
+  Users as UsersIcon,
+  Warehouse,
+  ShoppingCart,
+  Truck,
+  CheckCircle2,
+  Loader2,
+  Mail,
+  UserPlus,
+  Key,
+  RotateCcw,
+  AlertTriangle,
 } from "lucide-react";
 import ManageUserDialog, { SetPasswordDialog } from "@/components/users/ManageUserDialog";
 
 const ASSIGNABLE_ROLES = ["admin", "manager", "cashier", "stores_manager"] as const;
-type AssignableRole = typeof ASSIGNABLE_ROLES[number];
+type AssignableRole = (typeof ASSIGNABLE_ROLES)[number];
 
 type Biz = {
   id: string;
@@ -67,6 +89,7 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 export default function SuperAdminTenantDetail() {
+  const callDeleteTenant = useServerFn(superAdminDeleteTenant);
   const callResetTenant = useServerFn(superAdminResetTenant);
   const callAdminManageUser = useServerFn(adminManageUser);
   const { id } = useParams<{ id: string }>();
@@ -78,19 +101,37 @@ export default function SuperAdminTenantDetail() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [features, setFeatures] = useState<Feature[]>([]);
   const [counts, setCounts] = useState({ products: 0, users: 0, locations: 0, customers: 0, suppliers: 0 });
-  const [tenantUsers, setTenantUsers] = useState<Array<{ id: string; full_name: string | null; email: string | null; phone: string | null; is_active: boolean; role: string | null; assigned_location_id: string | null }>>([]);
+  const [tenantUsers, setTenantUsers] = useState<
+    Array<{
+      id: string;
+      full_name: string | null;
+      email: string | null;
+      phone: string | null;
+      is_active: boolean;
+      role: string | null;
+      assigned_location_id: string | null;
+    }>
+  >([]);
   const [tenantLocations, setTenantLocations] = useState<Array<{ id: string; name: string }>>([]);
   const [createOpen, setCreateOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<typeof tenantUsers[number] | null>(null);
-  const [pwUser, setPwUser] = useState<typeof tenantUsers[number] | null>(null);
+  const [editingUser, setEditingUser] = useState<(typeof tenantUsers)[number] | null>(null);
+  const [pwUser, setPwUser] = useState<(typeof tenantUsers)[number] | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetMode, setResetMode] = useState<"transactional" | "full">("transactional");
   const [resetConfirm, setResetConfirm] = useState("");
   const [resetting, setResetting] = useState(false);
   const [resetScopes, setResetScopes] = useState<string[]>([
-    "sales", "purchases", "expenses", "bank_transactions", "mpesa_transactions",
-    "stock_adjustments", "journal_entries", "pos_sessions", "audit_logs",
-    "product_batches", "inventory_reset",
+    "sales",
+    "purchases",
+    "expenses",
+    "bank_transactions",
+    "mpesa_transactions",
+    "stock_adjustments",
+    "journal_entries",
+    "pos_sessions",
+    "audit_logs",
+    "product_batches",
+    "inventory_reset",
   ]);
 
   useEffect(() => {
@@ -144,28 +185,34 @@ export default function SuperAdminTenantDetail() {
       supabase.from("locations").select("id, name").eq("business_id", id).eq("is_active", true).order("name"),
     ]);
     const roleMap = new Map<string, string>();
-    (roles || []).forEach((r: any) => { if (!roleMap.has(r.user_id)) roleMap.set(r.user_id, r.role); });
+    (roles || []).forEach((r: any) => {
+      if (!roleMap.has(r.user_id)) roleMap.set(r.user_id, r.role);
+    });
 
     // Build the set of user ids belonging to this tenant: anyone with a role here OR a profile linked here.
     const userIds = new Set<string>();
     (roles || []).forEach((r: any) => userIds.add(r.user_id));
-    (profs || []).forEach((p: any) => { if (p.business_id === id) userIds.add(p.id); });
+    (profs || []).forEach((p: any) => {
+      if (p.business_id === id) userIds.add(p.id);
+    });
 
     const profileMap = new Map<string, any>();
     (profs || []).forEach((p: any) => profileMap.set(p.id, p));
 
-    setTenantUsers(Array.from(userIds).map((uid) => {
-      const p = profileMap.get(uid) || {};
-      return {
-        id: uid,
-        full_name: p.full_name ?? null,
-        email: p.email ?? null,
-        phone: p.phone ?? null,
-        is_active: p.is_active ?? true,
-        assigned_location_id: p.assigned_location_id ?? null,
-        role: roleMap.get(uid) || null,
-      };
-    }));
+    setTenantUsers(
+      Array.from(userIds).map((uid) => {
+        const p = profileMap.get(uid) || {};
+        return {
+          id: uid,
+          full_name: p.full_name ?? null,
+          email: p.email ?? null,
+          phone: p.phone ?? null,
+          is_active: p.is_active ?? true,
+          assigned_location_id: p.assigned_location_id ?? null,
+          role: roleMap.get(uid) || null,
+        };
+      }),
+    );
     setTenantLocations((locs || []) as Array<{ id: string; name: string }>);
 
     setLoading(false);
@@ -250,23 +297,29 @@ export default function SuperAdminTenantDetail() {
     if (!biz) return;
     if (!confirm(`Delete "${biz.name}" and ALL its data? This cannot be undone.`)) return;
     setActing("delete");
-    const { error } = await supabase.from("businesses").delete().eq("id", biz.id);
-    if (error) {
-      toast.error("Failed: " + error.message + " — clean up child records via the tenant list page first.");
+    try {
+      const result = await callDeleteTenant({
+        data: { business_id: biz.id, confirm_text: "DELETE" },
+      });
+      if ((result as any)?.error) {
+        throw new Error((result as any).error);
+      }
+      toast.success("Tenant deleted permanently");
+      navigate("/super-admin/businesses");
+    } catch (error: any) {
+      toast.error("Failed: " + (error?.message || "unknown error"));
+    } finally {
       setActing(null);
-      return;
     }
-    toast.success("Tenant deleted");
-    navigate("/super-admin/businesses");
   };
 
   const toggleUserActive = async (userId: string, nextActive: boolean) => {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ is_active: nextActive })
-      .eq("id", userId);
-    if (error) { toast.error(error.message); return; }
-    setTenantUsers((prev) => prev.map((u) => u.id === userId ? { ...u, is_active: nextActive } : u));
+    const { error } = await supabase.from("profiles").update({ is_active: nextActive }).eq("id", userId);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setTenantUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, is_active: nextActive } : u)));
     toast.success(nextActive ? "User activated" : "User deactivated");
   };
 
@@ -286,8 +339,11 @@ export default function SuperAdminTenantDetail() {
     } catch (e) {
       error = e as Error;
     }
-    if (error || data?.error) { toast.error(data?.error || error?.message); return; }
-    setTenantUsers((prev) => prev.map((u) => u.id === userId ? { ...u, role: nextRole } : u));
+    if (error || data?.error) {
+      toast.error(data?.error || error?.message);
+      return;
+    }
+    setTenantUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: nextRole } : u)));
     toast.success("Role updated");
   };
 
@@ -309,7 +365,9 @@ export default function SuperAdminTenantDetail() {
     <div className="space-y-6">
       {/* Breadcrumbs */}
       <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-        <Link to="/super-admin/businesses" className="hover:text-foreground">Tenants</Link>
+        <Link to="/super-admin/businesses" className="hover:text-foreground">
+          Tenants
+        </Link>
         <ChevronRight className="h-3.5 w-3.5" />
         <span className="font-mono text-xs truncate max-w-md">{biz.id}</span>
       </div>
@@ -323,35 +381,73 @@ export default function SuperAdminTenantDetail() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{biz.name}</h1>
             <div className="flex items-center gap-3 mt-1.5 text-sm">
-              <Badge className={`${biz.is_active ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-orange-50 text-orange-700 border border-orange-200"}`}>
+              <Badge
+                className={`${biz.is_active ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-orange-50 text-orange-700 border border-orange-200"}`}
+              >
                 <span className="h-1.5 w-1.5 rounded-full bg-current mr-1.5" />
                 {biz.is_active ? "Active" : "Suspended"}
               </Badge>
-              <span className="text-muted-foreground">Registered {format(new Date(biz.created_at), "MMM d, yyyy")}</span>
+              <span className="text-muted-foreground">
+                Registered {format(new Date(biz.created_at), "MMM d, yyyy")}
+              </span>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white h-9" onClick={() => navigate(`/super-admin/businesses/${biz.id}/edit`)}>
+          <Button
+            size="sm"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white h-9"
+            onClick={() => navigate(`/super-admin/businesses/${biz.id}/edit`)}
+          >
             <Pencil className="h-3.5 w-3.5 mr-1.5" /> Edit
           </Button>
           {biz.is_active ? (
-            <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white h-9" onClick={() => setActive(false)} disabled={!!acting}>
+            <Button
+              size="sm"
+              className="bg-amber-500 hover:bg-amber-600 text-white h-9"
+              onClick={() => setActive(false)}
+              disabled={!!acting}
+            >
               <PauseCircle className="h-3.5 w-3.5 mr-1.5" /> Suspend
             </Button>
           ) : (
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white h-9" onClick={() => setActive(true)} disabled={!!acting}>
+            <Button
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white h-9"
+              onClick={() => setActive(true)}
+              disabled={!!acting}
+            >
               <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Reactivate
             </Button>
           )}
-          <Button size="sm" className="bg-red-500 hover:bg-red-600 text-white h-9" onClick={cancelSub} disabled={!sub || !!acting}>
+          <Button
+            size="sm"
+            className="bg-red-500 hover:bg-red-600 text-white h-9"
+            onClick={cancelSub}
+            disabled={!sub || !!acting}
+          >
             <XCircle className="h-3.5 w-3.5 mr-1.5" /> Cancel
           </Button>
-          <Button size="sm" variant="outline" className="h-9 border-orange-300 text-orange-700 hover:bg-orange-50" onClick={() => { setResetMode("transactional"); setResetConfirm(""); setResetOpen(true); }} disabled={!!acting}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-9 border-orange-300 text-orange-700 hover:bg-orange-50"
+            onClick={() => {
+              setResetMode("transactional");
+              setResetConfirm("");
+              setResetOpen(true);
+            }}
+            disabled={!!acting}
+          >
             <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Reset DB
           </Button>
-          <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white h-9" onClick={deleteTenant} disabled={!!acting}>
+          <Button
+            size="sm"
+            className="bg-red-600 hover:bg-red-700 text-white h-9"
+            onClick={deleteTenant}
+            disabled={!!acting}
+          >
             <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
           </Button>
         </div>
@@ -372,7 +468,13 @@ export default function SuperAdminTenantDetail() {
               <Row
                 label="Status"
                 value={
-                  <Badge className={biz.is_active ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-orange-50 text-orange-700 border border-orange-200"}>
+                  <Badge
+                    className={
+                      biz.is_active
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                        : "bg-orange-50 text-orange-700 border border-orange-200"
+                    }
+                  >
                     <span className="h-1.5 w-1.5 rounded-full bg-current mr-1.5" />
                     {biz.is_active ? "Active" : "Suspended"}
                   </Badge>
@@ -380,7 +482,12 @@ export default function SuperAdminTenantDetail() {
               />
               <Row
                 label="Plan"
-                value={<span><span className="font-semibold">{planName}</span> <span className="text-muted-foreground">— {planPrice}</span></span>}
+                value={
+                  <span>
+                    <span className="font-semibold">{planName}</span>{" "}
+                    <span className="text-muted-foreground">— {planPrice}</span>
+                  </span>
+                }
               />
               <Row
                 label="Subscription"
@@ -416,12 +523,19 @@ export default function SuperAdminTenantDetail() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2.5 text-sm">
                 <UsageRow icon={Package} label="Products" used={counts.products} max={currentPlan?.max_products} />
                 <UsageRow icon={UsersIcon} label="Users" used={counts.users} max={currentPlan?.max_users} />
-                <UsageRow icon={Warehouse} label="Warehouses" used={counts.locations} max={currentPlan?.max_locations} />
+                <UsageRow
+                  icon={Warehouse}
+                  label="Warehouses"
+                  used={counts.locations}
+                  max={currentPlan?.max_locations}
+                />
                 <UsageRow icon={ShoppingCart} label="Customers" used={counts.customers} max={null} />
                 <UsageRow icon={Truck} label="Suppliers" used={counts.suppliers} max={null} />
               </div>
 
-              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground pt-3">Feature access</div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground pt-3">
+                Feature access
+              </div>
               <div className="flex flex-wrap gap-2">
                 {planFeatures.filter((f) => f.enabled).length === 0 ? (
                   <p className="text-xs text-muted-foreground">No features enabled for this plan.</p>
@@ -429,7 +543,10 @@ export default function SuperAdminTenantDetail() {
                   planFeatures
                     .filter((f) => f.enabled)
                     .map((f) => (
-                      <Badge key={f.feature_key} className="bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
+                      <Badge
+                        key={f.feature_key}
+                        className="bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium"
+                      >
                         <CheckCircle2 className="h-3 w-3 mr-1" />
                         {f.feature_label}
                       </Badge>
@@ -451,7 +568,11 @@ export default function SuperAdminTenantDetail() {
                   {tenantUsers.length}
                 </Badge>
               </div>
-              <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setCreateOpen(true)}>
+              <Button
+                size="sm"
+                className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={() => setCreateOpen(true)}
+              >
                 <UserPlus className="h-3.5 w-3.5 mr-1" /> Add user
               </Button>
             </div>
@@ -477,9 +598,13 @@ export default function SuperAdminTenantDetail() {
                             </p>
                           </div>
                         </div>
-                        <Badge className={u.is_active
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] shrink-0"
-                          : "bg-muted text-muted-foreground border border-border text-[10px] shrink-0"}>
+                        <Badge
+                          className={
+                            u.is_active
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] shrink-0"
+                              : "bg-muted text-muted-foreground border border-border text-[10px] shrink-0"
+                          }
+                        >
                           {u.is_active ? "Active" : "Inactive"}
                         </Badge>
                       </div>
@@ -496,21 +621,25 @@ export default function SuperAdminTenantDetail() {
                             </SelectTrigger>
                             <SelectContent>
                               {ASSIGNABLE_ROLES.map((r) => (
-                                <SelectItem key={r} value={r} className="text-xs capitalize">{r.replace("_", " ")}</SelectItem>
+                                <SelectItem key={r} value={r} className="text-xs capitalize">
+                                  {r.replace("_", " ")}
+                                </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
-                          <Switch
-                            checked={u.is_active}
-                            onCheckedChange={(v) => toggleUserActive(u.id, v)}
-                          />
+                          <Switch checked={u.is_active} onCheckedChange={(v) => toggleUserActive(u.id, v)} />
                         </div>
                       </div>
 
                       <div className="flex items-center gap-1.5 pt-1.5 border-t border-border">
-                        <Button variant="outline" size="sm" className="h-7 text-xs flex-1" onClick={() => setEditingUser(u)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs flex-1"
+                          onClick={() => setEditingUser(u)}
+                        >
                           <Pencil className="h-3 w-3 mr-1" /> Edit
                         </Button>
                         <Button variant="outline" size="sm" className="h-7 text-xs flex-1" onClick={() => setPwUser(u)}>
@@ -543,15 +672,19 @@ export default function SuperAdminTenantDetail() {
         mode="edit"
         businessId={id || ""}
         locations={tenantLocations}
-        initial={editingUser ? {
-          user_id: editingUser.id,
-          email: editingUser.email || "",
-          full_name: editingUser.full_name || "",
-          phone: editingUser.phone || "",
-          role: (editingUser.role as any) || "cashier",
-          is_active: editingUser.is_active,
-          assigned_location_id: editingUser.assigned_location_id,
-        } : undefined}
+        initial={
+          editingUser
+            ? {
+                user_id: editingUser.id,
+                email: editingUser.email || "",
+                full_name: editingUser.full_name || "",
+                phone: editingUser.phone || "",
+                role: (editingUser.role as any) || "cashier",
+                is_active: editingUser.is_active,
+                assigned_location_id: editingUser.assigned_location_id,
+              }
+            : undefined
+        }
         onSaved={fetchAll}
       />
 
@@ -567,7 +700,12 @@ export default function SuperAdminTenantDetail() {
       )}
 
       {/* Reset Tenant DB dialog */}
-      <Dialog open={resetOpen} onOpenChange={(o) => { if (!resetting) setResetOpen(o); }}>
+      <Dialog
+        open={resetOpen}
+        onOpenChange={(o) => {
+          if (!resetting) setResetOpen(o);
+        }}
+      >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -579,22 +717,35 @@ export default function SuperAdminTenantDetail() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <RadioGroup value={resetMode} onValueChange={(v) => setResetMode(v as "transactional" | "full")} className="space-y-3">
-              <label htmlFor="reset-tx" className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/40">
+            <RadioGroup
+              value={resetMode}
+              onValueChange={(v) => setResetMode(v as "transactional" | "full")}
+              className="space-y-3"
+            >
+              <label
+                htmlFor="reset-tx"
+                className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/40"
+              >
                 <RadioGroupItem value="transactional" id="reset-tx" className="mt-0.5" />
                 <div className="space-y-1">
                   <div className="text-sm font-semibold">Delete records only</div>
                   <p className="text-xs text-muted-foreground">
-                    Removes sales, payments, purchases, expenses, stock movements, M-Pesa, bank, journal and POS session records, and resets stock to zero. Keeps products, customers, suppliers, locations, users and settings.
+                    Removes sales, payments, purchases, expenses, stock movements, M-Pesa, bank, journal and POS session
+                    records, and resets stock to zero. Keeps products, customers, suppliers, locations, users and
+                    settings.
                   </p>
                 </div>
               </label>
-              <label htmlFor="reset-full" className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/40">
+              <label
+                htmlFor="reset-full"
+                className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/40"
+              >
                 <RadioGroupItem value="full" id="reset-full" className="mt-0.5" />
                 <div className="space-y-1">
                   <div className="text-sm font-semibold text-destructive">Reset entire tenant</div>
                   <p className="text-xs text-muted-foreground">
-                    Everything in “Delete records only”, plus products, inventory, customers, suppliers, brands, categories, bank accounts, chart of accounts and locations. Keeps the tenant, users and roles.
+                    Everything in “Delete records only”, plus products, inventory, customers, suppliers, brands,
+                    categories, bank accounts, chart of accounts and locations. Keeps the tenant, users and roles.
                   </p>
                 </div>
               </label>
@@ -608,17 +759,31 @@ export default function SuperAdminTenantDetail() {
                     <button
                       type="button"
                       className="text-xs text-primary hover:underline"
-                      onClick={() => setResetScopes([
-                        "sales","purchases","expenses","bank_transactions","mpesa_transactions",
-                        "stock_adjustments","journal_entries","pos_sessions","audit_logs",
-                        "product_batches","inventory_reset",
-                      ])}
-                    >Select all</button>
+                      onClick={() =>
+                        setResetScopes([
+                          "sales",
+                          "purchases",
+                          "expenses",
+                          "bank_transactions",
+                          "mpesa_transactions",
+                          "stock_adjustments",
+                          "journal_entries",
+                          "pos_sessions",
+                          "audit_logs",
+                          "product_batches",
+                          "inventory_reset",
+                        ])
+                      }
+                    >
+                      Select all
+                    </button>
                     <button
                       type="button"
                       className="text-xs text-muted-foreground hover:underline"
                       onClick={() => setResetScopes([])}
-                    >Clear</button>
+                    >
+                      Clear
+                    </button>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-x-3 gap-y-2">
@@ -655,7 +820,9 @@ export default function SuperAdminTenantDetail() {
             )}
 
             <div className="space-y-1.5">
-              <UILabel htmlFor="reset-confirm" className="text-xs">Type <span className="font-mono font-semibold">RESET</span> to confirm</UILabel>
+              <UILabel htmlFor="reset-confirm" className="text-xs">
+                Type <span className="font-mono font-semibold">RESET</span> to confirm
+              </UILabel>
               <Input
                 id="reset-confirm"
                 value={resetConfirm}
@@ -667,13 +834,23 @@ export default function SuperAdminTenantDetail() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setResetOpen(false)} disabled={resetting}>Cancel</Button>
+            <Button variant="outline" onClick={() => setResetOpen(false)} disabled={resetting}>
+              Cancel
+            </Button>
             <Button
               className="bg-red-600 hover:bg-red-700 text-white"
               onClick={runReset}
-              disabled={resetting || resetConfirm.trim() !== "RESET" || (resetMode === "transactional" && resetScopes.length === 0)}
+              disabled={
+                resetting ||
+                resetConfirm.trim() !== "RESET" ||
+                (resetMode === "transactional" && resetScopes.length === 0)
+              }
             >
-              {resetting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <RotateCcw className="h-4 w-4 mr-1.5" />}
+              {resetting ? (
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+              ) : (
+                <RotateCcw className="h-4 w-4 mr-1.5" />
+              )}
               {resetMode === "full" ? "Reset entire tenant" : "Delete records"}
             </Button>
           </DialogFooter>
@@ -696,7 +873,17 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function UsageRow({ icon: Icon, label, used, max }: { icon: any; label: string; used: number; max: number | null | undefined }) {
+function UsageRow({
+  icon: Icon,
+  label,
+  used,
+  max,
+}: {
+  icon: any;
+  label: string;
+  used: number;
+  max: number | null | undefined;
+}) {
   return (
     <div className="flex items-center justify-between text-sm">
       <span className="flex items-center gap-2 text-foreground/80">
