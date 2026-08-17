@@ -1,0 +1,95 @@
+export type SubscriptionPlanInput = {
+  product_id?: string | null;
+  plan_code?: string | null;
+  environment?: string | null;
+  status?: string | null;
+  created_at?: string | null;
+  id?: string | null;
+  user_id?: string | null;
+};
+
+export type SubscriptionPlanLike = {
+  id: string;
+  name?: string | null;
+  is_active?: boolean | null;
+  is_public?: boolean | null;
+  paystack_plan_code_monthly?: string | null;
+  paystack_plan_code_yearly?: string | null;
+  sort_order?: number | null;
+  [key: string]: any;
+};
+
+export type SubscriptionBusinessLike = {
+  selected_package_id?: string | null;
+  [key: string]: any;
+};
+
+const normalizeValue = (value: unknown): string => String(value ?? "").trim();
+
+const isMatchById = (plan: SubscriptionPlanLike, planId: string | null | undefined) => {
+  if (!planId) return false;
+  return normalizeValue(plan.id) === normalizeValue(planId);
+};
+
+export function resolveSubscriptionPlan(
+  subscription: SubscriptionPlanInput | null | undefined,
+  plans: SubscriptionPlanLike[] = [],
+  business?: SubscriptionBusinessLike | null,
+) {
+  const planList = Array.isArray(plans) ? plans : [];
+  const freePlan = planList.find((plan) => normalizeValue(plan.name).toLowerCase() === "free") ?? null;
+  const productId = subscription?.product_id ?? null;
+  const planCode = subscription?.plan_code ?? null;
+  const selectedPackageId = business?.selected_package_id ?? null;
+
+  const byProduct = planList.find((plan) => isMatchById(plan, productId));
+  if (byProduct) return byProduct;
+
+  const byPlanCode = planList.find((plan) => {
+    if (!planCode) return false;
+    const monthly = normalizeValue(plan.paystack_plan_code_monthly);
+    const yearly = normalizeValue(plan.paystack_plan_code_yearly);
+    return monthly === normalizeValue(planCode) || yearly === normalizeValue(planCode);
+  });
+  if (byPlanCode) return byPlanCode;
+
+  const bySelectedPkg = planList.find((plan) => isMatchById(plan, selectedPackageId));
+  if (bySelectedPkg) return bySelectedPkg;
+
+  return freePlan ?? null;
+}
+
+export function resolvePreferredSubscription<T extends SubscriptionPlanInput>(
+  subscriptions: T[] = [],
+) {
+  if (!Array.isArray(subscriptions) || subscriptions.length === 0) return null;
+
+  const activePriority = ["active", "trialing", "past_due", "pending"];
+  const order = [...subscriptions].sort((a, b) => {
+    const getEnvRank = (item: T) => {
+      const env = normalizeValue(item.environment).toLowerCase();
+      if (env === "live") return 2;
+      if (env === "sandbox") return 1;
+      return 0;
+    };
+
+    const getStatusRank = (item: T) => {
+      const status = normalizeValue(item.status).toLowerCase();
+      const idx = activePriority.indexOf(status);
+      if (idx >= 0) return idx;
+      return activePriority.length;
+    };
+
+    const envDiff = getEnvRank(b) - getEnvRank(a);
+    if (envDiff !== 0) return envDiff;
+
+    const statusDiff = getStatusRank(b) - getStatusRank(a);
+    if (statusDiff !== 0) return statusDiff;
+
+    const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return dateB - dateA;
+  });
+
+  return order[0] ?? null;
+}
