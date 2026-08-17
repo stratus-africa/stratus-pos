@@ -1,5 +1,13 @@
+// @vitest-environment jsdom
+
 import { describe, it, expect, vi } from "vitest";
-import { buildBackupPayload, downloadBackupFile, validateBackupPayload } from "@/lib/backup";
+import {
+  buildBackupPayload,
+  downloadBackupFile,
+  parseBackupFile,
+  restoreBackupPayload,
+  validateBackupPayload,
+} from "@/lib/backup";
 
 describe("business backup payload", () => {
   it("builds a portable backup object with metadata and table data", () => {
@@ -67,5 +75,29 @@ describe("business backup payload", () => {
     expect(invalidCheck.valid).toBe(false);
     expect(invalidCheck.error).toMatch(/tables/i);
   });
+
+  it("reads a JSON backup file and restores the records to the target business", async () => {
+    const payload = buildBackupPayload("business-123", {
+      sales: [{ id: "sale-1", business_id: "old-business", total: 1000 }],
+      audit_logs: [{ id: "log-1", business_id: "old-business", action: "imported" }],
+    });
+
+    const file = new File([JSON.stringify(payload, null, 2)], "backup.json", { type: "application/json" });
+    const parsed = await parseBackupFile(file);
+    expect(parsed.businessId).toBe("business-123");
+    expect(parsed.tables.sales).toHaveLength(1);
+
+    const upsert = vi.fn().mockResolvedValue({ error: null });
+    const mockClient = {
+      from: vi.fn((table: string) => ({
+        upsert,
+      })),
+    } as any;
+
+    const result = await restoreBackupPayload(payload, mockClient, "business-123");
+    expect(result.rowsRestored).toBe(2);
+    expect(result.tablesRestored).toBe(2);
+    expect(upsert).toHaveBeenCalledTimes(2);
+    expect(upsert.mock.calls[0][0][0].business_id).toBe("business-123");
+  });
 });
- 
