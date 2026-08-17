@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { buildBackupPayload, validateBackupPayload } from "@/lib/backup";
+import { describe, it, expect, vi } from "vitest";
+import { buildBackupPayload, downloadBackupFile, validateBackupPayload } from "@/lib/backup";
 
 describe("business backup payload", () => {
   it("builds a portable backup object with metadata and table data", () => {
@@ -13,6 +13,40 @@ describe("business backup payload", () => {
     expect(payload.businessId).toBe("business-123");
     expect(payload.tables.sales).toEqual([{ id: "sale-1", total: 1250 }]);
     expect(payload.tables.audit_logs).toEqual([{ id: "log-1", action: "created sale" }]);
+  });
+
+  it("downloads a browser-safe backup file in the Vite environment", () => {
+    const payload = buildBackupPayload("business-123", {
+      sales: [{ id: "sale-1" }],
+    });
+
+    const originalURL = globalThis.URL;
+    const createObjectURL = vi.fn(() => "blob:backup");
+    const revokeObjectURL = vi.fn();
+    const click = vi.fn();
+    const createElementSpy = vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
+      const element = document.createElementNS("http://www.w3.org/1999/xhtml", tag) as HTMLAnchorElement;
+      element.click = click;
+      return element;
+    });
+
+    Object.defineProperty(globalThis, "URL", {
+      value: {
+        createObjectURL,
+        revokeObjectURL,
+      },
+      configurable: true,
+    });
+
+    try {
+      expect(() => downloadBackupFile(payload, "custom-backup.json")).not.toThrow();
+      expect(createObjectURL).toHaveBeenCalledTimes(1);
+      expect(revokeObjectURL).toHaveBeenCalledWith("blob:backup");
+      expect(click).toHaveBeenCalledTimes(1);
+      expect(createElementSpy).toHaveBeenCalledWith("a");
+    } finally {
+      Object.defineProperty(globalThis, "URL", { value: originalURL, configurable: true });
+    }
   });
 
   it("accepts a valid backup payload and rejects malformed data", () => {
