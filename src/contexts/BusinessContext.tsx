@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 import { applyTheme, DEFAULT_THEME } from "@/lib/themes";
 import { setPostingState } from "@/lib/postingGuard";
+import { resolveBusinessId } from "@/lib/onboarding";
 
 interface Business {
   id: string;
@@ -99,23 +100,38 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
 
       if (!businessId) {
-        const { data: profile } = await supabase.from("profiles").select("business_id").eq("id", user.id).single();
-        businessId = profile?.business_id || null;
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("business_id")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        const { data: ownedBusiness } = await supabase
+          .from("businesses")
+          .select("id")
+          .eq("owner_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const { data: roleRow } = await supabase
+          .from("user_roles")
+          .select("business_id")
+          .eq("user_id", user.id)
+          .limit(1)
+          .maybeSingle();
+
+        businessId = resolveBusinessId(
+          profile?.business_id ?? null,
+          roleRow?.business_id ?? null,
+          ownedBusiness?.id ?? null,
+        );
         setIsMasquerading(false);
 
-        // Self-heal: if profile has no business_id but user has a role assignment
-        // (e.g. invited by an admin), link them to that business automatically.
-        if (!businessId) {
-          const { data: roleRow } = await supabase
-            .from("user_roles")
-            .select("business_id")
-            .eq("user_id", user.id)
-            .limit(1)
-            .maybeSingle();
-          if (roleRow?.business_id) {
-            await supabase.from("profiles").update({ business_id: roleRow.business_id }).eq("id", user.id);
-            businessId = roleRow.business_id;
-          }
+        if (!profileError && !profile && businessId) {
+          await supabase.from("profiles").upsert({ id: user.id, business_id: businessId }, { onConflict: "id" });
+        } else if (businessId && profile && profile.business_id !== businessId) {
+          await supabase.from("profiles").update({ business_id: businessId }).eq("id", user.id);
         }
       }
 
