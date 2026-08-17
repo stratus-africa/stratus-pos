@@ -128,7 +128,7 @@ export async function handleCreateBusiness(admin: any, body: CreateBusinessInput
       const env = (process.env.PAYSTACK_SECRET_KEY || "").startsWith("sk_test_") ? "sandbox" : "live";
       const periodEnd = new Date();
       periodEnd.setMonth(periodEnd.getMonth() + 1);
-      await admin.from("subscriptions").insert({
+      const { error: subErr } = await admin.from("subscriptions").insert({
         user_id: newUserId,
         environment: env,
         status: "active",
@@ -138,6 +138,10 @@ export async function handleCreateBusiness(admin: any, body: CreateBusinessInput
         current_period_end: periodEnd.toISOString(),
         cancel_at_period_end: false,
       });
+      if (subErr) {
+        console.error("Failed to create subscription:", subErr);
+        return { error: `Business created but subscription assignment failed: ${subErr.message}` };
+      }
     }
   }
 
@@ -503,5 +507,111 @@ export async function handleResetTenant(admin: any, body: ResetTenantInput) {
     mode: body.mode,
     business_id: businessId,
     deleted: counts,
+  };
+}
+
+// ---------------- assign-tenant-subscription ----------------
+
+export const assignTenantSubscriptionInputSchema = z.object({
+  business_id: z.string(),
+  package_id: z.string().nullable().optional(),
+  duration_months: z.number().int().positive().optional(),
+});
+export type AssignTenantSubscriptionInput = z.infer<typeof assignTenantSubscriptionInputSchema>;
+
+export async function handleAssignTenantSubscription(admin: any, body: AssignTenantSubscriptionInput) {
+  if (!body?.business_id) {
+    return { error: "business_id is required" };
+  }
+
+  const { data: biz, error: bizErr } = await admin
+    .from("businesses")
+    .select("id, owner_id")
+    .eq("id", body.business_id)
+    .maybeSingle();
+  if (bizErr || !biz) {
+    return { error: "Business not found" };
+  }
+
+  if (!biz.owner_id) {
+    return { error: "Business has no owner" };
+  }
+
+  // If package_id is null, just cancel any existing subscription
+  if (body.package_id === null) {
+    const { error: updateErr } = await admin
+      .from("subscriptions")
+      .update({ status: "canceled", cancel_at_period_end: true })
+      .eq("user_id", biz.owner_id);
+    if (updateErr) {
+      return { error: `Failed to cancel subscription: ${updateErr.message}` };
+    }
+    return { ok: true, message: "Subscription canceled" };
+  }
+
+  // Verify package exists
+  const { data: pkg, error: pkgErr } = await admin
+    .from("subscription_packages")
+    .select("*")
+    .eq("id", body.package_id)
+    .maybeSingle();
+  if (pkgErr || !pkg) {
+    return { error: "Package not found" };
+  }
+
+  const env = (process.env.PAYSTACK_SECRET_KEY || "").startsWith("sk_test_") ? "sandbox" : "live";
+
+  const periodStart = new Date();
+  const periodEnd = new Date();
+  periodEnd.setMonth(periodEnd.getMonth() + (body.duration_months ?? 1));
+
+  // Check if subscription already exists
+  const { data: existingSub, error: existingErr } = await admin
+    .from("subscriptions")
+    .select("id")
+    .eq("user_id", biz.owner_id)
+    .eq("environment", env)
+    .maybeSingle();
+
+  let subError: any = null;
+  if (existingSub) {
+    // Update existing subscription
+    const { error } = await admin
+      .from("subscriptions")
+      .update({
+        product_id: pkg.id,
+        status: "active",
+        current_period_start: periodStart.toISOString(),
+        current_period_end: periodEnd.toISOString(),
+        cancel_at_period_end: false,
+      })
+      .eq("id", existingSub.id);
+    subError = error;
+  } else {
+    // Create new subscription
+    const { error } = await admin.from("subscriptions").insert({
+      user_id: biz.owner_id,
+      environment: env,
+      status: "active",
+      product_id: pkg.id,
+      price_id: "manual_assign",
+      current_period_start: periodStart.toISOString(),
+      current_period_end: periodEnd.toISOString(),
+      cancel_at_period_end: false,
+    });
+    subError = error;
+  }
+
+  if (subError) {
+    console.error("Failed to assign subscription:", subError);
+    return { error: `Failed to assign subscription: ${subError.message}` };
+  }
+
+  return {
+    ok: true,
+    message: "Subscription assigned successfully",
+    business_id: biz.id,
+    package_id: pkg.id,
+    period_end: periodEnd.toISOString(),
   };
 }
