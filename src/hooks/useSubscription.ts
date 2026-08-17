@@ -160,10 +160,36 @@ export function useSubscription() {
     features.filter((f) => f.package_id === currentPackage?.id && f.enabled).map((f) => f.feature_key),
   );
 
+  // Debug: log subscription state for troubleshooting sidebar visibility
+  if (typeof window !== "undefined" && window.__DEBUG_SUBSCRIPTION) {
+    console.debug("[useSubscription]", {
+      planUserId,
+      subscription: subscription
+        ? {
+            id: subscription.id,
+            status: subscription.status,
+            product_id: subscription.product_id,
+            plan_code: subscription.plan_code,
+          }
+        : null,
+      isActive,
+      packages: packages.length,
+      currentPackage: currentPackage ? { id: currentPackage.id, name: currentPackage.name } : null,
+      features: features.length,
+      enabledFeatureKeys: Array.from(enabledFeatureKeys),
+    });
+  }
+
   // Packages may store legacy/alternate keys for the same module (naming drift).
   // The shared module catalog is the source of truth for equivalences.
   const hasFeatureKey = (key: string): boolean => {
     if (!currentPackage) return false;
+    // If subscription is active but features list is empty, assume all modules are enabled.
+    // This handles the case where features haven't been seeded yet or there's no feature data.
+    // The feature data is informational; active subscription = feature access.
+    if (isActive && enabledFeatureKeys.size === 0) {
+      return true;
+    }
     return moduleKeys(key).some((k) => enabledFeatureKeys.has(k));
   };
 
