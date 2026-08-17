@@ -1,8 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { CONFIGURED_MARKER, cashierDeniedPermissions, defaultRolePermissions, moduleCatalog, type AppRole } from "@/lib/permissions";
-
+import {
+  CONFIGURED_MARKER,
+  cashierDeniedPermissions,
+  defaultRolePermissions,
+  moduleCatalog,
+  type AppRole,
+} from "@/lib/permissions";
 
 /**
  * Loads the granular permission set for the current user's role within the
@@ -13,7 +18,7 @@ import { CONFIGURED_MARKER, cashierDeniedPermissions, defaultRolePermissions, mo
  */
 export function usePermissions() {
   const { business, userRole, isMasquerading } = useBusiness();
-  const role = (userRole as AppRole | null);
+  const role = userRole as AppRole | null;
 
   const { data, isLoading } = useQuery({
     queryKey: ["role_permissions", business?.id, role],
@@ -66,10 +71,13 @@ export function usePermissions() {
     for (const key of cashierDeniedPermissions) set.delete(key);
   }
 
-
   return {
     isLoading,
     permissions: set,
-    hasPermission: (key: string) => set.has(key),
+    hasPermission: (key: string) => {
+      // Wildcard permissions grant everything
+      if (set.has("*")) return true;
+      return set.has(key);
+    },
   };
 }

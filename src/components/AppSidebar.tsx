@@ -37,9 +37,23 @@ export function AppSidebar() {
   const { signOut } = useAuth();
   const { business, userRole } = useBusiness();
   const { isSuperAdmin } = useSuperAdmin();
-  const { hasPermission, permissions } = usePermissions();
-  const { hasFeatureKey, enabledFeatureKeys } = useSubscription();
+  const { hasPermission, permissions, isLoading: permLoading } = usePermissions();
+  const { hasFeatureKey, enabledFeatureKeys, isLoading: subLoading } = useSubscription();
   const currentPath = location.pathname;
+
+  // Debug: log sidebar resolution state
+  if (typeof window !== "undefined" && window.__DEBUG_SIDEBAR) {
+    console.debug("[AppSidebar]", {
+      userRole,
+      subLoading,
+      permLoading,
+      enabledFeatureKeys: Array.from(enabledFeatureKeys),
+      permissionsCount: permissions.size,
+    });
+  }
+
+  // Show skeleton while loading authorization data
+  const isLoadingAuth = subLoading || permLoading;
 
   const visibleModules = APP_MODULES.filter((module) => {
     const access = resolveModuleAccess(module.key, {
@@ -51,6 +65,9 @@ export function AppSidebar() {
       setupComplete: () => true,
       subscriptions: enabledFeatureKeys,
     });
+    if (typeof window !== "undefined" && window.__DEBUG_SIDEBAR) {
+      if (!access.allowed) console.debug(`  [${module.key}] blocked: ${access.reason}`);
+    }
     return access.allowed;
   });
 
@@ -152,16 +169,42 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {groupedModules.map((group) => (
-          <SidebarGroup key={group.category}>
-            <SidebarGroupLabel>
-              {group.category === "dashboard" ? "Dashboard" : moduleCategoryLabels[group.category]}
-            </SidebarGroupLabel>
+        {isLoadingAuth ? (
+          // Show skeleton while loading
+          <SidebarGroup>
+            <SidebarGroupLabel>Loading...</SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu>{group.modules.map(renderModule)}</SidebarMenu>
+              <SidebarMenu>
+                {[1, 2, 3].map((i) => (
+                  <SidebarMenuItem key={i}>
+                    <div className="h-9 bg-muted rounded animate-pulse w-full" />
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-        ))}
+        ) : groupedModules.length > 0 ? (
+          groupedModules.map((group) => (
+            <SidebarGroup key={group.category}>
+              <SidebarGroupLabel>
+                {group.category === "dashboard" ? "Dashboard" : moduleCategoryLabels[group.category]}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>{group.modules.map(renderModule)}</SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ))
+        ) : (
+          // No modules visible even after loading
+          <SidebarGroup>
+            <SidebarGroupLabel>Modules</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <div className="px-2 py-4 text-xs text-muted-foreground">
+                No modules available. Check your subscription or contact support.
+              </div>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-2">
