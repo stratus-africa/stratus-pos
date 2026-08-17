@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useSubscription } from "@/hooks/useSubscription";
+import { findModule, getModuleRouteAccess } from "@/lib/modules";
 
 export const PageLoader = () => (
   <div className="flex min-h-[40vh] items-center justify-center">
@@ -22,12 +25,34 @@ export const AccessDenied = () => (
  */
 export function PermissionGuard({
   permission,
+  moduleKey,
+  route,
   children,
 }: {
   permission?: string;
+  moduleKey?: string;
+  route?: string;
   children: ReactNode;
 }) {
-  const { hasPermission, isLoading } = usePermissions();
+  const { userRole } = useBusiness();
+  const { permissions, hasPermission, isLoading } = usePermissions();
+  const { hasFeatureKey } = useSubscription();
+
+  if (moduleKey) {
+    if (isLoading) return <PageLoader />;
+    const registryAccess = getModuleRouteAccess(moduleKey, route ?? findModule(moduleKey)?.route ?? undefined, {
+      role: userRole,
+      permissions,
+      subscriptions: new Set(),
+      featureKey: hasFeatureKey,
+      moduleEnabled: () => true,
+      dependenciesReady: () => true,
+      setupComplete: () => true,
+    });
+    if (!registryAccess.allowed) return <AccessDenied />;
+    return <>{children}</>;
+  }
+
   if (permission) {
     if (isLoading) return <PageLoader />;
     if (!hasPermission(permission)) return <AccessDenied />;
