@@ -21,7 +21,6 @@ import {
   UserCog,
   ScanBarcode,
   ChefHat,
-  Smartphone,
 } from "lucide-react";
 import { useFeatureLimit } from "@/components/FeatureGate";
 import { useDigitaxEnabled } from "@/hooks/useDigitax";
@@ -225,14 +224,6 @@ const systemNav: NavItem[] = [
       "report.pnl",
       "report.audit",
     ],
-  },
-  {
-    title: "M-PESA Reconciliation",
-    url: "/reports?tab=mpesa",
-    icon: Smartphone,
-    roles: ["admin", "manager", "cashier", "stores_manager"],
-    featureKey: "reports",
-    anyPermission: ["report.sales", "report.audit"],
   },
   {
     title: "HR",

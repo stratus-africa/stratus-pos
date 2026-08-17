@@ -1829,48 +1829,6 @@ export type Database = {
           },
         ]
       }
-      mpesa_callback_audit: {
-        Row: {
-          amount: number | null
-          checkout_request_id: string | null
-          id: string
-          merchant_request_id: string | null
-          mpesa_receipt_number: string | null
-          payload: Json
-          phone_number: string | null
-          received_at: string
-          result_code: number | null
-          result_description: string | null
-          transaction_date: string | null
-        }
-        Insert: {
-          amount?: number | null
-          checkout_request_id?: string | null
-          id?: string
-          merchant_request_id?: string | null
-          mpesa_receipt_number?: string | null
-          payload: Json
-          phone_number?: string | null
-          received_at?: string
-          result_code?: number | null
-          result_description?: string | null
-          transaction_date?: string | null
-        }
-        Update: {
-          amount?: number | null
-          checkout_request_id?: string | null
-          id?: string
-          merchant_request_id?: string | null
-          mpesa_receipt_number?: string | null
-          payload?: Json
-          phone_number?: string | null
-          received_at?: string
-          result_code?: number | null
-          result_description?: string | null
-          transaction_date?: string | null
-        }
-        Relationships: []
-      }
       mpesa_transactions: {
         Row: {
           amount: number
@@ -1888,7 +1846,6 @@ export type Database = {
           result_description: string | null
           sale_id: string | null
           status: string
-          transaction_date: string | null
           type: string
           updated_at: string
         }
@@ -1908,7 +1865,6 @@ export type Database = {
           result_description?: string | null
           sale_id?: string | null
           status?: string
-          transaction_date?: string | null
           type?: string
           updated_at?: string
         }
@@ -1928,7 +1884,6 @@ export type Database = {
           result_description?: string | null
           sale_id?: string | null
           status?: string
-          transaction_date?: string | null
           type?: string
           updated_at?: string
         }

@@ -11,7 +11,10 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+const supabase = createClient(
+  Deno.env.get("SUPABASE_URL")!,
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+);
 
 /** Safaricom always expects this shape, even when we could not process the event. */
 const accepted = () =>
@@ -26,9 +29,7 @@ Deno.serve(async (req) => {
   }
 
   const url = new URL(req.url);
-  // STK is the default so the exact endpoint URL can be registered in Daraja
-  // without needing a query string. B2C retains an explicit type parameter.
-  const type = url.searchParams.get("type") || "stk";
+  const type = url.searchParams.get("type");
 
   try {
     const body = await req.json();
@@ -91,21 +92,6 @@ async function handleSTKCallback(body: any) {
   const meta = readMetadata(CallbackMetadata);
   const resultCode = Number(ResultCode);
 
-  // Keep an immutable copy of every Daraja result, including duplicate or
-  // unmatched callbacks, so payment investigations never depend on logs.
-  const { error: auditError } = await supabase.from("mpesa_callback_audit").insert({
-    checkout_request_id: String(CheckoutRequestID),
-    merchant_request_id: stkCallback.MerchantRequestID ? String(stkCallback.MerchantRequestID) : null,
-    result_code: Number.isFinite(resultCode) ? resultCode : null,
-    result_description: ResultDesc ? String(ResultDesc) : null,
-    amount: meta.amount,
-    mpesa_receipt_number: meta.receipt,
-    transaction_date: meta.date,
-    phone_number: meta.phone,
-    payload: body,
-  });
-  if (auditError) console.error("Could not audit STK callback:", auditError);
-
   // One atomic, idempotent database call performs: amount verification,
   // transaction status update, single payment insert and sale settlement.
   const { data, error } = await supabase.rpc("apply_mpesa_stk_result", {
@@ -125,6 +111,9 @@ async function handleSTKCallback(body: any) {
 
   console.log(`STK ${CheckoutRequestID} processed:`, JSON.stringify(data));
 }
+
+
+
 
 async function handleB2CCallback(body: any) {
   const result = body?.Result;

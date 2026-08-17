@@ -37,7 +37,6 @@ import {
   Zap,
   Megaphone,
   Settings2,
-  Smartphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -94,7 +93,6 @@ const navGroups: NavGroup[] = [
     label: "System",
     items: [
       { title: "General Settings", url: "/super-admin/settings", icon: Settings2 },
-      { title: "M-PESA Tenant Settings", url: "/super-admin/settings/payments/mpesa?view=tenants", icon: Smartphone },
       { title: "Announcements", url: "/super-admin/announcements", icon: Megaphone },
     ],
   },
@@ -134,9 +132,8 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const userName = (user?.user_metadata as any)?.full_name || "Super Admin";
 
   const isActive = (url: string) => {
-    const path = url.split("?")[0];
-    if (path === "/super-admin") return location.pathname === "/super-admin";
-    return location.pathname.startsWith(path);
+    if (url === "/super-admin") return location.pathname === "/super-admin";
+    return location.pathname.startsWith(url);
   };
 
   const selectedMobileGroup = mobileNavGroups.find((group) => group.label === mobileSection) || mobileNavGroups[0];
@@ -145,9 +142,7 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   useEffectR(() => {
     const activeGroup = mobileNavGroups.find((group) =>
       group.items.some((item) =>
-        item.url.split("?")[0] === "/super-admin"
-          ? location.pathname === "/super-admin"
-          : location.pathname.startsWith(item.url.split("?")[0]),
+        item.url === "/super-admin" ? location.pathname === "/super-admin" : location.pathname.startsWith(item.url),
       ),
     );
     if (activeGroup) setMobileSection(activeGroup.label);

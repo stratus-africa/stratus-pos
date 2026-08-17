@@ -1,4 +1,4 @@
-project_id = "raitooousnnskvkpnjfj"
+project_id = "rhfviucalgpqrwlksyes"
 
 
 [functions.process-email-queue]
@@ -11,12 +11,3 @@ verify_jwt = false
 [functions.mpesa-callback]
 verify_jwt = false
 
-# The POS invokes this function with the signed-in user's JWT. It is the only
-# STK Push entry point used by the browser.
-[functions.mpesa-stk-push]
-# Authentication is enforced inside the function so browser CORS preflight
-# requests can receive the required headers before a JWT is checked.
-verify_jwt = false
-
-[functions.migrate-helper]
-verify_jwt = false

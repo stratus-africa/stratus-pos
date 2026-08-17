@@ -19,11 +19,13 @@ const corsHeaders = {
 // has not set their own shortcode/passkey. Consumer key/secret are never
 // defaulted — they always come from the tenant's vault entries.
 const SANDBOX_SHORTCODE = "174379";
+const SANDBOX_PASSKEY = "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919";
 
 /** 2547XXXXXXXX / 2541XXXXXXXX */
 function isValidKenyanPhone(msisdn: string): boolean {
   return /^254(7|1)\d{8}$/.test(msisdn);
 }
+
 
 const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
@@ -60,11 +62,19 @@ async function loadBusinessMpesaConfig(businessId: string | undefined): Promise<
     business.mpesa_shortcode?.replace(/\D/g, "") || (environment === "sandbox" ? SANDBOX_SHORTCODE : undefined);
 
   if (!shortcode) throw new Error("M-Pesa shortcode is not configured for this business");
-  const names = (credentials?.vault_secret_names || {}) as {
+  if (!credentials?.has_credentials || !credentials.vault_secret_names) {
+    throw new Error("M-Pesa credentials are not configured for this business");
+  }
+
+  const names = credentials.vault_secret_names as {
     consumer_key?: string;
     consumer_secret?: string;
     passkey?: string;
   };
+
+  if (!names.consumer_key || !names.consumer_secret) {
+    throw new Error("M-Pesa credential configuration is incomplete");
+  }
 
   const secretNames = [names.consumer_key, names.consumer_secret, names.passkey].filter(Boolean) as string[];
   const secrets: Record<string, string> = {};
@@ -81,16 +91,10 @@ async function loadBusinessMpesaConfig(businessId: string | undefined): Promise<
     }),
   );
 
-  // Per-business vault secrets take precedence. Lovable Cloud environment
-  // secrets make a single sandbox configuration possible without any secret
-  // ever reaching the frontend bundle.
-  const consumerKey =
-    (names.consumer_key ? secrets[names.consumer_key] : undefined) || Deno.env.get("MPESA_CONSUMER_KEY");
-  const consumerSecret =
-    (names.consumer_secret ? secrets[names.consumer_secret] : undefined) || Deno.env.get("MPESA_CONSUMER_SECRET");
-  // Secrets are held in Lovable Cloud/Supabase secret storage, never bundled
-  // into browser code or committed as source literals.
-  const passkey = (names.passkey ? secrets[names.passkey] : undefined) || Deno.env.get("MPESA_PASSKEY");
+  const consumerKey = secrets[names.consumer_key];
+  const consumerSecret = secrets[names.consumer_secret];
+  const passkey =
+    (names.passkey ? secrets[names.passkey] : undefined) || (environment === "sandbox" ? SANDBOX_PASSKEY : undefined);
 
   if (!consumerKey || !consumerSecret) {
     throw new Error("Stored M-Pesa credentials are incomplete. Save them again in Settings.");
@@ -103,6 +107,7 @@ async function loadBusinessMpesaConfig(businessId: string | undefined): Promise<
     accountType,
   };
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -133,11 +138,8 @@ Deno.serve(async (req) => {
     }
 
     const userId = claimsData.claims.sub;
+    const action = new URL(req.url).searchParams.get("action");
     const body = await req.json();
-    // A direct browser request may use ?action=..., while the dedicated STK
-    // function passes the action in JSON. Supporting both avoids query-string
-    // rewriting by edge-to-edge proxy requests.
-    const action = new URL(req.url).searchParams.get("action") || body?.action;
 
     const callbackBaseUrl = Deno.env.get("MPESA_CALLBACK_BASE_URL") || `${Deno.env.get("SUPABASE_URL")}/functions/v1`;
 
@@ -218,7 +220,7 @@ Deno.serve(async (req) => {
           amount: chargeAmount,
           accountReference: reference,
           transactionDesc: `Payment for ${reference}`,
-          callbackUrl: `${callbackBaseUrl}/mpesa-callback`,
+          callbackUrl: `${callbackBaseUrl}/mpesa-callback?type=stk`,
           accountType: config.accountType,
         },
         config.environment,
@@ -240,15 +242,13 @@ Deno.serve(async (req) => {
 
       return jsonRes({
         success: true,
-        // Daraja's original field name is returned alongside the client-friendly
-        // camelCase form so callers can persist or display either safely.
-        CheckoutRequestID: result.CheckoutRequestID,
         checkoutRequestId: result.CheckoutRequestID,
         merchantRequestId: result.MerchantRequestID,
         amount: chargeAmount,
         responseDescription: result.ResponseDescription,
       });
     }
+
 
     if (action === "stk-query") {
       const { checkoutRequestId, businessId } = body;
