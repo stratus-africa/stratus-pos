@@ -9,6 +9,10 @@ export const Route = createFileRoute("/_app/banking")({
 
 function RouteComponent() {
   return (
-    <PermissionGuard permission="banking.view"><FeatureGate featureKey="banking"><Banking /></FeatureGate></PermissionGuard>
+    <PermissionGuard moduleKey="banking" route="/banking" permission="banking.view">
+      <FeatureGate featureKey="banking">
+        <Banking />
+      </FeatureGate>
+    </PermissionGuard>
   );
 }
