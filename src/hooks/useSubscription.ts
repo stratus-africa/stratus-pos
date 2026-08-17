@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { getPaystackEnvironment } from "@/lib/paystack";
 import { moduleKeys } from "@/lib/modules";
+import { resolvePreferredSubscription, resolveSubscriptionPlan } from "@/lib/subscriptionPlan";
 
 export type SubscriptionTier = "free" | "basic" | "pro";
 
@@ -62,9 +63,10 @@ export function useSubscription() {
         .select("*")
         .eq("user_id", planUserId)
         .eq("environment", environment)
-        .maybeSingle();
+        .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as unknown as Subscription | null;
+      const preferred = resolvePreferredSubscription((data || []) as any[]);
+      return (preferred as unknown as Subscription) || null;
     },
     enabled: !!planUserId,
     refetchOnWindowFocus: true,
@@ -143,19 +145,14 @@ export function useSubscription() {
 
   // Resolve current package: by package id stored in product_id, then plan_code, fallback to lowest sort_order.
   const currentPackage: SubscriptionPackage | null = (() => {
-    if (isActive && subscription) {
-      // product_id is stored as text, so compare as text/string
-      const productIdStr = subscription.product_id?.toString() ?? "";
-      const byId = packages.find((p) => p.id.toString() === productIdStr || p.id === subscription.product_id);
-      if (byId) return byId;
-      const byPlan = packages.find(
-        (p) =>
-          p.paystack_plan_code_monthly === subscription.plan_code ||
-          p.paystack_plan_code_yearly === subscription.plan_code,
-      );
-      if (byPlan) return byPlan;
-    }
-    return packages[0] ?? null;
+    const matched = resolveSubscriptionPlan(subscription ?? undefined, packages as any[], {
+      selected_package_id: business?.selected_package_id ?? null,
+    }) as SubscriptionPackage | null;
+
+    if (matched) return matched;
+    return (packages.find((p) => p.name?.toLowerCase() === "free") ??
+      packages[0] ??
+      null) as SubscriptionPackage | null;
   })();
 
   const enabledFeatureKeys = new Set(

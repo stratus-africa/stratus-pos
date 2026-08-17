@@ -11,12 +11,32 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Check, ChevronRight, Loader2, Settings2, Users, Mail, Package, UserPlus, Key, Pencil, XCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  ChevronRight,
+  Loader2,
+  Settings2,
+  Users,
+  Mail,
+  Package,
+  UserPlus,
+  Key,
+  Pencil,
+  XCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { resolvePreferredSubscription, resolveSubscriptionPlan } from "@/lib/subscriptionPlan";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import ManageUserDialog, { SetPasswordDialog, AppRole } from "@/components/users/ManageUserDialog";
 
@@ -59,7 +79,7 @@ interface SubRow {
 }
 
 const STATUS_META: Record<Status, { label: string; className: string }> = {
-  active:    { label: "Active",    className: "bg-emerald-500/10 text-emerald-700 border-emerald-200" },
+  active: { label: "Active", className: "bg-emerald-500/10 text-emerald-700 border-emerald-200" },
   suspended: { label: "Suspended", className: "bg-amber-500/10 text-amber-700 border-amber-200" },
   cancelled: { label: "Cancelled", className: "bg-destructive/10 text-destructive border-destructive/20" },
 };
@@ -114,7 +134,11 @@ export default function SuperAdminBusinessEdit() {
     const [{ data: roles }, { data: locs }, { data: planRows }] = await Promise.all([
       supabase.from("user_roles").select("user_id, role").eq("business_id", id),
       supabase.from("locations").select("id, name").eq("business_id", id).eq("is_active", true).order("name"),
-      supabase.from("subscription_packages").select("id, name, monthly_price_kes").eq("is_active", true).order("sort_order"),
+      supabase
+        .from("subscription_packages")
+        .select("id, name, monthly_price_kes")
+        .eq("is_active", true)
+        .order("sort_order"),
     ]);
     setLocations((locs || []) as any);
     setPlans((planRows || []) as Plan[]);
@@ -124,15 +148,16 @@ export default function SuperAdminBusinessEdit() {
     if (ownerId) {
       const { data: subs } = await supabase
         .from("subscriptions")
-        .select("id, status, product_id, current_period_end, user_id")
+        .select("id, status, product_id, plan_code, current_period_end, user_id, environment, created_at")
         .eq("user_id", ownerId)
         .eq("environment", "live")
-        .order("created_at", { ascending: false })
-        .limit(1);
-      const s = (subs?.[0] as SubRow) || null;
+        .order("created_at", { ascending: false });
+      const s = (resolvePreferredSubscription((subs || []) as any[]) as SubRow | null) || null;
       setSub(s);
-      const matched = s ? (planRows || []).find((p: any) => p.id === s.product_id) : null;
-      setSelectedPlanId(matched?.id || (planRows?.[0] as any)?.id || "");
+      const matched = s
+        ? resolveSubscriptionPlan(s as any, planRows || [], b)
+        : resolveSubscriptionPlan(null, planRows || [], b);
+      setSelectedPlanId(matched?.id || "");
       setPeriodEnd(s?.current_period_end ? new Date(s.current_period_end).toISOString().slice(0, 10) : "");
     } else {
       setSub(null);
@@ -167,24 +192,43 @@ export default function SuperAdminBusinessEdit() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchAll(); /* eslint-disable-next-line */ }, [id]);
+  useEffect(() => {
+    fetchAll(); /* eslint-disable-next-line */
+  }, [id]);
 
   const handleSave = async () => {
     if (!biz) return;
-    if (!name.trim()) { toast.error("Name is required"); return; }
+    if (!name.trim()) {
+      toast.error("Name is required");
+      return;
+    }
     setSaving(true);
     const { error } = await supabase
       .from("businesses")
       .update({
-        name: name.trim(), currency,
+        name: name.trim(),
+        currency,
         tax_rate: parseFloat(taxRate) || 0,
-        timezone, status, is_active: status === "active",
+        timezone,
+        status,
+        is_active: status === "active",
       } as any)
       .eq("id", biz.id);
     setSaving(false);
-    if (error) { toast.error("Failed to save: " + error.message); return; }
+    if (error) {
+      toast.error("Failed to save: " + error.message);
+      return;
+    }
     toast.success("Tenant updated");
-    setBiz({ ...biz, name: name.trim(), currency, tax_rate: parseFloat(taxRate), timezone, status, is_active: status === "active" });
+    setBiz({
+      ...biz,
+      name: name.trim(),
+      currency,
+      tax_rate: parseFloat(taxRate),
+      timezone,
+      status,
+      is_active: status === "active",
+    });
   };
 
   const changeRole = async (u: TenantUser, nextRole: AppRole) => {
@@ -198,15 +242,24 @@ export default function SuperAdminBusinessEdit() {
     } catch (e) {
       error = e as Error;
     }
-    if (error || data?.error) { toast.error(data?.error || error?.message); return; }
-    setUsers((prev) => prev.map((x) => x.user_id === u.user_id ? { ...x, role: nextRole } : x));
+    if (error || data?.error) {
+      toast.error(data?.error || error?.message);
+      return;
+    }
+    setUsers((prev) => prev.map((x) => (x.user_id === u.user_id ? { ...x, role: nextRole } : x)));
     toast.success("Role updated");
   };
 
   const toggleActive = async (u: TenantUser, next: boolean) => {
-    const { error } = await supabase.from("profiles").update({ is_active: next } as any).eq("id", u.user_id);
-    if (error) { toast.error(error.message); return; }
-    setUsers((prev) => prev.map((x) => x.user_id === u.user_id ? { ...x, is_active: next } : x));
+    const { error } = await supabase
+      .from("profiles")
+      .update({ is_active: next } as any)
+      .eq("id", u.user_id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setUsers((prev) => prev.map((x) => (x.user_id === u.user_id ? { ...x, is_active: next } : x)));
     toast.success(next ? "User activated" : "User deactivated");
   };
 
@@ -215,7 +268,10 @@ export default function SuperAdminBusinessEdit() {
     const plan = plans.find((p) => p.id === selectedPlanId);
     if (!plan) return;
     const ownerId = biz.owner_id || users.find((u) => u.role === "admin")?.user_id;
-    if (!ownerId) { toast.error("No tenant admin/owner found to attach plan to"); return; }
+    if (!ownerId) {
+      toast.error("No tenant admin/owner found to attach plan to");
+      return;
+    }
     setPlanSaving(true);
 
     // Store the PACKAGE ID in product_id so useSubscription resolves features via packages.id
@@ -223,7 +279,8 @@ export default function SuperAdminBusinessEdit() {
     const periodEndIso = periodEnd ? new Date(periodEnd + "T23:59:59Z").toISOString() : null;
 
     if (sub) {
-      const { error } = await supabase.from("subscriptions")
+      const { error } = await supabase
+        .from("subscriptions")
         .update({
           product_id: plan.id,
           status: "active",
@@ -231,18 +288,29 @@ export default function SuperAdminBusinessEdit() {
           ...(periodEndIso ? { current_period_end: periodEndIso } : {}),
         } as any)
         .eq("id", sub.id);
-      if (error) { toast.error(error.message); setPlanSaving(false); return; }
+      if (error) {
+        toast.error(error.message);
+        setPlanSaving(false);
+        return;
+      }
     } else {
-      const { error } = await supabase.from("subscriptions").upsert({
-        user_id: ownerId,
-        product_id: plan.id,
-        status: "active",
-        environment: "live",
-        cancel_at_period_end: false,
-        current_period_start: new Date().toISOString(),
-        current_period_end: periodEndIso,
-      } as any, { onConflict: "user_id,environment" });
-      if (error) { toast.error(error.message); setPlanSaving(false); return; }
+      const { error } = await supabase.from("subscriptions").upsert(
+        {
+          user_id: ownerId,
+          product_id: plan.id,
+          status: "active",
+          environment: "live",
+          cancel_at_period_end: false,
+          current_period_start: new Date().toISOString(),
+          current_period_end: periodEndIso,
+        } as any,
+        { onConflict: "user_id,environment" },
+      );
+      if (error) {
+        toast.error(error.message);
+        setPlanSaving(false);
+        return;
+      }
     }
     toast.success("Plan updated — features activated for tenant");
     await fetchAll();
@@ -252,12 +320,16 @@ export default function SuperAdminBusinessEdit() {
   const cancelSubscription = async () => {
     if (!sub) return;
     setCancelling(true);
-    const { error } = await supabase.from("subscriptions")
+    const { error } = await supabase
+      .from("subscriptions")
       .update({ status: "canceled", cancel_at_period_end: true } as any)
       .eq("id", sub.id);
     setCancelling(false);
     setConfirmCancel(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     toast.success("Subscription cancelled");
     await fetchAll();
   };
@@ -275,9 +347,13 @@ export default function SuperAdminBusinessEdit() {
   return (
     <div className="space-y-6">
       <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
-        <Link to="/super-admin/businesses" className="hover:text-foreground">Tenants</Link>
+        <Link to="/super-admin/businesses" className="hover:text-foreground">
+          Tenants
+        </Link>
         <ChevronRight className="h-3.5 w-3.5" />
-        <Link to={`/super-admin/businesses/${biz.id}`} className="hover:text-foreground">{biz.name}</Link>
+        <Link to={`/super-admin/businesses/${biz.id}`} className="hover:text-foreground">
+          {biz.name}
+        </Link>
         <ChevronRight className="h-3.5 w-3.5" />
         <span className="text-foreground font-medium">Edit</span>
       </nav>
@@ -300,13 +376,21 @@ export default function SuperAdminBusinessEdit() {
           <CardContent className="space-y-5">
             <div>
               <Label className="text-xs uppercase tracking-wide text-muted-foreground">Current status</Label>
-              <div className="mt-1.5"><Badge variant="outline" className={meta.className}>● {meta.label}</Badge></div>
+              <div className="mt-1.5">
+                <Badge variant="outline" className={meta.className}>
+                  ● {meta.label}
+                </Badge>
+              </div>
             </div>
 
             <div className="space-y-2">
-              <Label>Change status to <span className="text-destructive">*</span></Label>
+              <Label>
+                Change status to <span className="text-destructive">*</span>
+              </Label>
               <Select value={status} onValueChange={(v) => setStatus(v as Status)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="suspended">Suspended</SelectItem>
@@ -341,7 +425,9 @@ export default function SuperAdminBusinessEdit() {
                 {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
                 Save Changes
               </Button>
-              <Button variant="outline" onClick={() => navigate(`/super-admin/businesses/${biz.id}`)}>Cancel</Button>
+              <Button variant="outline" onClick={() => navigate(`/super-admin/businesses/${biz.id}`)}>
+                Cancel
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -358,16 +444,24 @@ export default function SuperAdminBusinessEdit() {
               <span className="text-muted-foreground">Current: </span>
               <span className="font-medium">
                 {(() => {
-                  const cur = plans.find((p) => sub && p.id === sub.product_id);
-                  return cur ? `${cur.name} — KES ${Number(cur.monthly_price_kes || 0).toFixed(0)}/mo` : "No active plan";
+                  const cur = resolveSubscriptionPlan(sub as any, plans, biz as any);
+                  return cur
+                    ? `${cur.name} — KES ${Number(cur.monthly_price_kes || 0).toFixed(0)}/mo`
+                    : "No active plan";
                 })()}
               </span>
-              {sub?.status && <Badge variant="outline" className="ml-2 capitalize">{sub.status}</Badge>}
+              {sub?.status && (
+                <Badge variant="outline" className="ml-2 capitalize">
+                  {sub.status}
+                </Badge>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Change plan</Label>
               <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
-                <SelectTrigger><SelectValue placeholder="Select a plan" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a plan" />
+                </SelectTrigger>
                 <SelectContent>
                   {plans.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
@@ -379,11 +473,7 @@ export default function SuperAdminBusinessEdit() {
             </div>
             <div className="space-y-1.5">
               <Label>Subscription end date</Label>
-              <Input
-                type="date"
-                value={periodEnd}
-                onChange={(e) => setPeriodEnd(e.target.value)}
-              />
+              <Input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} />
               <p className="text-xs text-muted-foreground">
                 Controls when the tenant's plan expires. Leave blank for no expiry.
               </p>
@@ -394,8 +484,12 @@ export default function SuperAdminBusinessEdit() {
                 Update Plan
               </Button>
               {sub && sub.status !== "canceled" && (
-                <Button variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10"
-                  onClick={() => setConfirmCancel(true)} disabled={cancelling}>
+                <Button
+                  variant="outline"
+                  className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                  onClick={() => setConfirmCancel(true)}
+                  disabled={cancelling}
+                >
                   <XCircle className="h-4 w-4 mr-2" /> Cancel Subscription
                 </Button>
               )}
@@ -412,7 +506,9 @@ export default function SuperAdminBusinessEdit() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
             <Users className="h-4 w-4" /> Users
-            <Badge variant="outline" className="ml-1 text-[10px]">{users.length}</Badge>
+            <Badge variant="outline" className="ml-1 text-[10px]">
+              {users.length}
+            </Badge>
           </CardTitle>
           <Button size="sm" onClick={() => setCreateOpen(true)}>
             <UserPlus className="h-4 w-4 mr-1" /> Add User
@@ -441,14 +537,22 @@ export default function SuperAdminBusinessEdit() {
                         <div className="font-medium">{u.full_name || "Unnamed"}</div>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Mail className="h-3 w-3" /> {u.email || "—"}
-                          {u.created_at && <span className="ml-2">· Joined {format(new Date(u.created_at), "MMM d, yyyy")}</span>}
+                          {u.created_at && (
+                            <span className="ml-2">· Joined {format(new Date(u.created_at), "MMM d, yyyy")}</span>
+                          )}
                         </div>
                       </td>
                       <td className="py-2 px-2">
                         <Select value={u.role} onValueChange={(v) => changeRole(u, v as AppRole)}>
-                          <SelectTrigger className="h-8 w-[150px]"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-8 w-[150px]">
+                            <SelectValue />
+                          </SelectTrigger>
                           <SelectContent>
-                            {ROLES.map((r) => (<SelectItem key={r} value={r} className="capitalize">{r.replace("_", " ")}</SelectItem>))}
+                            {ROLES.map((r) => (
+                              <SelectItem key={r} value={r} className="capitalize">
+                                {r.replace("_", " ")}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </td>
@@ -459,8 +563,12 @@ export default function SuperAdminBusinessEdit() {
                         </div>
                       </td>
                       <td className="py-2 px-2 text-right">
-                        <Button variant="ghost" size="sm" onClick={() => setEditing(u)}><Pencil className="h-3.5 w-3.5 mr-1" /> Edit</Button>
-                        <Button variant="ghost" size="sm" onClick={() => setPwUser(u)}><Key className="h-3.5 w-3.5 mr-1" /> Password</Button>
+                        <Button variant="ghost" size="sm" onClick={() => setEditing(u)}>
+                          <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setPwUser(u)}>
+                          <Key className="h-3.5 w-3.5 mr-1" /> Password
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -491,15 +599,19 @@ export default function SuperAdminBusinessEdit() {
         mode="edit"
         businessId={biz.id}
         locations={locations}
-        initial={editing ? {
-          user_id: editing.user_id,
-          email: editing.email || "",
-          full_name: editing.full_name || "",
-          phone: editing.phone || "",
-          role: editing.role,
-          is_active: editing.is_active,
-          assigned_location_id: editing.assigned_location_id,
-        } : undefined}
+        initial={
+          editing
+            ? {
+                user_id: editing.user_id,
+                email: editing.email || "",
+                full_name: editing.full_name || "",
+                phone: editing.phone || "",
+                role: editing.role,
+                is_active: editing.is_active,
+                assigned_location_id: editing.assigned_location_id,
+              }
+            : undefined
+        }
         onSaved={fetchAll}
       />
       {pwUser && (
@@ -517,17 +629,27 @@ export default function SuperAdminBusinessEdit() {
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel this subscription?</AlertDialogTitle>
             <AlertDialogDescription>
-              The tenant's subscription will be marked cancelled immediately. You will still need to stop billing in the payment provider if applicable.
+              The tenant's subscription will be marked cancelled immediately. You will still need to stop billing in the
+              payment provider if applicable.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={cancelling}>Keep subscription</AlertDialogCancel>
             <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); cancelSubscription(); }}
+              onClick={(e) => {
+                e.preventDefault();
+                cancelSubscription();
+              }}
               disabled={cancelling}
               className="bg-destructive hover:bg-destructive/90"
             >
-              {cancelling ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Cancelling…</> : "Yes, cancel"}
+              {cancelling ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Cancelling…
+                </>
+              ) : (
+                "Yes, cancel"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
