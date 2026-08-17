@@ -14,6 +14,19 @@ export interface BackupRestoreResult {
   tablesRestored: number;
 }
 
+export interface BackupTablePreview {
+  table: string;
+  rowCount: number;
+}
+
+export interface BackupRestorePreview {
+  payload: BackupPayload;
+  targetBusinessId: string;
+  tableSummaries: BackupTablePreview[];
+  totalRows: number;
+  tablesWithRows: number;
+}
+
 export function buildBackupPayload(businessId: string, tables: BackupTableMap): BackupPayload {
   return {
     schema: "stratus-backup",
@@ -117,6 +130,32 @@ function normalizeRowsForRestore(
 
     return [normalized];
   });
+}
+
+export function buildBackupRestorePreview(
+  payload: BackupPayload | unknown,
+  targetBusinessId?: string,
+): BackupRestorePreview {
+  const validation = validateBackupPayload(payload);
+  if (!validation.valid) {
+    throw new Error(validation.error);
+  }
+
+  const safeTargetBusinessId = targetBusinessId?.trim() || validation.payload.businessId;
+  const tableSummaries = Object.entries(validation.payload.tables).map(([table, rows]) => ({
+    table,
+    rowCount: Array.isArray(rows) ? rows.length : 0,
+  }));
+
+  const totalRows = tableSummaries.reduce((sum, { rowCount }) => sum + rowCount, 0);
+
+  return {
+    payload: validation.payload,
+    targetBusinessId: safeTargetBusinessId,
+    tableSummaries: tableSummaries.sort((a, b) => b.rowCount - a.rowCount),
+    totalRows,
+    tablesWithRows: tableSummaries.filter(({ rowCount }) => rowCount > 0).length,
+  };
 }
 
 export async function restoreBackupPayload(
