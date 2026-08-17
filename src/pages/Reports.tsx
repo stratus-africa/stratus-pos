@@ -34,7 +34,6 @@ import DailySalesReportTab from "@/components/reports/DailySalesReportTab";
 import ZReportTab from "@/components/reports/ZReportTab";
 import StockAgingReportTab from "@/components/reports/StockAgingReportTab";
 import StockLedgerTab from "@/components/inventory/StockLedgerTab";
-import MpesaReconciliationReportTab from "@/components/reports/MpesaReconciliationReportTab";
 import { DateRangeFilter } from "@/components/reports/DateRangeFilter";
 import { useFeatureLimit, RequireFeature } from "@/components/FeatureGate";
 import { useAccountingSettings, financialYearLabel } from "@/hooks/useAccountingSettings";
@@ -55,7 +54,6 @@ const Reports = () => {
   const canPnL = hasPermission("report.pnl") && hasFeatureKey("accounting");
   const canAudit = hasPermission("report.audit");
   const canMovement = hasPermission("report.stock_movement");
-  const canMpesa = hasPermission("report.sales") || hasPermission("report.audit");
   // EOD & Z report ride on sales report permission
   const canEOD = canSales;
   const canZ = canSales;
@@ -405,18 +403,15 @@ const Reports = () => {
           )}
           {canMovement && (
             <TabsContent value="movement" className="mt-0">
-              <div className="space-y-4">
-                <StockLedgerTab
-                  locationId={currentLocation?.id}
-                  from={from}
-                  to={to}
-                  onDateChange={({ from: f, to: t }) => {
-                    setFrom(f);
-                    setTo(t);
-                  }}
-                />
-                {canMpesa && <MpesaReconciliationReportTab from={from} to={to} onRegisterExport={registerExport} />}
-              </div>
+              <StockLedgerTab
+                locationId={currentLocation?.id}
+                from={from}
+                to={to}
+                onDateChange={({ from: f, to: t }) => {
+                  setFrom(f);
+                  setTo(t);
+                }}
+              />
             </TabsContent>
           )}
           {canPnL && (

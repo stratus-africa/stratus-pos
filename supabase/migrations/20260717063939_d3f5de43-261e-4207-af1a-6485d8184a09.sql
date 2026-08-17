@@ -151,11 +151,6 @@ BEGIN
   INSERT INTO public.tenant_approval_events (business_id, actor_id, event_type, notes)
     VALUES (_business_id, auth.uid(), 'approved', _notes);
 
-  -- Create admin role for the owner if it doesn't exist
-  INSERT INTO public.user_roles (user_id, business_id, role)
-    VALUES (_owner, _business_id, 'admin')
-    ON CONFLICT (user_id, business_id) DO NOTHING;
-
   IF _pkg IS NOT NULL THEN
     _end := now() + interval '30 days';
     IF EXISTS (SELECT 1 FROM public.subscriptions WHERE user_id = _owner AND environment = 'live') THEN

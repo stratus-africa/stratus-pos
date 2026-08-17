@@ -26,10 +26,6 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
   };
 }
 
-function isPlaceholderSupabaseSecret(value?: string) {
-  return !value || value.trim() === "" || /your_(service_role|publishable|secret)_key|example|replace_me/i.test(value);
-}
-
 export const requireSupabaseAuth = createMiddleware({ type: "function" }).server(async ({ next }) => {
   // Lovable Cloud exposes browser-safe Supabase settings with the Vite
   // prefix. Server functions still prefer the unprefixed values, but using
@@ -39,17 +35,10 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
   const SUPABASE_PUBLISHABLE_KEY =
     process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_KEY;
 
-  if (
-    !SUPABASE_URL ||
-    isPlaceholderSupabaseSecret(SUPABASE_URL) ||
-    !SUPABASE_PUBLISHABLE_KEY ||
-    isPlaceholderSupabaseSecret(SUPABASE_PUBLISHABLE_KEY)
-  ) {
+  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     const missing = [
-      ...(!SUPABASE_URL || isPlaceholderSupabaseSecret(SUPABASE_URL) ? ["SUPABASE_URL"] : []),
-      ...(!SUPABASE_PUBLISHABLE_KEY || isPlaceholderSupabaseSecret(SUPABASE_PUBLISHABLE_KEY)
-        ? ["SUPABASE_PUBLISHABLE_KEY"]
-        : []),
+      ...(!SUPABASE_URL ? ["SUPABASE_URL"] : []),
+      ...(!SUPABASE_PUBLISHABLE_KEY ? ["SUPABASE_PUBLISHABLE_KEY"] : []),
     ];
     const message = `Missing Supabase environment variable(s): ${missing.join(", ")}. Connect Supabase in Lovable Cloud.`;
     console.error(`[Supabase] ${message}`);
