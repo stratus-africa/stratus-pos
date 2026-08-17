@@ -6,7 +6,6 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { getPaystackEnvironment } from "@/lib/paystack";
 import { moduleKeys } from "@/lib/modules";
 
-
 export type SubscriptionTier = "free" | "basic" | "pro";
 
 interface Subscription {
@@ -119,22 +118,14 @@ export function useSubscription() {
           queryClient.invalidateQueries({ queryKey: ["subscription_packages_with_features"] });
           // Refresh business context so posting guard / expiry banner also update.
           refreshBusiness();
-        }
+        },
       )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "package_features" },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["subscription_packages_with_features"] });
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "subscription_packages" },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["subscription_packages_with_features"] });
-        }
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "package_features" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["subscription_packages_with_features"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "subscription_packages" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["subscription_packages_with_features"] });
+      })
       .subscribe();
 
     return () => {
@@ -158,7 +149,7 @@ export function useSubscription() {
       const byPlan = packages.find(
         (p) =>
           p.paystack_plan_code_monthly === subscription.plan_code ||
-          p.paystack_plan_code_yearly === subscription.plan_code
+          p.paystack_plan_code_yearly === subscription.plan_code,
       );
       if (byPlan) return byPlan;
     }
@@ -166,7 +157,7 @@ export function useSubscription() {
   })();
 
   const enabledFeatureKeys = new Set(
-    features.filter((f) => f.package_id === currentPackage?.id && f.enabled).map((f) => f.feature_key)
+    features.filter((f) => f.package_id === currentPackage?.id && f.enabled).map((f) => f.feature_key),
   );
 
   // Packages may store legacy/alternate keys for the same module (naming drift).
@@ -175,8 +166,6 @@ export function useSubscription() {
     if (!currentPackage) return false;
     return moduleKeys(key).some((k) => enabledFeatureKeys.has(k));
   };
-
-
 
   const tier: SubscriptionTier = isActive ? "pro" : "free";
   const hasFeature = (_requiredTier: SubscriptionTier): boolean => isActive;
@@ -188,6 +177,7 @@ export function useSubscription() {
     tier,
     hasFeature,
     hasFeatureKey,
+    enabledFeatureKeys,
     currentPackage,
     maxProducts: currentPackage?.max_products ?? 0,
     maxLocations: currentPackage?.max_locations ?? 1,
