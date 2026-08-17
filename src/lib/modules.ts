@@ -542,6 +542,38 @@ export function getVisibleModules(moduleKeysList: Array<string>, input: ModuleAc
   return moduleKeysList.filter((key) => resolveModuleAccess(key, input).allowed);
 }
 
+export function getModuleRouteAccess(moduleKey: string, route?: string, input: ModuleAccessInput = {}) {
+  const module = findModule(moduleKey) ?? findModule(moduleKey.toLowerCase());
+  const baseAccess = resolveModuleAccess(moduleKey, input);
+
+  if (!module) {
+    return { ...baseAccess, route: route ?? null, sectionKey: null };
+  }
+
+  const normalizedRoute = (route ?? module.route ?? "").split("?")[0].split("#")[0].trim();
+
+  const navMatch = module.navigation.find((item) => {
+    const candidate = item.route.split("?")[0].split("#")[0].trim();
+    return candidate === normalizedRoute || normalizedRoute.startsWith(`${candidate}/`);
+  });
+
+  const routeMatches =
+    !normalizedRoute ||
+    normalizedRoute === module.route ||
+    (navMatch && navMatch.route === normalizedRoute) ||
+    module.navigation.some((item) => {
+      const candidate = item.route.split("?")[0].split("#")[0].trim();
+      return candidate === normalizedRoute || normalizedRoute.startsWith(`${candidate}/`);
+    });
+
+  return {
+    ...baseAccess,
+    allowed: baseAccess.allowed && routeMatches,
+    route: normalizedRoute || module.route || null,
+    sectionKey: navMatch?.key ?? (normalizedRoute === module.route ? "overview" : null),
+  };
+}
+
 export const APP_MODULES_BY_KEY = Object.fromEntries(MODULE_REGISTRY.map((module) => [module.key, module]));
 export const APP_MODULES_BY_ROUTE = Object.fromEntries(
   MODULE_REGISTRY.filter((module) => module.route).map((module) => [module.route, module]),
