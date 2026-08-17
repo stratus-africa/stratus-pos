@@ -21,6 +21,31 @@ export function buildBackupPayload(
   };
 }
 
+export function downloadBackupFile(payload: BackupPayload, customFilename?: string): void {
+  if (typeof document === "undefined" || typeof Blob === "undefined") {
+    throw new Error("Backup downloads require a browser environment.");
+  }
+
+  const urlApi = typeof URL !== "undefined" ? URL : null;
+  if (!urlApi || typeof urlApi.createObjectURL !== "function" || typeof urlApi.revokeObjectURL !== "function") {
+    throw new Error("Backup downloads require browser URL support.");
+  }
+
+  const safeFilename = customFilename ?? `backup-${payload.businessId}-${new Date(payload.exportedAt).toISOString().slice(0, 19).replace(/[:T]/g, "-")}.json`;
+  const json = JSON.stringify(payload, null, 2);
+  const blob = new Blob([json], { type: "application/json;charset=utf-8" });
+  const url = urlApi.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = safeFilename;
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  urlApi.revokeObjectURL(url);
+}
+
 export function validateBackupPayload(payload: unknown):
   | { valid: true; payload: BackupPayload }
   | { valid: false; error: string } {
