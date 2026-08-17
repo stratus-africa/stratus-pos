@@ -144,7 +144,9 @@ export function useSubscription() {
   // Resolve current package: by package id stored in product_id, then plan_code, fallback to lowest sort_order.
   const currentPackage: SubscriptionPackage | null = (() => {
     if (isActive && subscription) {
-      const byId = packages.find((p) => p.id === subscription.product_id);
+      // product_id is stored as text, so compare as text/string
+      const productIdStr = subscription.product_id?.toString() ?? "";
+      const byId = packages.find((p) => p.id.toString() === productIdStr || p.id === subscription.product_id);
       if (byId) return byId;
       const byPlan = packages.find(
         (p) =>

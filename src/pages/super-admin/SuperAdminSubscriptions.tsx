@@ -7,13 +7,30 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import {
-  RefreshCw, CheckCircle2, Hourglass, Clock, PauseCircle, XCircle, Search,
-  Eye, Ban, Loader2, Banknote, Check, X,
+  RefreshCw,
+  CheckCircle2,
+  Hourglass,
+  Clock,
+  PauseCircle,
+  XCircle,
+  Search,
+  Eye,
+  Ban,
+  Loader2,
+  Banknote,
+  Check,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
@@ -46,11 +63,11 @@ const STATUS_TONES: Record<string, string> = {
 };
 
 const STAT_TILES = [
-  { key: "active",    label: "Active",    icon: CheckCircle2, bg: "bg-emerald-500", iconBg: "bg-emerald-500" },
-  { key: "trialing",  label: "Trial",     icon: Hourglass,    bg: "bg-blue-500",    iconBg: "bg-blue-500" },
-  { key: "pending",   label: "Pending",   icon: Clock,        bg: "bg-amber-500",   iconBg: "bg-amber-500" },
-  { key: "suspended", label: "Suspended", icon: PauseCircle,  bg: "bg-orange-500",  iconBg: "bg-orange-500" },
-  { key: "canceled",  label: "Cancelled", icon: XCircle,      bg: "bg-red-500",     iconBg: "bg-red-500" },
+  { key: "active", label: "Active", icon: CheckCircle2, bg: "bg-emerald-500", iconBg: "bg-emerald-500" },
+  { key: "trialing", label: "Trial", icon: Hourglass, bg: "bg-blue-500", iconBg: "bg-blue-500" },
+  { key: "pending", label: "Pending", icon: Clock, bg: "bg-amber-500", iconBg: "bg-amber-500" },
+  { key: "suspended", label: "Suspended", icon: PauseCircle, bg: "bg-orange-500", iconBg: "bg-orange-500" },
+  { key: "canceled", label: "Cancelled", icon: XCircle, bg: "bg-red-500", iconBg: "bg-red-500" },
 ] as const;
 
 export default function SuperAdminSubscriptions() {
@@ -69,7 +86,10 @@ export default function SuperAdminSubscriptions() {
   const fetchAll = async () => {
     const [subsRes, plansRes] = await Promise.all([
       supabase.from("subscriptions").select("*").order("created_at", { ascending: false }),
-      supabase.from("subscription_packages").select("id, name, monthly_price_kes, yearly_price_kes"),
+      supabase
+        .from("subscription_packages")
+        .select("id, name, monthly_price_kes, yearly_price_kes, is_active, is_public")
+        .order("sort_order", { ascending: true }),
     ]);
 
     const subs = (subsRes.data || []) as any[];
@@ -91,17 +111,16 @@ export default function SuperAdminSubscriptions() {
       const roleRows = (rolesRes.data || []) as any[];
 
       // Collect all business ids referenced by profile.business_id, owner, or admin role
-      const allBizIds = Array.from(new Set([
-        ...profiles.map((p) => p.business_id).filter(Boolean),
-        ...ownedBiz.map((b) => b.id),
-        ...roleRows.map((r) => r.business_id).filter(Boolean),
-      ]));
+      const allBizIds = Array.from(
+        new Set([
+          ...profiles.map((p) => p.business_id).filter(Boolean),
+          ...ownedBiz.map((b) => b.id),
+          ...roleRows.map((r) => r.business_id).filter(Boolean),
+        ]),
+      );
 
       if (allBizIds.length) {
-        const { data: bizRows } = await supabase
-          .from("businesses")
-          .select("id, name, owner_id")
-          .in("id", allBizIds);
+        const { data: bizRows } = await supabase.from("businesses").select("id, name, owner_id").in("id", allBizIds);
         (bizRows || []).forEach((b: any) => bizById.set(b.id, b));
       }
       ownedBiz.forEach((b: any) => bizById.set(b.id, b));
@@ -124,7 +143,11 @@ export default function SuperAdminSubscriptions() {
     const enriched: SubRow[] = subs.map((s) => {
       const prof = profiles.find((p) => p.id === s.user_id);
       const biz = bizByUser.get(s.user_id);
-      const plan = plans.find((p) => p.id === s.product_id) || plans[0];
+      // product_id is stored as text UUID, need to compare as text
+      const plan =
+        plans.find((p) => p.id.toString() === s.product_id || p.id === s.product_id) ||
+        plans.find((p) => p.is_active && p.is_public) ||
+        plans[0];
       return {
         id: s.id,
         user_id: s.user_id,
@@ -171,8 +194,10 @@ export default function SuperAdminSubscriptions() {
     setOfflineReqs(reqs);
   };
 
-  useEffect(() => { fetchAll(); fetchOffline(); }, []);
-
+  useEffect(() => {
+    fetchAll();
+    fetchOffline();
+  }, []);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { active: 0, trialing: 0, pending: 0, suspended: 0, canceled: 0 };
@@ -186,7 +211,12 @@ export default function SuperAdminSubscriptions() {
   const filtered = useMemo(() => {
     return rows.filter((r) => {
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
-      if (search && !r.tenantName.toLowerCase().includes(search.toLowerCase()) && !(r.ownerEmail || "").toLowerCase().includes(search.toLowerCase())) return false;
+      if (
+        search &&
+        !r.tenantName.toLowerCase().includes(search.toLowerCase()) &&
+        !(r.ownerEmail || "").toLowerCase().includes(search.toLowerCase())
+      )
+        return false;
       return true;
     });
   }, [rows, statusFilter, search]);
@@ -226,9 +256,7 @@ export default function SuperAdminSubscriptions() {
     }
   };
 
-
-  const canCancel = (r: SubRow) =>
-    r.status !== "canceled" && r.status !== "cancelled";
+  const canCancel = (r: SubRow) => r.status !== "canceled" && r.status !== "cancelled";
 
   const handleCancel = async () => {
     if (!cancelTarget) return;
@@ -254,11 +282,7 @@ export default function SuperAdminSubscriptions() {
         if (dbError) throw dbError;
       }
 
-      setRows((prev) =>
-        prev.map((r) =>
-          r.id === cancelTarget.id ? { ...r, status: "canceled" } : r
-        )
-      );
+      setRows((prev) => prev.map((r) => (r.id === cancelTarget.id ? { ...r, status: "canceled" } : r)));
       toast.success(`Subscription for ${cancelTarget.tenantName} cancelled.`);
       setCancelTarget(null);
     } catch (e: any) {
@@ -298,7 +322,9 @@ export default function SuperAdminSubscriptions() {
             </div>
             <div>
               <p className="text-2xl font-bold leading-none">{counts[tile.key] ?? 0}</p>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mt-1.5">{tile.label}</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mt-1.5">
+                {tile.label}
+              </p>
             </div>
           </div>
         ))}
@@ -327,11 +353,15 @@ export default function SuperAdminSubscriptions() {
               {offlineReqs.map((r) => (
                 <TableRow key={r.id} className="border-border">
                   <TableCell className="text-sm font-medium">{r.tenantName}</TableCell>
-                  <TableCell className="text-sm">{r.planName} · {r.billing_interval}</TableCell>
+                  <TableCell className="text-sm">
+                    {r.planName} · {r.billing_interval}
+                  </TableCell>
                   <TableCell className="text-sm">{r.method === "mpesa" ? "M-Pesa" : "Cash"}</TableCell>
                   <TableCell className="text-sm">KES {Number(r.amount_kes).toLocaleString()}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{r.reference || "—"}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{format(new Date(r.created_at), "MMM d, HH:mm")}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {format(new Date(r.created_at), "MMM d, HH:mm")}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1.5">
                       <Button
@@ -340,7 +370,13 @@ export default function SuperAdminSubscriptions() {
                         onClick={() => handleApproveOffline(r.id)}
                         disabled={reviewingId === r.id}
                       >
-                        {reviewingId === r.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Check className="h-3 w-3 mr-1" /> Approve</>}
+                        {reviewingId === r.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <>
+                            <Check className="h-3 w-3 mr-1" /> Approve
+                          </>
+                        )}
                       </Button>
                       <Button
                         size="sm"
@@ -375,7 +411,9 @@ export default function SuperAdminSubscriptions() {
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40 h-9 text-sm"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-40 h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
@@ -429,7 +467,11 @@ export default function SuperAdminSubscriptions() {
                   <TableCell>
                     <Badge className={tone}>
                       <span className="h-1.5 w-1.5 rounded-full bg-current mr-1.5" />
-                      {r.status === "trialing" ? "Trial" : r.status === "past_due" ? "Pending" : r.status.charAt(0).toUpperCase() + r.status.slice(1)}
+                      {r.status === "trialing"
+                        ? "Trial"
+                        : r.status === "past_due"
+                          ? "Pending"
+                          : r.status.charAt(0).toUpperCase() + r.status.slice(1)}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">—</TableCell>
@@ -481,7 +523,10 @@ export default function SuperAdminSubscriptions() {
               This will cancel the subscription for{" "}
               <span className="font-semibold text-foreground">{cancelTarget?.tenantName}</span>
               {cancelTarget?.current_period_end && (
-                <> at the end of the current period ({format(new Date(cancelTarget.current_period_end), "MMM d, yyyy")})</>
+                <>
+                  {" "}
+                  at the end of the current period ({format(new Date(cancelTarget.current_period_end), "MMM d, yyyy")})
+                </>
               )}
               . The tenant will lose access to paid features once the period ends.
             </AlertDialogDescription>
@@ -489,11 +534,20 @@ export default function SuperAdminSubscriptions() {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={canceling}>Keep subscription</AlertDialogCancel>
             <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); handleCancel(); }}
+              onClick={(e) => {
+                e.preventDefault();
+                handleCancel();
+              }}
               disabled={canceling}
               className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
             >
-              {canceling ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Cancelling…</> : "Yes, cancel"}
+              {canceling ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Cancelling…
+                </>
+              ) : (
+                "Yes, cancel"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
