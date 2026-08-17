@@ -10,7 +10,25 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Warehouse, Plus, Search, AlertTriangle, ClipboardList, ClipboardCheck, Download, ChevronLeft, ChevronRight, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Printer, Upload, Scale } from "lucide-react";
+import {
+  Warehouse,
+  Plus,
+  Search,
+  AlertTriangle,
+  ClipboardList,
+  ClipboardCheck,
+  Download,
+  ChevronLeft,
+  ChevronRight,
+  Pencil,
+  Trash2,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Printer,
+  Upload,
+  Scale,
+} from "lucide-react";
 import { StockCountsTab } from "@/components/inventory/StockCountsTab";
 import { StockReconciliationTab } from "@/components/inventory/StockReconciliationTab";
 
@@ -23,7 +41,7 @@ import { StockAdjustmentDialog, type AdjustStockSubmit } from "@/components/inve
 import { ImportAdjustmentsDialog } from "@/components/inventory/ImportAdjustmentsDialog";
 import { EditAdjustmentDocumentDialog } from "@/components/inventory/EditAdjustmentDocumentDialog";
 import ProductDetailDialog from "@/components/products/ProductDetailDialog";
-
+import { ModuleHeader } from "@/components/modules/ModulePageShell";
 
 const PAGE_SIZE_OPTIONS = [25, 100, 200] as const;
 
@@ -42,7 +60,11 @@ const readStoredSize = (key: string, fallback = 25): number => {
   return (PAGE_SIZE_OPTIONS as readonly number[]).includes(v) ? v : fallback;
 };
 const writeStoredSize = (key: string, v: number) => {
-  try { window.localStorage.setItem(key, String(v)); } catch { /* ignore */ }
+  try {
+    window.localStorage.setItem(key, String(v));
+  } catch {
+    /* ignore */
+  }
 };
 
 const downloadCsv = (filename: string, headers: string[], rows: (string | number)[][]) => {
@@ -54,7 +76,9 @@ const downloadCsv = (filename: string, headers: string[], rows: (string | number
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url; a.download = filename; a.click();
+  a.href = url;
+  a.download = filename;
+  a.click();
   URL.revokeObjectURL(url);
 };
 
@@ -70,8 +94,7 @@ const Inventory = () => {
     const n = Number(searchParams.get(key));
     return Number.isFinite(n) && n > 0 ? n : fallback;
   };
-  const initialStr = <T extends string>(key: string, fallback: T): T =>
-    (searchParams.get(key) as T) || fallback;
+  const initialStr = <T extends string>(key: string, fallback: T): T => (searchParams.get(key) as T) || fallback;
   const initialSize = (key: string, lsKey: string) => {
     const fromUrl = Number(searchParams.get(key));
     if ((PAGE_SIZE_OPTIONS as readonly number[]).includes(fromUrl)) return fromUrl;
@@ -88,9 +111,10 @@ const Inventory = () => {
     if (!id || detailLockRef.current) return;
     detailLockRef.current = true;
     setDetailProductId(id);
-    window.setTimeout(() => { detailLockRef.current = false; }, 400);
+    window.setTimeout(() => {
+      detailLockRef.current = false;
+    }, 400);
   };
-
 
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<AdjustmentDocument | null>(null);
@@ -123,15 +147,30 @@ const Inventory = () => {
     setOrDel("aSort", adjSort, "date_desc");
     setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, search, stockPage, stockPageSize, stockSort,
-      adjPage, adjPageSize, adjSearch, adjSort]);
+  }, [activeTab, search, stockPage, stockPageSize, stockSort, adjPage, adjPageSize, adjSearch, adjSort]);
 
   // Persist page size selections
-  const updateStockSize = (n: number) => { setStockPageSize(n); writeStoredSize(LS_KEYS.stock, n); setStockPage(1); };
-  const updateAdjSize = (n: number) => { setAdjPageSize(n); writeStoredSize(LS_KEYS.adj, n); setAdjPage(1); };
+  const updateStockSize = (n: number) => {
+    setStockPageSize(n);
+    writeStoredSize(LS_KEYS.stock, n);
+    setStockPage(1);
+  };
+  const updateAdjSize = (n: number) => {
+    setAdjPageSize(n);
+    writeStoredSize(LS_KEYS.adj, n);
+    setAdjPage(1);
+  };
 
   const effectiveLocationId = locationFilter === "all" ? undefined : locationFilter;
-  const { inventoryQuery, adjustStock, deleteAdjustment, adjustmentsQuery, adjustmentDocumentsQuery, deleteAdjustmentDocument, updateAdjustmentDocument } = useInventory(effectiveLocationId, {
+  const {
+    inventoryQuery,
+    adjustStock,
+    deleteAdjustment,
+    adjustmentsQuery,
+    adjustmentDocumentsQuery,
+    deleteAdjustmentDocument,
+    updateAdjustmentDocument,
+  } = useInventory(effectiveLocationId, {
     adjustmentsPage: { page: adjPage, pageSize: adjPageSize, sort: adjSort },
   });
 
@@ -154,9 +193,10 @@ const Inventory = () => {
 
   const adjPages = Math.max(1, Math.ceil(adjCount / adjPageSize));
 
-  const filtered = inventory.filter((i) =>
-    i.products?.name?.toLowerCase().includes(search.toLowerCase()) ||
-    i.products?.barcode?.toLowerCase().includes(search.toLowerCase())
+  const filtered = inventory.filter(
+    (i) =>
+      i.products?.name?.toLowerCase().includes(search.toLowerCase()) ||
+      i.products?.barcode?.toLowerCase().includes(search.toLowerCase()),
   );
 
   const sortedStock = [...filtered].sort((a, b) => {
@@ -165,13 +205,20 @@ const Inventory = () => {
     const as = a.products?.barcode || "";
     const bs = b.products?.barcode || "";
     switch (stockSort) {
-      case "name_asc": return an.localeCompare(bn);
-      case "name_desc": return bn.localeCompare(an);
-      case "barcode_asc": return as.localeCompare(bs);
-      case "barcode_desc": return bs.localeCompare(as);
-      case "qty_asc": return a.quantity - b.quantity;
-      case "qty_desc": return b.quantity - a.quantity;
-      default: return 0;
+      case "name_asc":
+        return an.localeCompare(bn);
+      case "name_desc":
+        return bn.localeCompare(an);
+      case "barcode_asc":
+        return as.localeCompare(bs);
+      case "barcode_desc":
+        return bs.localeCompare(as);
+      case "qty_asc":
+        return a.quantity - b.quantity;
+      case "qty_desc":
+        return b.quantity - a.quantity;
+      default:
+        return 0;
     }
   });
 
@@ -225,7 +272,8 @@ const Inventory = () => {
       if (error) throw error;
       const map = new Map<string, string>();
       (data || []).forEach((r: any) => {
-        const pid = r.product_id; const ts = r.sales?.created_at;
+        const pid = r.product_id;
+        const ts = r.sales?.created_at;
         if (pid && ts && !map.has(pid)) map.set(pid, ts);
       });
       return map;
@@ -236,7 +284,8 @@ const Inventory = () => {
   const aging = useMemo(() => {
     const map = lastSalesQuery.data || new Map<string, string>();
     const now = Date.now();
-    let slow = 0, dead = 0;
+    let slow = 0,
+      dead = 0;
     inventory.forEach((i) => {
       if (Number(i.quantity) <= 0) return;
       const ts = map.get(i.product_id);
@@ -281,7 +330,8 @@ const Inventory = () => {
   const formatKES = (amount: number) =>
     new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(amount);
 
-  const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" });
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" });
 
   const totalDelta = (d: AdjustmentDocument) => (d.lines || []).reduce((s, l) => s + Number(l.quantity_change), 0);
 
@@ -289,7 +339,15 @@ const Inventory = () => {
     const flat: (string | number)[][] = [];
     rows.forEach((d) => {
       (d.lines || []).forEach((l) => {
-        flat.push([fmtDate(d.created_at), d.reference || "", l.products?.name || "", d.locations?.name || "", Number(l.quantity_change), d.reason, d.notes || ""]);
+        flat.push([
+          fmtDate(d.created_at),
+          d.reference || "",
+          l.products?.name || "",
+          d.locations?.name || "",
+          Number(l.quantity_change),
+          d.reason,
+          d.notes || "",
+        ]);
       });
     });
     downloadCsv(
@@ -301,16 +359,27 @@ const Inventory = () => {
 
   const selectedDocuments = documentsFiltered.filter((d) => selectedAdjIds.has(d.id));
   const toggleSelectAdj = (id: string) => {
-    setSelectedAdjIds((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setSelectedAdjIds((prev) => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
   };
   const toggleSelectAllAdj = () => {
-    setSelectedAdjIds((prev) => prev.size === documentsFiltered.length && documentsFiltered.length > 0
-      ? new Set()
-      : new Set(documentsFiltered.map((d) => d.id)));
+    setSelectedAdjIds((prev) =>
+      prev.size === documentsFiltered.length && documentsFiltered.length > 0
+        ? new Set()
+        : new Set(documentsFiltered.map((d) => d.id)),
+    );
   };
   const bulkDeleteAdjustments = async () => {
     if (selectedDocuments.length === 0) return;
-    if (!confirm(`Delete ${selectedDocuments.length} adjustment document(s)? Inventory will be reversed for all their lines.`)) return;
+    if (
+      !confirm(
+        `Delete ${selectedDocuments.length} adjustment document(s)? Inventory will be reversed for all their lines.`,
+      )
+    )
+      return;
     for (const d of selectedDocuments) {
       await deleteAdjustmentDocument.mutateAsync(d.id);
     }
@@ -318,8 +387,10 @@ const Inventory = () => {
   };
   const bulkPrintAdjustments = () => {
     if (selectedDocuments.length === 0) return;
-    const rowsHtml = selectedDocuments.flatMap((d) =>
-      (d.lines || []).map((l) => `<tr>
+    const rowsHtml = selectedDocuments
+      .flatMap((d) =>
+        (d.lines || []).map(
+          (l) => `<tr>
         <td>${fmtDate(d.created_at)}</td>
         <td>${d.reference || "—"}</td>
         <td>${l.products?.name || "—"}</td>
@@ -327,8 +398,10 @@ const Inventory = () => {
         <td class="${l.quantity_change > 0 ? "pos" : "neg"}">${l.quantity_change > 0 ? "+" : ""}${l.quantity_change}</td>
         <td>${d.reason}</td>
         <td>${d.notes || ""}</td>
-      </tr>`),
-    ).join("");
+      </tr>`,
+        ),
+      )
+      .join("");
     const html = `<!doctype html><html><head><title>Stock Adjustments</title>
       <style>body{font-family:Arial,sans-serif;padding:24px;color:#111}
       h1{font-size:18px;margin:0 0 12px}
@@ -344,25 +417,33 @@ const Inventory = () => {
       <script>window.onload=()=>{window.print();setTimeout(()=>window.close(),400)}</script>
       </body></html>`;
     const w = window.open("", "_blank", "width=900,height=700");
-    if (w) { w.document.write(html); w.document.close(); }
+    if (w) {
+      w.document.write(html);
+      w.document.close();
+    }
   };
-
-
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Inventory</h1>
-        <Button onClick={() => setAdjDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Adjust Stock
-        </Button>
-      </div>
+      <ModuleHeader
+        moduleKey="inventory"
+        title="Inventory"
+        description="Stock levels, adjustments, and inventory health across your locations."
+        primaryAction={
+          <Button onClick={() => setAdjDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Adjust Stock
+          </Button>
+        }
+        statusBadge={<Badge variant="secondary">Operational</Badge>}
+      />
 
       {lowStockCount > 0 && (
         <Card className="border-destructive/50 bg-destructive/5">
           <CardContent className="flex items-center gap-3 py-3">
             <AlertTriangle className="h-5 w-5 text-destructive" />
-            <span className="text-sm font-medium">{lowStockCount} product{lowStockCount > 1 ? "s" : ""} below low stock threshold</span>
+            <span className="text-sm font-medium">
+              {lowStockCount} product{lowStockCount > 1 ? "s" : ""} below low stock threshold
+            </span>
           </CardContent>
         </Card>
       )}
@@ -383,7 +464,9 @@ const Inventory = () => {
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Expected Profit</p>
-            <p className={`text-xl font-bold mt-1 ${expectedProfit < 0 ? "text-destructive" : "text-green-600"}`}>{fmt(expectedProfit)}</p>
+            <p className={`text-xl font-bold mt-1 ${expectedProfit < 0 ? "text-destructive" : "text-green-600"}`}>
+              {fmt(expectedProfit)}
+            </p>
           </CardContent>
         </Card>
         <Link to="/reports?tab=aging">
@@ -421,7 +504,10 @@ const Inventory = () => {
             <SelectContent>
               {INVENTORY_TABS.map((t) => (
                 <SelectItem key={t.key} value={t.key}>
-                  <span className="flex items-center gap-2">{t.icon}{t.label}</span>
+                  <span className="flex items-center gap-2">
+                    {t.icon}
+                    {t.label}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -430,7 +516,10 @@ const Inventory = () => {
 
         <TabsList className="hidden md:inline-flex">
           {INVENTORY_TABS.map((t) => (
-            <TabsTrigger key={t.key} value={t.key} className="gap-1">{t.icon}{t.label}</TabsTrigger>
+            <TabsTrigger key={t.key} value={t.key} className="gap-1">
+              {t.icon}
+              {t.label}
+            </TabsTrigger>
           ))}
         </TabsList>
 
@@ -442,7 +531,6 @@ const Inventory = () => {
           <StockReconciliationTab />
         </TabsContent>
 
-
         <TabsContent value="stock" className="space-y-4">
           <Card>
             <CardHeader className="pb-3">
@@ -452,13 +540,24 @@ const Inventory = () => {
                   <Input
                     placeholder="Search by product name or barcode..."
                     value={search}
-                    onChange={(e) => { setSearch(e.target.value); setStockPage(1); }}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setStockPage(1);
+                    }}
                     className="pl-9"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-row">
-                  <Select value={stockSort} onValueChange={(v) => { setStockSort(v as StockSort); setStockPage(1); }}>
-                    <SelectTrigger className="w-full sm:w-[180px]"><SelectValue /></SelectTrigger>
+                  <Select
+                    value={stockSort}
+                    onValueChange={(v) => {
+                      setStockSort(v as StockSort);
+                      setStockPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="name_asc">Product (A–Z)</SelectItem>
                       <SelectItem value="name_desc">Product (Z–A)</SelectItem>
@@ -468,12 +567,22 @@ const Inventory = () => {
                       <SelectItem value="qty_asc">Quantity (low → high)</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Select value={locationFilter} onValueChange={(v) => { setLocationFilter(v); setStockPage(1); }}>
-                    <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Location" /></SelectTrigger>
+                  <Select
+                    value={locationFilter}
+                    onValueChange={(v) => {
+                      setLocationFilter(v);
+                      setStockPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Location" />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Locations</SelectItem>
                       {locations.map((l) => (
-                        <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                        <SelectItem key={l.id} value={l.id}>
+                          {l.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -531,19 +640,22 @@ const Inventory = () => {
                             }
                           }}
                         >
-
                           <TableCell className="font-medium">
                             <span className="hover:text-primary hover:underline">{i.products?.name || "—"}</span>
                           </TableCell>
 
                           <TableCell className="text-right font-medium">{i.quantity}</TableCell>
                           <TableCell className="text-right text-muted-foreground">{i.low_stock_threshold}</TableCell>
-                          <TableCell className="text-right">{formatKES(i.quantity * (i.products?.selling_price || 0))}</TableCell>
+                          <TableCell className="text-right">
+                            {formatKES(i.quantity * (i.products?.selling_price || 0))}
+                          </TableCell>
                           <TableCell>
                             {isOut ? (
                               <Badge variant="destructive">Out of Stock</Badge>
                             ) : isLow ? (
-                              <Badge variant="secondary" className="bg-accent text-accent-foreground">Low Stock</Badge>
+                              <Badge variant="secondary" className="bg-accent text-accent-foreground">
+                                Low Stock
+                              </Badge>
                             ) : (
                               <Badge variant="default">In Stock</Badge>
                             )}
@@ -558,18 +670,38 @@ const Inventory = () => {
                 <div className="flex items-center gap-2">
                   <span>Rows per page</span>
                   <Select value={String(stockPageSize)} onValueChange={(v) => updateStockSize(Number(v))}>
-                    <SelectTrigger className="h-8 w-[80px]"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 w-[80px]">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                      {PAGE_SIZE_OPTIONS.map((n) => (
+                        <SelectItem key={n} value={String(n)}>
+                          {n}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <span>{stockCount === 0 ? "0 records" : `Page ${stockPageSafe} of ${stockPages} • ${stockCount} record${stockCount === 1 ? "" : "s"}`}</span>
+                <span>
+                  {stockCount === 0
+                    ? "0 records"
+                    : `Page ${stockPageSafe} of ${stockPages} • ${stockCount} record${stockCount === 1 ? "" : "s"}`}
+                </span>
                 <div className="flex gap-1">
-                  <Button variant="outline" size="sm" onClick={() => setStockPage((p) => Math.max(1, p - 1))} disabled={stockPageSafe <= 1}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setStockPage((p) => Math.max(1, p - 1))}
+                    disabled={stockPageSafe <= 1}
+                  >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => setStockPage((p) => Math.min(stockPages, p + 1))} disabled={stockPageSafe >= stockPages}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setStockPage((p) => Math.min(stockPages, p + 1))}
+                    disabled={stockPageSafe >= stockPages}
+                  >
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -586,7 +718,13 @@ const Inventory = () => {
                 <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
                   <Upload className="mr-2 h-4 w-4" /> Import
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => exportAdjustments()} disabled={documentsFiltered.length === 0} className="hidden sm:inline-flex">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => exportAdjustments()}
+                  disabled={documentsFiltered.length === 0}
+                  className="hidden sm:inline-flex"
+                >
                   <Download className="mr-2 h-4 w-4" /> Export CSV
                 </Button>
               </div>
@@ -597,12 +735,23 @@ const Inventory = () => {
                 <Input
                   placeholder="Search product / ref / reason..."
                   value={adjSearch}
-                  onChange={(e) => { setAdjSearch(e.target.value); setAdjPage(1); }}
+                  onChange={(e) => {
+                    setAdjSearch(e.target.value);
+                    setAdjPage(1);
+                  }}
                   className="pl-9 h-9 w-full"
                 />
               </div>
-              <Select value={adjSort} onValueChange={(v) => { setAdjSort(v as SortKey); setAdjPage(1); }}>
-                <SelectTrigger className="h-9 w-full"><SelectValue /></SelectTrigger>
+              <Select
+                value={adjSort}
+                onValueChange={(v) => {
+                  setAdjSort(v as SortKey);
+                  setAdjPage(1);
+                }}
+              >
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="date_desc">Date (newest)</SelectItem>
                   <SelectItem value="date_asc">Date (oldest)</SelectItem>
@@ -620,11 +769,18 @@ const Inventory = () => {
                     <Printer className="mr-2 h-4 w-4" /> Print
                   </Button>
                   {canEditAdjustments && (
-                    <Button variant="destructive" size="sm" onClick={bulkDeleteAdjustments} disabled={deleteAdjustmentDocument.isPending}>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={bulkDeleteAdjustments}
+                      disabled={deleteAdjustmentDocument.isPending}
+                    >
                       <Trash2 className="mr-2 h-4 w-4" /> Delete
                     </Button>
                   )}
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedAdjIds(new Set())}>Clear</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedAdjIds(new Set())}>
+                    Clear
+                  </Button>
                 </div>
               </div>
             )}
@@ -651,7 +807,10 @@ const Inventory = () => {
                 <TableBody>
                   {documentsFiltered.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={canEditAdjustments ? 8 : 7} className="text-center text-muted-foreground py-8">
+                      <TableCell
+                        colSpan={canEditAdjustments ? 8 : 7}
+                        className="text-center text-muted-foreground py-8"
+                      >
                         {adjSearch ? "No documents match your search." : "No adjustment documents yet."}
                       </TableCell>
                     </TableRow>
@@ -659,7 +818,11 @@ const Inventory = () => {
                     documentsFiltered.map((d) => {
                       const delta = totalDelta(d);
                       const lineCount = (d.lines || []).length;
-                      const productPreview = (d.lines || []).slice(0, 2).map((l) => l.products?.name || "—").join(", ") + (lineCount > 2 ? ` +${lineCount - 2} more` : "");
+                      const productPreview =
+                        (d.lines || [])
+                          .slice(0, 2)
+                          .map((l) => l.products?.name || "—")
+                          .join(", ") + (lineCount > 2 ? ` +${lineCount - 2} more` : "");
                       return (
                         <TableRow key={d.id} data-state={selectedAdjIds.has(d.id) ? "selected" : undefined}>
                           <TableCell>
@@ -677,13 +840,21 @@ const Inventory = () => {
                           <TableCell>{d.locations?.name || "—"}</TableCell>
                           <TableCell>{d.reason}</TableCell>
                           <TableCell className="text-right">{lineCount}</TableCell>
-                          <TableCell className={`text-right font-medium ${delta > 0 ? "text-green-600" : delta < 0 ? "text-destructive" : ""}`}>
-                            {delta > 0 ? "+" : ""}{delta}
+                          <TableCell
+                            className={`text-right font-medium ${delta > 0 ? "text-green-600" : delta < 0 ? "text-destructive" : ""}`}
+                          >
+                            {delta > 0 ? "+" : ""}
+                            {delta}
                           </TableCell>
                           {canEditAdjustments && (
                             <TableCell className="text-right">
                               <div className="flex items-center justify-end gap-1">
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingDoc(d)}>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => setEditingDoc(d)}
+                                >
                                   <Pencil className="h-4 w-4" />
                                 </Button>
                                 <Button
@@ -692,7 +863,11 @@ const Inventory = () => {
                                   className="h-8 w-8"
                                   disabled={deleteAdjustmentDocument.isPending}
                                   onClick={() => {
-                                    if (confirm(`Delete this adjustment document (${lineCount} line${lineCount === 1 ? "" : "s"})? All line effects will be reversed on inventory.`)) {
+                                    if (
+                                      confirm(
+                                        `Delete this adjustment document (${lineCount} line${lineCount === 1 ? "" : "s"})? All line effects will be reversed on inventory.`,
+                                      )
+                                    ) {
                                       deleteAdjustmentDocument.mutate(d.id);
                                     }
                                   }}
@@ -712,18 +887,38 @@ const Inventory = () => {
                 <div className="flex items-center gap-2">
                   <span>Rows per page</span>
                   <Select value={String(adjPageSize)} onValueChange={(v) => updateAdjSize(Number(v))}>
-                    <SelectTrigger className="h-8 w-[80px]"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 w-[80px]">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                      {PAGE_SIZE_OPTIONS.map((n) => (
+                        <SelectItem key={n} value={String(n)}>
+                          {n}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <span>{adjCount === 0 ? "0 records" : `Page ${adjPage} of ${adjPages} • ${adjCount} record${adjCount === 1 ? "" : "s"}`}</span>
+                <span>
+                  {adjCount === 0
+                    ? "0 records"
+                    : `Page ${adjPage} of ${adjPages} • ${adjCount} record${adjCount === 1 ? "" : "s"}`}
+                </span>
                 <div className="flex gap-1">
-                  <Button variant="outline" size="sm" onClick={() => setAdjPage((p) => Math.max(1, p - 1))} disabled={adjPage <= 1}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAdjPage((p) => Math.max(1, p - 1))}
+                    disabled={adjPage <= 1}
+                  >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => setAdjPage((p) => Math.min(adjPages, p + 1))} disabled={adjPage >= adjPages}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAdjPage((p) => Math.min(adjPages, p + 1))}
+                    disabled={adjPage >= adjPages}
+                  >
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -737,10 +932,10 @@ const Inventory = () => {
         productId={detailProductId}
         locationId={effectiveLocationId ?? null}
         open={!!detailProductId}
-        onOpenChange={(o) => { if (!o) setDetailProductId(null); }}
+        onOpenChange={(o) => {
+          if (!o) setDetailProductId(null);
+        }}
       />
-
-
 
       <StockAdjustmentDialog
         open={adjDialogOpen}
@@ -760,7 +955,10 @@ const Inventory = () => {
         open={!!editingDoc}
         document={editingDoc}
         onOpenChange={(o) => !o && setEditingDoc(null)}
-        onSubmit={(data) => user && updateAdjustmentDocument.mutate({ ...data, created_by: user.id }, { onSuccess: () => setEditingDoc(null) })}
+        onSubmit={(data) =>
+          user &&
+          updateAdjustmentDocument.mutate({ ...data, created_by: user.id }, { onSuccess: () => setEditingDoc(null) })
+        }
         isLoading={updateAdjustmentDocument.isPending}
       />
     </div>
