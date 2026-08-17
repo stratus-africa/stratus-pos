@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { adminManageUser } from "@/lib/adminUsers.functions";
 import { superAdminDeleteTenant, superAdminResetTenant } from "@/lib/superAdmin.functions";
+import { resolvePreferredSubscription, resolveSubscriptionPlan } from "@/lib/subscriptionPlan";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -56,6 +57,7 @@ type Biz = {
   created_at: string;
   updated_at: string;
   currency: string;
+  selected_package_id?: string | null;
 };
 
 type Sub = {
@@ -172,9 +174,9 @@ export default function SuperAdminTenantDetail() {
         .from("subscriptions")
         .select("*")
         .eq("user_id", ownerId)
-        .order("created_at", { ascending: false })
-        .limit(1);
-      setSub((subs?.[0] as Sub) || null);
+        .order("created_at", { ascending: false });
+      const preferred = resolvePreferredSubscription((subs || []) as any[]);
+      setSub((preferred as Sub) || null);
     }
 
     // Load tenant users — combine profiles linked to this business AND any user_roles entries
@@ -219,9 +221,8 @@ export default function SuperAdminTenantDetail() {
   };
 
   const currentPlan: Plan | null = (() => {
-    if (!sub) return plans[0] ?? null;
-    const byProd = plans.find((p) => p.id === sub.product_id);
-    return byProd || plans[0] || null;
+    const matched = resolveSubscriptionPlan(sub ?? undefined, plans, biz);
+    return (matched as Plan | null) ?? null;
   })();
 
   const planFeatures = features.filter((f) => f.package_id === currentPlan?.id);
