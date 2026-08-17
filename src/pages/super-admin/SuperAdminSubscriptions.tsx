@@ -35,6 +35,7 @@ import {
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { paystackManageSubscription } from "@/lib/paystack.functions";
+import { resolveSubscriptionPlan } from "@/lib/subscriptionPlan";
 
 type SubRow = {
   id: string;
@@ -143,11 +144,16 @@ export default function SuperAdminSubscriptions() {
     const enriched: SubRow[] = subs.map((s) => {
       const prof = profiles.find((p) => p.id === s.user_id);
       const biz = bizByUser.get(s.user_id);
-      // product_id is stored as text UUID, need to compare as text
-      const plan =
-        plans.find((p) => p.id.toString() === s.product_id || p.id === s.product_id) ||
-        plans.find((p) => p.is_active && p.is_public) ||
-        plans[0];
+      const plan = resolveSubscriptionPlan(
+        {
+          product_id: s.product_id,
+          plan_code: s.plan_code,
+          environment: s.environment,
+          status: s.status,
+        },
+        plans,
+        biz,
+      );
       return {
         id: s.id,
         user_id: s.user_id,
