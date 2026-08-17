@@ -38,7 +38,7 @@ export function AppSidebar() {
   const { business, userRole } = useBusiness();
   const { isSuperAdmin } = useSuperAdmin();
   const { hasPermission, permissions } = usePermissions();
-  const { hasFeatureKey } = useSubscription();
+  const { hasFeatureKey, enabledFeatureKeys } = useSubscription();
   const currentPath = location.pathname;
 
   const visibleModules = APP_MODULES.filter((module) => {
@@ -49,7 +49,7 @@ export function AppSidebar() {
       moduleEnabled: () => true,
       dependenciesReady: () => true,
       setupComplete: () => true,
-      subscriptions: new Set(),
+      subscriptions: enabledFeatureKeys,
     });
     return access.allowed;
   });
