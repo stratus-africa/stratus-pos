@@ -65,6 +65,7 @@ import { useAccountMappings } from "@/hooks/useAccountMappings";
 import { toast } from "sonner";
 import { useFeatureLimit } from "@/components/FeatureGate";
 import { usePermissions } from "@/hooks/usePermissions";
+import { ModuleHeader } from "@/components/modules/ModulePageShell";
 
 const Products = () => {
   const [onlyMissingBarcode, setOnlyMissingBarcode] = useState(false);
@@ -432,50 +433,55 @@ const Products = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Products</h1>
-        <div className="flex gap-2">
-          <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleImport} />
-          <Button variant="outline" onClick={() => setScannerOpen(true)}>
-            <ScanLine className="mr-2 h-4 w-4" /> Scan
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                <FileSpreadsheet className="mr-2 h-4 w-4" /> {importing ? "Importing..." : "Data"}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuLabel>Import</DropdownMenuLabel>
-              <DropdownMenuItem onClick={downloadTemplate}>
-                <FileDown className="mr-2 h-4 w-4" /> Download template
-              </DropdownMenuItem>
-              <DropdownMenuItem disabled={importing} onClick={() => fileInputRef.current?.click()}>
-                <Upload className="mr-2 h-4 w-4" /> Import file
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Export</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => exportProducts("csv")}>
-                <Download className="mr-2 h-4 w-4" /> Export as CSV
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => exportProducts("xlsx")}>
-                <Download className="mr-2 h-4 w-4" /> Export as Excel (.xlsx)
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button
-            onClick={() => {
-              setEditingProduct(null);
-              setProductDialogOpen(true);
-            }}
-            disabled={atProductLimit}
-            title={atProductLimit ? `Product limit reached (${maxProducts}). Upgrade your plan.` : undefined}
-          >
-            {atProductLimit ? <Lock className="mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />}
-            {atProductLimit ? `Limit (${maxProducts})` : "Add Product"}
-          </Button>
-        </div>
-      </div>
+      <ModuleHeader
+        moduleKey="products"
+        title="Products"
+        description="Manage your catalog, pricing, barcode data, and product taxonomy."
+        primaryAction={
+          <div className="flex gap-2">
+            <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleImport} />
+            <Button variant="outline" onClick={() => setScannerOpen(true)}>
+              <ScanLine className="mr-2 h-4 w-4" /> Scan
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <FileSpreadsheet className="mr-2 h-4 w-4" /> {importing ? "Importing..." : "Data"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuLabel>Import</DropdownMenuLabel>
+                <DropdownMenuItem onClick={downloadTemplate}>
+                  <FileDown className="mr-2 h-4 w-4" /> Download template
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={importing} onClick={() => fileInputRef.current?.click()}>
+                  <Upload className="mr-2 h-4 w-4" /> Import file
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Export</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => exportProducts("csv")}>
+                  <Download className="mr-2 h-4 w-4" /> Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportProducts("xlsx")}>
+                  <Download className="mr-2 h-4 w-4" /> Export as Excel (.xlsx)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button
+              onClick={() => {
+                setEditingProduct(null);
+                setProductDialogOpen(true);
+              }}
+              disabled={atProductLimit}
+              title={atProductLimit ? `Product limit reached (${maxProducts}). Upgrade your plan.` : undefined}
+            >
+              {atProductLimit ? <Lock className="mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />}
+              {atProductLimit ? `Limit (${maxProducts})` : "Add Product"}
+            </Button>
+          </div>
+        }
+        statusBadge={<Badge variant="secondary">Catalog</Badge>}
+      />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>

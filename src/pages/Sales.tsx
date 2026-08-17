@@ -24,6 +24,7 @@ import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate, useSearchParams } from "@/lib/router-compat";
+import { ModuleHeader } from "@/components/modules/ModulePageShell";
 
 const Sales = () => {
   // This page owns the broader sales/suspended-sales realtime channel below.
@@ -201,12 +202,17 @@ const Sales = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{isCashier ? "My Transactions" : "Sales"}</h1>
-        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>
-          <RefreshCw className={`h-4 w-4 mr-1 ${refreshing ? "animate-spin" : ""}`} /> Refresh
-        </Button>
-      </div>
+      <ModuleHeader
+        moduleKey="sales"
+        title={isCashier ? "My Transactions" : "Sales"}
+        description="Review transactions, customer activity, and payment outcomes across the business."
+        primaryAction={
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>
+            <RefreshCw className={`h-4 w-4 mr-1 ${refreshing ? "animate-spin" : ""}`} /> Refresh
+          </Button>
+        }
+        statusBadge={<Badge variant="secondary">Live</Badge>}
+      />
 
       <Tabs defaultValue="sales" className="space-y-4">
         <TabsList>
