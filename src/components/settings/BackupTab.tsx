@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { supabase } from "@/integrations/supabase/client";
-import { buildBackupPayload } from "@/lib/backup";
+import { buildBackupPayload, downloadBackupFile } from "@/lib/backup";
 import { toast } from "sonner";
 import { Download, Loader2, DatabaseBackup } from "lucide-react";
 
@@ -77,16 +77,7 @@ export function BackupTab() {
         Object.fromEntries(tableEntries),
       );
 
-      const json = JSON.stringify(payload, null, 2);
-      const blob = new Blob([json], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `backup-${business.id}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      downloadBackupFile(payload);
 
       toast.success("Backup file generated successfully.");
     } catch (error) {
