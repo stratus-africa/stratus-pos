@@ -119,11 +119,11 @@ export async function resolveBusinessEntitlement(input: {
     };
   }
 
-  const { data: pkg, error: pkgError } = await supabase
-    .from("subscription_packages")
-    .select("*")
-    .eq("id", packageId)
-    .maybeSingle();
+  const { data: pkgRows, error: pkgError } = await supabase.rpc("get_subscription_package_safe", {
+    _id: packageId,
+  });
+
+  const pkg = Array.isArray(pkgRows) ? (pkgRows[0] ?? null) : (pkgRows ?? null);
 
   if (pkgError || !pkg) {
     return {

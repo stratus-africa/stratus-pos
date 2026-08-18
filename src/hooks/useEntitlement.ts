@@ -62,13 +62,12 @@ export function useEntitlement(options: UseEntitlementOptions = {}) {
     queryKey: ["entitlement:resolved_package", resolvedPackageId],
     queryFn: async () => {
       if (!resolvedPackageId) return null;
-      const { data, error } = await supabase
-        .from("subscription_packages")
-        .select("*")
-        .eq("id", resolvedPackageId)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc("get_subscription_package_safe", {
+        _id: resolvedPackageId,
+      });
       if (error) throw error;
-      return data;
+      const rows = Array.isArray(data) ? data : data ? [data] : [];
+      return rows[0] ?? null;
     },
     enabled: enabled && !!resolvedPackageId,
     staleTime: 30_000,
