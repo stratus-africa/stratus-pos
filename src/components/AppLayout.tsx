@@ -22,7 +22,12 @@ function MasqueradeBanner() {
           Viewing as <strong>{business?.name}</strong> (masquerade mode)
         </span>
       </div>
-      <Button variant="ghost" size="sm" onClick={stopMasquerade} className="text-amber-800 hover:text-amber-900 hover:bg-amber-200 h-7 px-2">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={stopMasquerade}
+        className="text-amber-800 hover:text-amber-900 hover:bg-amber-200 h-7 px-2"
+      >
         <X className="h-3 w-3 mr-1" /> Exit
       </Button>
     </div>
@@ -38,16 +43,28 @@ function SubscriptionExpiredBanner() {
       <div className="flex items-center gap-2">
         <AlertTriangle className="h-4 w-4" />
         <span>
-          Your subscription {subscriptionEndsAt ? <>expired on <strong>{subscriptionEndsAt.toLocaleDateString()}</strong></> : <>is inactive</>}. Transactions are blocked until you renew.
+          Your subscription{" "}
+          {subscriptionEndsAt ? (
+            <>
+              expired on <strong>{subscriptionEndsAt.toLocaleDateString()}</strong>
+            </>
+          ) : (
+            <>is inactive</>
+          )}
+          . Transactions are blocked until you renew.
         </span>
       </div>
-      <Button size="sm" variant="destructive" className="h-7 px-3" onClick={() => navigate("/settings?tab=subscription")}>
+      <Button
+        size="sm"
+        variant="destructive"
+        className="h-7 px-3"
+        onClick={() => navigate("/settings?tab=subscription")}
+      >
         Renew Subscription
       </Button>
     </div>
   );
 }
-
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -64,16 +81,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider open={open} onOpenChange={setOpen}>
-      <div className="min-h-screen flex w-full bg-[hsl(210_20%_98%)]">
+      <div className="min-h-screen flex w-full bg-background text-foreground">
         {!isMobilePortrait && <AppSidebar />}
         <div className="flex-1 flex flex-col min-w-0">
           <MasqueradeBanner />
           <SubscriptionExpiredBanner />
 
           <TopBar />
-          <main className="flex-1 overflow-auto p-3 sm:p-4 lg:p-6 pb-20 lg:pb-6">
-            {children}
-          </main>
+          <main className="flex-1 overflow-auto p-3 sm:p-4 lg:p-6 pb-20 lg:pb-6">{children}</main>
           <MobileBottomNav />
         </div>
         <CommandPalette />
