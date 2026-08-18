@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,7 +20,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { APP_MODULES, applyModuleToggleDependencyRule } from "@/lib/modules";
+import { APP_MODULES, applyModuleToggleDependencyRule, moduleGroupLabels, type ModuleGroup } from "@/lib/modules";
 import {
   ArrowLeft,
   Tag,
@@ -97,6 +99,7 @@ export default function SuperAdminPackageEdit() {
   const [featureToggles, setFeatureToggles] = useState<Record<string, boolean>>(
     Object.fromEntries(ALL_FEATURES.map((f) => [f.key, false])), // Default to disabled for new plans
   );
+  const [activeModuleGroup, setActiveModuleGroup] = useState<ModuleGroup>("core");
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -443,10 +446,19 @@ export default function SuperAdminPackageEdit() {
                 <ListChecks className="h-4 w-4 text-muted-foreground" />
                 <h2 className="font-semibold text-sm">Modules</h2>
               </div>
-              <span className="text-xs text-muted-foreground">Toggle modules available on this plan</span>
+              <span className="text-xs text-muted-foreground">
+                {Object.values(featureToggles).filter(Boolean).length} of {ALL_FEATURES.length} enabled
+              </span>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {ALL_FEATURES.map((f) => {
+
+            {(() => {
+              const GROUPS: { key: ModuleGroup; label: string; accent: string }[] = [
+                { key: "core", label: moduleGroupLabels.core, accent: "text-emerald-700" },
+                { key: "accounting", label: moduleGroupLabels.accounting, accent: "text-blue-700" },
+                { key: "premium", label: moduleGroupLabels.premium, accent: "text-purple-700" },
+              ];
+
+              const moduleCard = (f: (typeof ALL_FEATURES)[number]) => {
                 const enabled = featureToggles[f.key] ?? false;
                 const dependsOnAccounting = f.key === "banking" || f.key === "manual_journals";
                 const accountingForced =
@@ -468,7 +480,7 @@ export default function SuperAdminPackageEdit() {
                     key={f.key}
                     type="button"
                     onClick={handleToggle}
-                    className={`text-left rounded-lg p-3 border transition-all flex items-start justify-between gap-3 ${
+                    className={`text-left rounded-lg p-3 border transition-all flex items-start justify-between gap-3 w-full ${
                       enabled
                         ? "border-emerald-500 bg-emerald-50/40"
                         : "border-border bg-white hover:border-muted-foreground/30"
@@ -494,16 +506,73 @@ export default function SuperAdminPackageEdit() {
                       </div>
                     </div>
                     <div
-                      className={`h-5 w-5 rounded-full shrink-0 flex items-center justify-center ${
-                        enabled ? "bg-emerald-600 text-white" : "border border-border"
-                      }`}
+                      className={`h-5 w-5 rounded-full shrink-0 flex items-center justify-center ${enabled ? "bg-emerald-600 text-white" : "border border-border"}`}
                     >
                       {enabled && <Check className="h-3 w-3" strokeWidth={3} />}
                     </div>
                   </button>
                 );
-              })}
-            </div>
+              };
+
+              return (
+                <>
+                  {/* Mobile: dropdown group selector */}
+                  <div className="sm:hidden mb-3">
+                    <Select value={activeModuleGroup} onValueChange={(v) => setActiveModuleGroup(v as ModuleGroup)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {GROUPS.map((g) => {
+                          const count = ALL_FEATURES.filter((f) => f.group === g.key && featureToggles[f.key]).length;
+                          return (
+                            <SelectItem key={g.key} value={g.key}>
+                              {g.label}
+                              {count > 0 && ` (${count})`}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <div className="grid grid-cols-1 gap-3 mt-3">
+                      {ALL_FEATURES.filter((f) => f.group === activeModuleGroup).map(moduleCard)}
+                    </div>
+                  </div>
+
+                  {/* Desktop: tabs */}
+                  <Tabs
+                    value={activeModuleGroup}
+                    onValueChange={(v) => setActiveModuleGroup(v as ModuleGroup)}
+                    className="hidden sm:block"
+                  >
+                    <TabsList className="mb-4 w-full grid grid-cols-3">
+                      {GROUPS.map((g) => {
+                        const count = ALL_FEATURES.filter((f) => f.group === g.key && featureToggles[f.key]).length;
+                        const total = ALL_FEATURES.filter((f) => f.group === g.key).length;
+                        return (
+                          <TabsTrigger key={g.key} value={g.key} className="gap-1.5">
+                            <span>{g.label}</span>
+                            <Badge
+                              variant="secondary"
+                              className={`text-[10px] px-1.5 py-0 h-4 ${count > 0 ? "bg-emerald-100 text-emerald-700" : ""}`}
+                            >
+                              {count}/{total}
+                            </Badge>
+                          </TabsTrigger>
+                        );
+                      })}
+                    </TabsList>
+                    {GROUPS.map((g) => (
+                      <TabsContent key={g.key} value={g.key} className="mt-0">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {ALL_FEATURES.filter((f) => f.group === g.key).map(moduleCard)}
+                        </div>
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                </>
+              );
+            })()}
           </section>
 
           {/* Action buttons */}
