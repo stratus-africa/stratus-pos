@@ -104,13 +104,18 @@ export function AppSidebar() {
   });
 
   const renderModule = (module: (typeof APP_MODULES)[number]) => {
-    const navItems = module.navigation.filter((item) => !item.permission || hasPermission(item.permission));
-    const targetRoute = module.route ?? navItems[0]?.route ?? "/";
-    const visibleChildren = navItems.filter((item) => item.route !== targetRoute && item.route !== currentPath);
+    const navItems = Array.isArray(module?.navigation)
+      ? module.navigation.filter((item) => !item?.permission || hasPermission(item.permission))
+      : [];
+    const targetRoute = module?.route ?? navItems[0]?.route ?? "/";
+    const visibleChildren = navItems.filter(
+      (item) => item?.route && item.route !== targetRoute && item.route !== currentPath,
+    );
     const hasChildren = visibleChildren.length > 0;
-    const parentActive = currentPath === targetRoute || visibleChildren.some((item) => currentPath === item.route);
+    const parentActive =
+      currentPath === targetRoute || visibleChildren.some((item) => item?.route && currentPath === item.route);
 
-    const SidebarIcon = module.Icon;
+    const SidebarIcon = module?.Icon ?? Store;
 
     if (!hasChildren) {
       return (
@@ -180,7 +185,7 @@ export function AppSidebar() {
   const groupedModules = categoryOrder
     .map((category) => ({
       category,
-      modules: visibleModules.filter((module) => module.category === category),
+      modules: visibleModules.filter((module) => (module?.category ?? "operations") === category),
     }))
     .filter((group) => group.modules.length > 0);
 
@@ -239,3 +244,67 @@ export function AppSidebar() {
           </SidebarGroup>
         ) : enabledFeatureKeys.size === 0 ? (
           <SidebarGroup>
+            <SidebarGroupLabel>Modules</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <div className="px-2 py-4 text-xs text-muted-foreground">
+                {currentPackage
+                  ? `No modules are enabled for ${currentPackage.name}.`
+                  : "No modules are enabled for your current plan."}
+              </div>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : groupedModules.length > 0 ? (
+          groupedModules.map((group) => (
+            <SidebarGroup key={group.category}>
+              <SidebarGroupLabel>
+                {group.category === "dashboard" ? "Dashboard" : moduleCategoryLabels[group.category]}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>{group.modules.map(renderModule)}</SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ))
+        ) : (
+          <SidebarGroup>
+            <SidebarGroupLabel>Modules</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <div className="px-2 py-4 text-xs text-muted-foreground">
+                No modules are enabled for your current plan.
+              </div>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+      </SidebarContent>
+
+      <SidebarFooter className="border-t border-sidebar-border p-2">
+        {!collapsed && isSuperAdmin && (
+          <Link
+            to="/super-admin"
+            className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-primary hover:bg-accent transition-colors"
+          >
+            <Shield className="h-3.5 w-3.5" />
+            Super Admin Panel
+          </Link>
+        )}
+        {!collapsed && userRole && (
+          <div className="px-2 pb-1">
+            <Badge
+              variant="outline"
+              className="text-xs capitalize w-full justify-center bg-background rounded-sm border-sidebar-border hover:bg-accent"
+            >
+              {userRole}
+            </Badge>
+          </div>
+        )}
+        <Button
+          variant="ghost"
+          className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
+          onClick={signOut}
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          {!collapsed && "Sign Out"}
+        </Button>
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
