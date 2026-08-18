@@ -39,8 +39,8 @@ export function AppSidebar() {
   const { isSuperAdmin } = useSuperAdmin();
   const { hasPermission, permissions, isLoading: permLoading } = usePermissions();
   const {
-    hasFeatureKey,
-    enabledFeatureKeys,
+    hasModule,
+    enabledModules,
     isLoading: subLoading,
     subscription,
     isActive,
@@ -56,7 +56,7 @@ export function AppSidebar() {
       userRole,
       subLoading,
       permLoading,
-      enabledFeatureKeys: Array.from(enabledFeatureKeys),
+      enabledModules: Array.from(enabledModules),
       permissionsCount: permissions.size,
     });
   }
@@ -72,8 +72,8 @@ export function AppSidebar() {
     const access = resolveModuleAccess(moduleKey, {
       role: userRole,
       permissions,
-      featureKey: hasFeatureKey,
-      subscriptions: enabledFeatureKeys,
+      featureKey: hasModule,
+      subscriptions: enabledModules,
       moduleEnabled: () => true,
       dependenciesReady: (dependencyKey) => {
         const dependencyModule = APP_MODULES.find(
@@ -242,7 +242,7 @@ export function AppSidebar() {
               <div className="px-2 py-4 text-xs text-muted-foreground">No active subscription.</div>
             </SidebarGroupContent>
           </SidebarGroup>
-        ) : enabledFeatureKeys.size === 0 ? (
+        ) : enabledModules.size === 0 ? (
           <SidebarGroup>
             <SidebarGroupLabel>Modules</SidebarGroupLabel>
             <SidebarGroupContent>
