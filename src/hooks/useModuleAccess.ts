@@ -6,7 +6,7 @@ import { APP_MODULES, resolveModuleAccess, type ModuleAccessInput } from "@/lib/
 export function useModuleAccess() {
   const { userRole } = useBusiness();
   const { permissions, hasPermission } = usePermissions();
-  const { hasFeatureKey, enabledFeatureKeys } = useSubscription();
+  const { hasModule, enabledModules } = useSubscription();
 
   const accessCache = new Map<string, ReturnType<typeof resolveModuleAccess>>();
   const resolveAccess = (moduleKey: string): ReturnType<typeof resolveModuleAccess> => {
@@ -16,8 +16,8 @@ export function useModuleAccess() {
     const input: ModuleAccessInput = {
       role: userRole,
       permissions,
-      featureKey: hasFeatureKey,
-      subscriptions: enabledFeatureKeys,
+      featureKey: hasModule,
+      subscriptions: enabledModules,
       moduleEnabled: () => true,
       dependenciesReady: (dependencyKey) => {
         const dependencyModule = APP_MODULES.find(
