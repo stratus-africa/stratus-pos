@@ -48,7 +48,61 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "account_mappings_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "vw_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
             foreignKeyName: "account_mappings_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accounting_periods: {
+        Row: {
+          business_id: string
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          fiscal_year: number
+          id: string
+          period_end: string
+          period_start: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          business_id: string
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          fiscal_year: number
+          id?: string
+          period_end: string
+          period_start: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          business_id?: string
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          fiscal_year?: number
+          id?: string
+          period_end?: string
+          period_start?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounting_periods_business_id_fkey"
             columns: ["business_id"]
             isOneToOne: false
             referencedRelation: "businesses"
@@ -788,6 +842,13 @@ export type Database = {
             referencedRelation: "chart_of_accounts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "chart_of_accounts_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "vw_trial_balance"
+            referencedColumns: ["account_id"]
+          },
         ]
       }
       customers: {
@@ -1433,7 +1494,14 @@ export type Database = {
           description: string | null
           entry_number: string | null
           id: string
+          posted_at: string | null
+          posted_by: string | null
+          posting_date: string | null
           reference: string | null
+          reversal_of_id: string | null
+          source_id: string | null
+          source_reference: string | null
+          source_type: string | null
           status: string
           total: number
           updated_at: string
@@ -1446,7 +1514,14 @@ export type Database = {
           description?: string | null
           entry_number?: string | null
           id?: string
+          posted_at?: string | null
+          posted_by?: string | null
+          posting_date?: string | null
           reference?: string | null
+          reversal_of_id?: string | null
+          source_id?: string | null
+          source_reference?: string | null
+          source_type?: string | null
           status?: string
           total?: number
           updated_at?: string
@@ -1459,12 +1534,27 @@ export type Database = {
           description?: string | null
           entry_number?: string | null
           id?: string
+          posted_at?: string | null
+          posted_by?: string | null
+          posting_date?: string | null
           reference?: string | null
+          reversal_of_id?: string | null
+          source_id?: string | null
+          source_reference?: string | null
+          source_type?: string | null
           status?: string
           total?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "journal_entries_reversal_of_id_fkey"
+            columns: ["reversal_of_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       journal_entry_lines: {
         Row: {
@@ -1501,6 +1591,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "chart_of_accounts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entry_lines_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "vw_trial_balance"
+            referencedColumns: ["account_id"]
           },
           {
             foreignKeyName: "journal_entry_lines_journal_entry_id_fkey"
@@ -1829,6 +1926,48 @@ export type Database = {
           },
         ]
       }
+      mpesa_callback_audit: {
+        Row: {
+          amount: number | null
+          checkout_request_id: string | null
+          id: string
+          merchant_request_id: string | null
+          mpesa_receipt_number: string | null
+          payload: Json
+          phone_number: string | null
+          received_at: string
+          result_code: number | null
+          result_description: string | null
+          transaction_date: string | null
+        }
+        Insert: {
+          amount?: number | null
+          checkout_request_id?: string | null
+          id?: string
+          merchant_request_id?: string | null
+          mpesa_receipt_number?: string | null
+          payload: Json
+          phone_number?: string | null
+          received_at?: string
+          result_code?: number | null
+          result_description?: string | null
+          transaction_date?: string | null
+        }
+        Update: {
+          amount?: number | null
+          checkout_request_id?: string | null
+          id?: string
+          merchant_request_id?: string | null
+          mpesa_receipt_number?: string | null
+          payload?: Json
+          phone_number?: string | null
+          received_at?: string
+          result_code?: number | null
+          result_description?: string | null
+          transaction_date?: string | null
+        }
+        Relationships: []
+      }
       mpesa_transactions: {
         Row: {
           amount: number
@@ -1846,6 +1985,7 @@ export type Database = {
           result_description: string | null
           sale_id: string | null
           status: string
+          transaction_date: string | null
           type: string
           updated_at: string
         }
@@ -1865,6 +2005,7 @@ export type Database = {
           result_description?: string | null
           sale_id?: string | null
           status?: string
+          transaction_date?: string | null
           type?: string
           updated_at?: string
         }
@@ -1884,6 +2025,7 @@ export type Database = {
           result_description?: string | null
           sale_id?: string | null
           status?: string
+          transaction_date?: string | null
           type?: string
           updated_at?: string
         }
@@ -2757,8 +2899,29 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "products_inventory_account_id_fkey"
+            columns: ["inventory_account_id"]
+            isOneToOne: false
+            referencedRelation: "vw_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
             foreignKeyName: "products_purchase_account_id_fkey"
             columns: ["purchase_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_purchase_account_id_fkey"
+            columns: ["purchase_account_id"]
+            isOneToOne: false
+            referencedRelation: "vw_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "products_sales_account_id_fkey"
+            columns: ["sales_account_id"]
             isOneToOne: false
             referencedRelation: "chart_of_accounts"
             referencedColumns: ["id"]
@@ -2767,8 +2930,8 @@ export type Database = {
             foreignKeyName: "products_sales_account_id_fkey"
             columns: ["sales_account_id"]
             isOneToOne: false
-            referencedRelation: "chart_of_accounts"
-            referencedColumns: ["id"]
+            referencedRelation: "vw_trial_balance"
+            referencedColumns: ["account_id"]
           },
           {
             foreignKeyName: "products_unit_id_fkey"
@@ -4353,30 +4516,316 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_accounting_health: {
+        Row: {
+          business_id: string | null
+          imbalance: number | null
+          total_credits: number | null
+          total_debits: number | null
+        }
+        Relationships: []
+      }
+      vw_gl_account_activity: {
+        Row: {
+          account_id: string | null
+          business_id: string | null
+          credit: number | null
+          debit: number | null
+          description: string | null
+          posting_date: string | null
+          running_balance: number | null
+          source_reference: string | null
+          source_type: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_entry_lines_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entry_lines_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "vw_trial_balance"
+            referencedColumns: ["account_id"]
+          },
+        ]
+      }
+      vw_trial_balance: {
+        Row: {
+          account_id: string | null
+          business_id: string | null
+          code: string | null
+          credit_total: number | null
+          debit_total: number | null
+          name: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       acct_account: {
         Args: { _business_id: string; _key: string }
         Returns: string
       }
-      acct_post: {
+      acct_account_history: {
+        Args: {
+          _account_id: string
+          _business_id: string
+          _from?: string
+          _to?: string
+        }
+        Returns: {
+          credit: number
+          debit: number
+          description: string
+          journal_entry_id: string
+          posting_date: string
+          reference: string
+          running_balance: number
+          source_reference: string
+          source_type: string
+        }[]
+      }
+      acct_ap_reconciliation: {
+        Args: { _business_id: string }
+        Returns: {
+          difference: number
+          gl_ap_balance: number
+          status: string
+          supplier_balances_total: number
+        }[]
+      }
+      acct_ar_reconciliation: {
+        Args: { _business_id: string }
+        Returns: {
+          customer_balances_total: number
+          difference: number
+          gl_ar_balance: number
+          status: string
+        }[]
+      }
+      acct_balance_check: {
+        Args: { _business_id: string }
+        Returns: {
+          assets: number
+          difference: number
+          liabilities_equity: number
+          status: string
+        }[]
+      }
+      acct_cash_bank_reconciliation: {
+        Args: { _account_mapping_key: string; _business_id: string }
+        Returns: {
+          difference: number
+          gl_total: number
+          status: string
+          subledger_total: number
+        }[]
+      }
+      acct_gl_balance: {
+        Args: { _business_id: string }
+        Returns: {
+          difference: number
+          status: string
+          total_credits: number
+          total_debits: number
+        }[]
+      }
+      acct_inventory_reconciliation:
+        | {
+            Args: { _business_id: string }
+            Returns: {
+              difference: number
+              gl_inventory_balance: number
+              inventory_subledger_value: number
+              status: string
+            }[]
+          }
+        | {
+            Args: { _business_id: string; _location_id?: string }
+            Returns: {
+              difference: number
+              gl_inventory_value: number
+              inventory_subledger_value: number
+              status: string
+            }[]
+          }
+      acct_missing_mappings: {
+        Args: { _business_id: string }
+        Returns: {
+          mapping_key: string
+          required_label: string
+        }[]
+      }
+      acct_post:
+        | {
+            Args: {
+              _business_id: string
+              _created_by: string
+              _date: string
+              _description: string
+              _lines: Json
+              _reference: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _business_id: string
+              _created_by: string
+              _date: string
+              _description: string
+              _lines: Json
+              _reference: string
+              _source_id: string
+              _source_reference: string
+              _source_type: string
+            }
+            Returns: string
+          }
+      acct_post_journal: {
         Args: {
           _business_id: string
           _created_by: string
-          _date: string
           _description: string
           _lines: Json
-          _reference: string
+          _posting_date: string
+          _reversal_of_id?: string
+          _source_id: string
+          _source_reference: string
+          _source_type: string
         }
         Returns: string
       }
+      acct_post_journal_entry: {
+        Args: {
+          _business_id: string
+          _created_by: string
+          _description: string
+          _lines: Json
+          _posting_date: string
+          _reversal_of_id?: string
+          _source_id: string
+          _source_reference: string
+          _source_type: string
+        }
+        Returns: string
+      }
+      acct_post_purchase_journal: {
+        Args: {
+          _business_id: string
+          _created_by: string
+          _description: string
+          _input_vat_amount: number
+          _inventory_amount: number
+          _payable_amount: number
+          _posting_date: string
+          _source_id: string
+          _source_reference: string
+        }
+        Returns: string
+      }
+      acct_post_sale_journal: {
+        Args: {
+          _business_id: string
+          _cash_or_ar_account_id: string
+          _cogs_amount: number
+          _created_by: string
+          _description: string
+          _inventory_account_id?: string
+          _posting_date: string
+          _revenue_amount: number
+          _source_id: string
+          _source_reference: string
+          _vat_amount: number
+        }
+        Returns: string
+      }
+      acct_reconcile_payables: {
+        Args: { _business_id: string }
+        Returns: {
+          difference: number
+          gl_accounts_payable: number
+          status: string
+          supplier_balance_total: number
+        }[]
+      }
+      acct_reconcile_receivables: {
+        Args: { _business_id: string }
+        Returns: {
+          customer_balance_total: number
+          difference: number
+          gl_accounts_receivable: number
+          status: string
+        }[]
+      }
+      acct_reconcile_vat: {
+        Args: { _business_id: string }
+        Returns: {
+          difference: number
+          gl_vat_amount: number
+          status: string
+          vat_subledger_amount: number
+        }[]
+      }
+      acct_report_balance_sheet: {
+        Args: { _as_of: string; _business_id: string }
+        Returns: {
+          amount: number
+          category: string
+          section: string
+        }[]
+      }
+      acct_report_pl: {
+        Args: { _business_id: string; _from: string; _to: string }
+        Returns: {
+          amount: number
+          category: string
+        }[]
+      }
+      acct_report_trial_balance: {
+        Args: { _business_id: string; _from: string; _to: string }
+        Returns: {
+          account_code: string
+          account_id: string
+          account_name: string
+          credit_balance: number
+          debit_balance: number
+          difference: number
+        }[]
+      }
+      acct_require_mapping:
+        | { Args: { _business_id: string; _key: string }; Returns: string }
+        | {
+            Args: { _business_id: string; _key: string; _label: string }
+            Returns: string
+          }
       acct_unpost: {
         Args: { _business_id: string; _reference: string }
+        Returns: undefined
+      }
+      acct_validate_journal_lines: {
+        Args: { _lines: Json }
         Returns: undefined
       }
       acct_vat_enabled: {
         Args: { _business_id: string; _journal: string }
         Returns: boolean
+      }
+      acct_vat_reconciliation: {
+        Args: { _business_id: string }
+        Returns: {
+          difference: number
+          gl_vat_balance: number
+          input_vat: number
+          net_vat_payable: number
+          output_vat: number
+          status: string
+        }[]
       }
       add_tenant_internal_note: {
         Args: { _business_id: string; _note: string }
@@ -4590,6 +5039,10 @@ export type Database = {
       }
       get_user_business_id: { Args: { _user_id: string }; Returns: string }
       get_user_department_ids: { Args: { _user_id: string }; Returns: string[] }
+      hard_delete_business: {
+        Args: { _business_id: string }
+        Returns: undefined
+      }
       has_active_subscription: {
         Args: { check_env?: string; user_uuid: string }
         Returns: boolean
