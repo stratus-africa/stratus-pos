@@ -416,7 +416,7 @@ const Reports = () => {
           )}
           {canPnL && (
             <TabsContent value="pnl" className="mt-0">
-              <RequireFeature featureKey="accounting">
+              <RequireFeature moduleKey="accounting">
                 <PnLReportTab
                   totalRevenue={totalRevenue}
                   totalCOGS={totalCOGS}
