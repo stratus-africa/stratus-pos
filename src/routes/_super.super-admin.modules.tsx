@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import SuperAdminModules from "@/pages/super-admin/SuperAdminModules";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_super/super-admin/modules")({
-  component: SuperAdminModules,
+  beforeLoad: () => {
+    throw redirect({ to: "/super-admin/packages", replace: true });
+  },
 });
