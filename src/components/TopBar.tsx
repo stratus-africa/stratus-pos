@@ -5,8 +5,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MapPin, FileText, Sunset, Receipt, ShoppingCart, LayoutDashboard, User as UserIcon, LogOut, KeyRound, Building2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  MapPin,
+  FileText,
+  Sunset,
+  Receipt,
+  ShoppingCart,
+  LayoutDashboard,
+  User as UserIcon,
+  LogOut,
+  KeyRound,
+  Building2,
+} from "lucide-react";
 import { useLocation, useNavigate } from "@/lib/router-compat";
 import { usePOSSession } from "@/hooks/usePOSSession";
 import { useState } from "react";
@@ -32,7 +50,12 @@ export function TopBar() {
   const isDashboard = location.pathname === "/" || location.pathname === "/dashboard";
 
   const initials = user?.user_metadata?.full_name
-    ? user.user_metadata.full_name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
+    ? user.user_metadata.full_name
+        .split(" ")
+        .map((n: string) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
     : user?.email?.[0]?.toUpperCase() || "U";
 
   const handleEndDay = async (closingCash: number, notes?: string) => {
@@ -45,9 +68,11 @@ export function TopBar() {
 
   return (
     <>
-      <header className="h-14 min-h-14 max-h-14 flex items-center justify-between gap-2 border-b border-border bg-white px-3 sm:px-6 shrink-0 sticky top-0 z-20 overflow-hidden">
+      <header className="h-14 min-h-14 max-h-14 flex items-center justify-between gap-2 border-b border-border bg-card px-3 sm:px-6 shrink-0 sticky top-0 z-20 overflow-hidden">
         <div className="flex items-center gap-3">
-          <span className="portrait:max-md:hidden"><SidebarTrigger /></span>
+          <span className="portrait:max-md:hidden">
+            <SidebarTrigger />
+          </span>
           {business && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <MapPin className="h-3.5 w-3.5" />
@@ -64,7 +89,9 @@ export function TopBar() {
                   </SelectTrigger>
                   <SelectContent>
                     {locations.map((loc) => (
-                      <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                      <SelectItem key={loc.id} value={loc.id}>
+                        {loc.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -93,11 +120,20 @@ export function TopBar() {
                 <Receipt className="h-3.5 w-3.5 mr-1" />
                 Expense
               </Button>
-              <Button size="sm" variant="outline" className="hidden sm:inline-flex h-7 text-xs" onClick={() => setZReportOpen(true)}>
-                <FileText className="h-3.5 w-3.5 mr-1" />
-                Z Report
+              <Button
+                size="sm"
+                variant="outline"
+                className="hidden sm:inline-flex h-7 text-xs"
+                onClick={() => setZReportOpen(true)}
+              >
+                <FileText className="h-3.5 w-3.5 mr-1" />Z Report
               </Button>
-              <Button size="sm" variant="destructive" className="hidden sm:inline-flex h-7 text-xs" onClick={() => setEndDayOpen(true)}>
+              <Button
+                size="sm"
+                variant="destructive"
+                className="hidden sm:inline-flex h-7 text-xs"
+                onClick={() => setEndDayOpen(true)}
+              >
                 <Sunset className="h-3.5 w-3.5 mr-1" />
                 End Day
               </Button>
@@ -162,7 +198,12 @@ export function TopBar() {
               )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onSelect={() => { void (async () => { await signOut(); navigate("/auth"); })(); }}
+                onSelect={() => {
+                  void (async () => {
+                    await signOut();
+                    navigate("/auth");
+                  })();
+                }}
                 className="text-destructive focus:text-destructive"
                 aria-label="Log out of your account"
               >
