@@ -3,7 +3,6 @@ import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { getPaystackEnvironment } from "@/lib/paystack";
 import { findModule, moduleKeys } from "@/lib/modules";
 import { resolvePreferredSubscription, resolveSubscriptionPlan } from "@/lib/subscriptionPlan";
 
@@ -97,11 +96,7 @@ export function useSubscription() {
   const { user } = useAuth();
   const { business, refreshBusiness } = useBusiness();
   const queryClient = useQueryClient();
-  const environment = getPaystackEnvironment();
 
-  // Plan is attached to the business owner's user_id. Resolving here ensures
-  // ALL tenant users (owner + staff) see plan changes made by a super admin
-  // immediately — not just the owner logged into their own account.
   const planUserId = business?.owner_id || user?.id || null;
 
   const {
@@ -109,20 +104,18 @@ export function useSubscription() {
     isLoading: subLoading,
     error: subscriptionError,
   } = useQuery({
-    queryKey: ["subscription", planUserId, environment],
+    queryKey: ["subscription", planUserId],
     queryFn: async () => {
-      if (!planUserId) return null;
-      const { data, error } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .eq("user_id", planUserId)
-        .eq("environment", environment)
-        .order("created_at", { ascending: false });
+      if (!user) return null;
+
+      const { data, error } = await supabase.rpc("get_current_business_subscription");
       if (error) throw error;
-      const preferred = resolvePreferredSubscription((data || []) as any[]);
+
+      const rows = (Array.isArray(data) ? data : data ? [data] : []) as any[];
+      const preferred = resolvePreferredSubscription(rows);
       return (preferred as unknown as Subscription) || null;
     },
-    enabled: !!planUserId,
+    enabled: !!user,
     refetchOnWindowFocus: true,
     staleTime: 15_000,
   });
@@ -226,9 +219,9 @@ export function useSubscription() {
           filter: `user_id=eq.${planUserId}`,
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ["subscription", planUserId, environment] });
+          queryClient.invalidateQueries({ queryKey: ["subscription", planUserId] });
+          queryClient.invalidateQueries({ queryKey: ["entitlement:active_subscription"] });
           queryClient.invalidateQueries({ queryKey: ["subscription_packages_with_features"] });
-          // Refresh business context so posting guard / expiry banner also update.
           refreshBusiness();
         },
       )
@@ -243,7 +236,7 @@ export function useSubscription() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [planUserId, environment, queryClient, refreshBusiness]);
+  }, [planUserId, queryClient, refreshBusiness]);
 
   const isActive = subscription
     ? ["active", "trialing"].includes(subscription.status) &&
