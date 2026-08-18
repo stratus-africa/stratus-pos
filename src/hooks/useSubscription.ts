@@ -91,7 +91,11 @@ export function useSubscription() {
   // immediately — not just the owner logged into their own account.
   const planUserId = business?.owner_id || user?.id || null;
 
-  const { data: subscription, isLoading: subLoading, error: subscriptionError } = useQuery({
+  const {
+    data: subscription,
+    isLoading: subLoading,
+    error: subscriptionError,
+  } = useQuery({
     queryKey: ["subscription", planUserId, environment],
     queryFn: async () => {
       if (!planUserId) return null;
@@ -111,21 +115,29 @@ export function useSubscription() {
   });
 
   const packageCandidates = Array.from(
-    new Set([
-      business?.selected_package_id,
-      subscription?.product_id,
-      subscription?.plan_code ? undefined : undefined,
-    ].filter((value): value is string => !!value)),
+    new Set(
+      [business?.selected_package_id, subscription?.product_id, subscription?.plan_code ? undefined : undefined].filter(
+        (value): value is string => !!value,
+      ),
+    ),
   );
 
-  const { data: packagesData, isLoading: pkgLoading, error: packageFeaturesError } = useQuery({
-    queryKey: ["subscription_packages_with_features", planUserId, business?.selected_package_id ?? null, subscription?.product_id ?? null],
+  const {
+    data: packagesData,
+    isLoading: pkgLoading,
+    error: packageFeaturesError,
+  } = useQuery({
+    queryKey: [
+      "subscription_packages_with_features",
+      planUserId,
+      business?.selected_package_id ?? null,
+      subscription?.product_id ?? null,
+    ],
     queryFn: async () => {
       const packageIds = Array.from(
-        new Set([
-          business?.selected_package_id,
-          subscription?.product_id,
-        ].filter((value): value is string => Boolean(value))),
+        new Set(
+          [business?.selected_package_id, subscription?.product_id].filter((value): value is string => Boolean(value)),
+        ),
       );
 
       const publicPkgs: any[] = [];
@@ -244,10 +256,13 @@ export function useSubscription() {
       return null;
     }
 
-    return (packages.find((pkg) => pkg.name?.toLowerCase() === "free") ?? packages[0] ?? null) as SubscriptionPackage | null;
+    return (packages.find((pkg) => pkg.name?.toLowerCase() === "free") ??
+      packages[0] ??
+      null) as SubscriptionPackage | null;
   })();
 
-  const packageResolved = !subscription || !["active", "trialing"].includes(subscription.status || "") || !!currentPackage;
+  const packageResolved =
+    !subscription || !["active", "trialing"].includes(subscription.status || "") || !!currentPackage;
   const packageError =
     subscription && ["active", "trialing"].includes(subscription.status || "") && !currentPackage
       ? "Unable to determine your subscription plan."
@@ -294,3 +309,31 @@ export function useSubscription() {
   const hasFeature = (_requiredTier: SubscriptionTier): boolean => isActive;
 
   const featuresError = packageFeaturesError;
+
+  return {
+    subscription,
+    isLoading: subLoading || pkgLoading,
+    isActive,
+    tier,
+    hasFeature,
+    hasFeatureKey,
+    hasModule,
+    enabledModules,
+    enabledFeatureKeys: enabledModules,
+    currentPackage,
+    packageResolved,
+    packageError,
+    packageMatchCandidates: Array.from(
+      new Set(
+        [business?.selected_package_id, subscription?.product_id, subscription?.plan_code].filter(Boolean) as string[],
+      ),
+    ),
+    subscriptionError,
+    featuresError,
+    error: packageError || subscriptionError || featuresError || null,
+    maxProducts: currentPackage?.max_products ?? 0,
+    maxLocations: currentPackage?.max_locations ?? 1,
+    maxUsers: currentPackage?.max_users ?? 1,
+    isCanceling: subscription?.cancel_at_period_end ?? false,
+  };
+}
