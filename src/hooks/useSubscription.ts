@@ -57,7 +57,7 @@ export function resolveFeatureAccess({
   const keys = moduleKeys(key);
   if (!isActive) return false;
   if (!currentPackage) return false;
-  return keys.some((k) => enabledFeatureKeys?.has(k));
+  return keys.some((k) => !!enabledFeatureKeys?.has(k));
 }
 
 export function useSubscription() {
@@ -94,6 +94,14 @@ export function useSubscription() {
     staleTime: 15_000,
   });
 
+  const packageCandidates = Array.from(
+    new Set(
+      [business?.selected_package_id, subscription?.product_id, subscription?.plan_code ? undefined : undefined].filter(
+        (value): value is string => !!value,
+      ),
+    ),
+  );
+
   const {
     data: packagesData,
     isLoading: pkgLoading,
@@ -102,49 +110,70 @@ export function useSubscription() {
     queryKey: [
       "subscription_packages_with_features",
       planUserId,
-      subscription?.product_id ?? null,
       business?.selected_package_id ?? null,
+      subscription?.product_id ?? null,
     ],
     queryFn: async () => {
-      const [pubRes, featRes] = await Promise.all([
-        (supabase as any).rpc("get_public_subscription_packages"),
-        (supabase as any).rpc("get_public_package_features"),
-      ]);
-      const publicPkgs: any[] = pubRes.data || [];
-      let allPkgs = publicPkgs;
-      let allFeatures: any[] = featRes.data || [];
+      const packageIds = Array.from(
+        new Set(
+          [business?.selected_package_id, subscription?.product_id].filter((value): value is string => Boolean(value)),
+        ),
+      );
 
-      const privatePackageIds = new Set<string>();
-      for (const packageId of [subscription?.product_id, business?.selected_package_id]) {
-        if (!packageId) continue;
-        if (publicPkgs.some((pkg) => pkg.id === packageId)) continue;
-        privatePackageIds.add(packageId);
+      const publicPkgs: any[] = [];
+      const publicPackagesRes = await (supabase as any).rpc("get_public_subscription_packages");
+      if (publicPackagesRes.error) throw publicPackagesRes.error;
+      publicPkgs.push(...(publicPackagesRes.data || []));
+
+      const pkgsById = new Map(publicPkgs.map((pkg) => [pkg.id, pkg]));
+      const privatePkgs: any[] = [];
+
+      for (const packageId of packageIds) {
+        if (!packageId || pkgsById.has(packageId)) continue;
+        const [{ data: pkgRow, error: pkgErr }, { data: featRows, error: featErr }] = await Promise.all([
+          (supabase as any).rpc("get_subscription_package_safe", { _id: packageId }),
+          (supabase as any).rpc("get_package_features_safe", { _package_id: packageId }),
+        ]);
+        if (pkgErr) throw pkgErr;
+        if (featErr) throw featErr;
+        const pkg = Array.isArray(pkgRow) ? pkgRow[0] : null;
+        if (pkg) {
+          pkgsById.set(pkg.id, pkg);
+          privatePkgs.push(pkg);
+        }
       }
 
-      if (privatePackageIds.size > 0) {
-        const pkgFetches = [...privatePackageIds].map(async (packageId) => {
-          const [{ data: priv }, { data: privFeats }] = await Promise.all([
-            (supabase as any).rpc("get_subscription_package_safe", { _id: packageId }),
-            (supabase as any).rpc("get_package_features_safe", { _package_id: packageId }),
-          ]);
-          return {
-            pkg: priv?.[0] ?? null,
-            features: Array.isArray(privFeats) ? privFeats : [],
-          };
-        });
+      const allPackages = [...pkgsById.values(), ...privatePkgs.filter((pkg) => !pkgsById.has(pkg.id))];
 
-        const results = await Promise.all(pkgFetches);
-        for (const result of results) {
-          if (result.pkg) allPkgs = [...allPkgs, result.pkg];
-          if (result.features.length > 0) allFeatures = [...allFeatures, ...result.features];
+      let allFeatures: any[] = [];
+      const publicFeatureRes = await (supabase as any).rpc("get_public_package_features");
+      if (publicFeatureRes.error) throw publicFeatureRes.error;
+      allFeatures.push(...(publicFeatureRes.data || []).filter((feature: any) => Boolean(feature.enabled)));
+
+      const featureIds = new Set(allFeatures.map((feature) => `${feature.package_id}:${feature.feature_key}`));
+      for (const packageId of packageIds) {
+        if (!packageId || !pkgsById.has(packageId)) continue;
+        const safeRes = await (supabase as any).rpc("get_package_features_safe", { _package_id: packageId });
+        if (safeRes.error) throw safeRes.error;
+        for (const feature of safeRes.data || []) {
+          if (!feature.enabled) continue;
+          const key = `${feature.package_id}:${feature.feature_key}`;
+          if (!featureIds.has(key)) {
+            featureIds.add(key);
+            allFeatures.push(feature);
+          }
         }
       }
 
       return {
-        packages: allPkgs as unknown as SubscriptionPackage[],
-        features: (allFeatures as any[]).map((f) => ({ ...f, enabled: Boolean(f.enabled) })) as PackageFeature[],
+        packages: allPackages as unknown as SubscriptionPackage[],
+        features: allFeatures.map((feature) => ({
+          ...feature,
+          enabled: Boolean(feature.enabled),
+        })) as PackageFeature[],
       };
     },
+    enabled: !!planUserId || packageCandidates.length > 0,
     staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
@@ -191,11 +220,6 @@ export function useSubscription() {
   const packages = packagesData?.packages ?? [];
   const features = packagesData?.features ?? [];
 
-  const packageMatchCandidates = [
-    business?.selected_package_id,
-    subscription?.product_id,
-    subscription?.plan_code,
-  ].filter(Boolean);
   const currentPackage: SubscriptionPackage | null = (() => {
     const matched = resolveSubscriptionPlan(subscription ?? undefined, packages as any[], {
       selected_package_id: business?.selected_package_id ?? null,
@@ -203,21 +227,25 @@ export function useSubscription() {
 
     if (matched) return matched;
 
-    // Only use the free/default fallback when there is no active subscription context.
-    if (!subscription || !["active", "trialing"].includes(subscription.status || "")) {
-      return (packages.find((p) => p.name?.toLowerCase() === "free") ??
-        packages[0] ??
-        null) as SubscriptionPackage | null;
+    if (business?.selected_package_id) {
+      const strictMatch = packages.find((pkg) => pkg.id === business.selected_package_id);
+      if (strictMatch) return strictMatch as SubscriptionPackage;
     }
 
-    return null;
+    if (subscription && ["active", "trialing"].includes(subscription.status || "")) {
+      return null;
+    }
+
+    return (packages.find((pkg) => pkg.name?.toLowerCase() === "free") ??
+      packages[0] ??
+      null) as SubscriptionPackage | null;
   })();
 
   const packageResolved =
     !subscription || !["active", "trialing"].includes(subscription.status || "") || !!currentPackage;
   const packageError =
     subscription && ["active", "trialing"].includes(subscription.status || "") && !currentPackage
-      ? "The active subscription could not be matched to a valid subscription package."
+      ? "Unable to determine your subscription plan."
       : null;
 
   const enabledFeatureKeys = new Set(
@@ -270,7 +298,11 @@ export function useSubscription() {
     currentPackage,
     packageResolved,
     packageError,
-    packageMatchCandidates,
+    packageMatchCandidates: Array.from(
+      new Set(
+        [business?.selected_package_id, subscription?.product_id, subscription?.plan_code].filter(Boolean) as string[],
+      ),
+    ),
     subscriptionError,
     featuresError,
     maxProducts: currentPackage?.max_products ?? 0,
