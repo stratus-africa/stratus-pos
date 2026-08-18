@@ -6,7 +6,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { usePermissions } from "./usePermissions";
-import { getPaystackEnvironment } from "@/lib/paystack";
 import { supabase } from "@/integrations/supabase/client";
 import {
   checkModuleEntitlement,
@@ -33,31 +32,60 @@ export function useEntitlement(options: UseEntitlementOptions = {}) {
   const { user } = useAuth();
   const { business } = useBusiness();
   const { permissions } = usePermissions();
-  const environment = getPaystackEnvironment();
-  const planUserId = business?.owner_id || user?.id || null;
 
   const { data: activeSubscription } = useQuery({
-    queryKey: ["entitlement:active_subscription", planUserId, environment],
+    queryKey: ["entitlement:active_subscription", user?.id, business?.id],
     queryFn: async () => {
-      if (!planUserId) return null;
+      if (!enabled || !user) return null;
 
-      const { data, error } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .eq("user_id", planUserId)
-        .eq("environment", environment)
-        .order("created_at", { ascending: false });
-
+      const { data, error } = await supabase.rpc("get_current_business_subscription");
       if (error) throw error;
-      const rows = data || [];
-      const active = rows.find((row: any) => ["active", "trialing"].includes((row.status || "").toLowerCase()));
-      return active || rows[0] || null;
+
+      const rows = (Array.isArray(data) ? data : data ? [data] : []) as Array<any>;
+      if (rows.length === 0) return null;
+
+      return (
+        rows.find((row: any) => ["active", "trialing"].includes((row.status || "").toLowerCase())) || rows[0] || null
+      );
     },
-    enabled: enabled && !!planUserId,
+    enabled: enabled && !!user,
     staleTime: 15_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const resolvedPlanId = business?.selected_package_id || activeSubscription?.product_id || null;
+
+  if (
+    typeof window !== "undefined" &&
+    (window as any).__DEBUG_ENTITLEMENT &&
+    business?.selected_package_id &&
+    activeSubscription?.product_id &&
+    business.selected_package_id !== activeSubscription.product_id
+  ) {
+    console.debug("[useEntitlement] package mismatch between business and subscription", {
+      businessId: business.id,
+      selectedPackageId: business.selected_package_id,
+      subscriptionProductId: activeSubscription.product_id,
+      ownerId: business.owner_id,
+    });
+  }
+
+  const { data: resolvedPackage, isLoading: isLoadingPackage } = useQuery({
+    queryKey: ["entitlement:resolved_package", resolvedPlanId],
+    queryFn: async () => {
+      if (!resolvedPlanId) return null;
+      const { data, error } = await supabase
+        .from("subscription_packages")
+        .select("*")
+        .eq("id", resolvedPlanId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: enabled && !!resolvedPlanId,
+    staleTime: 30_000,
+  });
 
   // Get the current plan. We must resolve from the active subscription when
   // selected_package_id is not set yet, or when a tenant has an owner-linked plan.
@@ -70,6 +98,24 @@ export function useEntitlement(options: UseEntitlementOptions = {}) {
     enabled: enabled && !!resolvedPlanId,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
+
+  if (typeof window !== "undefined" && (window as any).__DEBUG_ENTITLEMENT) {
+    console.debug("[useEntitlement]", {
+      authUserId: user?.id,
+      businessId: business?.id,
+      businessOwnerId: business?.owner_id,
+      businessSelectedPackageId: business?.selected_package_id,
+      subscriptionId: activeSubscription?.id,
+      subscriptionStatus: activeSubscription?.status,
+      subscriptionProductId: activeSubscription?.product_id,
+      paymentProvider: activeSubscription?.payment_provider,
+      subscriptionPeriodEnd: activeSubscription?.current_period_end,
+      resolvedPlanId,
+      resolvedPackageName: resolvedPackage?.name || null,
+      enabledPackageFeatureKeys: planModules?.features?.map((f) => f.feature_key) || [],
+      resolvedModuleKeys: planModules?.modules || [],
+    });
+  }
 
   // Check entitlement for a specific module
   const checkModuleAccess = async (moduleKey: string) => {
@@ -120,13 +166,18 @@ export function useEntitlement(options: UseEntitlementOptions = {}) {
     allPlanFeatures: planModules?.features || [],
 
     // Loading state
-    isLoading: isLoadingPlan,
-    isReady: !isLoadingPlan && !!planModules,
+    isLoading: isLoadingPlan || isLoadingPackage,
+    isReady: !isLoadingPlan && !isLoadingPackage && !!planModules,
 
     // Context
-    hasPlan: !!business?.selected_package_id || !!activeSubscription,
+    hasPlan:
+      !!resolvedPlanId &&
+      !!activeSubscription &&
+      ["active", "trialing"].includes((activeSubscription.status || "").toLowerCase()) &&
+      (!activeSubscription.current_period_end || new Date(activeSubscription.current_period_end) >= new Date()),
     activeSubscription,
     resolvedPlanId,
+    resolvedPackageName: resolvedPackage?.name || null,
     userRole: business?.owner_id === user?.id ? "owner" : "member",
   };
 }
