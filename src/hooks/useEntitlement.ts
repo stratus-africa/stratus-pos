@@ -94,8 +94,8 @@ export function useEntitlement(options: UseEntitlementOptions = {}) {
   const entitlement = canonicalEntitlement.data ?? {
     hasPlan:
       !!resolvedPackageId &&
-      !!activeSubscription &&
-      ["active", "trialing"].includes((activeSubscription?.status || "").toLowerCase()),
+      ((!!activeSubscription && ["active", "trialing"].includes((activeSubscription?.status || "").toLowerCase())) ||
+        !!resolvedPackage),
     subscription: activeSubscription,
     package: resolvedPackage,
     packageId: resolvedPackageId,
