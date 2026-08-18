@@ -91,7 +91,6 @@ export function usePOS() {
   // instead of inserting a second one.
   const pendingSaleRef = useRef<{ saleId: string; invoiceNumber: string; total: number } | null>(null);
 
-
   // Persisted suspended sales (DB-backed, scoped to business + location)
   const heldQuery = useQuery({
     queryKey: ["suspended_sales", business?.id, currentLocation?.id],
@@ -396,7 +395,6 @@ export function usePOS() {
         await supabase.from("sales").delete().eq("id", existing.saleId).eq("status", "pending");
       }
 
-
       const saleId = crypto.randomUUID();
       const invoiceNumber = consumeNext(business.id, "receipts");
 
@@ -436,6 +434,241 @@ export function usePOS() {
     await supabase.from("sales").delete().eq("id", pending.saleId).eq("status", "pending");
   }, []);
 
+  /**
+   * Save the current cart as a credit (on-account) sale.
+   * - status: "final", payment_status: "credit"
+   * - Stock is decremented immediately (goods have left the shelf)
+   * - No payments row is written
+   * - A customer must be selected before calling this
+   */
+  const completeCreditSale = useCallback(async () => {
+    if (!business || !currentLocation || !user || cart.length === 0) return null;
+    if (!customerId) {
+      toast.error("A customer must be selected for a credit sale");
+      return null;
+    }
+    if (!ensureCanPost()) return null;
+    if (completingRef.current) return null;
+    completingRef.current = true;
+    setProcessing(true);
+
+    try {
+      if (preventOverselling) {
+        const productIds = cart.map((i) => i.product.id);
+        const { data: stockRows } = await supabase
+          .from("inventory")
+          .select("product_id, quantity")
+          .eq("location_id", currentLocation.id)
+          .in("product_id", productIds);
+        const stockMap = new Map((stockRows || []).map((r) => [r.product_id, Number(r.quantity)]));
+        for (const item of cart) {
+          const available = stockMap.get(item.product.id) ?? 0;
+          if (item.quantity > available) {
+            toast.error(`Cannot sell ${item.quantity} of ${item.product.name} — only ${available} in stock`);
+            completingRef.current = false;
+            setProcessing(false);
+            return null;
+          }
+        }
+      }
+
+      const saleId = crypto.randomUUID();
+      const invoiceNumber = consumeNext(business.id, "receipts");
+      const cartDiscountBase = cart.reduce((s, i) => s + i.discount, 0);
+
+      // Insert the sale row
+      const { error: saleErr } = await supabase.from("sales").insert({
+        id: saleId,
+        idempotency_key: saleId,
+        business_id: business.id,
+        location_id: currentLocation.id,
+        customer_id: customerId,
+        invoice_number: invoiceNumber,
+        subtotal: cartSubtotal,
+        tax: Math.round(cartTax * 100) / 100,
+        discount: cartDiscountBase,
+        total: cartTotal,
+        payment_status: "credit",
+        status: "final",
+        created_by: user.id,
+        notes: `Credit sale — payment pending`,
+      });
+      if (saleErr) {
+        if ((saleErr as { code?: string }).code === "23505") {
+          toast.info("This sale was already recorded");
+          clearCart();
+          return null;
+        }
+        throw saleErr;
+      }
+
+      // Insert sale_items
+      const isPharmacy = (business as any)?.business_type === "pharmacy";
+      const saleItems: any[] = [];
+      const batchDeductions: { batch_id: string; quantity: number }[] = [];
+      for (const i of cart) {
+        let batchId: string | null = null;
+        if (isPharmacy) {
+          const picks = await pickFefoBatches(i.product.id, currentLocation.id, i.quantity);
+          if (picks.length > 0) batchId = picks[0].batch_id;
+          batchDeductions.push(...picks);
+        }
+        const resolvedTaxRateId = i.tax_rate_id ?? defaultTaxRate?.id ?? null;
+        saleItems.push({
+          sale_id: saleId,
+          product_id: i.product.id,
+          quantity: i.quantity,
+          unit_price: i.unit_price,
+          discount: i.discount,
+          total: i.unit_price * i.quantity - i.discount,
+          batch_id: batchId,
+          tax_rate_id: vatEnabled ? resolvedTaxRateId : null,
+        });
+      }
+      const { error: itemsErr } = await supabase.from("sale_items").insert(saleItems);
+      if (itemsErr) throw itemsErr;
+
+      if (batchDeductions.length > 0) {
+        await Promise.all(
+          batchDeductions.map((p) =>
+            supabase.rpc("decrement_batch_quantity" as any, { _batch_id: p.batch_id, _qty: p.quantity }),
+          ),
+        );
+      }
+
+      // Decrement inventory
+      const inventoryUpdates = await Promise.all(
+        cart.map(async (item) => {
+          const { data: inv } = await supabase
+            .from("inventory")
+            .select("id, quantity")
+            .eq("product_id", item.product.id)
+            .eq("location_id", currentLocation.id)
+            .maybeSingle();
+          return { item, inv };
+        }),
+      );
+      await Promise.all(
+        inventoryUpdates
+          .filter(({ inv }) => inv)
+          .map(({ item, inv }) =>
+            supabase
+              .from("inventory")
+              .update({ quantity: inv!.quantity - item.quantity })
+              .eq("id", inv!.id),
+          ),
+      );
+
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["credit_sales"] });
+
+      const result = {
+        saleId,
+        invoiceNumber,
+        items: cart,
+        subtotal: cartSubtotal,
+        tax: Math.round(cartTax * 100) / 100,
+        discount: cartDiscountBase,
+        total: cartTotal,
+        customerName,
+        locationName: currentLocation.name,
+        businessName: business.name,
+        servedBy: (user as { email?: string } | null)?.email || null,
+        date: new Date(),
+        isCredit: true,
+      };
+
+      clearCart();
+      toast.success(`Credit sale saved for ${customerName}`);
+      return result;
+    } catch (err: any) {
+      toast.error(err.message);
+      return null;
+    } finally {
+      completingRef.current = false;
+      setProcessing(false);
+    }
+  }, [
+    business,
+    currentLocation,
+    user,
+    cart,
+    customerId,
+    customerName,
+    cartSubtotal,
+    cartTax,
+    cartTotal,
+    preventOverselling,
+    vatEnabled,
+    defaultTaxRate,
+    clearCart,
+    queryClient,
+  ]);
+
+  /**
+   * Load an existing credit sale into the cart so the cashier can record payment.
+   * The sale's items are fetched and reconstructed as CartItems using current product data.
+   * The cart is cleared first (or the current sale is parked if non-empty).
+   */
+  const loadCreditSale = useCallback(
+    async (
+      saleId: string,
+      saleCustomerId: string,
+      saleCustomerName: string,
+      products: import("@/hooks/useProducts").Product[],
+    ) => {
+      if (!business || !currentLocation) return false;
+
+      // Fetch the sale's items
+      const { data: items, error } = await supabase
+        .from("sale_items")
+        .select("product_id, quantity, unit_price, discount, tax_rate_id")
+        .eq("sale_id", saleId);
+
+      if (error || !items || items.length === 0) {
+        toast.error("Could not load credit sale items");
+        return false;
+      }
+
+      // Rebuild CartItems from the stored line data + current product records
+      const cartItems: CartItem[] = [];
+      for (const row of items) {
+        const product = products.find((p) => p.id === row.product_id);
+        if (!product) continue;
+        cartItems.push({
+          product,
+          quantity: Number(row.quantity),
+          unit_price: Number(row.unit_price),
+          discount: Number(row.discount),
+          tax_rate_id: row.tax_rate_id ?? null,
+        });
+      }
+
+      if (cartItems.length === 0) {
+        toast.error("No recognisable products found in the credit sale");
+        return false;
+      }
+
+      // Park current cart if it has items
+      if (cart.length > 0) {
+        await holdSale();
+      }
+
+      setCart(cartItems);
+      setCustomerId(saleCustomerId);
+      setCustomerName(saleCustomerName);
+
+      // Tag the cart so completeSale knows to update this existing sale rather than create a new one
+      pendingSaleRef.current = null; // clear any M-Pesa reservation
+      // Store the credit sale id so the payment handler can settle it
+      (window as any).__creditSaleId = saleId;
+
+      toast.info(`Credit sale loaded — record payment to clear the balance`);
+      return true;
+    },
+    [business, currentLocation, cart, holdSale],
+  );
 
   // Complete sale
   const completeSale = async (
@@ -487,6 +720,22 @@ export function usePOS() {
       const invoiceNumber = reserved?.invoiceNumber ?? consumeNext(business.id, "receipts");
       const saleId = reserved?.saleId ?? crypto.randomUUID();
 
+      // If this payment is settling a previously-saved credit sale, reuse that row.
+      const creditSaleId = (window as any).__creditSaleId as string | undefined;
+      const isSettlingCredit = !!creditSaleId && !reserved;
+
+      // Resolve which sale row to write to
+      const saleId = isSettlingCredit ? creditSaleId! : (reserved?.saleId ?? crypto.randomUUID());
+      let invoiceNumber = reserved?.invoiceNumber ?? consumeNext(business.id, "receipts");
+      if (isSettlingCredit) {
+        // Look up the existing invoice number so the receipt stays consistent
+        const { data: existingSale } = await supabase
+          .from("sales")
+          .select("invoice_number")
+          .eq("id", saleId)
+          .maybeSingle();
+        invoiceNumber = existingSale?.invoice_number ?? invoiceNumber;
+      }
 
       // --- Offline path -----------------------------------------------------
       // No connection: queue the whole sale locally (sale id doubles as the
@@ -586,11 +835,7 @@ export function usePOS() {
 
       if (reserved) {
         // The callback may already have settled it; never downgrade a paid sale.
-        const { data: current } = await supabase
-          .from("sales")
-          .select("payment_status")
-          .eq("id", saleId)
-          .maybeSingle();
+        const { data: current } = await supabase.from("sales").select("payment_status").eq("id", saleId).maybeSingle();
         const { error: updErr } = await supabase
           .from("sales")
           .update({
@@ -605,6 +850,18 @@ export function usePOS() {
           })
           .eq("id", saleId);
         if (updErr) throw updErr;
+      } else if (isSettlingCredit) {
+        // Settling an existing credit sale — update payment_status only, items already exist
+        const { error: updErr } = await supabase
+          .from("sales")
+          .update({
+            payment_status: paymentStatus,
+            notes: opts.loyaltyNote || `Credit settled`,
+          })
+          .eq("id", saleId);
+        if (updErr) throw updErr;
+        // Clear the credit sale tag
+        delete (window as any).__creditSaleId;
       } else {
         const { error: saleErr } = await supabase.from("sales").insert({
           id: saleId,
@@ -635,40 +892,42 @@ export function usePOS() {
         }
       }
 
+      // Credit settlement: items and stock were already processed when the credit sale was saved.
+      if (!isSettlingCredit) {
+        const isPharmacy = (business as any)?.business_type === "pharmacy";
+        const saleItems: any[] = [];
+        const batchDeductions: { batch_id: string; quantity: number }[] = [];
 
-      const isPharmacy = (business as any)?.business_type === "pharmacy";
-      const saleItems: any[] = [];
-      const batchDeductions: { batch_id: string; quantity: number }[] = [];
-
-      for (const i of cart) {
-        let batchId: string | null = null;
-        if (isPharmacy) {
-          const picks = await pickFefoBatches(i.product.id, currentLocation.id, i.quantity);
-          if (picks.length > 0) batchId = picks[0].batch_id;
-          batchDeductions.push(...picks);
+        for (const i of cart) {
+          let batchId: string | null = null;
+          if (isPharmacy) {
+            const picks = await pickFefoBatches(i.product.id, currentLocation.id, i.quantity);
+            if (picks.length > 0) batchId = picks[0].batch_id;
+            batchDeductions.push(...picks);
+          }
+          // Resolve which tax_rate_id to persist. Fall back to the business default.
+          const resolvedTaxRateId = i.tax_rate_id ?? defaultTaxRate?.id ?? null;
+          saleItems.push({
+            sale_id: saleId,
+            product_id: i.product.id,
+            quantity: i.quantity,
+            unit_price: i.unit_price,
+            discount: i.discount,
+            total: i.unit_price * i.quantity - i.discount,
+            batch_id: batchId,
+            tax_rate_id: vatEnabled ? resolvedTaxRateId : null,
+          });
         }
-        // Resolve which tax_rate_id to persist. Fall back to the business default.
-        const resolvedTaxRateId = i.tax_rate_id ?? defaultTaxRate?.id ?? null;
-        saleItems.push({
-          sale_id: saleId,
-          product_id: i.product.id,
-          quantity: i.quantity,
-          unit_price: i.unit_price,
-          discount: i.discount,
-          total: i.unit_price * i.quantity - i.discount,
-          batch_id: batchId,
-          tax_rate_id: vatEnabled ? resolvedTaxRateId : null,
-        });
-      }
-      const { error: itemsErr } = await supabase.from("sale_items").insert(saleItems);
-      if (itemsErr) throw itemsErr;
+        const { error: itemsErr } = await supabase.from("sale_items").insert(saleItems);
+        if (itemsErr) throw itemsErr;
 
-      if (batchDeductions.length > 0) {
-        await Promise.all(
-          batchDeductions.map((p) =>
-            supabase.rpc("decrement_batch_quantity" as any, { _batch_id: p.batch_id, _qty: p.quantity }),
-          ),
-        );
+        if (batchDeductions.length > 0) {
+          await Promise.all(
+            batchDeductions.map((p) =>
+              supabase.rpc("decrement_batch_quantity" as any, { _batch_id: p.batch_id, _qty: p.quantity }),
+            ),
+          );
+        }
       }
 
       if (payments.length > 0) {
@@ -697,7 +956,6 @@ export function usePOS() {
           const { error: payErr } = await supabase.from("payments").insert(paymentRows);
           if (payErr) throw payErr;
         }
-
       }
 
       const inventoryUpdates = await Promise.all(
