@@ -7,16 +7,46 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { APP_MODULES } from "@/lib/modules";
+import { APP_MODULES, applyModuleToggleDependencyRule } from "@/lib/modules";
 import {
-  ArrowLeft, Tag, Save, Loader2, AlertTriangle, Trash2, Check,
-  Package, Users, Warehouse, Contact, Truck, Info, ShoppingCart, Briefcase,
-  Calculator, Store, ArrowLeftRight, Wrench, Sparkles, ListChecks,
-  LayoutDashboard, Boxes, Receipt, ShoppingBag, BarChart3, Wallet, BookOpen,
+  ArrowLeft,
+  Tag,
+  Save,
+  Loader2,
+  AlertTriangle,
+  Trash2,
+  Check,
+  Package,
+  Users,
+  Warehouse,
+  Contact,
+  Truck,
+  Info,
+  ShoppingCart,
+  Briefcase,
+  Calculator,
+  Store,
+  ArrowLeftRight,
+  Wrench,
+  Sparkles,
+  ListChecks,
+  LayoutDashboard,
+  Boxes,
+  Receipt,
+  ShoppingBag,
+  BarChart3,
+  Wallet,
+  BookOpen,
   FileCheck,
 } from "lucide-react";
 
@@ -64,7 +94,7 @@ export default function SuperAdminPackageEdit() {
 
   const [form, setForm] = useState<Form>(emptyForm);
   const [featureToggles, setFeatureToggles] = useState<Record<string, boolean>>(
-    Object.fromEntries(ALL_FEATURES.map((f) => [f.key, true]))
+    Object.fromEntries(ALL_FEATURES.map((f) => [f.key, true])),
   );
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
@@ -108,21 +138,19 @@ export default function SuperAdminPackageEdit() {
       });
       setFeatureToggles(toggles);
       setSubscriberCount(
-        (subsRes.data || []).filter((s: any) => s.status === "active" || s.status === "trialing").length
+        (subsRes.data || []).filter((s: any) => s.status === "active" || s.status === "trialing").length,
       );
       setLoading(false);
     };
     load();
   }, [id, isNew, navigate]);
 
-  const enabledFeatureCount = useMemo(
-    () => Object.values(featureToggles).filter(Boolean).length,
-    [featureToggles]
-  );
+  const enabledFeatureCount = useMemo(() => Object.values(featureToggles).filter(Boolean).length, [featureToggles]);
 
   const limitsConfigured = useMemo(() => {
-    return [form.max_products, form.max_users, form.max_locations, form.max_customers, form.max_suppliers]
-      .filter((v) => v > 0).length;
+    return [form.max_products, form.max_users, form.max_locations, form.max_customers, form.max_suppliers].filter(
+      (v) => v > 0,
+    ).length;
   }, [form]);
 
   const handleSave = async () => {
@@ -150,18 +178,11 @@ export default function SuperAdminPackageEdit() {
 
       let pkgId = id;
       if (isNew) {
-        const { data, error } = await supabase
-          .from("subscription_packages")
-          .insert(payload)
-          .select("id")
-          .single();
+        const { data, error } = await supabase.from("subscription_packages").insert(payload).select("id").single();
         if (error) throw error;
         pkgId = data.id;
       } else {
-        const { error } = await supabase
-          .from("subscription_packages")
-          .update(payload)
-          .eq("id", id!);
+        const { error } = await supabase.from("subscription_packages").update(payload).eq("id", id!);
         if (error) throw error;
       }
 
@@ -229,7 +250,9 @@ export default function SuperAdminPackageEdit() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{isNew ? "New plan" : "Edit plan"}</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {isNew ? "Create a billing plan with limits and feature access." : `Update pricing, limits, and features for ${form.name}.`}
+              {isNew
+                ? "Create a billing plan with limits and feature access."
+                : `Update pricing, limits, and features for ${form.name}.`}
             </p>
           </div>
           <Badge
@@ -239,7 +262,9 @@ export default function SuperAdminPackageEdit() {
                 : "bg-muted text-muted-foreground"
             }
           >
-            <span className={`h-1.5 w-1.5 rounded-full mr-1.5 ${form.is_active ? "bg-emerald-500" : "bg-muted-foreground"}`} />
+            <span
+              className={`h-1.5 w-1.5 rounded-full mr-1.5 ${form.is_active ? "bg-emerald-500" : "bg-muted-foreground"}`}
+            />
             {form.is_active ? "Active" : "Inactive"}
           </Badge>
         </div>
@@ -256,16 +281,22 @@ export default function SuperAdminPackageEdit() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs">Plan name <span className="text-red-500">*</span></Label>
+                <Label className="text-xs">
+                  Plan name <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value, slug: e.target.value.toLowerCase().replace(/\s+/g, "") })}
+                  onChange={(e) =>
+                    setForm({ ...form, name: e.target.value, slug: e.target.value.toLowerCase().replace(/\s+/g, "") })
+                  }
                   placeholder="Starter"
                   className="h-10"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Slug <span className="text-red-500">*</span></Label>
+                <Label className="text-xs">
+                  Slug <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   value={form.slug}
                   onChange={(e) => setForm({ ...form, slug: e.target.value })}
@@ -274,9 +305,13 @@ export default function SuperAdminPackageEdit() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Monthly price (KES) <span className="text-red-500">*</span></Label>
+                <Label className="text-xs">
+                  Monthly price (KES) <span className="text-red-500">*</span>
+                </Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-semibold">KES</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-semibold">
+                    KES
+                  </span>
                   <Input
                     type="number"
                     min="0"
@@ -289,9 +324,13 @@ export default function SuperAdminPackageEdit() {
                 <p className="text-[11px] text-muted-foreground">Price charged per month in Kenyan Shillings.</p>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Yearly price (KES) <span className="text-red-500">*</span></Label>
+                <Label className="text-xs">
+                  Yearly price (KES) <span className="text-red-500">*</span>
+                </Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-semibold">KES</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-semibold">
+                    KES
+                  </span>
                   <Input
                     type="number"
                     min="0"
@@ -301,7 +340,9 @@ export default function SuperAdminPackageEdit() {
                     className="h-10 pl-12"
                   />
                 </div>
-                <p className="text-[11px] text-muted-foreground">Price charged per year. Set 0 to disable yearly billing.</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Price charged per year. Set 0 to disable yearly billing.
+                </p>
               </div>
             </div>
 
@@ -314,7 +355,9 @@ export default function SuperAdminPackageEdit() {
                 />
                 <div>
                   <span className="text-sm font-medium">Active</span>
-                  <p className="text-xs text-muted-foreground">Inactive plans won't be available for new subscriptions.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Inactive plans won't be available for new subscriptions.
+                  </p>
                 </div>
               </label>
               <label className="flex items-start gap-3 cursor-pointer">
@@ -326,7 +369,8 @@ export default function SuperAdminPackageEdit() {
                 <div>
                   <span className="text-sm font-medium">🔒 Private Plan</span>
                   <p className="text-xs text-muted-foreground">
-                    Private plans are hidden from the landing page, registration form, and tenant billing page. Only a super admin can assign them to tenants.
+                    Private plans are hidden from the landing page, registration form, and tenant billing page. Only a
+                    super admin can assign them to tenants.
                   </p>
                 </div>
               </label>
@@ -355,11 +399,11 @@ export default function SuperAdminPackageEdit() {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
               {[
-                { key: "max_products",  label: "Products",   Icon: Package },
-                { key: "max_users",     label: "Users",      Icon: Users },
+                { key: "max_products", label: "Products", Icon: Package },
+                { key: "max_users", label: "Users", Icon: Users },
                 { key: "max_locations", label: "Warehouses", Icon: Warehouse },
-                { key: "max_customers", label: "Customers",  Icon: Contact },
-                { key: "max_suppliers", label: "Suppliers",  Icon: Truck },
+                { key: "max_customers", label: "Customers", Icon: Contact },
+                { key: "max_suppliers", label: "Suppliers", Icon: Truck },
               ].map(({ key, label, Icon }) => (
                 <div key={key} className="border border-border rounded-lg p-3">
                   <div className="flex items-center gap-1.5 mb-2 text-xs text-muted-foreground">
@@ -392,20 +436,17 @@ export default function SuperAdminPackageEdit() {
                 const enabled = featureToggles[f.key] ?? false;
                 const dependsOnAccounting = f.key === "banking" || f.key === "manual_journals";
                 const accountingForced =
-                  f.key === "accounting" &&
-                  (featureToggles.banking || featureToggles.manual_journals);
+                  f.key === "accounting" && (featureToggles.banking || featureToggles.manual_journals);
 
                 const handleToggle = () => {
-                  if (accountingForced) {
-                    toast.info("Accounting is required by Banking or Manual Journals — disable those first.");
+                  const nextState = applyModuleToggleDependencyRule(f.key, !enabled, featureToggles);
+                  if (nextState.blocked) {
+                    toast.info(
+                      nextState.reason || "This change is not allowed for the current module dependency rules.",
+                    );
                     return;
                   }
-                  const next: Record<string, boolean> = { ...featureToggles, [f.key]: !enabled };
-                  // Banking or Manual Journals → auto-enable Accounting
-                  if (dependsOnAccounting && !enabled) {
-                    next.accounting = true;
-                  }
-                  setFeatureToggles(next);
+                  setFeatureToggles(nextState.next);
                 };
 
                 return (
@@ -420,7 +461,9 @@ export default function SuperAdminPackageEdit() {
                     } ${accountingForced ? "opacity-90" : ""}`}
                   >
                     <div className="flex items-start gap-2.5 min-w-0">
-                      <div className={`h-9 w-9 rounded-md flex items-center justify-center shrink-0 ${enabled ? "bg-white" : "bg-muted"}`}>
+                      <div
+                        className={`h-9 w-9 rounded-md flex items-center justify-center shrink-0 ${enabled ? "bg-white" : "bg-muted"}`}
+                      >
                         <f.Icon className={`h-4 w-4 ${enabled ? "text-emerald-600" : "text-muted-foreground"}`} />
                       </div>
                       <div className="min-w-0">
@@ -430,7 +473,9 @@ export default function SuperAdminPackageEdit() {
                           <p className="text-[10px] text-emerald-700 mt-1 font-medium">Requires Accounting</p>
                         )}
                         {accountingForced && (
-                          <p className="text-[10px] text-emerald-700 mt-1 font-medium">Locked on by Banking / Manual Journals</p>
+                          <p className="text-[10px] text-emerald-700 mt-1 font-medium">
+                            Locked on by Banking / Manual Journals
+                          </p>
                         )}
                       </div>
                     </div>
@@ -449,11 +494,7 @@ export default function SuperAdminPackageEdit() {
 
           {/* Action buttons */}
           <div className="flex items-center gap-2">
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
+            <Button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700 text-white">
               {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
               {isNew ? "Create plan" : "Update plan"}
             </Button>
@@ -524,7 +565,9 @@ export default function SuperAdminPackageEdit() {
             </dl>
 
             <div className="mt-5 pt-4 border-t border-border">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Active features</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                Active features
+              </p>
               <div className="flex flex-wrap gap-1.5">
                 {ALL_FEATURES.filter((f) => featureToggles[f.key]).map((f) => (
                   <Badge
@@ -534,9 +577,7 @@ export default function SuperAdminPackageEdit() {
                     {f.label}
                   </Badge>
                 ))}
-                {enabledFeatureCount === 0 && (
-                  <span className="text-xs text-muted-foreground">None</span>
-                )}
+                {enabledFeatureCount === 0 && <span className="text-xs text-muted-foreground">None</span>}
               </div>
             </div>
           </section>
@@ -554,11 +595,20 @@ export default function SuperAdminPackageEdit() {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>Keep plan</AlertDialogCancel>
             <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); handleDelete(); }}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
               disabled={deleting}
               className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
             >
-              {deleting ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Deleting…</> : "Yes, delete"}
+              {deleting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Deleting…
+                </>
+              ) : (
+                "Yes, delete"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
