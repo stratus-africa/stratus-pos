@@ -8,10 +8,21 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  ShoppingCart, Search, Plus, Trash2, Pause, Play, X,
-  User, Sunrise, Banknote, Smartphone, ScanLine,
-  Settings2, Printer, Loader2,
-
+  ShoppingCart,
+  Search,
+  Plus,
+  Trash2,
+  Pause,
+  Play,
+  X,
+  User,
+  Sunrise,
+  Banknote,
+  Smartphone,
+  ScanLine,
+  Settings2,
+  Printer,
+  Loader2,
   List,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -36,19 +47,21 @@ import { useBarcodeScanner, useScanSettings } from "@/hooks/useBarcodeScanner";
 import { ScannerSettingsDialog } from "@/components/pos/ScannerSettingsDialog";
 import { parseBarcode } from "@/lib/barcodeScan";
 import {
-  displayLineItem, displayPaid, displayThankYou, displayTotal, displayWelcome,
+  displayLineItem,
+  displayPaid,
+  displayThankYou,
+  displayTotal,
+  displayWelcome,
   loadCustomerDisplayConfig,
 } from "@/lib/customerDisplay";
 import { loadLastReceipt } from "@/lib/lastReceipt";
 import CreditCustomerDialog from "@/components/pos/CreditCustomerDialog";
+import type { CreditSaleSummary } from "@/components/pos/CustomerCreditLedgerDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { clampSplit, loadLocalSplit, saveLocalSplit, SPLIT_FALLBACK } from "@/lib/posLayout";
 import { useOfflineSales } from "@/hooks/useOfflineSales";
 import UnknownBarcodeDialog from "@/components/pos/UnknownBarcodeDialog";
 import { ProductFormDialog } from "@/components/products/ProductFormDialog";
-
-
-
 
 const POS = () => {
   const { productsQuery, createProduct } = useProducts();
@@ -78,8 +91,6 @@ const POS = () => {
     }
   }, [productPickerOpen]);
 
-
-
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [resumeOpen, setResumeOpen] = useState(false);
   const [initialPaymentMethod, setInitialPaymentMethod] = useState<"cash" | "mpesa" | "card">("cash");
@@ -99,23 +110,26 @@ const POS = () => {
   const [newProductOpen, setNewProductOpen] = useState(false);
   const lastScanRef = useRef<{ code: string; at: number }>({ code: "", at: 0 });
 
-
   // Inline product table on the POS screen (toggled next to scanner settings).
   const [showProductList, setShowProductList] = useState(false);
   useEffect(() => {
     try {
       setShowProductList(localStorage.getItem("pos-show-product-list") === "1");
-    } catch { /* storage unavailable */ }
+    } catch {
+      /* storage unavailable */
+    }
   }, []);
   const toggleProductList = () => {
     setShowProductList((prev) => {
       const next = !prev;
-      try { localStorage.setItem("pos-show-product-list", next ? "1" : "0"); } catch { /* ignore */ }
+      try {
+        localStorage.setItem("pos-show-product-list", next ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
       return next;
     });
   };
-
-
 
   // --- Resizable split between product list and cart (desktop only) ----------
   // Width preference resolves as: this user's saved width on this device →
@@ -181,6 +195,8 @@ const POS = () => {
   const isResume = pos.cart.length === 0 && pos.heldSales.length > 0;
   const [approvalOpen, setApprovalOpen] = useState(false);
   const [creditCustomerOpen, setCreditCustomerOpen] = useState(false);
+  const [creditIntent, setCreditIntent] = useState<"new_credit" | "view_credits">("new_credit");
+  const [savingCredit, setSavingCredit] = useState(false);
   const pendingRemoveResolver = useRef<((approved: boolean) => void) | null>(null);
   const pendingRemoveItem = useRef<CartItem | null>(null);
 
@@ -201,7 +217,7 @@ const POS = () => {
     const last = cart[cart.length - 1];
     void displayLineItem(
       last.product.name,
-      (last.unit_price * last.quantity) - (last.discount || 0),
+      last.unit_price * last.quantity - (last.discount || 0),
       pos.cartTotal,
       displayCfg,
     );
@@ -213,8 +229,6 @@ const POS = () => {
     void displayTotal(pos.cartTotal, displayCfg);
   }, [paymentOpen, pos.cartTotal, displayCfg]);
 
-
-
   // Per-location override (true/false) takes precedence over business default.
   const businessRequires = (business as any)?.pos_require_manager_to_remove_item ?? false;
   const locationOverride = (currentLocation as any)?.pos_require_manager_to_remove_item;
@@ -225,33 +239,39 @@ const POS = () => {
   const showStockQty = (business as { pos_show_stock_qty?: boolean })?.pos_show_stock_qty ?? true;
   const hideZeroStock = (business as { pos_hide_zero_stock?: boolean })?.pos_hide_zero_stock ?? true;
 
-  const handleBeforeRemove = useCallback((item: CartItem): Promise<boolean> => {
-    if (!cashierNeedsApproval) return Promise.resolve(true);
-    return new Promise<boolean>((resolve) => {
-      pendingRemoveResolver.current = resolve;
-      pendingRemoveItem.current = item;
-      setApprovalOpen(true);
-    });
-  }, [cashierNeedsApproval]);
-
-  const handleApproved = useCallback((managerUserId: string) => {
-    const item = pendingRemoveItem.current;
-    // Resolve immediately so the cart updates without waiting for audit logging.
-    pendingRemoveResolver.current?.(true);
-    pendingRemoveResolver.current = null;
-    pendingRemoveItem.current = null;
-    // Fire-and-forget audit log.
-    if (business && item) {
-      void logAudit({
-        business_id: business.id,
-        action: "pos_item_removed",
-        entity_type: "product",
-        entity_id: item.product.id,
-        description: `Removed "${item.product.name}" (qty ${item.quantity}) from POS cart with manager approval`,
-        metadata: { approved_by: managerUserId, qty: item.quantity },
+  const handleBeforeRemove = useCallback(
+    (item: CartItem): Promise<boolean> => {
+      if (!cashierNeedsApproval) return Promise.resolve(true);
+      return new Promise<boolean>((resolve) => {
+        pendingRemoveResolver.current = resolve;
+        pendingRemoveItem.current = item;
+        setApprovalOpen(true);
       });
-    }
-  }, [business]);
+    },
+    [cashierNeedsApproval],
+  );
+
+  const handleApproved = useCallback(
+    (managerUserId: string) => {
+      const item = pendingRemoveItem.current;
+      // Resolve immediately so the cart updates without waiting for audit logging.
+      pendingRemoveResolver.current?.(true);
+      pendingRemoveResolver.current = null;
+      pendingRemoveItem.current = null;
+      // Fire-and-forget audit log.
+      if (business && item) {
+        void logAudit({
+          business_id: business.id,
+          action: "pos_item_removed",
+          entity_type: "product",
+          entity_id: item.product.id,
+          description: `Removed "${item.product.name}" (qty ${item.quantity}) from POS cart with manager approval`,
+          metadata: { approved_by: managerUserId, qty: item.quantity },
+        });
+      }
+    },
+    [business],
+  );
 
   const handleApprovalClosed = useCallback((open: boolean) => {
     setApprovalOpen(open);
@@ -270,11 +290,7 @@ const POS = () => {
     // cooldown is a scanner burst / double trigger, never a real second scan.
     const cooldown = Number(scanSettings.scanCooldown ?? 0);
     const now = performance.now();
-    if (
-      cooldown > 0 &&
-      lastScanRef.current.code === trimmed &&
-      now - lastScanRef.current.at < cooldown
-    ) {
+    if (cooldown > 0 && lastScanRef.current.code === trimmed && now - lastScanRef.current.at < cooldown) {
       return;
     }
     lastScanRef.current = { code: trimmed, at: now };
@@ -302,10 +318,6 @@ const POS = () => {
     setUnknownCode(trimmed);
     setUnknownOpen(true);
   };
-
-
-
-
 
   const products = productsQuery.data ?? [];
   const categories = categoriesQuery.data ?? [];
@@ -346,11 +358,7 @@ const POS = () => {
 
   /** Capped list actually rendered — keeps the picker fast on big catalogues. */
   const MAX_PICKER_ROWS = 200;
-  const activeProducts = useMemo(
-    () => matchedProducts.slice(0, MAX_PICKER_ROWS),
-    [matchedProducts],
-  );
-
+  const activeProducts = useMemo(() => matchedProducts.slice(0, MAX_PICKER_ROWS), [matchedProducts]);
 
   // Reserve the sale before an M-Pesa STK prompt so the Daraja callback can
   // settle the correct invoice with the database-authoritative amount.
@@ -360,8 +368,12 @@ const POS = () => {
       loyaltyNote: loyalty ? `Redeemed ${loyalty.redeemPoints} pts` : null,
     });
 
-
-  const handlePaymentConfirm = async (payments: PaymentEntry[], bankAccountId: string | null, pushToEtims: boolean, loyalty: LoyaltyPayload | null) => {
+  const handlePaymentConfirm = async (
+    payments: PaymentEntry[],
+    bankAccountId: string | null,
+    pushToEtims: boolean,
+    loyalty: LoyaltyPayload | null,
+  ) => {
     let loyaltyCtx: {
       customerId: string;
       pointsBalance: number;
@@ -391,8 +403,12 @@ const POS = () => {
         pos.setCustomerId(customerId);
         pos.setCustomerName(loyalty.name || `Customer ${loyalty.phone.slice(-4)}`);
 
-        const minPurchase = Number((business as { loyalty_min_purchase_amount?: number } | null)?.loyalty_min_purchase_amount ?? 0);
-        const pointsPerKes = Number((business as { loyalty_points_per_kes?: number } | null)?.loyalty_points_per_kes ?? 1);
+        const minPurchase = Number(
+          (business as { loyalty_min_purchase_amount?: number } | null)?.loyalty_min_purchase_amount ?? 0,
+        );
+        const pointsPerKes = Number(
+          (business as { loyalty_points_per_kes?: number } | null)?.loyalty_points_per_kes ?? 1,
+        );
         const adjustedTotal = Math.max(0, pos.cartTotal - loyalty.redemptionValue);
         const earned = adjustedTotal >= minPurchase ? Math.floor((adjustedTotal / 10) * pointsPerKes) : 0;
 
@@ -424,7 +440,10 @@ const POS = () => {
           })
           .eq("id", loyaltyCtx.customerId);
         if (loyaltyCtx.pointsEarned > 0) toast.success(`+${loyaltyCtx.pointsEarned} loyalty points awarded`);
-        if (loyaltyCtx.pointsRedeemed > 0) toast.success(`Redeemed ${loyaltyCtx.pointsRedeemed} points (KES ${loyaltyCtx.redemptionValue.toLocaleString()})`);
+        if (loyaltyCtx.pointsRedeemed > 0)
+          toast.success(
+            `Redeemed ${loyaltyCtx.pointsRedeemed} points (KES ${loyaltyCtx.redemptionValue.toLocaleString()})`,
+          );
       } catch (e: any) {
         toast.warning(`Loyalty balance update failed: ${e.message}`);
       }
@@ -445,11 +464,12 @@ const POS = () => {
         const tendered = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
         const saleTotal = Number((result as any)?.total ?? tendered);
         void displayPaid(saleTotal, tendered, Math.max(0, tendered - saleTotal), displayCfg);
-        window.setTimeout(() => { void displayThankYou(displayCfg); }, 4000);
+        window.setTimeout(() => {
+          void displayThankYou(displayCfg);
+        }, 4000);
         lastCartKey.current = "";
       }
     }
-
   };
 
   const handleStartDay = async (openingFloat: number, locationId: string, cashAccountId: string) => {
@@ -479,19 +499,14 @@ const POS = () => {
     const quickCashComplete = async () => {
       if (pos.cart.length === 0 || pos.processing) return;
       const digitaxOn = (business as any)?.digitax_enabled === true;
-      await pos.completeSale(
-        [{ method: "cash", amount: pos.cartTotal, reference: "" }],
-        null,
-        digitaxOn,
-      );
+      await pos.completeSale([{ method: "cash", amount: pos.cartTotal, reference: "" }], null, digitaxOn);
     };
 
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
-      const typing = !!target && (
-        target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable
-      );
+      const typing =
+        !!target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
 
       switch (e.key) {
         case "F1":
@@ -544,7 +559,6 @@ const POS = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [pos, business, paymentOpen, scannerOpen, approvalOpen, receiptOpen, startDayOpen, productPickerOpen]);
 
-
   // Global keyboard-wedge scanner listener — works anywhere on the POS screen,
   // with or without the product picker open and with nothing focused.
   useBarcodeScanner({
@@ -553,14 +567,6 @@ const POS = () => {
     searchInputRef: pickerSearchRef,
     settings: scanSettings,
   });
-
-
-
-
-
-
-
-
 
   // Show loading while checking session
   if (session.loading) {
@@ -600,649 +606,734 @@ const POS = () => {
 
   return (
     <>
-    <WhatsNewDialog trigger={!!session.activeSession} />
-    <div
-      ref={splitRef}
-      className={`flex flex-col lg:flex-row gap-4 h-[calc(100dvh-6rem)] lg:h-[calc(100vh-6rem)] pb-[env(safe-area-inset-bottom)] ${dragging ? "select-none cursor-col-resize" : ""}`}
-    >
-      {/* Offline / pending-sync banner */}
-      {(!offline.online || offline.pending > 0) && (
-        <div className="lg:absolute lg:right-4 lg:top-0 z-20 flex items-center justify-between gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300">
-          <span>
-            {offline.online ? "Back online" : "Offline"} ·{" "}
-            {offline.pending > 0
-              ? `${offline.pending} sale${offline.pending > 1 ? "s" : ""} waiting to sync`
-              : "sales will be saved on this device"}
-          </span>
-          {offline.online && offline.pending > 0 && (
+      <WhatsNewDialog trigger={!!session.activeSession} />
+      <div
+        ref={splitRef}
+        className={`flex flex-col lg:flex-row gap-4 h-[calc(100dvh-6rem)] lg:h-[calc(100vh-6rem)] pb-[env(safe-area-inset-bottom)] ${dragging ? "select-none cursor-col-resize" : ""}`}
+      >
+        {/* Offline / pending-sync banner */}
+        {(!offline.online || offline.pending > 0) && (
+          <div className="lg:absolute lg:right-4 lg:top-0 z-20 flex items-center justify-between gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+            <span>
+              {offline.online ? "Back online" : "Offline"} ·{" "}
+              {offline.pending > 0
+                ? `${offline.pending} sale${offline.pending > 1 ? "s" : ""} waiting to sync`
+                : "sales will be saved on this device"}
+            </span>
+            {offline.online && offline.pending > 0 && (
+              <button
+                type="button"
+                className="underline underline-offset-2 disabled:opacity-50"
+                disabled={offline.syncing}
+                onClick={() => void offline.sync()}
+              >
+                {offline.syncing ? "Syncing…" : "Sync now"}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Mobile: switch between the full-screen cart and the tender panel */}
+        {isMobile && (
+          <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1 lg:hidden">
             <button
               type="button"
-              className="underline underline-offset-2 disabled:opacity-50"
-              disabled={offline.syncing}
-              onClick={() => void offline.sync()}
+              onClick={() => setMobilePane("cart")}
+              className={`rounded-md py-2 text-sm font-medium ${mobilePane === "cart" ? "bg-background shadow-sm" : "text-muted-foreground"}`}
             >
-              {offline.syncing ? "Syncing…" : "Sync now"}
+              Cart{pos.cart.length ? ` (${pos.cart.length})` : ""}
             </button>
-          )}
-        </div>
-      )}
-
-      {/* Mobile: switch between the full-screen cart and the tender panel */}
-      {isMobile && (
-        <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1 lg:hidden">
-          <button
-            type="button"
-            onClick={() => setMobilePane("cart")}
-            className={`rounded-md py-2 text-sm font-medium ${mobilePane === "cart" ? "bg-background shadow-sm" : "text-muted-foreground"}`}
-          >
-            Cart{pos.cart.length ? ` (${pos.cart.length})` : ""}
-          </button>
-          <button
-            type="button"
-            onClick={() => setMobilePane("summary")}
-            className={`rounded-md py-2 text-sm font-medium ${mobilePane === "summary" ? "bg-background shadow-sm" : "text-muted-foreground"}`}
-          >
-            Payment
-          </button>
-        </div>
-      )}
-
-
-
-      {/* Left: Product selection — resizable width on large screens */}
-      <div
-        className={`flex-col min-h-0 flex-1 lg:flex-none w-full ${
-          isMobile && mobilePane !== "cart" ? "hidden lg:flex" : "flex"
-        }`}
-        style={isWide ? { width: `calc(${splitPct}% - 0.75rem)` } : undefined}
-      >
-        {/* Search & filters - single row on mobile */}
-        <div className="flex flex-row gap-2 mb-3">
-          <Button
-            variant="outline"
-            className="flex-1 justify-start gap-2 text-muted-foreground h-10"
-            onClick={() => { setProductPickerOpen(true); requestAnimationFrame(() => pickerSearchRef.current?.focus()); }}
-          >
-            <Search className="h-4 w-4" />
-            <span className="truncate">Search or scan products…</span>
-            <kbd className="ml-auto hidden sm:inline-flex items-center gap-1 rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-              F2
-            </kbd>
-          </Button>
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-24 sm:w-40 shrink-0">
-              <SelectValue placeholder="Cat." />
-            </SelectTrigger>
-
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {categories.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button size="icon" variant="outline" className="shrink-0" onClick={() => setScannerOpen(true)} title="Scan barcode">
-            <ScanLine className="h-4 w-4" />
-          </Button>
-          <Button
-            size="icon" variant="outline" className="shrink-0 hidden sm:inline-flex"
-            onClick={() => setScanSettingsOpen(true)} title="Scanner settings"
-          >
-            <Settings2 className="h-4 w-4" />
-          </Button>
-          <Button
-            size="icon"
-            variant={showProductList ? "default" : "outline"}
-            className="shrink-0"
-            onClick={toggleProductList}
-            title={showProductList ? "Hide product list" : "Show product list"}
-            aria-pressed={showProductList}
-          >
-            <List className="h-4 w-4" />
-          </Button>
-
-        </div>
-
-        {/* Inline product list — toggled from the button beside scanner settings */}
-        {showProductList && (
-          <div className="mb-3 rounded-lg border overflow-hidden max-h-64 flex flex-col">
-            <ScrollArea className="flex-1 min-h-0">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-muted/80 backdrop-blur text-left">
-                  <tr>
-                    <th className="px-3 py-2 font-medium">Product</th>
-                    <th className="px-3 py-2 font-medium text-right">Price</th>
-                    {showStockQty && <th className="px-3 py-2 font-medium text-right w-20">Stock</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {activeProducts.map((p, idx) => (
-                    <tr
-                      key={p.id}
-                      onClick={() => pos.addToCart(p)}
-                      className={`cursor-pointer hover:bg-accent ${idx % 2 ? "bg-muted/30" : ""}`}
-                    >
-                      <td className="px-3 py-1.5 truncate">{p.name}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums">{Number(p.selling_price).toLocaleString()}</td>
-                      {showStockQty && (
-                        <td className="px-3 py-1.5 text-right tabular-nums">{stockMap.get(p.id) ?? 0}</td>
-                      )}
-                    </tr>
-                  ))}
-                  {activeProducts.length === 0 && (
-                    <tr>
-                      <td colSpan={showStockQty ? 3 : 2} className="text-center py-6 text-muted-foreground">
-                        No products found
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </ScrollArea>
+            <button
+              type="button"
+              onClick={() => setMobilePane("summary")}
+              className={`rounded-md py-2 text-sm font-medium ${mobilePane === "summary" ? "bg-background shadow-sm" : "text-muted-foreground"}`}
+            >
+              Payment
+            </button>
           </div>
         )}
 
+        {/* Left: Product selection — resizable width on large screens */}
+        <div
+          className={`flex-col min-h-0 flex-1 lg:flex-none w-full ${
+            isMobile && mobilePane !== "cart" ? "hidden lg:flex" : "flex"
+          }`}
+          style={isWide ? { width: `calc(${splitPct}% - 0.75rem)` } : undefined}
+        >
+          {/* Search & filters - single row on mobile */}
+          <div className="flex flex-row gap-2 mb-3">
+            <Button
+              variant="outline"
+              className="flex-1 justify-start gap-2 text-muted-foreground h-10"
+              onClick={() => {
+                setProductPickerOpen(true);
+                requestAnimationFrame(() => pickerSearchRef.current?.focus());
+              }}
+            >
+              <Search className="h-4 w-4" />
+              <span className="truncate">Search or scan products…</span>
+              <kbd className="ml-auto hidden sm:inline-flex items-center gap-1 rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                F2
+              </kbd>
+            </Button>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-24 sm:w-40 shrink-0">
+                <SelectValue placeholder="Cat." />
+              </SelectTrigger>
 
-        {/* Product picker modal — opened by F2 or the search button */}
-        <Dialog open={productPickerOpen} onOpenChange={(o) => {
-          setProductPickerOpen(o);
-          if (!o) { setPickerSearch(""); setCategoryFilter("all"); }
-        }}>
-          <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 gap-0">
-            <DialogHeader className="px-4 py-3 border-b">
-              <DialogTitle className="text-base">Select product</DialogTitle>
-            </DialogHeader>
-            <div className="flex flex-row gap-2 px-4 py-2 border-b">
-              <div className="relative flex-1 min-w-0">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  ref={pickerSearchRef}
-                  placeholder="Search by name, barcode or SKU…"
-                  value={pickerSearch}
-                  onChange={(e) => setPickerSearch(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setProductPickerOpen(false);
-                      setPickerSearch("");
-                      setCategoryFilter("all");
-                      return;
-                    }
-                    if (e.key === "Enter" && pickerSearch.trim()) {
-                      e.preventDefault();
-                      // Enter-to-select: if the filter narrows to exactly one product, add it.
-                      if (matchedProducts.length === 1) {
-                        pos.addToCart(matchedProducts[0]);
-                        setPickerSearch("");
-                        pickerSearchRef.current?.focus();
-                        return;
-                      }
-                      // Otherwise treat as a barcode/SKU lookup.
-                      const trimmed = pickerSearch.trim();
-                      const match = products.find(
-                        (p) => p.is_active && (p.barcode === trimmed || p.sku === trimmed)
-                      );
-                      if (match) {
-                        pos.addToCart(match);
-                        setPickerSearch("");
-                        pickerSearchRef.current?.focus();
-                      } else {
-                        toast.warning(`No product matches "${trimmed}"`);
-                      }
-                    }
-                  }}
-                  className="pl-9 pr-9"
-                  aria-label="Search products by name, barcode or SKU"
-                />
-                {pickerSearch ? (
-                  <button
-                    type="button"
-                    aria-label="Clear search"
-                    title="Clear search"
-                    onClick={() => { setPickerSearch(""); pickerSearchRef.current?.focus(); }}
-                    className="absolute right-2 top-1.5 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                ) : null}
-              </div>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-32 sm:w-40 shrink-0">
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <ScrollArea className="flex-1 min-h-0">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/60 text-muted-foreground sticky top-0">
-                  <tr className="text-left">
-                    <th className="px-3 py-2 font-medium">Product</th>
-                    {showStockQty && <th className="px-3 py-2 font-medium hidden sm:table-cell">Stock</th>}
-                    <th className="px-3 py-2 font-medium text-right">Price</th>
-                  </tr>
-                </thead>
-                <tbody className="theme-alt-rows">
-                  {activeProducts.map((p) => {
-                    const qty = stockMap.get(p.id) ?? 0;
-                    const lowStock = qty <= 0;
-                    return (
-                      <tr
-                        key={p.id}
-                        onClick={() => { pos.addToCart(p); setPickerSearch(""); pickerSearchRef.current?.focus(); }}
-                        className="cursor-pointer border-b last:border-0 hover:bg-accent/60 transition-colors"
-                      >
-                        <td className="px-3 py-2 align-middle">
-                          <div className="flex flex-col min-w-0">
-                            <span className="font-medium truncate">{p.name}</span>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              {p.sku && <span className="truncate">{p.sku}</span>}
-                              {showStockQty && (
-                                <Badge variant={lowStock ? "destructive" : "secondary"} className="sm:hidden text-[10px] font-normal">
-                                  Qty: {qty}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        {showStockQty && (
-                          <td className="px-3 py-2 align-middle hidden sm:table-cell">
-                            <Badge variant={lowStock ? "destructive" : "secondary"} className="text-[10px] font-normal">
-                              {qty}
-                            </Badge>
-                          </td>
-                        )}
-                        <td className="px-3 py-2 align-middle text-right font-semibold text-primary whitespace-nowrap">
-                          KES {Number(p.selling_price).toLocaleString()}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {activeProducts.length === 0 && (
-                    <tr>
-                      <td colSpan={showStockQty ? 3 : 2} className="text-center py-10 text-muted-foreground">No products found</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </ScrollArea>
-          </DialogContent>
-        </Dialog>
-
-        {/* PRODUCT ITEMS — the current sale's cart */}
-        <div className="flex-1 min-h-0 flex flex-col rounded-lg border overflow-hidden">
-          <div className="flex items-center justify-between px-3 py-2 bg-primary text-primary-foreground">
-            <span className="text-xs font-semibold tracking-wide uppercase flex items-center gap-2">
-              <ShoppingCart className="h-4 w-4" />
-              Product Items ({pos.cart.length})
-            </span>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {categories.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button
               size="icon"
-              variant="ghost"
-              className="h-6 w-6 text-primary-foreground hover:bg-primary-foreground/15"
-              disabled={pos.cart.length === 0}
-              onClick={pos.clearCart}
-              title="Clear cart"
+              variant="outline"
+              className="shrink-0"
+              onClick={() => setScannerOpen(true)}
+              title="Scan barcode"
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <ScanLine className="h-4 w-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="outline"
+              className="shrink-0 hidden sm:inline-flex"
+              onClick={() => setScanSettingsOpen(true)}
+              title="Scanner settings"
+            >
+              <Settings2 className="h-4 w-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant={showProductList ? "default" : "outline"}
+              className="shrink-0"
+              onClick={toggleProductList}
+              title={showProductList ? "Hide product list" : "Show product list"}
+              aria-pressed={showProductList}
+            >
+              <List className="h-4 w-4" />
             </Button>
           </div>
-          <ScrollArea className="flex-1 min-h-0">
-            {pos.cart.length === 0 ? (
-              <p className="text-center py-12 text-muted-foreground text-sm">
-                Search or scan a product to start a sale
-              </p>
-            ) : (
-              <CartTable
-                items={pos.cart}
-                onUpdate={pos.updateCartItem}
-                onRemove={pos.removeFromCart}
-                onBeforeRemove={handleBeforeRemove}
-                stockOf={pos.stockOf}
-              />
-            )}
-          </ScrollArea>
-        </div>
 
+          {/* Inline product list — toggled from the button beside scanner settings */}
+          {showProductList && (
+            <div className="mb-3 rounded-lg border overflow-hidden max-h-64 flex flex-col">
+              <ScrollArea className="flex-1 min-h-0">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-muted/80 backdrop-blur text-left">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">Product</th>
+                      <th className="px-3 py-2 font-medium text-right">Price</th>
+                      {showStockQty && <th className="px-3 py-2 font-medium text-right w-20">Stock</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeProducts.map((p, idx) => (
+                      <tr
+                        key={p.id}
+                        onClick={() => pos.addToCart(p)}
+                        className={`cursor-pointer hover:bg-accent ${idx % 2 ? "bg-muted/30" : ""}`}
+                      >
+                        <td className="px-3 py-1.5 truncate">{p.name}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums">
+                          {Number(p.selling_price).toLocaleString()}
+                        </td>
+                        {showStockQty && (
+                          <td className="px-3 py-1.5 text-right tabular-nums">{stockMap.get(p.id) ?? 0}</td>
+                        )}
+                      </tr>
+                    ))}
+                    {activeProducts.length === 0 && (
+                      <tr>
+                        <td colSpan={showStockQty ? 3 : 2} className="text-center py-6 text-muted-foreground">
+                          No products found
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </ScrollArea>
+            </div>
+          )}
 
-
-
-
-        {/* Held sales bar */}
-        {pos.heldSales.length > 0 && (
-          <div className="flex items-center gap-2 mt-2 pt-2 border-t overflow-x-auto">
-            <span className="text-xs text-muted-foreground whitespace-nowrap">Held:</span>
-            {pos.heldSales.map((h) => (
-              <Badge key={h.id} variant="secondary" className="cursor-pointer flex items-center gap-1 whitespace-nowrap">
-                <button onClick={() => pos.resumeSale(h.id)} className="flex items-center gap-1">
-                  <Play className="h-3 w-3" /> {h.label}
-                </button>
-                <button onClick={() => pos.removeHeldSale(h.id)}>
-                  <X className="h-3 w-3 hover:text-destructive" />
-                </button>
-              </Badge>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Drag handle to resize product list vs summary */}
-      <div
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="Resize product list and cart"
-        title={canSetTenantDefault ? "Drag to resize · double-click to reset · right-click to save as the business default" : "Drag to resize · double-click to reset"}
-        onMouseDown={() => setDragging(true)}
-        onTouchStart={() => setDragging(true)}
-        onDoubleClick={() => setSplitPct(SPLIT_FALLBACK)}
-        onContextMenu={(e) => { e.preventDefault(); void saveTenantSplit(); }}
-        className="hidden lg:flex -mx-3 w-6 shrink-0 cursor-col-resize items-center justify-center group"
-      >
-        <div className={`h-16 w-1.5 rounded-full transition-colors ${dragging ? "bg-primary" : "bg-border group-hover:bg-primary/60"}`} />
-      </div>
-
-      {/* Right: Sale summary & tender panel */}
-      <div
-        className={`w-full shrink-0 lg:flex-1 min-w-0 flex-col min-h-0 rounded-lg overflow-hidden bg-primary text-primary-foreground ${
-          isMobile && mobilePane !== "summary" ? "hidden lg:flex" : "flex"
-        }`}
-        style={isWide ? { width: `calc(${100 - splitPct}% - 0.75rem)` } : undefined}
-      >
-        {/* Quick actions */}
-        <div className="grid grid-cols-3 divide-x divide-primary-foreground/20 border-b border-primary-foreground/20">
-          <button
-            type="button"
-            onClick={pos.clearCart}
-            className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium hover:bg-primary-foreground/10"
-          >
-            <Plus className="h-4 w-4" /> New
-          </button>
-          <button
-            type="button"
-            disabled={isResume ? pos.heldSales.length === 0 : pos.cart.length === 0}
-            onClick={() => {
-              if (isResume) { setResumeOpen(true); return; }
-              const suggested = pos.customerName || `Sale ${new Date().toLocaleTimeString()}`;
-              const label = window.prompt("Name this parked sale:", suggested);
-              if (label === null) return;
-              void pos.holdSale(label);
+          {/* Product picker modal — opened by F2 or the search button */}
+          <Dialog
+            open={productPickerOpen}
+            onOpenChange={(o) => {
+              setProductPickerOpen(o);
+              if (!o) {
+                setPickerSearch("");
+                setCategoryFilter("all");
+              }
             }}
-            className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium hover:bg-primary-foreground/10 disabled:opacity-50"
           >
-            {isResume ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-            {isResume ? `Resume${pos.heldSales.length ? ` (${pos.heldSales.length})` : ""}` : "Draft"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setCreditCustomerOpen(true)}
-            className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium hover:bg-primary-foreground/10"
-          >
-            <User className="h-4 w-4" /> New Customer
-          </button>
-        </div>
-
-        {/* Session bar */}
-        <div className="px-3 py-2 text-[11px] bg-primary-foreground/10 border-b border-primary-foreground/20 text-center truncate">
-          {new Date().toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-          {" | "}{currentLocation?.name || ""}
-        </div>
-
-        <ScrollArea className="flex-1 min-h-0">
-          <div className="p-3 text-white text-xs font-mono">
-            {/* Invoice & Customer */}
-
-            <div className="space-y-1.5">
-              <div className="flex justify-between">
-                <span className="opacity-80">Invoice</span>
-                <span className="opacity-90">Pending</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="opacity-80 whitespace-nowrap">Customer</span>
-                <Select
-                  value={pos.customerId || "walkin"}
-                  onValueChange={(v) => {
-                    if (v === "walkin") {
-                      pos.setCustomerId(null);
-                      pos.setCustomerName(null);
-                    } else {
-                      const cust = customers.find((c) => c.id === v);
-                      pos.setCustomerId(v);
-                      pos.setCustomerName(cust?.name || null);
-                    }
-                  }}
-                >
-                  <SelectTrigger className="h-7 w-full bg-transparent border-white/30 text-white text-xs px-2 py-1">
-                    <SelectValue placeholder="Walk-in" />
+            <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 gap-0">
+              <DialogHeader className="px-4 py-3 border-b">
+                <DialogTitle className="text-base">Select product</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-row gap-2 px-4 py-2 border-b">
+                <div className="relative flex-1 min-w-0">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    ref={pickerSearchRef}
+                    placeholder="Search by name, barcode or SKU…"
+                    value={pickerSearch}
+                    onChange={(e) => setPickerSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setProductPickerOpen(false);
+                        setPickerSearch("");
+                        setCategoryFilter("all");
+                        return;
+                      }
+                      if (e.key === "Enter" && pickerSearch.trim()) {
+                        e.preventDefault();
+                        // Enter-to-select: if the filter narrows to exactly one product, add it.
+                        if (matchedProducts.length === 1) {
+                          pos.addToCart(matchedProducts[0]);
+                          setPickerSearch("");
+                          pickerSearchRef.current?.focus();
+                          return;
+                        }
+                        // Otherwise treat as a barcode/SKU lookup.
+                        const trimmed = pickerSearch.trim();
+                        const match = products.find((p) => p.is_active && (p.barcode === trimmed || p.sku === trimmed));
+                        if (match) {
+                          pos.addToCart(match);
+                          setPickerSearch("");
+                          pickerSearchRef.current?.focus();
+                        } else {
+                          toast.warning(`No product matches "${trimmed}"`);
+                        }
+                      }
+                    }}
+                    className="pl-9 pr-9"
+                    aria-label="Search products by name, barcode or SKU"
+                  />
+                  {pickerSearch ? (
+                    <button
+                      type="button"
+                      aria-label="Clear search"
+                      title="Clear search"
+                      onClick={() => {
+                        setPickerSearch("");
+                        pickerSearchRef.current?.focus();
+                      }}
+                      className="absolute right-2 top-1.5 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  ) : null}
+                </div>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="w-32 sm:w-40 shrink-0">
+                    <SelectValue placeholder="Category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="walkin">Walk-in</SelectItem>
-                    {customers.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name} {c.phone ? `(${c.phone})` : ""}</SelectItem>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
-            <div className="border-t border-dashed border-white/30 my-2" />
-
-            {/* Cart items */}
-            {pos.cart.length === 0 ? (
-              <p className="text-center py-6 opacity-80">No items added yet</p>
-            ) : (
-              <table className="w-full mb-1">
-                <tbody>
-                  {pos.cart.map((item) => (
-                    <tr key={item.product.id}>
-                      <td className="py-1 align-top">
-                        <div className="font-medium">{item.product.name}</div>
-                        <div className="opacity-80">
-                          {item.quantity} x {Number(item.unit_price).toLocaleString()}
-                          {item.discount > 0 && <span className="ml-1 opacity-70">(disc -{item.discount})</span>}
-                        </div>
-                      </td>
-                      <td className="py-1 text-right align-top whitespace-nowrap">
-                        {(item.quantity * item.unit_price - item.discount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
+              <ScrollArea className="flex-1 min-h-0">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/60 text-muted-foreground sticky top-0">
+                    <tr className="text-left">
+                      <th className="px-3 py-2 font-medium">Product</th>
+                      {showStockQty && <th className="px-3 py-2 font-medium hidden sm:table-cell">Stock</th>}
+                      <th className="px-3 py-2 font-medium text-right">Price</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+                  </thead>
+                  <tbody className="theme-alt-rows">
+                    {activeProducts.map((p) => {
+                      const qty = stockMap.get(p.id) ?? 0;
+                      const lowStock = qty <= 0;
+                      return (
+                        <tr
+                          key={p.id}
+                          onClick={() => {
+                            pos.addToCart(p);
+                            setPickerSearch("");
+                            pickerSearchRef.current?.focus();
+                          }}
+                          className="cursor-pointer border-b last:border-0 hover:bg-accent/60 transition-colors"
+                        >
+                          <td className="px-3 py-2 align-middle">
+                            <div className="flex flex-col min-w-0">
+                              <span className="font-medium truncate">{p.name}</span>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                {p.sku && <span className="truncate">{p.sku}</span>}
+                                {showStockQty && (
+                                  <Badge
+                                    variant={lowStock ? "destructive" : "secondary"}
+                                    className="sm:hidden text-[10px] font-normal"
+                                  >
+                                    Qty: {qty}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          {showStockQty && (
+                            <td className="px-3 py-2 align-middle hidden sm:table-cell">
+                              <Badge
+                                variant={lowStock ? "destructive" : "secondary"}
+                                className="text-[10px] font-normal"
+                              >
+                                {qty}
+                              </Badge>
+                            </td>
+                          )}
+                          <td className="px-3 py-2 align-middle text-right font-semibold text-primary whitespace-nowrap">
+                            KES {Number(p.selling_price).toLocaleString()}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {activeProducts.length === 0 && (
+                      <tr>
+                        <td colSpan={showStockQty ? 3 : 2} className="text-center py-10 text-muted-foreground">
+                          No products found
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </ScrollArea>
+            </DialogContent>
+          </Dialog>
 
+          {/* PRODUCT ITEMS — the current sale's cart */}
+          <div className="flex-1 min-h-0 flex flex-col rounded-lg border overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-2 bg-primary text-primary-foreground">
+              <span className="text-xs font-semibold tracking-wide uppercase flex items-center gap-2">
+                <ShoppingCart className="h-4 w-4" />
+                Product Items ({pos.cart.length})
+              </span>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6 text-primary-foreground hover:bg-primary-foreground/15"
+                disabled={pos.cart.length === 0}
+                onClick={pos.clearCart}
+                title="Clear cart"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <ScrollArea className="flex-1 min-h-0">
+              {pos.cart.length === 0 ? (
+                <p className="text-center py-12 text-muted-foreground text-sm">
+                  Search or scan a product to start a sale
+                </p>
+              ) : (
+                <CartTable
+                  items={pos.cart}
+                  onUpdate={pos.updateCartItem}
+                  onRemove={pos.removeFromCart}
+                  onBeforeRemove={handleBeforeRemove}
+                  stockOf={pos.stockOf}
+                />
+              )}
+            </ScrollArea>
           </div>
-        </ScrollArea>
 
-        {/* Total */}
-        <div className="px-3 py-2 border-t border-primary-foreground/20 flex items-center justify-between bg-primary">
-          <span className="uppercase font-semibold tracking-wide text-sm">Total Due</span>
-          <span className="text-3xl font-bold tabular-nums">
-            <span className="text-base font-semibold mr-1 opacity-80">KES</span>
-            {pos.cartTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
+          {/* Held sales bar */}
+          {pos.heldSales.length > 0 && (
+            <div className="flex items-center gap-2 mt-2 pt-2 border-t overflow-x-auto">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">Held:</span>
+              {pos.heldSales.map((h) => (
+                <Badge
+                  key={h.id}
+                  variant="secondary"
+                  className="cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                >
+                  <button onClick={() => pos.resumeSale(h.id)} className="flex items-center gap-1">
+                    <Play className="h-3 w-3" /> {h.label}
+                  </button>
+                  <button onClick={() => pos.removeHeldSale(h.id)}>
+                    <X className="h-3 w-3 hover:text-destructive" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Tender buttons */}
-        <div className="p-3 pt-0 space-y-2">
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              variant="outline"
-              className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
-              disabled={pos.cart.length === 0}
-              onClick={() => { setInitialPaymentMethod("cash"); setPaymentOpen(true); }}
+        {/* Drag handle to resize product list vs summary */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize product list and cart"
+          title={
+            canSetTenantDefault
+              ? "Drag to resize · double-click to reset · right-click to save as the business default"
+              : "Drag to resize · double-click to reset"
+          }
+          onMouseDown={() => setDragging(true)}
+          onTouchStart={() => setDragging(true)}
+          onDoubleClick={() => setSplitPct(SPLIT_FALLBACK)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            void saveTenantSplit();
+          }}
+          className="hidden lg:flex -mx-3 w-6 shrink-0 cursor-col-resize items-center justify-center group"
+        >
+          <div
+            className={`h-16 w-1.5 rounded-full transition-colors ${dragging ? "bg-primary" : "bg-border group-hover:bg-primary/60"}`}
+          />
+        </div>
+
+        {/* Right: Sale summary & tender panel */}
+        <div
+          className={`w-full shrink-0 lg:flex-1 min-w-0 flex-col min-h-0 rounded-lg overflow-hidden bg-primary text-primary-foreground ${
+            isMobile && mobilePane !== "summary" ? "hidden lg:flex" : "flex"
+          }`}
+          style={isWide ? { width: `calc(${100 - splitPct}% - 0.75rem)` } : undefined}
+        >
+          {/* Quick actions */}
+          <div className="grid grid-cols-3 divide-x divide-primary-foreground/20 border-b border-primary-foreground/20">
+            <button
+              type="button"
+              onClick={pos.clearCart}
+              className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium hover:bg-primary-foreground/10"
             >
-              <Banknote className="h-4 w-4 mr-1.5" /> Cash
-            </Button>
-            <Button
-              variant="outline"
-              className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
-              disabled={pos.cart.length === 0}
-              onClick={() => { setInitialPaymentMethod("mpesa"); setPaymentOpen(true); }}
-            >
-              <Smartphone className="h-4 w-4 mr-1.5" /> M-Pesa
-            </Button>
-            <Button
-              variant="outline"
-              className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
-              disabled={pos.cart.length === 0}
-              onClick={() => {
-                if (!pos.customerId) { setCreditCustomerOpen(true); return; }
-                setInitialPaymentMethod("card");
-                setPaymentOpen(true);
-              }}
-            >
-              <User className="h-4 w-4 mr-1.5" /> Credit
-            </Button>
-            <Button
-              variant="outline"
-              className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
+              <Plus className="h-4 w-4" /> New
+            </button>
+            <button
+              type="button"
               disabled={isResume ? pos.heldSales.length === 0 : pos.cart.length === 0}
               onClick={() => {
-                if (isResume) { setResumeOpen(true); return; }
+                if (isResume) {
+                  setResumeOpen(true);
+                  return;
+                }
                 const suggested = pos.customerName || `Sale ${new Date().toLocaleTimeString()}`;
                 const label = window.prompt("Name this parked sale:", suggested);
                 if (label === null) return;
                 void pos.holdSale(label);
               }}
+              className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium hover:bg-primary-foreground/10 disabled:opacity-50"
             >
-              {isResume ? <Play className="h-4 w-4 mr-1.5" /> : <Pause className="h-4 w-4 mr-1.5" />}
-              {isResume ? "Resume" : "Suspend"}
-            </Button>
+              {isResume ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+              {isResume ? `Resume${pos.heldSales.length ? ` (${pos.heldSales.length})` : ""}` : "Draft"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCreditIntent("new_credit");
+                setCreditCustomerOpen(true);
+              }}
+              className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium hover:bg-primary-foreground/10"
+            >
+              <User className="h-4 w-4" /> New Customer
+            </button>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full h-10 text-xs text-primary-foreground hover:bg-primary-foreground/10"
-            onClick={() => {
-              const last = loadLastReceipt(business?.id);
-              if (!last) {
-                toast.error("No previous receipt found on this device.");
-                return;
-              }
-              setReprintData(last);
-              setReprintOpen(true);
-            }}
-          >
-            <Printer className="h-3.5 w-3.5 mr-1" /> Reprint Last Receipt
-          </Button>
-        </div>
-      </div>
 
+          {/* Session bar */}
+          <div className="px-3 py-2 text-[11px] bg-primary-foreground/10 border-b border-primary-foreground/20 text-center truncate">
+            {new Date().toLocaleDateString(undefined, {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+            {" | "}
+            {currentLocation?.name || ""}
+          </div>
 
-      <Dialog open={resumeOpen} onOpenChange={setResumeOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Resume a suspended sale</DialogTitle></DialogHeader>
-          <div className="space-y-2 max-h-[50vh] overflow-y-auto">
-            {pos.heldSales.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-6">No suspended sales.</p>
-            )}
-            {pos.heldSales.map((h) => (
-              <div key={h.id} className="flex items-center justify-between gap-2 rounded-md border p-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{h.label}</p>
-                  <p className="text-xs text-muted-foreground">{h.cart?.length ?? 0} item(s)</p>
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="p-3 text-white text-xs font-mono">
+              {/* Invoice & Customer */}
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="opacity-80">Invoice</span>
+                  <span className="opacity-90">Pending</span>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <Button size="sm" onClick={() => { pos.resumeSale(h.id); setResumeOpen(false); }}>
-                    <Play className="h-3.5 w-3.5 mr-1" /> Resume
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => pos.removeHeldSale(h.id)}>
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
+                <div className="flex items-center gap-2">
+                  <span className="opacity-80 whitespace-nowrap">Customer</span>
+                  <Select
+                    value={pos.customerId || "walkin"}
+                    onValueChange={(v) => {
+                      if (v === "walkin") {
+                        pos.setCustomerId(null);
+                        pos.setCustomerName(null);
+                      } else {
+                        const cust = customers.find((c) => c.id === v);
+                        pos.setCustomerId(v);
+                        pos.setCustomerName(cust?.name || null);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-7 w-full bg-transparent border-white/30 text-white text-xs px-2 py-1">
+                      <SelectValue placeholder="Walk-in" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="walkin">Walk-in</SelectItem>
+                      {customers.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name} {c.phone ? `(${c.phone})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-            ))}
+
+              <div className="border-t border-dashed border-white/30 my-2" />
+
+              {/* Cart items */}
+              {pos.cart.length === 0 ? (
+                <p className="text-center py-6 opacity-80">No items added yet</p>
+              ) : (
+                <table className="w-full mb-1">
+                  <tbody>
+                    {pos.cart.map((item) => (
+                      <tr key={item.product.id}>
+                        <td className="py-1 align-top">
+                          <div className="font-medium">{item.product.name}</div>
+                          <div className="opacity-80">
+                            {item.quantity} x {Number(item.unit_price).toLocaleString()}
+                            {item.discount > 0 && <span className="ml-1 opacity-70">(disc -{item.discount})</span>}
+                          </div>
+                        </td>
+                        <td className="py-1 text-right align-top whitespace-nowrap">
+                          {(item.quantity * item.unit_price - item.discount).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </ScrollArea>
+
+          {/* Total */}
+          <div className="px-3 py-2 border-t border-primary-foreground/20 flex items-center justify-between bg-primary">
+            <span className="uppercase font-semibold tracking-wide text-sm">Total Due</span>
+            <span className="text-3xl font-bold tabular-nums">
+              <span className="text-base font-semibold mr-1 opacity-80">KES</span>
+              {pos.cartTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
           </div>
-        </DialogContent>
-      </Dialog>
 
-      <PaymentDialog
-        open={paymentOpen}
-        onOpenChange={setPaymentOpen}
-        total={pos.cartTotal}
-        onConfirm={handlePaymentConfirm}
-        processing={pos.processing}
-        initialMethod={initialPaymentMethod}
-        onPrepareSale={handlePrepareSale}
-        onCancelPendingSale={pos.cancelPendingSale}
-      />
+          {/* Tender buttons */}
+          <div className="p-3 pt-0 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
+                disabled={pos.cart.length === 0}
+                onClick={() => {
+                  setInitialPaymentMethod("cash");
+                  setPaymentOpen(true);
+                }}
+              >
+                <Banknote className="h-4 w-4 mr-1.5" /> Cash
+              </Button>
+              <Button
+                variant="outline"
+                className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
+                disabled={pos.cart.length === 0}
+                onClick={() => {
+                  setInitialPaymentMethod("mpesa");
+                  setPaymentOpen(true);
+                }}
+              >
+                <Smartphone className="h-4 w-4 mr-1.5" /> M-Pesa
+              </Button>
+              <Button
+                variant="outline"
+                className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
+                disabled={pos.cart.length === 0 && pos.processing}
+                onClick={() => {
+                  if (pos.cart.length === 0) {
+                    // No items in cart — view/settle an existing credit sale
+                    setCreditIntent("view_credits");
+                    setCreditCustomerOpen(true);
+                  } else if (!pos.customerId) {
+                    // Items in cart but no customer — pick/create one first
+                    setCreditIntent("new_credit");
+                    setCreditCustomerOpen(true);
+                  } else {
+                    // Customer already selected — save as credit immediately
+                    setSavingCredit(true);
+                    void pos.completeCreditSale().finally(() => setSavingCredit(false));
+                  }
+                }}
+              >
+                {savingCredit ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : (
+                  <User className="h-4 w-4 mr-1.5" />
+                )}
+                {pos.cart.length === 0 ? "Credits" : "Credit"}
+              </Button>
+              <Button
+                variant="outline"
+                className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
+                disabled={isResume ? pos.heldSales.length === 0 : pos.cart.length === 0}
+                onClick={() => {
+                  if (isResume) {
+                    setResumeOpen(true);
+                    return;
+                  }
+                  const suggested = pos.customerName || `Sale ${new Date().toLocaleTimeString()}`;
+                  const label = window.prompt("Name this parked sale:", suggested);
+                  if (label === null) return;
+                  void pos.holdSale(label);
+                }}
+              >
+                {isResume ? <Play className="h-4 w-4 mr-1.5" /> : <Pause className="h-4 w-4 mr-1.5" />}
+                {isResume ? "Resume" : "Suspend"}
+              </Button>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full h-10 text-xs text-primary-foreground hover:bg-primary-foreground/10"
+              onClick={() => {
+                const last = loadLastReceipt(business?.id);
+                if (!last) {
+                  toast.error("No previous receipt found on this device.");
+                  return;
+                }
+                setReprintData(last);
+                setReprintOpen(true);
+              }}
+            >
+              <Printer className="h-3.5 w-3.5 mr-1" /> Reprint Last Receipt
+            </Button>
+          </div>
+        </div>
 
+        <Dialog open={resumeOpen} onOpenChange={setResumeOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Resume a suspended sale</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2 max-h-[50vh] overflow-y-auto">
+              {pos.heldSales.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-6">No suspended sales.</p>
+              )}
+              {pos.heldSales.map((h) => (
+                <div key={h.id} className="flex items-center justify-between gap-2 rounded-md border p-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{h.label}</p>
+                    <p className="text-xs text-muted-foreground">{h.cart?.length ?? 0} item(s)</p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        pos.resumeSale(h.id);
+                        setResumeOpen(false);
+                      }}
+                    >
+                      <Play className="h-3.5 w-3.5 mr-1" /> Resume
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => pos.removeHeldSale(h.id)}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
 
-      <ReceiptDialog
-        open={receiptOpen}
-        onOpenChange={setReceiptOpen}
-        data={receiptData}
-      />
+        <PaymentDialog
+          open={paymentOpen}
+          onOpenChange={setPaymentOpen}
+          total={pos.cartTotal}
+          onConfirm={handlePaymentConfirm}
+          processing={pos.processing}
+          initialMethod={initialPaymentMethod}
+          onPrepareSale={handlePrepareSale}
+          onCancelPendingSale={pos.cancelPendingSale}
+        />
 
-      <ReceiptDialog
-        open={reprintOpen}
-        onOpenChange={setReprintOpen}
-        data={reprintData}
-        reprint
-      />
+        <ReceiptDialog open={receiptOpen} onOpenChange={setReceiptOpen} data={receiptData} />
 
+        <ReceiptDialog open={reprintOpen} onOpenChange={setReprintOpen} data={reprintData} reprint />
 
-      <BarcodeScanner open={scannerOpen} onOpenChange={setScannerOpen} onDetected={handleScanned} />
+        <BarcodeScanner open={scannerOpen} onOpenChange={setScannerOpen} onDetected={handleScanned} />
 
-      <UnknownBarcodeDialog
-        open={unknownOpen}
-        onOpenChange={setUnknownOpen}
-        code={unknownCode}
-        products={products as any}
-        onAssigned={async (p) => {
-          const res = await productsQuery.refetch();
-          const fresh = res.data?.find((x) => x.id === p.id);
-          if (fresh) pos.addToCart(fresh);
-        }}
-        onCreateNew={() => setNewProductOpen(true)}
-      />
+        <UnknownBarcodeDialog
+          open={unknownOpen}
+          onOpenChange={setUnknownOpen}
+          code={unknownCode}
+          products={products as any}
+          onAssigned={async (p) => {
+            const res = await productsQuery.refetch();
+            const fresh = res.data?.find((x) => x.id === p.id);
+            if (fresh) pos.addToCart(fresh);
+          }}
+          onCreateNew={() => setNewProductOpen(true)}
+        />
 
-      <ProductFormDialog
-        open={newProductOpen}
-        onOpenChange={setNewProductOpen}
-        initialBarcode={unknownCode}
-        isLoading={createProduct.isPending}
-        onSubmit={async (data) => {
-          await createProduct.mutateAsync(data);
-          setNewProductOpen(false);
-          const res = await productsQuery.refetch();
-          const fresh = res.data?.find((x) => x.barcode === unknownCode);
-          if (fresh) pos.addToCart(fresh);
-        }}
-      />
+        <ProductFormDialog
+          open={newProductOpen}
+          onOpenChange={setNewProductOpen}
+          initialBarcode={unknownCode}
+          isLoading={createProduct.isPending}
+          onSubmit={async (data) => {
+            await createProduct.mutateAsync(data);
+            setNewProductOpen(false);
+            const res = await productsQuery.refetch();
+            const fresh = res.data?.find((x) => x.barcode === unknownCode);
+            if (fresh) pos.addToCart(fresh);
+          }}
+        />
 
+        <ScannerSettingsDialog open={scanSettingsOpen} onOpenChange={setScanSettingsOpen} />
 
-      <ScannerSettingsDialog open={scanSettingsOpen} onOpenChange={setScanSettingsOpen} />
+        <ManagerApprovalDialog
+          open={approvalOpen}
+          onOpenChange={handleApprovalClosed}
+          onApproved={handleApproved}
+          title="Approve item removal"
+          description="A manager must approve removing this item already added to the cart."
+        />
 
-
-      <ManagerApprovalDialog
-        open={approvalOpen}
-        onOpenChange={handleApprovalClosed}
-        onApproved={handleApproved}
-        title="Approve item removal"
-        description="A manager must approve removing this item already added to the cart."
-      />
-
-      <CreditCustomerDialog
-        open={creditCustomerOpen}
-        onOpenChange={setCreditCustomerOpen}
-        customers={customers.map((c) => ({ id: c.id, name: c.name, phone: c.phone }))}
-        onSelected={(c) => {
-          pos.setCustomerId(c.id);
-          pos.setCustomerName(c.name);
-          setInitialPaymentMethod("card");
-          setPaymentOpen(true);
-        }}
-      />
-
-
-    </div>
+        <CreditCustomerDialog
+          open={creditCustomerOpen}
+          onOpenChange={setCreditCustomerOpen}
+          customers={customers.map((c) => ({ id: c.id, name: c.name, phone: c.phone }))}
+          intent={creditIntent}
+          onSelected={(c) => {
+            // "new_credit" path: customer chosen, now save the cart as a credit sale
+            pos.setCustomerId(c.id);
+            pos.setCustomerName(c.name);
+            setSavingCredit(true);
+            void pos.completeCreditSale().finally(() => setSavingCredit(false));
+          }}
+          onSettle={async (customer, sale) => {
+            // "view_credits" path: load the chosen credit sale into the cart
+            pos.setCustomerId(customer.id);
+            pos.setCustomerName(customer.name);
+            const ok = await pos.loadCreditSale(sale.id, customer.id, customer.name, productsQuery.data ?? []);
+            if (ok) {
+              toast.info(`Loaded credit sale ${sale.invoice_number ?? ""} — choose a payment method to settle`);
+            }
+          }}
+        />
+      </div>
     </>
   );
 };
