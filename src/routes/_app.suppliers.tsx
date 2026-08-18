@@ -9,6 +9,6 @@ export const Route = createFileRoute("/_app/suppliers")({
 
 function RouteComponent() {
   return (
-    <PermissionGuard permission="suppliers.view"><FeatureGate featureKey="purchases"><Suppliers /></FeatureGate></PermissionGuard>
+    <PermissionGuard permission="suppliers.view"><FeatureGate moduleKey="purchases"><Suppliers /></FeatureGate></PermissionGuard>
   );
 }
