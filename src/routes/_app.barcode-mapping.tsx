@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_app/barcode-mapping")({
 function RouteComponent() {
   return (
     <PermissionGuard permission="products.edit">
-      <FeatureGate featureKey="products"><BarcodeMapping /></FeatureGate>
+      <FeatureGate moduleKey="products"><BarcodeMapping /></FeatureGate>
     </PermissionGuard>
   );
 }
