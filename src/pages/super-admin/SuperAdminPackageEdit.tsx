@@ -146,7 +146,7 @@ export default function SuperAdminPackageEdit() {
     load();
   }, [id, isNew, navigate]);
 
-  const enabledFeatureCount = useMemo(() => Object.values(featureToggles).filter(Boolean).length, [featureToggles]);
+  const enabledModuleCount = useMemo(() => Object.values(featureToggles).filter(Boolean).length, [featureToggles]);
 
   const limitsConfigured = useMemo(() => {
     return [form.max_products, form.max_users, form.max_locations, form.max_customers, form.max_suppliers].filter(
@@ -263,8 +263,8 @@ export default function SuperAdminPackageEdit() {
             <h1 className="text-2xl font-bold tracking-tight">{isNew ? "New plan" : "Edit plan"}</h1>
             <p className="text-sm text-muted-foreground mt-1">
               {isNew
-                ? "Create a billing plan with limits and feature access."
-                : `Update pricing, limits, and features for ${form.name}.`}
+                ? "Create a billing plan with limits and module access."
+                : `Update pricing, limits, and modules for ${form.name}.`}
             </p>
           </div>
           <Badge
@@ -434,12 +434,12 @@ export default function SuperAdminPackageEdit() {
             </div>
           </section>
 
-          {/* Features */}
+          {/* Modules */}
           <section className="bg-white border border-border rounded-xl p-5">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <ListChecks className="h-4 w-4 text-muted-foreground" />
-                <h2 className="font-semibold text-sm">Features</h2>
+                <h2 className="font-semibold text-sm">Modules</h2>
               </div>
               <span className="text-xs text-muted-foreground">Toggle modules available on this plan</span>
             </div>
@@ -567,8 +567,8 @@ export default function SuperAdminPackageEdit() {
                 <dd className="font-semibold">{limitsConfigured} configured</dd>
               </div>
               <div className="flex items-center justify-between">
-                <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Features</dt>
-                <dd className="font-semibold">{enabledFeatureCount} enabled</dd>
+                <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Modules</dt>
+                <dd className="font-semibold">{enabledModuleCount} enabled</dd>
               </div>
               <div className="flex items-center justify-between">
                 <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Subscribers</dt>
@@ -578,7 +578,7 @@ export default function SuperAdminPackageEdit() {
 
             <div className="mt-5 pt-4 border-t border-border">
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
-                Active features
+                Active modules
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {ALL_FEATURES.filter((f) => featureToggles[f.key]).map((f) => (
@@ -589,7 +589,7 @@ export default function SuperAdminPackageEdit() {
                     {f.label}
                   </Badge>
                 ))}
-                {enabledFeatureCount === 0 && <span className="text-xs text-muted-foreground">None</span>}
+                {enabledModuleCount === 0 && <span className="text-xs text-muted-foreground">None</span>}
               </div>
             </div>
           </section>
