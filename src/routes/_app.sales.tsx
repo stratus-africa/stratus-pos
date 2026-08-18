@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_app/sales")({
 function RouteComponent() {
   return (
     <PermissionGuard moduleKey="sales" route="/sales" permission="sales.view">
-      <FeatureGate featureKey="sales">
+      <FeatureGate moduleKey="sales">
         <RouteErrorBoundary title="Transactions" resetKey="/sales">
           <Sales />
         </RouteErrorBoundary>
