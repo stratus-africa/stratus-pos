@@ -33,9 +33,42 @@ export async function getPlanModules(
   if (error) throw error;
 
   const features = (data || []) as PlanModule[];
-  const modules = [...new Set(features.map((f) => f.feature_key))];
+  if (!features.length) {
+    return { modules: [], features };
+  }
 
-  return { modules, features };
+  const featureKeys = [...new Set(features.map((f) => f.feature_key).filter(Boolean))];
+
+  const { data: moduleRows, error: moduleError } = await supabase
+    .from("module_features")
+    .select("module_key, feature_key")
+    .in("feature_key", featureKeys);
+
+  if (moduleError) throw moduleError;
+
+  const moduleSet = new Set<string>();
+  for (const row of moduleRows || []) {
+    if (row.module_key) moduleSet.add(row.module_key);
+  }
+
+  for (const featureKey of featureKeys) {
+    if (!featureKey) continue;
+
+    const directModule = featureKey.split(".")[0]?.toLowerCase();
+    if (directModule) {
+      moduleSet.add(directModule);
+    }
+
+    const normalized = featureKey.toLowerCase();
+    if (normalized === "accounting" || normalized === "banking" || normalized === "manual_journals") {
+      moduleSet.add(normalized);
+    }
+  }
+
+  return {
+    modules: [...moduleSet],
+    features,
+  };
 }
 
 /**
@@ -164,22 +197,18 @@ export async function createSubscriptionPlan(input: {
   max_suppliers?: number;
   trial_days: number;
 }): Promise<{ success: boolean; message: string; package_id?: string }> {
-  const { data, error } = await supabase.rpc(
-    "create_subscription_plan",
-    {
-      _name: input.name,
-      _description: input.description,
-      _monthly_price_kes: input.monthly_price_kes,
-      _yearly_price_kes: input.yearly_price_kes,
-      _max_products: input.max_products,
-      _max_users: input.max_users,
-      _max_locations: input.max_locations,
-      _max_customers: input.max_customers,
-      _max_suppliers: input.max_suppliers,
-      _trial_days: input.trial_days,
-    },
-    { count: "exact" },
-  );
+  const { data, error } = await supabase.rpc("create_subscription_plan", {
+    _name: input.name,
+    _description: input.description || null,
+    _monthly_price_kes: input.monthly_price_kes,
+    _yearly_price_kes: input.yearly_price_kes,
+    _max_products: input.max_products,
+    _max_users: input.max_users,
+    _max_locations: input.max_locations,
+    _max_customers: input.max_customers || 50,
+    _max_suppliers: input.max_suppliers || 10,
+    _trial_days: input.trial_days,
+  });
 
   if (error) {
     console.error("Error creating plan:", error);
