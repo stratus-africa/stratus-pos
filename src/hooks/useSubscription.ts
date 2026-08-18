@@ -43,6 +43,29 @@ interface PackageFeature {
   enabled: boolean;
 }
 
+export function resolveFeatureAccess({
+  isActive,
+  currentPackage,
+  enabledFeatureKeys,
+  key,
+}: {
+  isActive: boolean;
+  currentPackage?: SubscriptionPackage | null;
+  enabledFeatureKeys?: Set<string>;
+  key: string;
+}) {
+  const keys = moduleKeys(key);
+
+  // Active subscriptions may temporarily lack a resolved package or package feature rows
+  // while the data is being reloaded. In that state, keep module access enabled rather
+  // than showing a false "No modules available" condition for all tenants.
+  if (isActive && (!currentPackage || (enabledFeatureKeys?.size ?? 0) === 0)) {
+    return true;
+  }
+
+  return keys.some((k) => enabledFeatureKeys?.has(k));
+}
+
 export function useSubscription() {
   const { user } = useAuth();
   const { business, refreshBusiness } = useBusiness();
@@ -181,16 +204,13 @@ export function useSubscription() {
 
   // Packages may store legacy/alternate keys for the same module (naming drift).
   // The shared module catalog is the source of truth for equivalences.
-  const hasFeatureKey = (key: string): boolean => {
-    if (!currentPackage) return false;
-    // If subscription is active but features list is empty, assume all modules are enabled.
-    // This handles the case where features haven't been seeded yet or there's no feature data.
-    // The feature data is informational; active subscription = feature access.
-    if (isActive && enabledFeatureKeys.size === 0) {
-      return true;
-    }
-    return moduleKeys(key).some((k) => enabledFeatureKeys.has(k));
-  };
+  const hasFeatureKey = (key: string): boolean =>
+    resolveFeatureAccess({
+      isActive,
+      currentPackage,
+      enabledFeatureKeys,
+      key,
+    });
 
   const tier: SubscriptionTier = isActive ? "pro" : "free";
   const hasFeature = (_requiredTier: SubscriptionTier): boolean => isActive;
