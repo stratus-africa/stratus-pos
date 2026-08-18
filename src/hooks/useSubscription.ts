@@ -55,14 +55,8 @@ export function resolveFeatureAccess({
   key: string;
 }) {
   const keys = moduleKeys(key);
-
-  // Active subscriptions may temporarily lack a resolved package or package feature rows
-  // while the data is being reloaded. In that state, keep module access enabled rather
-  // than showing a false "No modules available" condition for all tenants.
-  if (isActive && (!currentPackage || (enabledFeatureKeys?.size ?? 0) === 0)) {
-    return true;
-  }
-
+  if (!isActive) return false;
+  if (!currentPackage) return false;
   return keys.some((k) => enabledFeatureKeys?.has(k));
 }
 
@@ -77,7 +71,11 @@ export function useSubscription() {
   // immediately — not just the owner logged into their own account.
   const planUserId = business?.owner_id || user?.id || null;
 
-  const { data: subscription, isLoading: subLoading } = useQuery({
+  const {
+    data: subscription,
+    isLoading: subLoading,
+    error: subscriptionError,
+  } = useQuery({
     queryKey: ["subscription", planUserId, environment],
     queryFn: async () => {
       if (!planUserId) return null;
@@ -96,8 +94,17 @@ export function useSubscription() {
     staleTime: 15_000,
   });
 
-  const { data: packagesData, isLoading: pkgLoading } = useQuery({
-    queryKey: ["subscription_packages_with_features", subscription?.product_id ?? null],
+  const {
+    data: packagesData,
+    isLoading: pkgLoading,
+    error: packageFeaturesError,
+  } = useQuery({
+    queryKey: [
+      "subscription_packages_with_features",
+      planUserId,
+      subscription?.product_id ?? null,
+      business?.selected_package_id ?? null,
+    ],
     queryFn: async () => {
       const [pubRes, featRes] = await Promise.all([
         (supabase as any).rpc("get_public_subscription_packages"),
@@ -106,18 +113,36 @@ export function useSubscription() {
       const publicPkgs: any[] = pubRes.data || [];
       let allPkgs = publicPkgs;
       let allFeatures: any[] = featRes.data || [];
-      // If the user is subscribed to a private/hidden package, fetch it + its features separately.
-      if (subscription?.product_id && !publicPkgs.find((p) => p.id === subscription.product_id)) {
-        const [{ data: priv }, { data: privFeats }] = await Promise.all([
-          (supabase as any).rpc("get_subscription_package_safe", { _id: subscription.product_id }),
-          (supabase as any).rpc("get_package_features_safe", { _package_id: subscription.product_id }),
-        ]);
-        if (priv && priv.length > 0) allPkgs = [...publicPkgs, priv[0]];
-        if (privFeats && privFeats.length > 0) allFeatures = [...allFeatures, ...privFeats];
+
+      const privatePackageIds = new Set<string>();
+      for (const packageId of [subscription?.product_id, business?.selected_package_id]) {
+        if (!packageId) continue;
+        if (publicPkgs.some((pkg) => pkg.id === packageId)) continue;
+        privatePackageIds.add(packageId);
       }
+
+      if (privatePackageIds.size > 0) {
+        const pkgFetches = [...privatePackageIds].map(async (packageId) => {
+          const [{ data: priv }, { data: privFeats }] = await Promise.all([
+            (supabase as any).rpc("get_subscription_package_safe", { _id: packageId }),
+            (supabase as any).rpc("get_package_features_safe", { _package_id: packageId }),
+          ]);
+          return {
+            pkg: priv?.[0] ?? null,
+            features: Array.isArray(privFeats) ? privFeats : [],
+          };
+        });
+
+        const results = await Promise.all(pkgFetches);
+        for (const result of results) {
+          if (result.pkg) allPkgs = [...allPkgs, result.pkg];
+          if (result.features.length > 0) allFeatures = [...allFeatures, ...result.features];
+        }
+      }
+
       return {
         packages: allPkgs as unknown as SubscriptionPackage[],
-        features: (allFeatures as any[]).map((f) => ({ ...f, enabled: true })) as PackageFeature[],
+        features: (allFeatures as any[]).map((f) => ({ ...f, enabled: Boolean(f.enabled) })) as PackageFeature[],
       };
     },
     staleTime: 30_000,
@@ -166,17 +191,34 @@ export function useSubscription() {
   const packages = packagesData?.packages ?? [];
   const features = packagesData?.features ?? [];
 
-  // Resolve current package: by package id stored in product_id, then plan_code, fallback to lowest sort_order.
+  const packageMatchCandidates = [
+    business?.selected_package_id,
+    subscription?.product_id,
+    subscription?.plan_code,
+  ].filter(Boolean);
   const currentPackage: SubscriptionPackage | null = (() => {
     const matched = resolveSubscriptionPlan(subscription ?? undefined, packages as any[], {
       selected_package_id: business?.selected_package_id ?? null,
     }) as SubscriptionPackage | null;
 
     if (matched) return matched;
-    return (packages.find((p) => p.name?.toLowerCase() === "free") ??
-      packages[0] ??
-      null) as SubscriptionPackage | null;
+
+    // Only use the free/default fallback when there is no active subscription context.
+    if (!subscription || !["active", "trialing"].includes(subscription.status || "")) {
+      return (packages.find((p) => p.name?.toLowerCase() === "free") ??
+        packages[0] ??
+        null) as SubscriptionPackage | null;
+    }
+
+    return null;
   })();
+
+  const packageResolved =
+    !subscription || !["active", "trialing"].includes(subscription.status || "") || !!currentPackage;
+  const packageError =
+    subscription && ["active", "trialing"].includes(subscription.status || "") && !currentPackage
+      ? "The active subscription could not be matched to a valid subscription package."
+      : null;
 
   const enabledFeatureKeys = new Set(
     features.filter((f) => f.package_id === currentPackage?.id && f.enabled).map((f) => f.feature_key),
@@ -215,6 +257,8 @@ export function useSubscription() {
   const tier: SubscriptionTier = isActive ? "pro" : "free";
   const hasFeature = (_requiredTier: SubscriptionTier): boolean => isActive;
 
+  const featuresError = packageFeaturesError;
+
   return {
     subscription,
     isLoading: subLoading || pkgLoading,
@@ -224,6 +268,11 @@ export function useSubscription() {
     hasFeatureKey,
     enabledFeatureKeys,
     currentPackage,
+    packageResolved,
+    packageError,
+    packageMatchCandidates,
+    subscriptionError,
+    featuresError,
     maxProducts: currentPackage?.max_products ?? 0,
     maxLocations: currentPackage?.max_locations ?? 1,
     maxUsers: currentPackage?.max_users ?? 1,
