@@ -95,7 +95,7 @@ export default function SuperAdminPackageEdit() {
 
   const [form, setForm] = useState<Form>(emptyForm);
   const [featureToggles, setFeatureToggles] = useState<Record<string, boolean>>(
-    Object.fromEntries(ALL_FEATURES.map((f) => [f.key, true])),
+    Object.fromEntries(ALL_FEATURES.map((f) => [f.key, false])), // Default to disabled for new plans
   );
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
@@ -161,7 +161,7 @@ export default function SuperAdminPackageEdit() {
     }
     setSaving(true);
     try {
-      let pkgId = id;
+      let pkgId: string | null = id || null;
 
       // Create or update plan metadata using secure RPC
       if (isNew) {
@@ -180,7 +180,7 @@ export default function SuperAdminPackageEdit() {
         if (!result.success) {
           throw new Error(result.message);
         }
-        pkgId = result.package_id;
+        pkgId = result.package_id || null;
       } else {
         const result = await updateSubscriptionPlan(id!, {
           name: form.name.trim(),
@@ -208,6 +208,8 @@ export default function SuperAdminPackageEdit() {
         if (!moduleResult.success) {
           throw new Error(moduleResult.message);
         }
+      } else {
+        throw new Error("Failed to create plan - no ID returned");
       }
 
       toast.success(isNew ? "Plan created" : "Plan updated");
