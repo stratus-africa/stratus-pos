@@ -14,9 +14,22 @@ import {
   type ModuleGroup,
 } from "@/lib/modules";
 import {
-  Plus, Tag, Pencil, Loader2, Package, Users, Warehouse, Contact,
-  Truck, Settings2, Infinity as InfinityIcon, Search, Save, LayoutGrid,
-  ChevronDown, ChevronRight,
+  Plus,
+  Tag,
+  Pencil,
+  Loader2,
+  Package,
+  Users,
+  Warehouse,
+  Contact,
+  Truck,
+  Settings2,
+  Infinity as InfinityIcon,
+  Search,
+  Save,
+  LayoutGrid,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 
 interface PackageData {
@@ -53,15 +66,7 @@ const fmtKes = (n: number) =>
 
 const isUnlimited = (n: number) => n < 0 || n >= 9999;
 
-const LimitRow = ({
-  Icon,
-  label,
-  value,
-}: {
-  Icon: React.ElementType;
-  label: string;
-  value: number;
-}) => (
+const LimitRow = ({ Icon, label, value }: { Icon: React.ElementType; label: string; value: number }) => (
   <div className="flex items-center justify-between py-1.5 text-sm">
     <span className="flex items-center gap-2 text-muted-foreground">
       <Icon className="h-3.5 w-3.5" /> {label}
@@ -107,7 +112,9 @@ export default function SuperAdminPackages() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => {
+    fetchAll();
+  }, []);
 
   const moduleCellKey = (pkgId: string, key: string) => `${pkgId}::${key}`;
 
@@ -220,7 +227,11 @@ export default function SuperAdminPackages() {
         if (!mod || !pkgId) continue;
 
         const aliases = mod.aliases ?? [];
-        await supabase.from("package_features").delete().eq("package_id", pkgId).in("feature_key", [mod.key, ...aliases]);
+        await supabase
+          .from("package_features")
+          .delete()
+          .eq("package_id", pkgId)
+          .in("feature_key", [mod.key, ...aliases]);
         if (pendingModuleChanges[key]) {
           const { error } = await supabase.from("package_features").insert({
             package_id: pkgId,
@@ -283,19 +294,16 @@ export default function SuperAdminPackages() {
               const monthly = Number(pkg.monthly_price_kes || 0);
               const yearly = Number(pkg.yearly_price_kes || 0);
               const savePct =
-                monthly > 0 && yearly > 0
-                  ? Math.max(0, Math.round((1 - yearly / (monthly * 12)) * 100))
-                  : 0;
+                monthly > 0 && yearly > 0 ? Math.max(0, Math.round((1 - yearly / (monthly * 12)) * 100)) : 0;
               const subscribers = subCounts[pkg.id] || 0;
 
               return (
-                <div
-                  key={pkg.id}
-                  className="bg-white border border-border rounded-xl overflow-hidden flex flex-col"
-                >
+                <div key={pkg.id} className="bg-white border border-border rounded-xl overflow-hidden flex flex-col">
                   <div className="p-5 flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3 min-w-0">
-                      <div className={`h-11 w-11 rounded-lg ${palette.iconBg} flex items-center justify-center shrink-0`}>
+                      <div
+                        className={`h-11 w-11 rounded-lg ${palette.iconBg} flex items-center justify-center shrink-0`}
+                      >
                         <Tag className={`h-5 w-5 ${palette.iconFg}`} />
                       </div>
                       <div className="min-w-0">
@@ -310,7 +318,9 @@ export default function SuperAdminPackages() {
                           : "bg-muted text-muted-foreground"
                       }
                     >
-                      <span className={`h-1.5 w-1.5 rounded-full mr-1.5 ${pkg.is_active ? "bg-emerald-500" : "bg-muted-foreground"}`} />
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full mr-1.5 ${pkg.is_active ? "bg-emerald-500" : "bg-muted-foreground"}`}
+                      />
                       {pkg.is_active ? "Active" : "Inactive"}
                     </Badge>
                   </div>
@@ -333,8 +343,12 @@ export default function SuperAdminPackages() {
                   <div className="px-5 py-4 border-t border-border">
                     <div className="flex items-center gap-2 mb-2">
                       <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Limits</span>
-                      <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] py-0 h-4 px-1.5">5</Badge>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Limits
+                      </span>
+                      <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] py-0 h-4 px-1.5">
+                        5
+                      </Badge>
                     </div>
                     <LimitRow Icon={Package} label="Products" value={pkg.max_products} />
                     <LimitRow Icon={Users} label="Users" value={pkg.max_users} />
@@ -346,7 +360,9 @@ export default function SuperAdminPackages() {
                   <div className="px-5 py-4 border-t border-border flex-1">
                     <div className="flex items-center gap-2 mb-2.5">
                       <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Modules</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Modules
+                      </span>
                       <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] py-0 h-4 px-1.5">
                         {enabledModules.length}
                       </Badge>
@@ -372,12 +388,7 @@ export default function SuperAdminPackages() {
                       <Users className="h-3 w-3" />
                       {subscribers} subscriber{subscribers === 1 ? "" : "s"}
                     </div>
-                    <Button
-                      asChild
-                      size="sm"
-                      variant="outline"
-                      className="h-8 text-xs"
-                    >
+                    <Button asChild size="sm" variant="outline" className="h-8 text-xs">
                       <Link to={`/super-admin/packages/${pkg.id}/edit`}>
                         <Pencil className="h-3 w-3 mr-1" /> Edit
                       </Link>
@@ -406,8 +417,26 @@ export default function SuperAdminPackages() {
                     onChange={(event) => setModuleSearch(event.target.value)}
                   />
                 </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const nextState = Object.values(collapsedModuleGroups).every(Boolean)
+                      ? { core: false, accounting: false, premium: false }
+                      : { core: true, accounting: true, premium: true };
+                    setCollapsedModuleGroups(nextState);
+                  }}
+                  className="h-9 text-xs"
+                >
+                  {Object.values(collapsedModuleGroups).every(Boolean) ? "Expand all" : "Collapse all"}
+                </Button>
                 <Button onClick={saveModuleChanges} disabled={savingModules || moduleDirtyCount === 0}>
-                  {savingModules ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  {savingModules ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
                   Save Changes
                 </Button>
               </div>
@@ -423,11 +452,17 @@ export default function SuperAdminPackages() {
               <table className="min-w-[760px] w-full text-sm">
                 <thead className="sticky top-0 z-20">
                   <tr className="border-b bg-muted/80 backdrop-blur-sm text-left">
-                    <th className="min-w-[260px] px-4 py-3 font-semibold sticky left-0 bg-muted/80 backdrop-blur-sm z-30">Module</th>
+                    <th className="min-w-[260px] px-4 py-3 font-semibold sticky left-0 bg-muted/80 backdrop-blur-sm z-30">
+                      Module
+                    </th>
                     {packages.map((pkg) => (
                       <th key={pkg.id} className="px-4 py-3 font-semibold text-center whitespace-nowrap">
                         {pkg.name}
-                        {!pkg.is_active && <Badge variant="secondary" className="ml-2">inactive</Badge>}
+                        {!pkg.is_active && (
+                          <Badge variant="secondary" className="ml-2">
+                            inactive
+                          </Badge>
+                        )}
                       </th>
                     ))}
                     <th className="px-4 py-3 font-semibold text-center">All</th>
@@ -439,7 +474,10 @@ export default function SuperAdminPackages() {
                     return (
                       <Fragment key={group}>
                         <tr className="bg-muted/20 border-b">
-                          <td colSpan={packages.length + 2} className="px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                          <td
+                            colSpan={packages.length + 2}
+                            className="px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground"
+                          >
                             <button
                               type="button"
                               onClick={() =>
@@ -453,27 +491,62 @@ export default function SuperAdminPackages() {
                               <span>{moduleGroupLabels[group]}</span>
                               <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                                 {modules.length} modules
-                                {isCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                                {isCollapsed ? (
+                                  <ChevronRight className="h-3.5 w-3.5" />
+                                ) : (
+                                  <ChevronDown className="h-3.5 w-3.5" />
+                                )}
                               </span>
                             </button>
                           </td>
                         </tr>
-                        {!isCollapsed && modules.map((mod) => {
-                          const allOn = packages.length > 0 && packages.every((pkg) => !!moduleEffective[moduleCellKey(pkg.id, mod.key)]);
-                          return (
-                            <tr key={mod.key} className="border-b last:border-0 odd:bg-muted/10">
-                              <td className="px-4 py-3 sticky left-0 bg-white z-10">
-                                <div className="flex items-start gap-3">
-                                  <mod.Icon className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                                  <div>
-                                    <p className="font-medium">{mod.label}</p>
-                                    <p className="text-xs text-muted-foreground">{mod.description}</p>
-                                    <code className="text-[10px] text-muted-foreground/70">{mod.key}</code>
+                        {!isCollapsed &&
+                          modules.map((mod) => {
+                            const allOn =
+                              packages.length > 0 &&
+                              packages.every((pkg) => !!moduleEffective[moduleCellKey(pkg.id, mod.key)]);
+                            return (
+                              <tr key={mod.key} className="border-b last:border-0 odd:bg-muted/10">
+                                <td className="px-4 py-3 sticky left-0 bg-white z-10">
+                                  <div className="flex items-start gap-3">
+                                    <mod.Icon className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                                    <div>
+                                      <p className="font-medium">{mod.label}</p>
+                                      <p className="text-xs text-muted-foreground">{mod.description}</p>
+                                      <code className="text-[10px] text-muted-foreground/70">{mod.key}</code>
+                                    </div>
                                   </div>
-                                </div>
-                              </td>
-                              {packages.map((pkg) => (
-                                <td key={`${pkg.id}-${mod.key}`} className="px-4 py-3 text-center">
-                                  <Switch
-                                    checked={!!moduleEffective[moduleCellKey(pkg.id, mod.key)]}
-                                    onCheckedChange={() => handleModuleToggle(pkg.id, mod.key)}
+                                </td>
+                                {packages.map((pkg) => (
+                                  <td key={`${pkg.id}-${mod.key}`} className="px-4 py-3 text-center">
+                                    <Switch
+                                      checked={!!moduleEffective[moduleCellKey(pkg.id, mod.key)]}
+                                      onCheckedChange={() => handleModuleToggle(pkg.id, mod.key)}
+                                      aria-label={`${mod.label} on ${pkg.name}`}
+                                    />
+                                  </td>
+                                ))}
+                                <td className="px-4 py-3 text-center">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleModuleRowToggle(mod.key, !allOn)}
+                                  >
+                                    {allOn ? "Off" : "On"}
+                                  </Button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
