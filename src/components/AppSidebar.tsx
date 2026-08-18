@@ -156,7 +156,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border px-2 sm:px-3 h-14 min-h-14 max-h-14 flex items-center shrink-0 overflow-hidden">
         <div className="flex items-center gap-2.5 w-full min-w-0 flex-nowrap">
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-xs shrink-0">
+          <div className="h-9 w-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-xs shrink-0">
             <Store className="h-4 w-4" />
           </div>
           {!collapsed && (
@@ -211,7 +211,7 @@ export function AppSidebar() {
         {!collapsed && isSuperAdmin && (
           <Link
             to="/super-admin"
-            className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-emerald-700 hover:bg-emerald-50 transition-colors"
+            className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-primary hover:bg-accent transition-colors"
           >
             <Shield className="h-3.5 w-3.5" />
             Super Admin Panel
@@ -221,7 +221,7 @@ export function AppSidebar() {
           <div className="px-2 pb-1">
             <Badge
               variant="outline"
-              className="text-xs capitalize w-full justify-center bg-white rounded-sm border-sidebar-border hover:bg-white/90"
+              className="text-xs capitalize w-full justify-center bg-background rounded-sm border-sidebar-border hover:bg-accent"
             >
               {userRole}
             </Badge>
