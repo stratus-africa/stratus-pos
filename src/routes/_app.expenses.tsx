@@ -3,7 +3,7 @@ import { FeatureGate } from "@/components/FeatureGate";
 import { PermissionGuard } from "@/components/routing/helpers";
 import ChartOfAccounts from "@/pages/ChartOfAccounts";
 
-export const Route = createFileRoute("/_app/chart-of-accounts")({
+export const Route = createFileRoute("/_app/expenses")({
   component: RouteComponent,
 });
 

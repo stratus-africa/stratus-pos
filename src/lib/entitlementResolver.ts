@@ -149,9 +149,23 @@ export async function resolveBusinessEntitlement(input: {
   }
 
   const packageFeatures = (featureRows || []) as PlanModule[];
-  const enabledModules = Array.from(
-    new Set(packageFeatures.map((feature) => getCanonicalFeatureKey(feature.feature_key)).filter(Boolean)),
-  );
+
+  // Use the same comprehensive resolution as getPlanModules so feature_key variants
+  // (e.g. "sales.view", "chart_of_accounts", aliases) all map to canonical module keys.
+  const moduleSet = new Set<string>();
+  for (const feature of packageFeatures) {
+    const rawKey = (feature.feature_key || "").trim();
+    if (!rawKey) continue;
+    const directModule = findModule(rawKey);
+    const canonical = directModule ? directModule.key : getCanonicalFeatureKey(rawKey);
+    if (canonical) moduleSet.add(canonical.toLowerCase());
+    const directPrefix = rawKey.split(".")[0]?.toLowerCase();
+    if (directPrefix) moduleSet.add(directPrefix);
+    for (const key of moduleKeys(rawKey)) {
+      if (key) moduleSet.add(key.toLowerCase());
+    }
+  }
+  const enabledModules = [...moduleSet].filter(Boolean);
 
   const hasActiveSubscription = Boolean(
     activeSubscription && ["active", "trialing"].includes((activeSubscription.status || "").toLowerCase()),
