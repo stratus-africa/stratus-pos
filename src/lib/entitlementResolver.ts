@@ -18,8 +18,12 @@ import type {
  * This is the core entitlement function - what modules does this plan include?
  */
 export async function getPlanModules(
-  planId: string
+  planId: string | null | undefined
 ): Promise<{ modules: string[]; features: PlanModule[] }> {
+  if (!planId) {
+    return { modules: [], features: [] };
+  }
+
   const { data, error } = await supabase
     .from("package_features")
     .select("*")
@@ -234,7 +238,3 @@ export async function updateSubscriptionPlan(
   if (error) {
     console.error("Error updating plan:", error);
     throw new Error(error.message);
-  }
-
-  return data as { success: boolean; message: string };
-}
