@@ -14,25 +14,26 @@ interface FeatureGateProps {
 }
 
 export function FeatureGate({ requiredTier, featureKey, children, fallback }: FeatureGateProps) {
-  const { hasFeature, hasFeatureKey, isLoading, currentPackage } = useSubscription();
+  const { hasFeature, hasModule, hasFeatureKey, isLoading, currentPackage } = useSubscription();
   const navigate = useNavigate();
 
   if (isLoading) return <>{children}</>;
 
-  const allowed = featureKey ? hasFeatureKey(featureKey) : requiredTier ? hasFeature(requiredTier) : true;
+  const allowed = featureKey ? hasModule(featureKey) : requiredTier ? hasFeature(requiredTier) : true;
 
   if (!allowed) {
-    return fallback || (
-      <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
-        <Lock className="h-10 w-10 text-muted-foreground" />
-        <h3 className="text-lg font-semibold">Upgrade Required</h3>
-        <p className="text-sm text-muted-foreground max-w-sm">
-          This feature isn't included in your current{currentPackage ? ` ${currentPackage.name}` : ""} plan. Upgrade to unlock it.
-        </p>
-        <Button onClick={() => navigate("/settings?tab=subscription")}>
-          View Plans
-        </Button>
-      </div>
+    return (
+      fallback || (
+        <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
+          <Lock className="h-10 w-10 text-muted-foreground" />
+          <h3 className="text-lg font-semibold">Upgrade Required</h3>
+          <p className="text-sm text-muted-foreground max-w-sm">
+            This feature isn't included in your current{currentPackage ? ` ${currentPackage.name}` : ""} plan. Upgrade
+            to unlock it.
+          </p>
+          <Button onClick={() => navigate("/settings?tab=subscription")}>View Plans</Button>
+        </div>
+      )
     );
   }
 
@@ -45,12 +46,10 @@ export function FeatureGate({ requiredTier, featureKey, children, fallback }: Fe
  * (and redirected to the subscription tab).
  */
 export function RequireFeature({ featureKey, children }: { featureKey: string; children: React.ReactNode }) {
-  const { hasFeatureKey, isLoading } = useSubscription();
+  const { hasModule, isLoading } = useSubscription();
   if (isLoading) return null;
-  if (!hasFeatureKey(featureKey)) {
-    return (
-      <FeatureGate featureKey={featureKey}>{children}</FeatureGate>
-    );
+  if (!hasModule(featureKey)) {
+    return <FeatureGate featureKey={featureKey}>{children}</FeatureGate>;
   }
   return <>{children}</>;
 }
@@ -61,15 +60,8 @@ export function RequireFeature({ featureKey, children }: { featureKey: string; c
  * + its package_features rows.
  */
 export function useFeatureLimit() {
-  const {
-    currentPackage,
-    maxProducts,
-    maxLocations,
-    maxUsers,
-    hasFeatureKey,
-    isLoading,
-    tier,
-  } = useSubscription();
+  const { currentPackage, maxProducts, maxLocations, maxUsers, hasModule, hasFeatureKey, isLoading, tier } =
+    useSubscription();
 
   // Convention: 0 or negative in the package row means "unlimited".
   const toLimit = (n: number, fallback: number) => (n > 0 ? n : fallback);
@@ -80,11 +72,11 @@ export function useFeatureLimit() {
     maxProducts: toLimit(maxProducts, Infinity),
     maxLocations: toLimit(maxLocations, Infinity),
     maxUsers: toLimit(maxUsers, Infinity),
-    canAccessReports: hasFeatureKey("reports"),
-    canAccessBanking: hasFeatureKey("banking"),
-    canAccessChartOfAccounts: hasFeatureKey("chart_of_accounts"),
-    canUseMultiLocation: hasFeatureKey("multi_location"),
-    hasFeatureKey,
+    canAccessReports: hasModule("reports"),
+    canAccessBanking: hasModule("banking"),
+    canAccessChartOfAccounts: hasModule("chart_of_accounts"),
+    canUseMultiLocation: hasModule("multi_location"),
+    hasFeatureKey: hasModule,
     tier,
   };
 }
