@@ -3,6 +3,7 @@
 // Used by both frontend (via API) and potentially backend functions
 
 import { supabase } from "@/integrations/supabase/client";
+import { findModule, getCanonicalFeatureKey, moduleKeys } from "@/lib/modules";
 import type {
   ModuleFeature,
   PlanModule,
@@ -24,50 +25,148 @@ export async function getPlanModules(
     return { modules: [], features: [] };
   }
 
-  const { data, error } = await supabase
-    .from("package_features")
-    .select("*")
-    .eq("package_id", planId)
-    .eq("enabled", true);
+  let features: PlanModule[] = [];
 
-  if (error) throw error;
+  try {
+    const { data, error } = await supabase.rpc("get_package_features_safe", {
+      _package_id: planId,
+    });
 
-  const features = (data || []) as PlanModule[];
-  if (!features.length) {
-    return { modules: [], features };
+    if (error) throw error;
+    features = (data || []) as PlanModule[];
+  } catch {
+    const { data, error } = await supabase
+      .from("package_features")
+      .select("*")
+      .eq("package_id", planId)
+      .eq("enabled", true);
+
+    if (error) throw error;
+    features = (data || []) as PlanModule[];
   }
-
-  const featureKeys = [...new Set(features.map((f) => f.feature_key).filter(Boolean))];
-
-  const { data: moduleRows, error: moduleError } = await supabase
-    .from("module_features")
-    .select("module_key, feature_key")
-    .in("feature_key", featureKeys);
-
-  if (moduleError) throw moduleError;
 
   const moduleSet = new Set<string>();
-  for (const row of moduleRows || []) {
-    if (row.module_key) moduleSet.add(row.module_key);
-  }
 
-  for (const featureKey of featureKeys) {
-    if (!featureKey) continue;
+  for (const feature of features) {
+    const rawKey = (feature.feature_key || "").trim();
+    if (!rawKey) continue;
 
-    const directModule = featureKey.split(".")[0]?.toLowerCase();
-    if (directModule) {
-      moduleSet.add(directModule);
+    const directModule = findModule(rawKey);
+    const canonical = directModule ? directModule.key : getCanonicalFeatureKey(rawKey);
+    if (canonical) moduleSet.add(canonical.toLowerCase());
+
+    const candidateKeys = new Set<string>();
+    candidateKeys.add(rawKey.toLowerCase());
+    candidateKeys.add(getCanonicalFeatureKey(rawKey).toLowerCase());
+    if (directModule) candidateKeys.add(directModule.key.toLowerCase());
+
+    for (const key of moduleKeys(rawKey)) {
+      candidateKeys.add(key.toLowerCase());
     }
 
-    const normalized = featureKey.toLowerCase();
-    if (normalized === "accounting" || normalized === "banking" || normalized === "manual_journals") {
-      moduleSet.add(normalized);
+    const directPrefix = rawKey.split(".")[0]?.toLowerCase();
+    if (directPrefix) moduleSet.add(directPrefix);
+
+    for (const key of candidateKeys) {
+      if (key) moduleSet.add(key);
     }
   }
+
+  const modules = [...moduleSet].filter(Boolean);
+  return { modules, features };
+}
+
+export type EntitlementResolutionStatus =
+  | "loading"
+  | "no_business"
+  | "no_plan"
+  | "subscription_inactive"
+  | "package_not_found"
+  | "no_enabled_features"
+  | "modules_resolved";
+
+export async function resolveBusinessEntitlement(input: {
+  business?: { id?: string | null; owner_id?: string | null; selected_package_id?: string | null } | null;
+  activeSubscription?: any | null;
+}) {
+  const business = input.business ?? null;
+  const activeSubscription = input.activeSubscription ?? null;
+
+  if (!business?.id) {
+    return {
+      hasPlan: false,
+      subscription: activeSubscription,
+      package: null,
+      packageId: business?.selected_package_id ?? null,
+      packageName: null,
+      packageFeatures: [],
+      enabledModules: [],
+      resolutionStatus: "no_business" as EntitlementResolutionStatus,
+    };
+  }
+
+  const packageId = business.selected_package_id || activeSubscription?.product_id || null;
+  if (!packageId) {
+    return {
+      hasPlan: false,
+      subscription: activeSubscription,
+      package: null,
+      packageId: null,
+      packageName: null,
+      packageFeatures: [],
+      enabledModules: [],
+      resolutionStatus: activeSubscription ? "subscription_inactive" : ("no_plan" as EntitlementResolutionStatus),
+    };
+  }
+
+  const { data: pkg, error: pkgError } = await supabase
+    .from("subscription_packages")
+    .select("*")
+    .eq("id", packageId)
+    .maybeSingle();
+
+  if (pkgError || !pkg) {
+    return {
+      hasPlan: false,
+      subscription: activeSubscription,
+      package: null,
+      packageId,
+      packageName: null,
+      packageFeatures: [],
+      enabledModules: [],
+      resolutionStatus: "package_not_found" as EntitlementResolutionStatus,
+    };
+  }
+
+  const { data: featureRows, error: featureError } = await supabase
+    .from("package_features")
+    .select("*")
+    .eq("package_id", pkg.id)
+    .eq("enabled", true);
+
+  if (featureError) {
+    throw featureError;
+  }
+
+  const packageFeatures = (featureRows || []) as PlanModule[];
+  const enabledModules = Array.from(
+    new Set(packageFeatures.map((feature) => getCanonicalFeatureKey(feature.feature_key)).filter(Boolean)),
+  );
+
+  const hasPlan = Boolean(
+    activeSubscription && ["active", "trialing"].includes((activeSubscription.status || "").toLowerCase()),
+  );
 
   return {
-    modules: [...moduleSet],
-    features,
+    hasPlan,
+    subscription: activeSubscription,
+    package: pkg,
+    packageId: pkg.id,
+    packageName: pkg.name,
+    packageFeatures,
+    enabledModules,
+    resolutionStatus:
+      enabledModules.length > 0 ? "modules_resolved" : ("no_enabled_features" as EntitlementResolutionStatus),
   };
 }
 
