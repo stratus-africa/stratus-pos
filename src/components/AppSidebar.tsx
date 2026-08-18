@@ -1,6 +1,6 @@
 import { LogOut, Shield, Store } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useSubscription } from "@/hooks/useSubscription";
+import { useEntitlement } from "@/hooks/useEntitlement";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, Link } from "@/lib/router-compat";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronRight } from "lucide-react";
-import { APP_MODULES, moduleCategoryLabels, resolveModuleAccess } from "@/lib/modules";
+import { APP_MODULES, moduleCategoryLabels } from "@/lib/modules";
 
 const categoryOrder = ["dashboard", "operations", "finance", "people", "compliance", "tools", "settings"] as const;
 
@@ -37,70 +37,25 @@ export function AppSidebar() {
   const { signOut } = useAuth();
   const { business, userRole } = useBusiness();
   const { isSuperAdmin } = useSuperAdmin();
-  const { hasPermission, permissions, isLoading: permLoading } = usePermissions();
-  const {
-    hasModule,
-    enabledModules,
-    isLoading: subLoading,
-    subscription,
-    isActive,
-    currentPackage,
-    packageResolved,
-    packageError,
-  } = useSubscription();
+  const { hasPermission, isLoading: permLoading } = usePermissions();
+
+  // New unified entitlement hook - replaces useSubscription + resolveModuleAccess logic
+  const { hasModule, getEntitledModules, isLoading: entitlementLoading, hasPlan } = useEntitlement();
+
   const currentPath = location.pathname;
 
-  // Debug: log sidebar resolution state
-  if (typeof window !== "undefined" && window.__DEBUG_SIDEBAR) {
-    console.debug("[AppSidebar]", {
-      userRole,
-      subLoading,
-      permLoading,
-      enabledModules: Array.from(enabledModules),
-      permissionsCount: permissions.size,
-    });
-  }
-
   // Show skeleton while loading authorization data
-  const isLoadingAuth = subLoading || permLoading;
+  const isLoadingAuth = entitlementLoading || permLoading;
 
-  const accessCache = new Map<string, ReturnType<typeof resolveModuleAccess>>();
-  const resolveAccessFor = (moduleKey: string): ReturnType<typeof resolveModuleAccess> => {
-    const cached = accessCache.get(moduleKey);
-    if (cached) return cached;
-
-    const access = resolveModuleAccess(moduleKey, {
-      role: userRole,
-      permissions,
-      featureKey: hasModule,
-      subscriptions: enabledModules,
-      moduleEnabled: () => true,
-      dependenciesReady: (dependencyKey) => {
-        const dependencyModule = APP_MODULES.find(
-          (module) => module.key === dependencyKey || (module.aliases ?? []).includes(dependencyKey),
-        );
-        if (!dependencyModule) return true;
-        return resolveAccessFor(dependencyModule.key).allowed;
-      },
-      setupComplete: (requirementKey) => {
-        const requirementModule = APP_MODULES.find(
-          (module) => module.key === requirementKey || (module.aliases ?? []).includes(requirementKey),
-        );
-        if (!requirementModule) return true;
-        return resolveAccessFor(requirementModule.key).allowed;
-      },
-    });
-
-    accessCache.set(moduleKey, access);
-    return access;
-  };
+  // Get entitled modules
+  const entitledModuleKeys = new Set(getEntitledModules());
 
   const visibleModules = APP_MODULES.filter((module) => {
-    const access = resolveAccessFor(module.key);
+    const allowed = entitledModuleKeys.has(module.key);
     if (typeof window !== "undefined" && window.__DEBUG_SIDEBAR) {
-      if (!access.allowed) console.debug(`  [${module.key}] blocked: ${access.reason}`);
+      if (!allowed) console.debug(`  [${module.key}] blocked: not in current plan`);
     }
-    return access.allowed;
+    return allowed;
   });
 
   const renderModule = (module: (typeof APP_MODULES)[number]) => {
@@ -219,37 +174,21 @@ export function AppSidebar() {
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-        ) : !subscription ? (
-          <SidebarGroup>
-            <SidebarGroupLabel>Modules</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <div className="px-2 py-4 text-xs text-muted-foreground">No active subscription.</div>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ) : !packageResolved ? (
+        ) : !hasPlan ? (
           <SidebarGroup>
             <SidebarGroupLabel>Modules</SidebarGroupLabel>
             <SidebarGroupContent>
               <div className="px-2 py-4 text-xs text-muted-foreground">
-                {packageError || "Unable to resolve the current subscription package."}
+                No active subscription. Contact your administrator to assign a plan.
               </div>
             </SidebarGroupContent>
           </SidebarGroup>
-        ) : !isActive ? (
-          <SidebarGroup>
-            <SidebarGroupLabel>Modules</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <div className="px-2 py-4 text-xs text-muted-foreground">No active subscription.</div>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ) : enabledModules.size === 0 ? (
+        ) : entitledModuleKeys.size === 0 ? (
           <SidebarGroup>
             <SidebarGroupLabel>Modules</SidebarGroupLabel>
             <SidebarGroupContent>
               <div className="px-2 py-4 text-xs text-muted-foreground">
-                {currentPackage
-                  ? `No modules are enabled for ${currentPackage.name}.`
-                  : "No modules are enabled for your current plan."}
+                No modules are enabled for your current plan. Contact your administrator.
               </div>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -269,7 +208,7 @@ export function AppSidebar() {
             <SidebarGroupLabel>Modules</SidebarGroupLabel>
             <SidebarGroupContent>
               <div className="px-2 py-4 text-xs text-muted-foreground">
-                No modules are enabled for your current plan.
+                No modules available. Contact your administrator.
               </div>
             </SidebarGroupContent>
           </SidebarGroup>
