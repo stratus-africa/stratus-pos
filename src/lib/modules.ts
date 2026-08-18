@@ -441,6 +441,56 @@ export const MODULE_REGISTRY: AppModule[] = [
 
 export const APP_MODULES: AppModule[] = MODULE_REGISTRY;
 
+export function getCanonicalFeatureKey(featureKey: string | null | undefined): string {
+  if (!featureKey) return "";
+  const module = findModule(featureKey);
+  return module ? module.key : featureKey.toLowerCase();
+}
+
+export function getEnabledCanonicalModules(
+  features: Array<{ package_id?: string; feature_key?: string; enabled?: boolean }>,
+  packageId?: string,
+): string[] {
+  const enabled = new Set<string>();
+  for (const feature of features) {
+    if (packageId && feature.package_id && feature.package_id !== packageId) continue;
+    if (!feature.enabled || !feature.feature_key) continue;
+    const canonical = getCanonicalFeatureKey(feature.feature_key);
+    if (canonical) enabled.add(canonical);
+  }
+
+  return APP_MODULES.filter((module) => enabled.has(module.key)).map((module) => module.key);
+}
+
+export function applyModuleToggleDependencyRule(
+  moduleKey: string,
+  enabled: boolean,
+  currentState: Record<string, boolean>,
+): { next: Record<string, boolean>; blocked: boolean; reason?: string } {
+  const canonicalKey = getCanonicalFeatureKey(moduleKey);
+  const normalizedState: Record<string, boolean> = {};
+
+  for (const [key, value] of Object.entries(currentState)) {
+    normalizedState[getCanonicalFeatureKey(key)] = Boolean(value);
+  }
+
+  const nextState = { ...normalizedState };
+
+  if (canonicalKey === "accounting" && !enabled && (nextState.banking || nextState.manual_journals)) {
+    return {
+      next: nextState,
+      blocked: true,
+      reason: "Accounting must stay enabled while Banking or Manual Journals is active.",
+    };
+  }
+
+  if ((canonicalKey === "banking" || canonicalKey === "manual_journals") && enabled) {
+    nextState.accounting = true;
+  }
+
+  return { next: nextState, blocked: false };
+}
+
 export const moduleGroupLabels: Record<ModuleGroup, string> = {
   core: "Core modules",
   accounting: "Accounting suite",
