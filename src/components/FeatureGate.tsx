@@ -6,7 +6,7 @@ import { useNavigate } from "@/lib/router-compat";
 
 interface FeatureGateProps {
   /** Backwards-compat tier prop (rarely used now) */
-  requiredTier?: SubscriptionTier;
+  requiredTier?: string;
   /** Preferred: gate by module key from modules (e.g. "reports", "banking") */
   moduleKey?: string;
   children: React.ReactNode;
