@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { getPaystackEnvironment } from "@/lib/paystack";
-import { moduleKeys } from "@/lib/modules";
+import { findModule, moduleKeys } from "@/lib/modules";
 import { resolvePreferredSubscription, resolveSubscriptionPlan } from "@/lib/subscriptionPlan";
 
 export type SubscriptionTier = "free" | "basic" | "pro";
@@ -60,6 +60,26 @@ export function resolveFeatureAccess({
   return keys.some((k) => !!enabledFeatureKeys?.has(k));
 }
 
+export function resolveModuleEntitlement({
+  isActive,
+  currentPackage,
+  enabledModules,
+  key,
+}: {
+  isActive: boolean;
+  currentPackage?: SubscriptionPackage | null;
+  enabledModules?: Set<string>;
+  key: string;
+}) {
+  const keys = moduleKeys(key);
+  if (!isActive) return false;
+  if (!currentPackage) return false;
+  return keys.some((k) => {
+    const normalized = (findModule(k)?.key ?? k).toLowerCase();
+    return !!enabledModules?.has(normalized);
+  });
+}
+
 export function useSubscription() {
   const { user } = useAuth();
   const { business, refreshBusiness } = useBusiness();
@@ -71,11 +91,7 @@ export function useSubscription() {
   // immediately — not just the owner logged into their own account.
   const planUserId = business?.owner_id || user?.id || null;
 
-  const {
-    data: subscription,
-    isLoading: subLoading,
-    error: subscriptionError,
-  } = useQuery({
+  const { data: subscription, isLoading: subLoading, error: subscriptionError } = useQuery({
     queryKey: ["subscription", planUserId, environment],
     queryFn: async () => {
       if (!planUserId) return null;
@@ -95,29 +111,21 @@ export function useSubscription() {
   });
 
   const packageCandidates = Array.from(
-    new Set(
-      [business?.selected_package_id, subscription?.product_id, subscription?.plan_code ? undefined : undefined].filter(
-        (value): value is string => !!value,
-      ),
-    ),
+    new Set([
+      business?.selected_package_id,
+      subscription?.product_id,
+      subscription?.plan_code ? undefined : undefined,
+    ].filter((value): value is string => !!value)),
   );
 
-  const {
-    data: packagesData,
-    isLoading: pkgLoading,
-    error: packageFeaturesError,
-  } = useQuery({
-    queryKey: [
-      "subscription_packages_with_features",
-      planUserId,
-      business?.selected_package_id ?? null,
-      subscription?.product_id ?? null,
-    ],
+  const { data: packagesData, isLoading: pkgLoading, error: packageFeaturesError } = useQuery({
+    queryKey: ["subscription_packages_with_features", planUserId, business?.selected_package_id ?? null, subscription?.product_id ?? null],
     queryFn: async () => {
       const packageIds = Array.from(
-        new Set(
-          [business?.selected_package_id, subscription?.product_id].filter((value): value is string => Boolean(value)),
-        ),
+        new Set([
+          business?.selected_package_id,
+          subscription?.product_id,
+        ].filter((value): value is string => Boolean(value))),
       );
 
       const publicPkgs: any[] = [];
@@ -236,20 +244,19 @@ export function useSubscription() {
       return null;
     }
 
-    return (packages.find((pkg) => pkg.name?.toLowerCase() === "free") ??
-      packages[0] ??
-      null) as SubscriptionPackage | null;
+    return (packages.find((pkg) => pkg.name?.toLowerCase() === "free") ?? packages[0] ?? null) as SubscriptionPackage | null;
   })();
 
-  const packageResolved =
-    !subscription || !["active", "trialing"].includes(subscription.status || "") || !!currentPackage;
+  const packageResolved = !subscription || !["active", "trialing"].includes(subscription.status || "") || !!currentPackage;
   const packageError =
     subscription && ["active", "trialing"].includes(subscription.status || "") && !currentPackage
       ? "Unable to determine your subscription plan."
       : null;
 
-  const enabledFeatureKeys = new Set(
-    features.filter((f) => f.package_id === currentPackage?.id && f.enabled).map((f) => f.feature_key),
+  const enabledModules = new Set(
+    features
+      .filter((f) => f.package_id === currentPackage?.id && f.enabled)
+      .map((f) => (findModule(f.feature_key)?.key ?? f.feature_key).toLowerCase()),
   );
 
   // Debug: log subscription state for troubleshooting sidebar visibility
@@ -268,46 +275,22 @@ export function useSubscription() {
       packages: packages.length,
       currentPackage: currentPackage ? { id: currentPackage.id, name: currentPackage.name } : null,
       features: features.length,
-      enabledFeatureKeys: Array.from(enabledFeatureKeys),
+      enabledModules: Array.from(enabledModules),
     });
   }
 
   // Packages may store legacy/alternate keys for the same module (naming drift).
   // The shared module catalog is the source of truth for equivalences.
-  const hasFeatureKey = (key: string): boolean =>
-    resolveFeatureAccess({
+  const hasModule = (key: string): boolean =>
+    resolveModuleEntitlement({
       isActive,
       currentPackage,
-      enabledFeatureKeys,
+      enabledModules,
       key,
     });
 
+  const hasFeatureKey = (key: string): boolean => hasModule(key);
   const tier: SubscriptionTier = isActive ? "pro" : "free";
   const hasFeature = (_requiredTier: SubscriptionTier): boolean => isActive;
 
   const featuresError = packageFeaturesError;
-
-  return {
-    subscription,
-    isLoading: subLoading || pkgLoading,
-    isActive,
-    tier,
-    hasFeature,
-    hasFeatureKey,
-    enabledFeatureKeys,
-    currentPackage,
-    packageResolved,
-    packageError,
-    packageMatchCandidates: Array.from(
-      new Set(
-        [business?.selected_package_id, subscription?.product_id, subscription?.plan_code].filter(Boolean) as string[],
-      ),
-    ),
-    subscriptionError,
-    featuresError,
-    maxProducts: currentPackage?.max_products ?? 0,
-    maxLocations: currentPackage?.max_locations ?? 1,
-    maxUsers: currentPackage?.max_users ?? 1,
-    isCanceling: subscription?.cancel_at_period_end ?? false,
-  };
-}
