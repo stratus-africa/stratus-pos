@@ -1,5 +1,5 @@
 import React from "react";
-import { useSubscription, type SubscriptionTier } from "@/hooks/useSubscription";
+import { useEntitlement } from "@/hooks/useEntitlement";
 import { Button } from "@/components/ui/button";
 import { Lock } from "lucide-react";
 import { useNavigate } from "@/lib/router-compat";
@@ -7,19 +7,21 @@ import { useNavigate } from "@/lib/router-compat";
 interface FeatureGateProps {
   /** Backwards-compat tier prop (rarely used now) */
   requiredTier?: SubscriptionTier;
-  /** Preferred: gate by feature key from package_features (e.g. "reports", "banking") */
-  featureKey?: string;
+  /** Preferred: gate by module key from modules (e.g. "reports", "banking") */
+  moduleKey?: string;
   children: React.ReactNode;
   fallback?: React.ReactNode;
 }
 
-export function FeatureGate({ requiredTier, featureKey, children, fallback }: FeatureGateProps) {
-  const { hasFeature, hasModule, hasFeatureKey, isLoading, currentPackage } = useSubscription();
+export function FeatureGate({ requiredTier, moduleKey, children, fallback }: FeatureGateProps) {
+  const { hasModule, hasPlan, isLoading: entitlementLoading } = useEntitlement();
   const navigate = useNavigate();
+
+  const isLoading = entitlementLoading;
 
   if (isLoading) return <>{children}</>;
 
-  const allowed = featureKey ? hasModule(featureKey) : requiredTier ? hasFeature(requiredTier) : true;
+  const allowed = moduleKey ? hasModule(moduleKey) : requiredTier ? hasPlan : true;
 
   if (!allowed) {
     return (
@@ -28,8 +30,7 @@ export function FeatureGate({ requiredTier, featureKey, children, fallback }: Fe
           <Lock className="h-10 w-10 text-muted-foreground" />
           <h3 className="text-lg font-semibold">Upgrade Required</h3>
           <p className="text-sm text-muted-foreground max-w-sm">
-            This feature isn't included in your current{currentPackage ? ` ${currentPackage.name}` : ""} plan. Upgrade
-            to unlock it.
+            This feature isn't included in your current plan. Upgrade to unlock it.
           </p>
           <Button onClick={() => navigate("/settings?tab=subscription")}>View Plans</Button>
         </div>
@@ -42,14 +43,14 @@ export function FeatureGate({ requiredTier, featureKey, children, fallback }: Fe
 
 /**
  * Route guard. Use to protect a route or section so users on plans
- * without the given feature key are blocked from rendering it
+ * without the given module key are blocked from rendering it
  * (and redirected to the subscription tab).
  */
-export function RequireFeature({ featureKey, children }: { featureKey: string; children: React.ReactNode }) {
-  const { hasModule, isLoading } = useSubscription();
+export function RequireFeature({ moduleKey, children }: { moduleKey: string; children: React.ReactNode }) {
+  const { hasModule, isLoading } = useEntitlement();
   if (isLoading) return null;
-  if (!hasModule(featureKey)) {
-    return <FeatureGate featureKey={featureKey}>{children}</FeatureGate>;
+  if (!hasModule(moduleKey)) {
+    return <FeatureGate moduleKey={moduleKey}>{children}</FeatureGate>;
   }
   return <>{children}</>;
 }
@@ -60,23 +61,20 @@ export function RequireFeature({ featureKey, children }: { featureKey: string; c
  * + its package_features rows.
  */
 export function useFeatureLimit() {
-  const { currentPackage, maxProducts, maxLocations, maxUsers, hasModule, hasFeatureKey, isLoading, tier } =
-    useSubscription();
+  const { hasModule, isLoading: entitlementLoading, resolvedPackageName } = useEntitlement();
 
-  // Convention: 0 or negative in the package row means "unlimited".
-  const toLimit = (n: number, fallback: number) => (n > 0 ? n : fallback);
+  const isLoading = entitlementLoading;
 
   return {
     isLoading,
-    currentPackage,
-    maxProducts: toLimit(maxProducts, Infinity),
-    maxLocations: toLimit(maxLocations, Infinity),
-    maxUsers: toLimit(maxUsers, Infinity),
+    currentPackage: resolvedPackageName ? { name: resolvedPackageName } : null,
+    maxProducts: Infinity,
+    maxLocations: Infinity,
+    maxUsers: Infinity,
     canAccessReports: hasModule("reports"),
     canAccessBanking: hasModule("banking"),
-    canAccessChartOfAccounts: hasModule("chart_of_accounts"),
-    canUseMultiLocation: hasModule("multi_location"),
-    hasFeatureKey: hasModule,
-    tier,
+    canAccessChartOfAccounts: hasModule("accounting"),
+    canUseMultiLocation: hasModule("inventory"),
+    hasModule,
   };
 }
