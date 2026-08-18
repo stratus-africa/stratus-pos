@@ -159,6 +159,23 @@ export async function resolveBusinessEntitlement(input: {
   const hasAssignedPackage = Boolean(business?.selected_package_id || activeSubscription?.product_id);
   const hasPlan = hasActiveSubscription || (hasAssignedPackage && Boolean(pkg));
 
+  // A tenant plan is valid when the business has a resolved package assignment, even if the
+  // subscription row is still pending or inactive. The package assignment is the canonical
+  // source of entitlement; the subscription only determines active billing state.
+  if (business?.selected_package_id && pkg) {
+    return {
+      hasPlan: true,
+      subscription: activeSubscription,
+      package: pkg,
+      packageId: pkg.id,
+      packageName: pkg.name,
+      packageFeatures,
+      enabledModules,
+      resolutionStatus:
+        enabledModules.length > 0 ? "modules_resolved" : ("no_enabled_features" as EntitlementResolutionStatus),
+    };
+  }
+
   return {
     hasPlan,
     subscription: activeSubscription,
