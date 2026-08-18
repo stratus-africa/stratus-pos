@@ -95,7 +95,8 @@ export function useEntitlement(options: UseEntitlementOptions = {}) {
     hasPlan:
       !!resolvedPackageId &&
       ((!!activeSubscription && ["active", "trialing"].includes((activeSubscription?.status || "").toLowerCase())) ||
-        !!resolvedPackage),
+        !!resolvedPackage ||
+        !!business?.selected_package_id),
     subscription: activeSubscription,
     package: resolvedPackage,
     packageId: resolvedPackageId,
