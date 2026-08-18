@@ -1,26 +1,49 @@
 import { useBusiness } from "@/contexts/BusinessContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSubscription } from "@/hooks/useSubscription";
-import { resolveModuleAccess, type ModuleAccessInput } from "@/lib/modules";
+import { APP_MODULES, resolveModuleAccess, type ModuleAccessInput } from "@/lib/modules";
 
 export function useModuleAccess() {
   const { userRole } = useBusiness();
   const { permissions, hasPermission } = usePermissions();
-  const { hasFeatureKey } = useSubscription();
+  const { hasFeatureKey, enabledFeatureKeys } = useSubscription();
 
-  const accessFor = (moduleKey: string, sectionKey?: string, permissionOverride?: string) => {
+  const accessCache = new Map<string, ReturnType<typeof resolveModuleAccess>>();
+  const resolveAccess = (moduleKey: string): ReturnType<typeof resolveModuleAccess> => {
+    const cached = accessCache.get(moduleKey);
+    if (cached) return cached;
+
     const input: ModuleAccessInput = {
       role: userRole,
       permissions,
       featureKey: hasFeatureKey,
+      subscriptions: enabledFeatureKeys,
       moduleEnabled: () => true,
-      dependenciesReady: () => true,
-      setupComplete: () => true,
-      subscriptions: new Set(),
+      dependenciesReady: (dependencyKey) => {
+        const dependencyModule = APP_MODULES.find(
+          (module) => module.key === dependencyKey || (module.aliases ?? []).includes(dependencyKey),
+        );
+        if (!dependencyModule) return true;
+        return resolveAccess(dependencyModule.key).allowed;
+      },
+      setupComplete: (requirementKey) => {
+        const requirementModule = APP_MODULES.find(
+          (module) => module.key === requirementKey || (module.aliases ?? []).includes(requirementKey),
+        );
+        if (!requirementModule) return true;
+        return resolveAccess(requirementModule.key).allowed;
+      },
     };
 
     const access = resolveModuleAccess(moduleKey, input);
-    const sectionVisible = !sectionKey || access.module?.navigation.some((item) => item.key === sectionKey || item.route === sectionKey);
+    accessCache.set(moduleKey, access);
+    return access;
+  };
+
+  const accessFor = (moduleKey: string, sectionKey?: string, permissionOverride?: string) => {
+    const access = resolveAccess(moduleKey);
+    const sectionVisible =
+      !sectionKey || access.module?.navigation.some((item) => item.key === sectionKey || item.route === sectionKey);
     const hasRequiredPermission = !permissionOverride || hasPermission(permissionOverride);
     return {
       ...access,
@@ -36,27 +59,11 @@ export function useModuleAccess() {
     canAccessSection: (moduleKey: string, sectionKey: string) => accessFor(moduleKey, sectionKey).allowed,
     hasPermission,
     hasModuleSubscription: (moduleKey: string) => {
-      const access = resolveModuleAccess(moduleKey, {
-        role: userRole,
-        permissions,
-        featureKey: hasFeatureKey,
-        moduleEnabled: () => true,
-        dependenciesReady: () => true,
-        setupComplete: () => true,
-        subscriptions: new Set(),
-      });
+      const access = resolveAccess(moduleKey);
       return access.state !== "locked" && access.state !== "disabled" && access.state !== "coming_soon";
     },
     isModuleSetupComplete: (moduleKey: string) => {
-      const access = resolveModuleAccess(moduleKey, {
-        role: userRole,
-        permissions,
-        featureKey: hasFeatureKey,
-        moduleEnabled: () => true,
-        dependenciesReady: () => true,
-        setupComplete: () => true,
-        subscriptions: new Set(),
-      });
+      const access = resolveAccess(moduleKey);
       return access.state !== "setup_required";
     },
   };
