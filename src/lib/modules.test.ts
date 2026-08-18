@@ -76,6 +76,32 @@ describe("module registry and access control", () => {
     expect(enabled).toEqual(expect.arrayContaining(["accounting", "inventory"]));
   });
 
+  it("derives tenant module access from plan assignments rather than a second feature system", () => {
+    const packageFeatures = [
+      { package_id: "professional", feature_key: "pos", enabled: true },
+      { package_id: "professional", feature_key: "inventory", enabled: true },
+      { package_id: "professional", feature_key: "customers", enabled: true },
+      { package_id: "professional", feature_key: "accounting", enabled: false },
+    ];
+
+    const enabled = getEnabledCanonicalModules(packageFeatures, "professional");
+    expect(enabled).toEqual(expect.arrayContaining(["pos", "inventory", "customers"]));
+    expect(enabled).not.toContain("accounting");
+
+    const access = resolveModuleAccess("inventory", {
+      role: "manager",
+      subscriptions: new Set(enabled),
+      permissions: new Set(["inventory.view"]),
+      featureKey: (key) => enabled.includes(key),
+      moduleEnabled: () => true,
+      dependenciesReady: () => true,
+      setupComplete: () => true,
+    });
+
+    expect(access.allowed).toBe(true);
+    expect(access.reason).toBe("ok");
+  });
+
   it("keeps modules visible for an active subscription when package metadata is temporarily unavailable", () => {
     expect(
       resolveFeatureAccess({
