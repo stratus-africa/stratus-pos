@@ -18,7 +18,7 @@ function RouteComponent() {
 
   return (
     <PermissionGuard permission="dashboard.view">
-      <FeatureGate featureKey="dashboard">
+      <FeatureGate moduleKey="dashboard">
         <Index />
       </FeatureGate>
     </PermissionGuard>
