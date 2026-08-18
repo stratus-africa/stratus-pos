@@ -19,7 +19,15 @@ export function FeatureGate({ requiredTier, moduleKey, children, fallback }: Fea
 
   const isLoading = entitlementLoading;
 
-  if (isLoading) return <>{children}</>;
+  if (isLoading) {
+    return (
+      fallback || (
+        <div className="flex min-h-[160px] items-center justify-center py-8 text-sm text-muted-foreground">
+          Checking access...
+        </div>
+      )
+    );
+  }
 
   const allowed = moduleKey ? hasModule(moduleKey) : requiredTier ? hasPlan : true;
 
