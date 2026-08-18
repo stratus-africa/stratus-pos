@@ -443,8 +443,15 @@ export const APP_MODULES: AppModule[] = MODULE_REGISTRY;
 
 export function getCanonicalFeatureKey(featureKey: string | null | undefined): string {
   if (!featureKey) return "";
+
   const module = findModule(featureKey);
-  return module ? module.key : featureKey.toLowerCase();
+  if (module) return module.key;
+
+  const normalized = featureKey.trim().toLowerCase();
+  const dottedPrefix = normalized.split(".")[0]?.trim();
+  if (dottedPrefix) return dottedPrefix;
+
+  return normalized;
 }
 
 export function getEnabledCanonicalModules(
@@ -507,14 +514,39 @@ export const moduleCategoryLabels: Record<ModuleCategory, string> = {
   settings: "Settings",
 };
 
-export const findModule = (key: string) => {
-  const normalized = key?.toLowerCase();
-  return MODULE_REGISTRY.find((m) => m.key === normalized || (m.aliases ?? []).includes(normalized));
+export const normalizeModuleKey = (key: string | null | undefined): string => {
+  return (key ?? "").trim().toLowerCase().replace(/\s+/g, "_");
+};
+
+export const findModule = (key: string | null | undefined) => {
+  if (!key) return undefined;
+
+  const normalized = normalizeModuleKey(key);
+  const prefix = normalized.split(".")[0];
+  const candidates = new Set<string>();
+  candidates.add(normalized);
+  if (prefix) candidates.add(prefix);
+  if (normalized.includes(".")) candidates.add(normalized.replace(/\./g, "_"));
+
+  return MODULE_REGISTRY.find((module) => {
+    const aliases = [module.key, ...(module.aliases ?? [])].map((alias) => normalizeModuleKey(alias));
+    return [...candidates].some((candidate) => {
+      return aliases.includes(candidate) || aliases.some((alias) => candidate.startsWith(`${alias}.`));
+    });
+  });
 };
 
 export const moduleKeys = (key: string): string[] => {
+  const normalized = normalizeModuleKey(key);
   const m = findModule(key);
-  return m ? [m.key, ...(m.aliases ?? [])] : [key];
+  if (!m) {
+    const prefix = normalized.split(".")[0];
+    return Array.from(new Set([normalized, prefix, getCanonicalFeatureKey(key)].filter(Boolean)));
+  }
+
+  const aliases = [m.key, ...(m.aliases ?? [])].map((alias) => normalizeModuleKey(alias));
+  const base = normalized.split(".")[0];
+  return Array.from(new Set([m.key, ...aliases, normalized, base, getCanonicalFeatureKey(key)].filter(Boolean)));
 };
 
 export type ModuleAccessInput = {
