@@ -148,27 +148,27 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   }, [location.pathname]);
 
   return (
-    <div className="flex min-h-screen bg-[hsl(210_20%_98%)]">
+    <div className="flex min-h-screen bg-background text-foreground">
       {sidebarVisible && (
         <aside
           className={cn(
-            "bg-white border-r border-border flex flex-col transition-[width] duration-200",
+            "bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col transition-[width] duration-200",
             isMobile ? "fixed inset-y-0 left-0 z-40 w-64" : "w-64",
           )}
         >
           {/* Brand */}
           <div className="px-5 py-5 flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-xs">
+            <div className="h-9 w-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-xs">
               <Zap className="h-4 w-4" />
             </div>
-            <span className="text-base font-bold tracking-tight">StratusPOS</span>
+            <span className="text-base font-bold tracking-tight text-sidebar-foreground">StratusPOS</span>
           </div>
 
           {/* Nav groups */}
           <nav className="flex-1 overflow-y-auto px-3 pb-4 space-y-5">
             {navGroups.map((group) => (
               <div key={group.label}>
-                <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   {group.label}
                 </div>
                 <div className="space-y-0.5">
@@ -181,14 +181,14 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
                         className={cn(
                           "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
                           active
-                            ? "bg-emerald-50 text-emerald-700 font-medium"
-                            : "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                            : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground",
                         )}
                       >
                         <item.icon className={cn("h-4 w-4 shrink-0", active && "text-emerald-600")} />
                         <span className="truncate flex-1">{item.title}</span>
                         {item.url === "/super-admin/tenant-approvals" && pendingCount > 0 && (
-                          <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                          <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold">
                             {pendingCount}
                           </span>
                         )}
@@ -213,7 +213,7 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
       {/* Main */}
       <div className="flex-1 flex min-w-0 flex-col">
         {/* Top bar */}
-        <header className="h-14 bg-white border-b border-border flex items-center justify-between px-4 sm:px-6 sticky top-0 z-20">
+        <header className="h-14 bg-card border-b border-border flex items-center justify-between px-4 sm:px-6 sticky top-0 z-20">
           <div className="flex items-center gap-2">
             <Button
               size="icon"
