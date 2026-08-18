@@ -14,11 +14,7 @@ import {
   getPlanModules,
   getModuleFeatures,
 } from "@/lib/entitlementResolver";
-import type {
-  ModuleEntitlement,
-  FeatureAccess,
-  ModuleFeature,
-} from "@/types/entitlement";
+import type { ModuleEntitlement, FeatureAccess, ModuleFeature } from "@/types/entitlement";
 
 interface UseEntitlementOptions {
   enabled?: boolean;
@@ -27,7 +23,7 @@ interface UseEntitlementOptions {
 /**
  * Unified hook for all entitlement checks
  * Replaces fragmented useSubscription + useModuleAccess pattern
- * 
+ *
  * Usage:
  * const { hasModule, hasFeature, getModuleEntitlement, isLoading } = useEntitlement();
  * if (hasModule("accounting")) { show accounting }
@@ -61,10 +57,7 @@ export function useEntitlement(options: UseEntitlementOptions = {}) {
     staleTime: 15_000,
   });
 
-  const resolvedPlanId =
-    business?.selected_package_id ||
-    activeSubscription?.product_id ||
-    null;
+  const resolvedPlanId = business?.selected_package_id || activeSubscription?.product_id || null;
 
   // Get the current plan. We must resolve from the active subscription when
   // selected_package_id is not set yet, or when a tenant has an owner-linked plan.
@@ -84,16 +77,8 @@ export function useEntitlement(options: UseEntitlementOptions = {}) {
   };
 
   // Check feature access (requires both entitlement + permission)
-  const checkFeatureAccess_Fn = async (
-    moduleKey: string,
-    featureKey: string
-  ) => {
-    return checkFeatureAccess(
-      business?.selected_package_id,
-      moduleKey,
-      featureKey,
-      permissions
-    );
+  const checkFeatureAccess_Fn = async (moduleKey: string, featureKey: string) => {
+    return checkFeatureAccess(business?.selected_package_id, moduleKey, featureKey, permissions);
   };
 
   // Helper: Check if module is entitled
@@ -114,9 +99,7 @@ export function useEntitlement(options: UseEntitlementOptions = {}) {
   };
 
   // Helper: Get all features for a module that user can access
-  const getAccessibleModuleFeatures = async (
-    moduleKey: string
-  ): Promise<ModuleFeature[]> => {
+  const getAccessibleModuleFeatures = async (moduleKey: string): Promise<ModuleFeature[]> => {
     if (!hasModule(moduleKey)) return [];
 
     const features = await getModuleFeatures(moduleKey);
@@ -173,3 +156,36 @@ export function useModuleManagement() {
         allFeatures.push(...features);
       }
 
+      return allFeatures;
+    },
+    enabled: !!business?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  return {
+    availableFeatures: availableFeatures || [],
+    isLoading,
+    canAssignFeature: (featureKey: string) => {
+      // Only features from entitled modules can be assigned to roles
+      return availableFeatures?.some((f) => f.feature_key === featureKey) || false;
+    },
+  };
+}
+
+/**
+ * Hook for superadmins to manage subscription plans
+ * Used in SuperAdminPackages to create/modify plans
+ */
+export function usePlanManagement() {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.user_metadata?.is_super_admin === true;
+
+  if (!isSuperAdmin) {
+    console.warn("usePlanManagement: User is not a superadmin");
+  }
+
+  return {
+    isSuperAdmin,
+    canManagePlans: isSuperAdmin,
+  };
+}
