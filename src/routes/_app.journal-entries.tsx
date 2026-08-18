@@ -9,6 +9,6 @@ export const Route = createFileRoute("/_app/journal-entries")({
 
 function RouteComponent() {
   return (
-    <PermissionGuard permission="chart_of_accounts.view"><FeatureGate featureKey="chart_of_accounts"><JournalEntries /></FeatureGate></PermissionGuard>
+    <PermissionGuard permission="chart_of_accounts.view"><FeatureGate moduleKey="chart_of_accounts"><JournalEntries /></FeatureGate></PermissionGuard>
   );
 }
