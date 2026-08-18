@@ -65,6 +65,8 @@ export function useFeatureLimit() {
 
   const isLoading = entitlementLoading;
 
+  const hasFeatureKey = (featureKey: string) => hasModule(featureKey);
+
   return {
     isLoading,
     currentPackage: resolvedPackageName ? { name: resolvedPackageName } : null,
@@ -76,5 +78,6 @@ export function useFeatureLimit() {
     canAccessChartOfAccounts: hasModule("accounting"),
     canUseMultiLocation: hasModule("inventory"),
     hasModule,
+    hasFeatureKey,
   };
 }
