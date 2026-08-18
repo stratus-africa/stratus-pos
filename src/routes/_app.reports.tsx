@@ -24,7 +24,7 @@ function RouteComponent() {
   if (!canAnyReport) return <AccessDenied />;
 
   return (
-    <FeatureGate featureKey="reports">
+    <FeatureGate moduleKey="reports">
       <Reports />
     </FeatureGate>
   );
