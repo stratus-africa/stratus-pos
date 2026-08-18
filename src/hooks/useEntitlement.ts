@@ -6,6 +6,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { usePermissions } from "./usePermissions";
+import { getPaystackEnvironment } from "@/lib/paystack";
+import { supabase } from "@/integrations/supabase/client";
 import {
   checkModuleEntitlement,
   checkFeatureAccess,
@@ -35,15 +37,44 @@ export function useEntitlement(options: UseEntitlementOptions = {}) {
   const { user } = useAuth();
   const { business } = useBusiness();
   const { permissions } = usePermissions();
+  const environment = getPaystackEnvironment();
+  const planUserId = business?.owner_id || user?.id || null;
 
-  // Get the current plan
-  const { data: planModules, isLoading: isLoadingPlan } = useQuery({
-    queryKey: ["entitlement:plan_modules", business?.selected_package_id],
+  const { data: activeSubscription } = useQuery({
+    queryKey: ["entitlement:active_subscription", planUserId, environment],
     queryFn: async () => {
-      if (!business?.selected_package_id) return null;
-      return getPlanModules(business.selected_package_id);
+      if (!planUserId) return null;
+
+      const { data, error } = await supabase
+        .from("subscriptions")
+        .select("*")
+        .eq("user_id", planUserId)
+        .eq("environment", environment)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      const rows = data || [];
+      const active = rows.find((row: any) => ["active", "trialing"].includes((row.status || "").toLowerCase()));
+      return active || rows[0] || null;
     },
-    enabled: enabled && !!business?.selected_package_id,
+    enabled: enabled && !!planUserId,
+    staleTime: 15_000,
+  });
+
+  const resolvedPlanId =
+    business?.selected_package_id ||
+    activeSubscription?.product_id ||
+    null;
+
+  // Get the current plan. We must resolve from the active subscription when
+  // selected_package_id is not set yet, or when a tenant has an owner-linked plan.
+  const { data: planModules, isLoading: isLoadingPlan } = useQuery({
+    queryKey: ["entitlement:plan_modules", resolvedPlanId],
+    queryFn: async () => {
+      if (!resolvedPlanId) return null;
+      return getPlanModules(resolvedPlanId);
+    },
+    enabled: enabled && !!resolvedPlanId,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
@@ -110,7 +141,9 @@ export function useEntitlement(options: UseEntitlementOptions = {}) {
     isReady: !isLoadingPlan && !!planModules,
 
     // Context
-    hasPlan: !!business?.selected_package_id,
+    hasPlan: !!business?.selected_package_id || !!activeSubscription,
+    activeSubscription,
+    resolvedPlanId,
     userRole: business?.owner_id === user?.id ? "owner" : "member",
   };
 }
@@ -140,36 +173,3 @@ export function useModuleManagement() {
         allFeatures.push(...features);
       }
 
-      return allFeatures;
-    },
-    enabled: !!business?.id,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  return {
-    availableFeatures: availableFeatures || [],
-    isLoading,
-    canAssignFeature: (featureKey: string) => {
-      // Only features from entitled modules can be assigned to roles
-      return availableFeatures?.some((f) => f.feature_key === featureKey) || false;
-    },
-  };
-}
-
-/**
- * Hook for superadmins to manage subscription plans
- * Used in SuperAdminPackages to create/modify plans
- */
-export function usePlanManagement() {
-  const { user } = useAuth();
-  const isSuperAdmin = user?.user_metadata?.is_super_admin === true;
-
-  if (!isSuperAdmin) {
-    console.warn("usePlanManagement: User is not a superadmin");
-  }
-
-  return {
-    isSuperAdmin,
-    canManagePlans: isSuperAdmin,
-  };
-}
