@@ -153,9 +153,11 @@ export async function resolveBusinessEntitlement(input: {
     new Set(packageFeatures.map((feature) => getCanonicalFeatureKey(feature.feature_key)).filter(Boolean)),
   );
 
-  const hasPlan = Boolean(
+  const hasActiveSubscription = Boolean(
     activeSubscription && ["active", "trialing"].includes((activeSubscription.status || "").toLowerCase()),
   );
+  const hasAssignedPackage = Boolean(business?.selected_package_id || activeSubscription?.product_id);
+  const hasPlan = hasActiveSubscription || (hasAssignedPackage && Boolean(pkg));
 
   return {
     hasPlan,
