@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { findModule, resolveModuleAccess, getVisibleModules, MODULE_REGISTRY } from "./modules";
+import {
+  findModule,
+  resolveModuleAccess,
+  getVisibleModules,
+  MODULE_REGISTRY,
+  getEnabledCanonicalModules,
+} from "./modules";
+import { resolveFeatureAccess } from "../hooks/useSubscription";
 
 describe("module registry and access control", () => {
   it("keeps a single authoritative registry and exposes an accounting module hierarchy", () => {
@@ -41,12 +48,7 @@ describe("module registry and access control", () => {
   });
 
   it("filters module visibility to the user’s accessible set", () => {
-    const visible = getVisibleModules([
-      "dashboard",
-      "inventory",
-      "bakery",
-      "accounting",
-    ], {
+    const visible = getVisibleModules(["dashboard", "inventory", "bakery", "accounting"], {
       role: "manager",
       subscriptions: new Set(["dashboard", "inventory", "accounting"]),
       permissions: new Set(["dashboard.view", "inventory.view", "accounting.view"]),
@@ -57,5 +59,40 @@ describe("module registry and access control", () => {
     });
 
     expect(visible).toEqual(["dashboard", "inventory", "accounting"]);
+  });
+
+  it("counts only canonical modules when aliases are enabled", () => {
+    const enabled = getEnabledCanonicalModules(
+      [
+        { package_id: "pkg-1", feature_key: "accounting", enabled: true },
+        { package_id: "pkg-1", feature_key: "manual_journals", enabled: true },
+        { package_id: "pkg-1", feature_key: "journal_entries", enabled: true },
+        { package_id: "pkg-1", feature_key: "inventory", enabled: true },
+      ],
+      "pkg-1",
+    );
+
+    expect(enabled).toHaveLength(2);
+    expect(enabled).toEqual(expect.arrayContaining(["accounting", "inventory"]));
+  });
+
+  it("keeps modules visible for an active subscription when package metadata is temporarily unavailable", () => {
+    expect(
+      resolveFeatureAccess({
+        isActive: true,
+        currentPackage: null,
+        enabledFeatureKeys: new Set(),
+        key: "inventory",
+      }),
+    ).toBe(true);
+
+    expect(
+      resolveFeatureAccess({
+        isActive: false,
+        currentPackage: null,
+        enabledFeatureKeys: new Set(),
+        key: "inventory",
+      }),
+    ).toBe(false);
   });
 });
