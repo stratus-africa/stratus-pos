@@ -64,16 +64,39 @@ export function AppSidebar() {
   // Show skeleton while loading authorization data
   const isLoadingAuth = subLoading || permLoading;
 
-  const visibleModules = APP_MODULES.filter((module) => {
-    const access = resolveModuleAccess(module.key, {
+  const accessCache = new Map<string, ReturnType<typeof resolveModuleAccess>>();
+  const resolveAccessFor = (moduleKey: string): ReturnType<typeof resolveModuleAccess> => {
+    const cached = accessCache.get(moduleKey);
+    if (cached) return cached;
+
+    const access = resolveModuleAccess(moduleKey, {
       role: userRole,
       permissions,
       featureKey: hasFeatureKey,
-      moduleEnabled: () => true,
-      dependenciesReady: () => true,
-      setupComplete: () => true,
       subscriptions: enabledFeatureKeys,
+      moduleEnabled: () => true,
+      dependenciesReady: (dependencyKey) => {
+        const dependencyModule = APP_MODULES.find(
+          (module) => module.key === dependencyKey || (module.aliases ?? []).includes(dependencyKey),
+        );
+        if (!dependencyModule) return true;
+        return resolveAccessFor(dependencyModule.key).allowed;
+      },
+      setupComplete: (requirementKey) => {
+        const requirementModule = APP_MODULES.find(
+          (module) => module.key === requirementKey || (module.aliases ?? []).includes(requirementKey),
+        );
+        if (!requirementModule) return true;
+        return resolveAccessFor(requirementModule.key).allowed;
+      },
     });
+
+    accessCache.set(moduleKey, access);
+    return access;
+  };
+
+  const visibleModules = APP_MODULES.filter((module) => {
+    const access = resolveAccessFor(module.key);
     if (typeof window !== "undefined" && window.__DEBUG_SIDEBAR) {
       if (!access.allowed) console.debug(`  [${module.key}] blocked: ${access.reason}`);
     }
@@ -216,26 +239,3 @@ export function AppSidebar() {
           </SidebarGroup>
         ) : enabledFeatureKeys.size === 0 ? (
           <SidebarGroup>
-            <SidebarGroupLabel>Modules</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <div className="px-2 py-4 text-xs text-muted-foreground">
-                {currentPackage ? `No modules are enabled for ${currentPackage.name}.` : "No modules are enabled for your current plan."}
-              </div>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ) : groupedModules.length > 0 ? (
-          groupedModules.map((group) => (
-            <SidebarGroup key={group.category}>
-              <SidebarGroupLabel>
-                {group.category === "dashboard" ? "Dashboard" : moduleCategoryLabels[group.category]}
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>{group.modules.map(renderModule)}</SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          ))
-        ) : (
-          <SidebarGroup>
-            <SidebarGroupLabel>Modules</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <div className="px-2 py-4 text-xs text-muted-foreground">
