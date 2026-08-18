@@ -60,6 +60,7 @@ const navGroups: NavGroup[] = [
       { title: "Tenants", url: "/super-admin/businesses", icon: Building2 },
       { title: "Tenant Approvals", url: "/super-admin/tenant-approvals", icon: UserCheck },
       { title: "Plans", url: "/super-admin/packages", icon: Tag },
+      { title: "Modules", url: "/super-admin/modules", icon: LayoutGrid },
       { title: "Subscriptions", url: "/super-admin/subscriptions", icon: CreditCard },
       { title: "Super Admins", url: "/super-admin/users", icon: Shield },
     ],
