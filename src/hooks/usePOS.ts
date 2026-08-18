@@ -717,8 +717,6 @@ export function usePOS() {
       // An M-Pesa sale was already reserved (and possibly already paid by the
       // callback) — finalise that row instead of creating a second one.
       const reserved = pendingSaleRef.current;
-      const invoiceNumber = reserved?.invoiceNumber ?? consumeNext(business.id, "receipts");
-      const saleId = reserved?.saleId ?? crypto.randomUUID();
 
       // If this payment is settling a previously-saved credit sale, reuse that row.
       const creditSaleId = (window as any).__creditSaleId as string | undefined;
@@ -970,16 +968,19 @@ export function usePOS() {
         }),
       );
 
-      await Promise.all(
-        inventoryUpdates
-          .filter(({ inv }) => inv)
-          .map(({ item, inv }) =>
-            supabase
-              .from("inventory")
-              .update({ quantity: inv!.quantity - item.quantity })
-              .eq("id", inv!.id),
-          ),
-      );
+      // Credit settlement: inventory was already decremented when the credit sale was saved.
+      if (!isSettlingCredit) {
+        await Promise.all(
+          inventoryUpdates
+            .filter(({ inv }) => inv)
+            .map(({ item, inv }) =>
+              supabase
+                .from("inventory")
+                .update({ quantity: inv!.quantity - item.quantity })
+                .eq("id", inv!.id),
+            ),
+        );
+      }
 
       // No mirror stock_adjustments row: the sale document is the stock movement.
       // The Inventory Movement ledger reads sales/purchases directly.
@@ -1007,6 +1008,7 @@ export function usePOS() {
       queryClient.invalidateQueries({ queryKey: ["stock_adjustments"] });
       queryClient.invalidateQueries({ queryKey: ["bank_accounts"] });
       queryClient.invalidateQueries({ queryKey: ["bank_transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["credit_sales"] });
 
       // KRA eTIMS fiscal submission — synchronous when user opted in via "Push to eTIMS".
       let fiscal: Record<string, unknown> | null = null;
@@ -1102,9 +1104,10 @@ export function usePOS() {
     resumeSale,
     removeHeldSale,
     completeSale,
+    completeCreditSale,
+    loadCreditSale,
     createPendingSale,
     cancelPendingSale,
-
     processing,
     stockOf,
     preventOverselling,
