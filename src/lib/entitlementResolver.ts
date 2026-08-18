@@ -18,7 +18,7 @@ import type {
  * This is the core entitlement function - what modules does this plan include?
  */
 export async function getPlanModules(
-  planId: string | null | undefined
+  planId: string | null | undefined,
 ): Promise<{ modules: string[]; features: PlanModule[] }> {
   if (!planId) {
     return { modules: [], features: [] };
@@ -42,9 +42,7 @@ export async function getPlanModules(
  * Resolves the features belonging to a module
  * Used by tenant admins to assign permissions
  */
-export async function getModuleFeatures(
-  moduleKey: string
-): Promise<ModuleFeature[]> {
+export async function getModuleFeatures(moduleKey: string): Promise<ModuleFeature[]> {
   const { data, error } = await supabase
     .from("module_features")
     .select("*")
@@ -63,7 +61,7 @@ export async function getModuleFeatures(
  */
 export async function checkModuleEntitlement(
   planId: string | undefined,
-  moduleKey: string
+  moduleKey: string,
 ): Promise<ModuleEntitlement> {
   if (!planId) {
     return {
@@ -104,17 +102,13 @@ export async function checkFeatureAccess(
   planId: string | undefined,
   moduleKey: string,
   featureKey: string,
-  userPermissions: Set<string>
+  userPermissions: Set<string>,
 ): Promise<FeatureAccess> {
   // Check module entitlement first
   const entitlement = await checkModuleEntitlement(planId, moduleKey);
 
   // Get feature details
-  const { data: feature } = await supabase
-    .from("module_features")
-    .select("*")
-    .eq("feature_key", featureKey)
-    .single();
+  const { data: feature } = await supabase.from("module_features").select("*").eq("feature_key", featureKey).single();
 
   const permissionKey = (feature as ModuleFeature)?.permission_key || featureKey;
 
@@ -122,12 +116,11 @@ export async function checkFeatureAccess(
     feature_key: featureKey,
     feature_label: (feature as ModuleFeature)?.feature_label || featureKey,
     allowed: entitlement.entitled && userPermissions.has(permissionKey),
-    reason:
-      !entitlement.entitled
-        ? "module_not_entitled"
-        : !userPermissions.has(permissionKey)
-          ? "permission_denied"
-          : undefined,
+    reason: !entitlement.entitled
+      ? "module_not_entitled"
+      : !userPermissions.has(permissionKey)
+        ? "permission_denied"
+        : undefined,
     module_entitled: entitlement.entitled,
     user_permission: userPermissions.has(permissionKey),
   };
@@ -139,7 +132,7 @@ export async function checkFeatureAccess(
  */
 export async function updatePlanModules(
   planId: string,
-  moduleKeys: string[]
+  moduleKeys: string[],
 ): Promise<{ success: boolean; message: string }> {
   const { data, error } = await supabase.rpc("set_plan_modules", {
     _package_id: planId,
@@ -185,7 +178,7 @@ export async function createSubscriptionPlan(input: {
       _max_suppliers: input.max_suppliers,
       _trial_days: input.trial_days,
     },
-    { count: "exact" }
+    { count: "exact" },
   );
 
   if (error) {
@@ -214,27 +207,27 @@ export async function updateSubscriptionPlan(
     max_suppliers?: number;
     trial_days: number;
     is_active: boolean;
-  }
+  },
 ): Promise<{ success: boolean; message: string }> {
-  const { data, error } = await supabase.rpc(
-    "update_subscription_plan",
-    {
-      _package_id: planId,
-      _name: input.name,
-      _description: input.description,
-      _monthly_price_kes: input.monthly_price_kes,
-      _yearly_price_kes: input.yearly_price_kes,
-      _max_products: input.max_products,
-      _max_users: input.max_users,
-      _max_locations: input.max_locations,
-      _max_customers: input.max_customers,
-      _max_suppliers: input.max_suppliers,
-      _trial_days: input.trial_days,
-      _is_active: input.is_active,
-    },
-    { count: "exact" }
-  );
+  const { data, error } = await supabase.rpc("update_subscription_plan", {
+    _package_id: planId,
+    _name: input.name,
+    _description: input.description || null,
+    _monthly_price_kes: input.monthly_price_kes,
+    _yearly_price_kes: input.yearly_price_kes,
+    _max_products: input.max_products,
+    _max_users: input.max_users,
+    _max_locations: input.max_locations,
+    _max_customers: input.max_customers || 50,
+    _max_suppliers: input.max_suppliers || 10,
+    _trial_days: input.trial_days,
+    _is_active: input.is_active,
+  });
 
   if (error) {
     console.error("Error updating plan:", error);
     throw new Error(error.message);
+  }
+
+  return data as { success: boolean; message: string };
+}
