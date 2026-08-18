@@ -194,16 +194,21 @@ export async function resolveBusinessEntitlement(input: {
  * Used by tenant admins to assign permissions
  */
 export async function getModuleFeatures(moduleKey: string): Promise<ModuleFeature[]> {
-  const { data, error } = await supabase
-    .from("module_features")
-    .select("*")
-    .eq("module_key", moduleKey)
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true });
+  try {
+    const { data, error } = await supabase
+      .from("module_features")
+      .select("*")
+      .eq("module_key", moduleKey)
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true });
 
-  if (error) throw error;
+    if (error) throw error;
 
-  return (data || []) as ModuleFeature[];
+    return (data || []) as ModuleFeature[];
+  } catch (error) {
+    console.warn(`Failed to load module features for ${moduleKey}:`, error);
+    return [];
+  }
 }
 
 /**
@@ -220,6 +225,7 @@ export async function checkModuleEntitlement(
       module_label: moduleKey,
       entitled: false,
       reason: "no_plan",
+      features: [],
     };
   }
 
@@ -236,11 +242,13 @@ export async function checkModuleEntitlement(
       features: moduleFeatures,
     };
   } catch (error) {
+    console.error(`Error checking entitlement for module ${moduleKey}:`, error);
     return {
       module_key: moduleKey,
       module_label: moduleKey,
       entitled: false,
       reason: "error_checking_entitlement",
+      features: [],
     };
   }
 }
@@ -317,14 +325,14 @@ export async function createSubscriptionPlan(input: {
 }): Promise<{ success: boolean; message: string; package_id?: string }> {
   const { data, error } = await supabase.rpc("create_subscription_plan", {
     _name: input.name,
-    _description: input.description || null,
+    _description: input.description ?? undefined,
     _monthly_price_kes: input.monthly_price_kes,
     _yearly_price_kes: input.yearly_price_kes,
     _max_products: input.max_products,
     _max_users: input.max_users,
     _max_locations: input.max_locations,
-    _max_customers: input.max_customers || 50,
-    _max_suppliers: input.max_suppliers || 10,
+    _max_customers: input.max_customers ?? 50,
+    _max_suppliers: input.max_suppliers ?? 10,
     _trial_days: input.trial_days,
   });
 
@@ -359,14 +367,14 @@ export async function updateSubscriptionPlan(
   const { data, error } = await supabase.rpc("update_subscription_plan", {
     _package_id: planId,
     _name: input.name,
-    _description: input.description || null,
+    _description: input.description ?? undefined,
     _monthly_price_kes: input.monthly_price_kes,
     _yearly_price_kes: input.yearly_price_kes,
     _max_products: input.max_products,
     _max_users: input.max_users,
     _max_locations: input.max_locations,
-    _max_customers: input.max_customers || 50,
-    _max_suppliers: input.max_suppliers || 10,
+    _max_customers: input.max_customers ?? 50,
+    _max_suppliers: input.max_suppliers ?? 10,
     _trial_days: input.trial_days,
     _is_active: input.is_active,
   });
