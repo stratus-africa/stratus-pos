@@ -9,6 +9,6 @@ export const Route = createFileRoute("/_app/pos")({
 
 function RouteComponent() {
   return (
-    <PermissionGuard permission="pos.view"><FeatureGate featureKey="pos"><POS /></FeatureGate></PermissionGuard>
+    <PermissionGuard permission="pos.view"><FeatureGate moduleKey="pos"><POS /></FeatureGate></PermissionGuard>
   );
 }
