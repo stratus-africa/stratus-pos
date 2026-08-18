@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
+import { createSubscriptionPlan, updateSubscriptionPlan, updatePlanModules } from "@/lib/entitlementResolver";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -160,42 +161,53 @@ export default function SuperAdminPackageEdit() {
     }
     setSaving(true);
     try {
-      const payload = {
-        name: form.name.trim(),
-        monthly_price_kes: form.monthly_price_kes,
-        yearly_price_kes: form.yearly_price_kes,
-        monthly_price: form.monthly_price_kes,
-        yearly_price: form.yearly_price_kes,
-        max_products: form.max_products,
-        max_users: form.max_users,
-        max_locations: form.max_locations,
-        max_customers: form.max_customers,
-        max_suppliers: form.max_suppliers,
-        trial_days: form.free_trial ? form.trial_days : 0,
-        is_active: form.is_active,
-        is_public: !form.is_private,
-      } as any;
-
       let pkgId = id;
+
+      // Create or update plan metadata using secure RPC
       if (isNew) {
-        const { data, error } = await supabase.from("subscription_packages").insert(payload).select("id").single();
-        if (error) throw error;
-        pkgId = data.id;
+        const result = await createSubscriptionPlan({
+          name: form.name.trim(),
+          monthly_price_kes: form.monthly_price_kes,
+          yearly_price_kes: form.yearly_price_kes,
+          max_products: form.max_products,
+          max_users: form.max_users,
+          max_locations: form.max_locations,
+          max_customers: form.max_customers,
+          max_suppliers: form.max_suppliers,
+          trial_days: form.free_trial ? form.trial_days : 0,
+        });
+
+        if (!result.success) {
+          throw new Error(result.message);
+        }
+        pkgId = result.package_id;
       } else {
-        const { error } = await supabase.from("subscription_packages").update(payload).eq("id", id!);
-        if (error) throw error;
+        const result = await updateSubscriptionPlan(id!, {
+          name: form.name.trim(),
+          monthly_price_kes: form.monthly_price_kes,
+          yearly_price_kes: form.yearly_price_kes,
+          max_products: form.max_products,
+          max_users: form.max_users,
+          max_locations: form.max_locations,
+          max_customers: form.max_customers,
+          max_suppliers: form.max_suppliers,
+          trial_days: form.free_trial ? form.trial_days : 0,
+          is_active: form.is_active,
+        });
+
+        if (!result.success) {
+          throw new Error(result.message);
+        }
       }
 
-      // Replace features
+      // Assign modules to plan using secure RPC (transactional)
       if (pkgId) {
-        await supabase.from("package_features").delete().eq("package_id", pkgId);
-        const inserts = ALL_FEATURES.map((f) => ({
-          package_id: pkgId!,
-          feature_key: f.key,
-          feature_label: f.label,
-          enabled: featureToggles[f.key] ?? false,
-        }));
-        await supabase.from("package_features").insert(inserts);
+        const enabledModules = ALL_FEATURES.filter((f) => featureToggles[f.key] ?? false).map((f) => f.key);
+
+        const moduleResult = await updatePlanModules(pkgId, enabledModules);
+        if (!moduleResult.success) {
+          throw new Error(moduleResult.message);
+        }
       }
 
       toast.success(isNew ? "Plan created" : "Plan updated");
