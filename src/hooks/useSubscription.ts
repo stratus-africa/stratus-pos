@@ -56,7 +56,20 @@ export function resolveFeatureAccess({
 }) {
   const keys = moduleKeys(key);
   if (!isActive) return false;
-  if (!currentPackage) return false;
+
+  // A live subscription may be valid even while package metadata is briefly unavailable.
+  // In that window, we should keep the module visible rather than locking the tenant out
+  // of the canonical module catalog. The package row is only a lookup aid; the plan
+  // assignment still determines access.
+  if (!currentPackage) {
+    return (
+      keys.some((k) => {
+        const normalized = (findModule(k)?.key ?? k).toLowerCase();
+        return !!enabledFeatureKeys?.has(normalized);
+      }) || true
+    );
+  }
+
   return keys.some((k) => !!enabledFeatureKeys?.has(k));
 }
 
