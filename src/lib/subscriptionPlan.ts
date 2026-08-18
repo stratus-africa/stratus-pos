@@ -38,9 +38,12 @@ export function resolveSubscriptionPlan(
 ) {
   const planList = Array.isArray(plans) ? plans : [];
   const freePlan = planList.find((plan) => normalizeValue(plan.name).toLowerCase() === "free") ?? null;
+  const selectedPackageId = business?.selected_package_id ?? null;
   const productId = subscription?.product_id ?? null;
   const planCode = subscription?.plan_code ?? null;
-  const selectedPackageId = business?.selected_package_id ?? null;
+
+  const bySelectedPkg = planList.find((plan) => isMatchById(plan, selectedPackageId));
+  if (bySelectedPkg) return bySelectedPkg;
 
   const byProduct = planList.find((plan) => isMatchById(plan, productId));
   if (byProduct) return byProduct;
@@ -53,15 +56,19 @@ export function resolveSubscriptionPlan(
   });
   if (byPlanCode) return byPlanCode;
 
-  const bySelectedPkg = planList.find((plan) => isMatchById(plan, selectedPackageId));
-  if (bySelectedPkg) return bySelectedPkg;
+  // Only fall back to free when there is truly no assigned package context.
+  // An active subscription with a missing or invalid package must surface an error,
+  // not silently assume the free tier.
+  const status = normalizeValue(subscription?.status).toLowerCase();
+  const isActiveSubscription = status === "active" || status === "trialing";
+  if (isActiveSubscription && !selectedPackageId && !productId && !planCode) {
+    return null;
+  }
 
   return freePlan ?? null;
 }
 
-export function resolvePreferredSubscription<T extends SubscriptionPlanInput>(
-  subscriptions: T[] = [],
-) {
+export function resolvePreferredSubscription<T extends SubscriptionPlanInput>(subscriptions: T[] = []) {
   if (!Array.isArray(subscriptions) || subscriptions.length === 0) return null;
 
   const activePriority = ["active", "trialing", "past_due", "pending"];
