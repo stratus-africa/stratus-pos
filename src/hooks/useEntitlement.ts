@@ -95,32 +95,32 @@ export function useEntitlement(options: UseEntitlementOptions = {}) {
   });
 
   // ─── Realtime invalidation — when plan/features change, re-resolve immediately ─
+  // Only subscribe to tables that are already in the realtime publication.
+  // Wrap in try/catch so a realtime setup failure never crashes the component tree.
   useEffect(() => {
     if (!business?.id) return;
-    const channel = supabase
-      .channel(`entitlement-realtime-${business.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "package_features" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["entitlement:canonical", business.id] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "subscription_packages" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["entitlement:canonical", business.id] });
-      })
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "businesses",
-          filter: `id=eq.${business.id}`,
-        },
-        () => {
-          // selected_package_id may have changed
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      channel = supabase
+        .channel(`entitlement-realtime-${business.id}`)
+        .on("postgres_changes", { event: "*", schema: "public", table: "package_features" }, () => {
           queryClient.invalidateQueries({ queryKey: ["entitlement:canonical", business.id] });
-        },
-      )
-      .subscribe();
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "subscription_packages" }, () => {
+          queryClient.invalidateQueries({ queryKey: ["entitlement:canonical", business.id] });
+        })
+        .subscribe();
+    } catch (err) {
+      console.warn("[useEntitlement] realtime subscription failed (non-fatal):", err);
+    }
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) {
+        try {
+          supabase.removeChannel(channel);
+        } catch {
+          /* ignore cleanup errors */
+        }
+      }
     };
   }, [business?.id, queryClient]);
 
