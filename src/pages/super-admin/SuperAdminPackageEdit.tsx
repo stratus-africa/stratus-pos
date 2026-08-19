@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { createSubscriptionPlan, updateSubscriptionPlan, updatePlanModules } from "@/lib/entitlementResolver";
@@ -23,7 +24,6 @@ import { toast } from "sonner";
 import {
   APP_MODULES,
   applyModuleToggleDependencyRule,
-  getEnabledCanonicalModules,
   getCanonicalFeatureKey,
   moduleGroupLabels,
   type ModuleGroup,
@@ -101,10 +101,14 @@ export default function SuperAdminPackageEdit() {
   const { id } = useParams<{ id: string }>();
   const isNew = !id || id === "new";
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [form, setForm] = useState<Form>(emptyForm);
   const [featureToggles, setFeatureToggles] = useState<Record<string, boolean>>(
     Object.fromEntries(ALL_FEATURES.map((f) => [f.key, false])), // Default to disabled for new plans
+  );
+  const [savedFeatureToggles, setSavedFeatureToggles] = useState<Record<string, boolean>>(
+    Object.fromEntries(ALL_FEATURES.map((f) => [f.key, false])),
   );
   const [activeModuleGroup, setActiveModuleGroup] = useState<ModuleGroup>("core");
   const [loading, setLoading] = useState(!isNew);
@@ -116,46 +120,61 @@ export default function SuperAdminPackageEdit() {
   useEffect(() => {
     if (isNew) return;
     const load = async () => {
-      const [pkgRes, featRes, subsRes] = await Promise.all([
-        supabase.from("subscription_packages").select("*").eq("id", id).maybeSingle(),
-        supabase.from("package_features").select("*").eq("package_id", id),
-        supabase.from("subscriptions").select("status").eq("product_id", id),
-      ]);
-      const pkg: any = pkgRes.data;
-      if (!pkg) {
-        toast.error("Plan not found");
-        navigate("/super-admin/packages");
-        return;
+      try {
+        const [pkgRes, featRes, businessRes] = await Promise.all([
+          supabase.from("subscription_packages").select("*").eq("id", id).maybeSingle(),
+          supabase.from("package_features").select("*").eq("package_id", id),
+          supabase.from("businesses").select("id", { count: "exact", head: true }).eq("selected_package_id", id),
+        ]);
+        if (pkgRes.error) throw pkgRes.error;
+        if (featRes.error) throw featRes.error;
+        if (businessRes.error) throw businessRes.error;
+        const pkg: any = pkgRes.data;
+        if (!pkg) {
+          toast.error("Plan not found");
+          navigate("/super-admin/packages");
+          return;
+        }
+        setForm({
+          name: pkg.name,
+          slug: pkg.name.toLowerCase().replace(/\s+/g, ""),
+          monthly_price_kes: Number(pkg.monthly_price_kes || 0),
+          yearly_price_kes: Number(pkg.yearly_price_kes || 0),
+          is_active: pkg.is_active,
+          is_private: pkg.is_public === false,
+          free_trial: (pkg.trial_days || 0) > 0,
+          trial_days: pkg.trial_days || 14,
+          max_products: pkg.max_products,
+          max_users: pkg.max_users,
+          max_locations: pkg.max_locations,
+          max_customers: pkg.max_customers ?? 50,
+          max_suppliers: pkg.max_suppliers ?? 10,
+        });
+        const toggles: Record<string, boolean> = {};
+        ALL_FEATURES.forEach((f) => {
+          const existing = (featRes.data || []).find(
+            (pf: any) => getCanonicalFeatureKey(pf.feature_key) === f.key && pf.enabled,
+          );
+          toggles[f.key] = existing?.enabled ?? false;
+        });
+        setFeatureToggles(toggles);
+        setSavedFeatureToggles(toggles);
+        setSubscriberCount(businessRes.count ?? 0);
+        setLoading(false);
+      } catch (error: any) {
+        console.error("Failed to load plan configuration", error);
+        toast.error(error.message || "Unable to load plan configuration. Please try again.");
+        setLoading(false);
       }
-      setForm({
-        name: pkg.name,
-        slug: pkg.name.toLowerCase().replace(/\s+/g, ""),
-        monthly_price_kes: Number(pkg.monthly_price_kes || 0),
-        yearly_price_kes: Number(pkg.yearly_price_kes || 0),
-        is_active: pkg.is_active,
-        is_private: pkg.is_public === false,
-        free_trial: (pkg.trial_days || 0) > 0,
-        trial_days: pkg.trial_days || 14,
-        max_products: pkg.max_products,
-        max_users: pkg.max_users,
-        max_locations: pkg.max_locations,
-        max_customers: pkg.max_customers ?? 50,
-        max_suppliers: pkg.max_suppliers ?? 10,
-      });
-      const enabledKeys = new Set(getEnabledCanonicalModules(featRes.data || [], id));
-      const toggles: Record<string, boolean> = Object.fromEntries(
-        ALL_FEATURES.map((feature) => [feature.key, enabledKeys.has(feature.key)]),
-      );
-      setFeatureToggles(toggles);
-      setSubscriberCount(
-        (subsRes.data || []).filter((s: any) => s.status === "active" || s.status === "trialing").length,
-      );
-      setLoading(false);
     };
     load();
   }, [id, isNew, navigate]);
 
   const enabledModuleCount = useMemo(() => Object.values(featureToggles).filter(Boolean).length, [featureToggles]);
+  const hasModuleChanges = useMemo(
+    () => ALL_FEATURES.some((feature) => featureToggles[feature.key] !== savedFeatureToggles[feature.key]),
+    [featureToggles, savedFeatureToggles],
+  );
 
   const limitsConfigured = useMemo(() => {
     return [form.max_products, form.max_users, form.max_locations, form.max_customers, form.max_suppliers].filter(
@@ -211,14 +230,29 @@ export default function SuperAdminPackageEdit() {
 
       // Assign modules to plan using secure RPC (transactional)
       if (pkgId) {
-        const enabledModules = ALL_FEATURES.filter((feature) => featureToggles[feature.key] ?? false)
-          .map((feature) => getCanonicalFeatureKey(feature.key))
-          .filter(Boolean);
+        const enabledModules = ALL_FEATURES.filter((f) => featureToggles[f.key] ?? false).map((f) => f.key);
 
-        const moduleResult = await updatePlanModules(pkgId, [...new Set(enabledModules)]);
+        const moduleResult = await updatePlanModules(pkgId, enabledModules);
         if (!moduleResult.success) {
           throw new Error(moduleResult.message);
         }
+        const { data: refreshedFeatures, error: refreshError } = await supabase
+          .from("package_features")
+          .select("feature_key, enabled")
+          .eq("package_id", pkgId);
+        if (refreshError) throw refreshError;
+        const refreshedToggles = Object.fromEntries(
+          ALL_FEATURES.map((feature) => [
+            feature.key,
+            (refreshedFeatures || []).some(
+              (saved: any) => getCanonicalFeatureKey(saved.feature_key) === feature.key && saved.enabled,
+            ),
+          ]),
+        );
+        setFeatureToggles(refreshedToggles);
+        setSavedFeatureToggles(refreshedToggles);
+        await queryClient.invalidateQueries({ queryKey: ["sa-modules-features"] });
+        await queryClient.invalidateQueries({ queryKey: ["entitlement:plan_modules", pkgId] });
       } else {
         throw new Error("Failed to create plan - no ID returned");
       }
@@ -487,16 +521,15 @@ export default function SuperAdminPackageEdit() {
                   <button
                     key={f.key}
                     type="button"
-                    role="switch"
-                    aria-checked={enabled}
-                    aria-label={`${enabled ? "Disable" : "Enable"} ${f.label}`}
-                    disabled={saving}
                     onClick={handleToggle}
+                    disabled={saving}
+                    aria-pressed={enabled}
+                    aria-label={`${f.label}: ${enabled ? "enabled" : "disabled"}`}
                     className={`text-left rounded-lg p-3 border transition-all flex items-start justify-between gap-3 w-full ${
                       enabled
                         ? "border-emerald-500 bg-emerald-50/40"
                         : "border-border bg-white hover:border-muted-foreground/30"
-                    } ${accountingForced ? "opacity-90" : ""}`}
+                    } ${accountingForced ? "opacity-90" : ""} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60`}
                   >
                     <div className="flex items-start gap-2.5 min-w-0">
                       <div
@@ -589,7 +622,12 @@ export default function SuperAdminPackageEdit() {
 
           {/* Action buttons */}
           <div className="flex items-center gap-2">
-            <Button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              aria-label={hasModuleChanges ? "Update plan with unsaved module changes" : "Update plan"}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
               {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
               {isNew ? "Create plan" : "Update plan"}
             </Button>
