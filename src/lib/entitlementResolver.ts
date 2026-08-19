@@ -328,8 +328,18 @@ export async function updatePlanModules(
     throw new Error(error.message);
   }
 
-  // data is of type { success: boolean, message: string }
-  return data as { success: boolean; message: string };
+  // Supabase generates array-shaped data for RPCs declared as RETURNS TABLE.
+  // Normalize both array and object responses so the caller has one stable contract.
+  const result = Array.isArray(data) ? data[0] : data;
+
+  if (!result?.success) {
+    throw new Error(result?.message || "Failed to update plan modules");
+  }
+
+  return {
+    success: true,
+    message: result.message || "Plan modules updated successfully",
+  };
 }
 
 /**
