@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useSubscription } from "@/hooks/useSubscription";
+import { useEntitlement } from "@/hooks/useEntitlement";
 import { findModule, getModuleRouteAccess } from "@/lib/modules";
 
 export const PageLoader = () => (
@@ -18,10 +18,19 @@ export const AccessDenied = () => (
 );
 
 /**
- * Permission-first guard ported from the pre-migration App.tsx `guard()` helper:
- * a granted permission grants access regardless of role. `permission` is
- * optional — when omitted, the route is open to any signed-in user. While
- * permissions are still loading, show a loader instead of flashing AccessDenied.
+ * Route-level access guard.
+ *
+ * When `moduleKey` is supplied it checks BOTH:
+ *   1. Plan entitlement — is this module included in the tenant's plan?
+ *      (via useEntitlement, which reads businesses.selected_package_id → package_features)
+ *   2. Role permission — does this user have the required permission key?
+ *      (via usePermissions, which reads role_permissions with default fallback)
+ *
+ * When only `permission` is supplied, only the role permission is checked.
+ * When neither is supplied, any signed-in user is allowed through.
+ *
+ * Shows <PageLoader /> while entitlement or permissions are still loading to
+ * prevent premature Access Denied flashes.
  */
 export function PermissionGuard({
   permission,
@@ -35,21 +44,25 @@ export function PermissionGuard({
   children: ReactNode;
 }) {
   const { userRole } = useBusiness();
-  const { permissions, hasPermission, isLoading } = usePermissions();
-  const { hasFeatureKey, isLoading: subscriptionLoading, packageResolved } = useSubscription();
+  const { permissions, hasPermission, isLoading: permLoading } = usePermissions();
+  // Use the canonical entitlement hook (businesses.selected_package_id → package_features).
+  // This replaces the legacy useSubscription path which required an active billing
+  // subscription and returned false for manually-approved tenants without a live
+  // Paystack subscription row.
+  const { hasModule, isLoading: entitlementLoading } = useEntitlement();
+
+  const isLoading = permLoading || entitlementLoading;
 
   if (moduleKey) {
-    // Wait for the tenant's package (public or private) to actually resolve before
-    // deciding access. Without this, a private/custom-plan tenant whose package fetch
-    // is still in flight (or slower than the public-only path) gets a false "Access
-    // Denied" the moment `permissions` finishes loading, even though their plan does
-    // include this module.
-    if (isLoading || subscriptionLoading || !packageResolved) return <PageLoader />;
+    // Wait for both permissions and entitlement to finish loading.
+    if (isLoading) return <PageLoader />;
+
     const registryAccess = getModuleRouteAccess(moduleKey, route ?? findModule(moduleKey)?.route ?? undefined, {
       role: userRole,
       permissions,
       subscriptions: new Set(),
-      featureKey: hasFeatureKey,
+      // Use the canonical entitlement resolver rather than the legacy billing hook.
+      featureKey: hasModule,
       moduleEnabled: () => true,
       dependenciesReady: () => true,
       setupComplete: () => true,
@@ -59,7 +72,7 @@ export function PermissionGuard({
   }
 
   if (permission) {
-    if (isLoading) return <PageLoader />;
+    if (permLoading) return <PageLoader />;
     if (!hasPermission(permission)) return <AccessDenied />;
   }
   return <>{children}</>;
