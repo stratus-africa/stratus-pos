@@ -26,7 +26,7 @@ import {
   ListOrdered,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { THEMES, DEFAULT_THEME, applyTheme } from "@/lib/themes";
+import { THEMES, DEFAULT_THEME, useTheme, type ThemeKey } from "@/lib/themes";
 
 type TabKey = "general" | "branding" | "appearance" | "company" | "payments" | "offline";
 
@@ -102,6 +102,7 @@ export default function SuperAdminSettings() {
   const [saving, setSaving] = useState(false);
   const [s, setS] = useState<AppSettings>(DEFAULTS);
   const [offline, setOffline] = useState<OfflineSettings>(OFFLINE_DEFAULTS);
+  const { setTheme } = useTheme();
 
   useEffect(() => {
     (async () => {
@@ -109,7 +110,12 @@ export default function SuperAdminSettings() {
         (supabase as any).from("app_settings").select("value").eq("key", "global").maybeSingle(),
         (supabase as any).from("app_settings").select("value").eq("key", "offline_payments").maybeSingle(),
       ]);
-      setS({ ...DEFAULTS, ...((g?.value as AppSettings) || {}) });
+      const globalSettings = { ...DEFAULTS, ...((g?.value as AppSettings) || {}) };
+      setS(globalSettings);
+      if (globalSettings.theme_color) {
+        const selected = globalSettings.theme_color as ThemeKey;
+        setTheme(selected, "super-admin");
+      }
       setOffline({ ...OFFLINE_DEFAULTS, ...((o?.value as OfflineSettings) || {}) });
       setLoading(false);
     })();
@@ -267,7 +273,7 @@ export default function SuperAdminSettings() {
                   value={s.theme_color}
                   onChange={(theme) => {
                     set("theme_color", theme);
-                    applyTheme(theme);
+                    setTheme(theme as ThemeKey, "super-admin");
                   }}
                 />
               </div>
@@ -439,28 +445,25 @@ function ThemePalettePicker({ value, onChange }: { value?: string; onChange: (th
     <Field label="Brand palette" help="Used for buttons, highlights, table rows, and navigation accents.">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {Object.values(THEMES).map((theme) => {
-          const active = (value || DEFAULT_THEME) === theme.key;
-          const colors = Array.isArray((theme as { colors?: unknown }).colors)
-            ? (theme as { colors: unknown[] }).colors.filter((color): color is string => typeof color === "string")
-            : [];
+          const active = (value || DEFAULT_THEME) === theme.id;
           return (
             <button
-              key={theme.key}
+              key={theme.id}
               type="button"
               aria-pressed={active}
-              onClick={() => onChange(theme.key)}
+              onClick={() => onChange(theme.id)}
               className={cn(
                 "relative rounded-xl border-2 p-3 text-left transition-all",
                 active ? "border-primary shadow-sm" : "border-border hover:border-primary/40",
               )}
             >
               <span className="mb-2 flex h-8 overflow-hidden rounded-md border">
-                {(colors.length > 0 ? colors : [theme.swatch]).map((color, index) => (
+                {theme.preview.map((color, index) => (
                   <span key={`${color}-${index}`} className="flex-1" style={{ backgroundColor: color }} />
                 ))}
               </span>
-              <span className="block text-sm font-medium">{theme.label}</span>
-              <span className="block text-xs text-muted-foreground">{theme.swatch}</span>
+              <span className="block text-sm font-medium">{theme.name}</span>
+              <span className="block text-xs text-muted-foreground">{theme.preview[1]}</span>
               {active && <Check className="absolute right-2 top-2 h-4 w-4 text-primary" />}
             </button>
           );
