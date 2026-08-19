@@ -296,12 +296,12 @@ export function MobileBottomNav() {
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 bg-background px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden"
       aria-label="Primary"
     >
       <Sheet open={open} onOpenChange={setOpen}>
         <div
-          className="mx-auto flex max-w-md touch-pan-y items-stretch justify-around rounded-[1.75rem] border border-border/60 bg-card/95 px-2 py-2 shadow-[0_10px_30px_-10px_hsl(var(--foreground)/0.25)] backdrop-blur supports-[backdrop-filter]:bg-card/80"
+          className="mx-auto flex max-w-md touch-pan-y items-stretch justify-around rounded-[1.75rem] border border-border/60 bg-card px-2 py-2 shadow-[0_10px_30px_-10px_hsl(var(--foreground)/0.25)] "
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
         >
