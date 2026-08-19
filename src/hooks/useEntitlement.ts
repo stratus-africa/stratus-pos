@@ -13,7 +13,6 @@
 // subscriptions.product_id is a billing-provider reference and is NOT used here.
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { usePermissions } from "./usePermissions";
@@ -94,35 +93,11 @@ export function useEntitlement(options: UseEntitlementOptions = {}) {
     refetchOnReconnect: true,
   });
 
-  // ─── Realtime invalidation — when plan/features change, re-resolve immediately ─
-  // Only subscribe to tables that are already in the realtime publication.
-  // Wrap in try/catch so a realtime setup failure never crashes the component tree.
-  useEffect(() => {
-    if (!business?.id) return;
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-    try {
-      channel = supabase
-        .channel(`entitlement-realtime-${business.id}`)
-        .on("postgres_changes", { event: "*", schema: "public", table: "package_features" }, () => {
-          queryClient.invalidateQueries({ queryKey: ["entitlement:canonical", business.id] });
-        })
-        .on("postgres_changes", { event: "*", schema: "public", table: "subscription_packages" }, () => {
-          queryClient.invalidateQueries({ queryKey: ["entitlement:canonical", business.id] });
-        })
-        .subscribe();
-    } catch (err) {
-      console.warn("[useEntitlement] realtime subscription failed (non-fatal):", err);
-    }
-    return () => {
-      if (channel) {
-        try {
-          supabase.removeChannel(channel);
-        } catch {
-          /* ignore cleanup errors */
-        }
-      }
-    };
-  }, [business?.id, queryClient]);
+  // ─── Realtime invalidation is handled by useSubscription ─────────────────────
+  // useSubscription already listens to package_features and subscription_packages
+  // changes and invalidates ["entitlement:canonical"]. No second realtime listener
+  // is needed here — adding one causes a blank-screen crash when the Supabase
+  // realtime socket throws during React's commit phase.
 
   // ─── Derive the result ────────────────────────────────────────────────────────
   // While the canonical query is still loading we use a safe loading sentinel so
