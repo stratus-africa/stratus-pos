@@ -51,6 +51,32 @@ export const allModulePerms = moduleCatalog.flatMap((m) => m.actions.map((a) => 
 export const allReportPerms = reportsCatalog.map((r) => r.key);
 export const allPermissionKeys = [...allModulePerms, ...allReportPerms];
 
+/** Keeps module permissions in the required view/create/edit/delete order. */
+export function normalizePermissions(permissions: Iterable<string>): string[] {
+  const normalized = new Set(permissions);
+
+  for (const mod of moduleCatalog) {
+    const actions = new Set(mod.actions);
+    const has = (action: ModuleAction) => actions.has(action) && normalized.has(permKey(mod.key, action));
+    const add = (action: ModuleAction) => {
+      if (actions.has(action)) normalized.add(permKey(mod.key, action));
+    };
+
+    if (has("create")) add("view");
+    if (has("edit")) {
+      add("view");
+      add("create");
+    }
+    if (has("delete")) {
+      add("view");
+      add("create");
+      add("edit");
+    }
+  }
+
+  return Array.from(normalized);
+}
+
 export const defaultRolePermissions: Record<AppRole, string[]> = {
   admin: [...allPermissionKeys],
   manager: [
