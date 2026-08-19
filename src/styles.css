@@ -87,96 +87,49 @@
   }
 }
 
+/* Default fallback values. ThemeProvider replaces these at runtime with the
+ * selected tweakcn theme. Keeping the fallback here prevents a flash of
+ * unstyled content during SSR/initial hydration. */
 :root {
   --background: #fdf8f9;
   --foreground: #3d0a0d;
-
   --card: #ffffff;
   --card-foreground: #3d0a0d;
-
-  --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
-
-  /* Nexus blue primary — matches enterprise ERP aesthetic */
-  --primary: 226 84% 54%;
-  --primary-foreground: 0 0% 100%;
-
-  --teal: 199 89% 48%;
-  --teal-foreground: 0 0% 100%;
-  --teal-soft: 210 100% 96%;
-  --teal-deep: 217 91% 35%;
-  --rust: 14 80% 48%;
-  --rust-foreground: 0 0% 100%;
-
-  --secondary: 215 25% 95%;
-  --secondary-foreground: 220 20% 20%;
-
-  --muted: 215 25% 95%;
-  --muted-foreground: 215 15% 47%;
-
-  --accent: 215 25% 93%;
-  --accent-foreground: 220 20% 10%;
-
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 100%;
-
-  --success: 142 71% 45%;
-  --success-foreground: 0 0% 100%;
-
-  --warning: 38 92% 50%;
-  --warning-foreground: 0 0% 100%;
-
-  --border: 214 25% 91%;
-  --input: 214 25% 91%;
-  --ring: 226 84% 54%;
-
+  --popover: #ffffff;
+  --popover-foreground: #3d0a0d;
+  --primary: #800020;
+  --primary-foreground: #ffffff;
+  --secondary: #f4e7ea;
+  --secondary-foreground: #800020;
+  --muted: #f4e7ea;
+  --muted-foreground: #7c5c5f;
+  --accent: #9a1b32;
+  --accent-foreground: #ffffff;
+  --destructive: #be123c;
+  --destructive-foreground: #ffffff;
+  --success: #16a34a;
+  --success-foreground: #ffffff;
+  --warning: #d97706;
+  --warning-foreground: #ffffff;
+  --info: #2563eb;
+  --info-foreground: #ffffff;
+  --border: #e5d1d4;
+  --input: #e5d1d4;
+  --ring: #800020;
+  --chart-1: #800020;
+  --chart-2: #9a1b32;
+  --chart-3: #be123c;
+  --chart-4: #d44a63;
+  --chart-5: #ea869a;
+  --sidebar: #3d0a0d;
+  --sidebar-foreground: #fdf8f9;
+  --sidebar-primary: #800020;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #591116;
+  --sidebar-accent-foreground: #fdf8f9;
+  --sidebar-border: #591116;
+  --sidebar-ring: #800020;
   --radius: 0.625rem;
-
-  /* Sidebar — white surface with blue active state, matches Nexus ERP */
-  --sidebar-background: 0 0% 100%;
-  --sidebar-foreground: 222 25% 30%;
-  --sidebar-primary: 226 84% 54%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 217 100% 97%;
-  --sidebar-accent-foreground: 226 84% 40%;
-  --sidebar-border: 214 25% 92%;
-  --sidebar-ring: 226 84% 54%;
-
-  /* Themed alternating row tint */
-}
-
-.dark {
-  --background: 222 47% 6%;
-  --foreground: 210 40% 98%;
-  --card: 222 47% 8%;
-  --card-foreground: 210 40% 98%;
-  --popover: 222 47% 8%;
-  --popover-foreground: 210 40% 98%;
-  --primary: 217 91% 60%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 217 33% 17%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 217 33% 17%;
-  --muted-foreground: 215 20% 65%;
-  --accent: 217 33% 17%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 63% 31%;
-  --destructive-foreground: 210 40% 98%;
-  --success: 142 71% 45%;
-  --success-foreground: 0 0% 100%;
-  --warning: 38 92% 50%;
-  --warning-foreground: 0 0% 100%;
-  --border: 217 33% 17%;
-  --input: 217 33% 17%;
-  --ring: 212 27% 84%;
-  --sidebar-background: 222 47% 8%;
-  --sidebar-foreground: 210 40% 98%;
-  --sidebar-primary: 217 91% 60%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 217 33% 14%;
-  --sidebar-accent-foreground: 210 40% 98%;
-  --sidebar-border: 217 33% 14%;
-  --sidebar-ring: 217 91% 60%;
 }
 
 @layer base {
