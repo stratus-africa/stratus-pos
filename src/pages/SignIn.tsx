@@ -113,88 +113,88 @@ export default function SignIn() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground lg:grid lg:grid-cols-2">
-      <aside className="relative hidden min-h-screen overflow-hidden bg-primary text-primary-foreground lg:flex lg:flex-col lg:justify-between p-12 xl:p-16">
-        <div className="absolute inset-0 opacity-10" aria-hidden="true">
-          <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full border-[80px] border-current" />
-          <div className="absolute -bottom-40 -right-20 h-[34rem] w-[34rem] rounded-full border-[90px] border-current" />
-        </div>
-        <div className="relative">
-          <Link
-            to="/landing"
-            className="inline-flex items-center gap-2 text-sm font-medium opacity-90 hover:opacity-100"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to website
-          </Link>
-        </div>
-        <div className="relative mx-auto w-full max-w-xl py-12">
-          <div className="mb-8 flex h-12 w-12 items-center justify-center rounded-xl bg-primary-foreground/10 ring-1 ring-primary-foreground/20">
-            <Package className="h-6 w-6" />
+    <div className="min-h-screen grid lg:grid-cols-[1fr_minmax(420px,520px)] bg-background">
+      <aside className="relative hidden lg:flex flex-col justify-center p-12 overflow-hidden text-primary-foreground bg-primary">
+        {/* soft circle decorations */}
+        <div
+          className="absolute -top-24 -left-24 w-[420px] h-[420px] rounded-full bg-primary-foreground/10"
+          aria-hidden
+        />
+        <div className="absolute top-1/2 left-1/3 w-40 h-40 rounded-full bg-primary-foreground/[0.07]" aria-hidden />
+        <div className="absolute bottom-40 left-40 w-24 h-24 rounded-3xl bg-primary-foreground/[0.06]" aria-hidden />
+        <div
+          className="absolute -bottom-16 -right-16 w-[360px] h-[360px] rounded-full bg-primary-foreground/10"
+          aria-hidden
+        />
+
+        <div className="relative max-w-md mx-auto">
+          {/* icon badge */}
+          <div className="h-12 w-12 rounded-xl bg-primary-foreground/15 border border-primary-foreground/20 backdrop-blur-sm flex items-center justify-center mb-8">
+            <Package className="h-5 w-5 text-primary-foreground" />
           </div>
-          <h1 className="text-4xl font-bold tracking-tight xl:text-5xl">Run your business smarter with StratusPOS.</h1>
-          <p className="mt-6 max-w-lg text-base leading-7 opacity-80">
-            Manage sales, inventory, purchases and your entire business from one powerful workspace.
+
+          {/* headline */}
+          <h1 className="text-4xl font-bold tracking-tight leading-[1.15] mb-5">
+            Launch your business
+            <br />
+            in minutes
+          </h1>
+          <p className="text-primary-foreground/85 leading-relaxed text-[15px] mb-8">
+            Get your own dedicated workspace with a custom subdomain, full inventory management, and everything you need
+            to run your business.
           </p>
-          <div className="mt-10 border-t border-primary-foreground/20 pt-8">
-            <ul className="space-y-4">
-              {HIGHLIGHTS.map((h) => (
-                <li key={h} className="flex items-center gap-3 text-sm font-medium">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-foreground/10 ring-1 ring-primary-foreground/15">
-                    <CheckCircle2 className="h-4 w-4" />
-                  </span>
-                  {h}
-                </li>
-              ))}
-            </ul>
-          </div>
+
+          <div className="h-px bg-primary-foreground/25 mb-8" aria-hidden />
+
+          {/* highlights */}
+          <ul className="space-y-4">
+            {HIGHLIGHTS.map((h) => (
+              <li key={h} className="flex items-center gap-3">
+                <span className="h-8 w-8 rounded-lg bg-primary-foreground/15 border border-primary-foreground/20 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="h-4 w-4 text-primary-foreground" />
+                </span>
+                <span className="text-sm text-primary-foreground font-medium">{h}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-        <div className="relative text-xs opacity-60">© {new Date().getFullYear()} StratusPOS</div>
       </aside>
 
-      <main className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-8 lg:px-12">
-        <div className="w-full max-w-md space-y-8">
-          <div className="flex items-center justify-between lg:hidden">
-            <Link
-              to="/landing"
-              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="h-4 w-4" /> Back
-            </Link>
-          </div>
+      <main className="flex items-center justify-center p-6 sm:p-10">
+        <div className="w-full max-w-md space-y-6">
+          <Link
+            to="/landing"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back
+          </Link>
 
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-                <Package className="h-5 w-5" />
-              </div>
-              <span className="text-xl font-bold tracking-tight">StratusPOS</span>
-            </div>
-            <div className="pt-5">
-              <h2 className="text-3xl font-bold tracking-tight">Sign in to your workspace</h2>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Enter your email or User ID and password below.
-              </p>
-            </div>
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight mb-2">Sign in to your workspace</h2>
+            <p className="text-muted-foreground text-sm">Enter your email or User ID and password below.</p>
           </div>
 
           {banner && <StatusBanner banner={banner} />}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email address or User ID</Label>
-              <Input
-                id="email"
-                type="text"
-                autoComplete="username"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com or your User ID"
-                className="h-11"
-              />
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="email">Email or User ID</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="email"
+                  type="text"
+                  autoComplete="username"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@company.com or your User ID"
+                  className="pl-10 h-11 rounded-lg"
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label htmlFor="pwd">Password</Label>
                 <button
@@ -203,34 +203,37 @@ export default function SignIn() {
                     setForgotEmail(email);
                     setForgotOpen(true);
                   }}
-                  className="text-xs font-medium text-primary hover:underline"
+                  className="text-xs font-semibold text-primary hover:text-primary/80"
                 >
                   Forgot password?
                 </button>
               </div>
               <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="pwd"
                   type={showPwd ? "text" : "password"}
-                  autoComplete="current-password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  className="h-11 pr-11"
+                  placeholder="Your password"
+                  className="pl-10 pr-9 h-11 rounded-lg"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPwd((s) => !s)}
-                  className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center text-muted-foreground hover:text-foreground"
-                  aria-label={showPwd ? "Hide password" : "Show password"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>
 
-            <Button type="submit" disabled={submitting} className="h-11 w-full">
+            <Button
+              type="submit"
+              disabled={submitting}
+              className="w-full h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-md shadow-primary/20"
+            >
               {submitting ? (
                 "Signing in..."
               ) : (
@@ -243,25 +246,30 @@ export default function SignIn() {
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border" />
+              <span className="w-full border-t" />
             </div>
-            <div className="relative flex justify-center text-xs uppercase tracking-wider">
-              <span className="bg-background px-3 text-muted-foreground">or</span>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-muted-foreground">or</span>
             </div>
           </div>
 
-          <Button type="button" variant="outline" onClick={() => setBarcodeOpen(true)} className="h-11 w-full">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setBarcodeOpen(true)}
+            className="w-full h-11 rounded-lg"
+          >
             <ScanLine className="mr-2 h-4 w-4" /> Sign in with barcode
           </Button>
 
-          <p className="text-center text-sm text-muted-foreground">
-            New to StratusPOS?{" "}
-            <Link to="/onboarding" className="font-medium text-primary hover:underline">
-              Create a workspace
+          <p className="text-xs text-center text-muted-foreground">
+            Don't have an account?{" "}
+            <Link to="/onboarding" className="text-primary font-medium hover:underline">
+              Create workspace
             </Link>
           </p>
 
-          <p className="text-center text-xs text-muted-foreground">
+          <p className="text-xs text-center text-muted-foreground">
             © {new Date().getFullYear()} StratusPOS. All rights reserved.
           </p>
         </div>
@@ -276,23 +284,30 @@ export default function SignIn() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleForgotSubmit} className="space-y-4">
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="forgot-email-2">Email address</Label>
-              <Input
-                id="forgot-email-2"
-                type="email"
-                required
-                value={forgotEmail}
-                onChange={(e) => setForgotEmail(e.target.value)}
-                placeholder="you@company.com"
-                className="h-11"
-              />
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="forgot-email-2"
+                  type="email"
+                  required
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  placeholder="you@company.com"
+                  className="pl-10 h-11 rounded-lg"
+                />
+              </div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setForgotOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={sendingReset}>
+              <Button
+                type="submit"
+                disabled={sendingReset}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
                 {sendingReset ? "Sending…" : "Send reset link"}
               </Button>
             </DialogFooter>
