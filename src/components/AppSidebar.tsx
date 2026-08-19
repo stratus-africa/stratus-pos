@@ -1,4 +1,4 @@
-import { LogOut, Shield, Store } from "lucide-react";
+import { AlertTriangle, Building2, LogOut, Shield, Store } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useEntitlement } from "@/hooks/useEntitlement";
 import { NavLink } from "@/components/NavLink";
@@ -39,23 +39,28 @@ export function AppSidebar() {
   const { isSuperAdmin } = useSuperAdmin();
   const { hasPermission, isLoading: permLoading } = usePermissions();
 
-  // New unified entitlement hook - replaces useSubscription + resolveModuleAccess logic
-  const { hasModule, getEntitledModules, isLoading: entitlementLoading, hasPlan } = useEntitlement();
+  // Single authoritative entitlement hook — same source used by FeatureGate and routes.
+  const {
+    getEntitledModules,
+    isLoading: entitlementLoading,
+    hasPlan,
+    resolutionStatus,
+    entitlementError,
+  } = useEntitlement();
 
   const currentPath = location.pathname;
-
-  // Show skeleton while loading authorization data
   const isLoadingAuth = entitlementLoading || permLoading;
 
-  // Get entitled modules
+  // Build the set of module keys the tenant's plan includes.
   const entitledModuleKeys = new Set(getEntitledModules());
 
+  // Filter APP_MODULES to only those in the tenant's plan AND visible to the user's role.
   const visibleModules = APP_MODULES.filter((module) => {
-    const allowed = entitledModuleKeys.has(module.key);
-    if (typeof window !== "undefined" && window.__DEBUG_SIDEBAR) {
-      if (!allowed) console.debug(`  [${module.key}] blocked: not in current plan`);
+    const entitled = entitledModuleKeys.has(module.key);
+    if (typeof window !== "undefined" && (window as any).__DEBUG_SIDEBAR && !entitled) {
+      console.debug(`[Sidebar] ${module.key} blocked — not in plan`);
     }
-    return allowed;
+    return entitled;
   });
 
   const renderModule = (module: (typeof APP_MODULES)[number]) => {
@@ -69,7 +74,6 @@ export function AppSidebar() {
     const hasChildren = visibleChildren.length > 0;
     const parentActive =
       currentPath === targetRoute || visibleChildren.some((item) => item?.route && currentPath === item.route);
-
     const SidebarIcon = module?.Icon ?? Store;
 
     if (!hasChildren) {
@@ -144,6 +148,135 @@ export function AppSidebar() {
     }))
     .filter((group) => group.modules.length > 0);
 
+  // ── Sidebar content — one branch per entitlement state ───────────────────────
+  const renderSidebarContent = () => {
+    // State: loading
+    if (isLoadingAuth) {
+      return (
+        <SidebarGroup>
+          <SidebarGroupLabel>Loading modules…</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {[1, 2, 3].map((i) => (
+                <SidebarMenuItem key={i}>
+                  <div className="h-9 bg-muted rounded animate-pulse w-full" />
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      );
+    }
+
+    // State E: database / RPC error — show error, never "no modules"
+    if (resolutionStatus === "db_error" || entitlementError) {
+      return (
+        <SidebarGroup>
+          <SidebarGroupLabel className="flex items-center gap-1.5 text-amber-600">
+            <AlertTriangle className="h-3.5 w-3.5" /> Access error
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div className="px-2 py-3 text-xs text-muted-foreground space-y-2">
+              <p>Could not load plan information. Check your connection and refresh.</p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full h-7 text-xs"
+                onClick={() => window.location.reload()}
+              >
+                Refresh
+              </Button>
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      );
+    }
+
+    // State A: no business
+    if (resolutionStatus === "no_business") {
+      return (
+        <SidebarGroup>
+          <SidebarGroupLabel className="flex items-center gap-1.5">
+            <Building2 className="h-3.5 w-3.5" /> No business
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div className="px-2 py-3 text-xs text-muted-foreground">
+              Your account is not linked to a business. Complete onboarding to continue.
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      );
+    }
+
+    // State B: business exists but no plan assigned
+    if (resolutionStatus === "no_plan" || !hasPlan) {
+      return (
+        <SidebarGroup>
+          <SidebarGroupLabel>Modules</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div className="px-2 py-3 text-xs text-muted-foreground">
+              No subscription plan is assigned to this business. Contact your administrator.
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      );
+    }
+
+    // State B variant: package assigned but not found in DB
+    if (resolutionStatus === "package_not_found") {
+      return (
+        <SidebarGroup>
+          <SidebarGroupLabel>Modules</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div className="px-2 py-3 text-xs text-muted-foreground">
+              Assigned plan could not be loaded. Contact your administrator.
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      );
+    }
+
+    // State C: plan exists but has zero enabled modules
+    if (entitledModuleKeys.size === 0) {
+      return (
+        <SidebarGroup>
+          <SidebarGroupLabel>Modules</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div className="px-2 py-3 text-xs text-muted-foreground">
+              No modules are enabled for your current plan. Contact your administrator.
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      );
+    }
+
+    // State D: plan has modules — render them
+    if (groupedModules.length > 0) {
+      return groupedModules.map((group) => (
+        <SidebarGroup key={group.category}>
+          <SidebarGroupLabel>
+            {group.category === "dashboard" ? "Dashboard" : moduleCategoryLabels[group.category]}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>{group.modules.map(renderModule)}</SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      ));
+    }
+
+    // Plan has modules but none match current user's permissions / role
+    return (
+      <SidebarGroup>
+        <SidebarGroupLabel>Modules</SidebarGroupLabel>
+        <SidebarGroupContent>
+          <div className="px-2 py-3 text-xs text-muted-foreground">
+            No modules are accessible with your current role.
+          </div>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    );
+  };
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border px-2 sm:px-3 h-14 min-h-14 max-h-14 flex items-center shrink-0 overflow-hidden">
@@ -160,60 +293,7 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
-        {isLoadingAuth ? (
-          <SidebarGroup>
-            <SidebarGroupLabel>Loading modules...</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {[1, 2, 3].map((i) => (
-                  <SidebarMenuItem key={i}>
-                    <div className="h-9 bg-muted rounded animate-pulse w-full" />
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ) : !hasPlan ? (
-          <SidebarGroup>
-            <SidebarGroupLabel>Modules</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <div className="px-2 py-4 text-xs text-muted-foreground">
-                No active subscription. Contact your administrator to assign a plan.
-              </div>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ) : entitledModuleKeys.size === 0 ? (
-          <SidebarGroup>
-            <SidebarGroupLabel>Modules</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <div className="px-2 py-4 text-xs text-muted-foreground">
-                No modules are enabled for your current plan. Contact your administrator.
-              </div>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ) : groupedModules.length > 0 ? (
-          groupedModules.map((group) => (
-            <SidebarGroup key={group.category}>
-              <SidebarGroupLabel>
-                {group.category === "dashboard" ? "Dashboard" : moduleCategoryLabels[group.category]}
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>{group.modules.map(renderModule)}</SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          ))
-        ) : (
-          <SidebarGroup>
-            <SidebarGroupLabel>Modules</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <div className="px-2 py-4 text-xs text-muted-foreground">
-                No modules available. Contact your administrator.
-              </div>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-      </SidebarContent>
+      <SidebarContent>{renderSidebarContent()}</SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-2">
         {!collapsed && isSuperAdmin && (
