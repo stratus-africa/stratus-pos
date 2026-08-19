@@ -34,7 +34,6 @@ import DailySalesReportTab from "@/components/reports/DailySalesReportTab";
 import ZReportTab from "@/components/reports/ZReportTab";
 import StockAgingReportTab from "@/components/reports/StockAgingReportTab";
 import StockLedgerTab from "@/components/inventory/StockLedgerTab";
-import POSReportsTab from "@/components/reports/POSReportsTab";
 import { DateRangeFilter } from "@/components/reports/DateRangeFilter";
 import { useFeatureLimit, RequireFeature } from "@/components/FeatureGate";
 import { useAccountingSettings, financialYearLabel } from "@/hooks/useAccountingSettings";
@@ -58,7 +57,6 @@ const Reports = () => {
   // EOD & Z report ride on sales report permission
   const canEOD = canSales;
   const canZ = canSales;
-  const canPOSReports = canSales;
 
   const firstTab = canSales
     ? "sales"
@@ -120,7 +118,7 @@ const Reports = () => {
       return all;
     },
     // The P&L tab also uses detailed sales rows to calculate COGS.
-    enabled: !!business && canSales && (activeTab === "sales" || activeTab === "pnl" || activeTab === "pos"),
+    enabled: !!business && canSales && (activeTab === "sales" || activeTab === "pnl"),
   });
 
   const inventoryReport = useQuery({
@@ -211,41 +209,38 @@ const Reports = () => {
     enabled: !!business && canPurchases && activeTab === "purchases",
   });
 
-  const pnlExtras = useQuery({
-    queryKey: ["report-pnl-extras", business?.id, from, to],
+  const pnlLedger = useQuery({
+    queryKey: ["report-pnl-ledger", business?.id, from, to],
     queryFn: async () => {
-      if (!business) return { purchasesCost: 0, adjustmentsCost: 0 };
-      const [purRes, adjRes] = await Promise.all([
-        supabase
-          .from("purchases")
-          .select("total")
-          .eq("business_id", business.id)
-          .eq("status", "received")
-          .is("deleted_at", null)
-          .gte("created_at", `${from}T00:00:00`)
-          .lte("created_at", `${to}T23:59:59`),
-        supabase
-          .from("stock_adjustments")
-          .select("quantity_change, products(purchase_price), locations!inner(business_id)")
-          .eq("locations.business_id", business.id)
-          .is("purchase_id", null)
-          .is("sale_id", null)
-          .gte("created_at", `${from}T00:00:00`)
-          .lte("created_at", `${to}T23:59:59`),
-      ]);
-      if (purRes.error) throw purRes.error;
-      if (adjRes.error) throw adjRes.error;
-      const purchasesCost = (purRes.data || []).reduce((s: number, p: any) => s + Number(p.total || 0), 0);
-      // Negative stock movements are a cost, positive movements reduce cost
-      const adjustmentsCost = (adjRes.data || []).reduce(
-        (s: number, a: any) => s - Number(a.quantity_change || 0) * Number(a.products?.purchase_price || 0),
-        0,
-      );
-      return { purchasesCost, adjustmentsCost };
+      if (!business) return { revenue: 0, cogs: 0 };
+      const { data, error } = await (supabase as any)
+        .from("journal_entries")
+        .select("date, status, journal_entry_lines(debit, credit, account_id, chart_of_accounts(type, code, name))")
+        .eq("business_id", business.id)
+        .eq("status", "posted")
+        .gte("date", from)
+        .lte("date", to);
+      if (error) throw error;
+      let revenue = 0;
+      let cogs = 0;
+      for (const entry of data || []) {
+        for (const line of entry.journal_entry_lines || []) {
+          const account = line.chart_of_accounts;
+          const type = String(account?.type || "").toLowerCase();
+          const code = String(account?.code || "").toLowerCase();
+          const name = String(account?.name || "").toLowerCase();
+          const credit = Number(line.credit || 0);
+          const debit = Number(line.debit || 0);
+          if (type.includes("income") || code.includes("sales") || name.includes("sales revenue"))
+            revenue += credit - debit;
+          if (type.includes("expense") || code.includes("cogs") || name.includes("cost of goods"))
+            cogs += debit - credit;
+        }
+      }
+      return { revenue, cogs };
     },
     enabled: !!business && canPnL && activeTab === "pnl",
   });
-
   const auditReport = useQuery({
     queryKey: ["report-audit", business?.id, from, to],
     queryFn: async () => {
@@ -270,15 +265,18 @@ const Reports = () => {
   const inventory = inventoryReport.data || [];
   const auditLogs = auditReport.data || [];
 
-  const totalRevenue = sales.reduce((s, r) => s + Number(r.total), 0);
-  const totalCOGS = sales.reduce((s, sale) => {
+  const fallbackRevenue = sales.reduce((s, r) => s + Number(r.total || 0) - Number(r.tax || 0), 0);
+  const fallbackCOGS = sales.reduce((s, sale) => {
     const items = (sale as any).sale_items || [];
     return (
-      s + items.reduce((is: number, i: any) => is + Number(i.quantity) * Number(i.products?.purchase_price || 0), 0)
+      s +
+      items.reduce((is: number, i: any) => is + Number(i.quantity || 0) * Number(i.products?.purchase_price || 0), 0)
     );
   }, 0);
+  const totalRevenue = pnlLedger.data?.revenue ?? fallbackRevenue;
+  const totalCOGS = pnlLedger.data?.cogs ?? fallbackCOGS;
   const grossProfit = totalRevenue - totalCOGS;
-  const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount), 0);
+  const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
   const netProfit = grossProfit - totalExpenses;
 
   const expenseByCategory: Record<string, number> = {};
@@ -292,11 +290,10 @@ const Reports = () => {
 
   const loading =
     (activeTab === "sales" && salesReport.isLoading) ||
-    (activeTab === "pos" && salesReport.isLoading) ||
     (activeTab === "purchases" && purchasesReport.isLoading) ||
     (activeTab === "expenses" && expensesReport.isLoading) ||
     (activeTab === "inventory" && inventoryReport.isLoading) ||
-    (activeTab === "pnl" && (salesReport.isLoading || expensesReport.isLoading || pnlExtras.isLoading));
+    (activeTab === "pnl" && (salesReport.isLoading || expensesReport.isLoading || pnlLedger.isLoading));
 
   return (
     <div className="space-y-4">
@@ -339,7 +336,6 @@ const Reports = () => {
             { value: "pnl", label: "P&L", icon: TrendingUp, show: canPnL },
             { value: "eod", label: "End of Day", icon: Sun, show: canEOD },
             { value: "zreport", label: "Z Report", icon: FileText, show: canZ },
-            { value: "pos", label: "POS Reports", icon: BarChart3, show: canPOSReports },
             { value: "audit", label: "Audit Trail", icon: ClipboardList, show: canAudit },
           ].filter((i) => i.show);
           return (
@@ -381,14 +377,9 @@ const Reports = () => {
               <DailySalesReportTab from={from} to={to} onRegisterExport={registerExport} />
             </TabsContent>
           )}
-          {canPOSReports && (
-            <TabsContent value="pos" className="mt-0">
-              <POSReportsTab sales={sales} loading={salesReport.isLoading} />
-            </TabsContent>
-          )}
           {canPurchases && (
             <TabsContent value="purchases" className="mt-0">
-              <PurchasesReportTab purchases={purchases} from={from} to={to} loading={loading} />
+              <PurchasesReportTab purchases={purchases} from={from} to={to} loading={loading || pnlLedger.isLoading} />
             </TabsContent>
           )}
           {canExpenses && (
@@ -433,11 +424,9 @@ const Reports = () => {
                   totalExpenses={totalExpenses}
                   netProfit={netProfit}
                   expenseByCategory={expenseByCategory}
-                  purchasesCost={pnlExtras.data?.purchasesCost || 0}
-                  adjustmentsCost={pnlExtras.data?.adjustmentsCost || 0}
                   from={from}
                   to={to}
-                  loading={loading}
+                  loading={loading || pnlLedger.isLoading}
                 />
               </RequireFeature>
             </TabsContent>
