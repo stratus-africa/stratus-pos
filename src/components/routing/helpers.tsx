@@ -36,10 +36,15 @@ export function PermissionGuard({
 }) {
   const { userRole } = useBusiness();
   const { permissions, hasPermission, isLoading } = usePermissions();
-  const { hasFeatureKey } = useSubscription();
+  const { hasFeatureKey, isLoading: subscriptionLoading, packageResolved } = useSubscription();
 
   if (moduleKey) {
-    if (isLoading) return <PageLoader />;
+    // Wait for the tenant's package (public or private) to actually resolve before
+    // deciding access. Without this, a private/custom-plan tenant whose package fetch
+    // is still in flight (or slower than the public-only path) gets a false "Access
+    // Denied" the moment `permissions` finishes loading, even though their plan does
+    // include this module.
+    if (isLoading || subscriptionLoading || !packageResolved) return <PageLoader />;
     const registryAccess = getModuleRouteAccess(moduleKey, route ?? findModule(moduleKey)?.route ?? undefined, {
       role: userRole,
       permissions,
