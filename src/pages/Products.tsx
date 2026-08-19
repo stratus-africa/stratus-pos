@@ -558,92 +558,92 @@ const Products = () => {
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:items-center sm:gap-3">
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="w-full sm:w-[160px]">
-                    <SelectValue placeholder="Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    {categoriesQuery.data?.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full sm:w-[130px]">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {selectedIds.size > 0 && (
-                <div className="flex items-center gap-3 pt-2 flex-wrap">
-                  <span className="text-sm text-muted-foreground">{selectedIds.size} selected</span>
-                  {canEdit && (
-                    <Button size="sm" variant="outline" onClick={() => setBulkUpdateOpen(true)}>
-                      <Pencil className="mr-1 h-4 w-4" /> Bulk Update
-                    </Button>
-                  )}
-                  {canDelete && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button size="sm" variant="destructive" disabled={bulkDeleting}>
-                          <Trash2 className="mr-1 h-4 w-4" />{" "}
-                          {bulkDeleting ? "Deleting..." : `Delete ${selectedIds.size}`}
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>
-                            Delete {selectedIds.size} product{selectedIds.size > 1 ? "s" : ""}?
-                          </AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This action cannot be undone. The selected products will be permanently removed from your
-                            inventory.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={handleBulkDelete}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      const selected = filtered.filter((p) => selectedIds.has(p.id));
-                      setPrintTagItems(
-                        selected.map((p) => ({
-                          id: p.id,
-                          name: p.name,
-                          sku: p.sku,
-                          barcode: (p as any).barcode,
-                          selling_price: Number(p.selling_price),
-                        })),
-                      );
-                      setPrintTagsOpen(true);
-                    }}
-                  >
-                    <Printer className="mr-1 h-4 w-4" /> Print Tags
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
-                    Clear
-                  </Button>
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="w-full sm:w-[160px]">
+                      <SelectValue placeholder="Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {categoriesQuery.data?.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-full sm:w-[130px]">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              )}
+                {selectedIds.size > 0 && (
+                  <div className="flex items-center gap-3 pt-2 flex-wrap">
+                    <span className="text-sm text-muted-foreground">{selectedIds.size} selected</span>
+                    {canEdit && (
+                      <Button size="sm" variant="outline" onClick={() => setBulkUpdateOpen(true)}>
+                        <Pencil className="mr-1 h-4 w-4" /> Bulk Update
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="destructive" disabled={bulkDeleting}>
+                            <Trash2 className="mr-1 h-4 w-4" />{" "}
+                            {bulkDeleting ? "Deleting..." : `Delete ${selectedIds.size}`}
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>
+                              Delete {selectedIds.size} product{selectedIds.size > 1 ? "s" : ""}?
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. The selected products will be permanently removed from your
+                              inventory.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={handleBulkDelete}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const selected = filtered.filter((p) => selectedIds.has(p.id));
+                        setPrintTagItems(
+                          selected.map((p) => ({
+                            id: p.id,
+                            name: p.name,
+                            sku: p.sku,
+                            barcode: (p as any).barcode,
+                            selling_price: Number(p.selling_price),
+                          })),
+                        );
+                        setPrintTagsOpen(true);
+                      }}
+                    >
+                      <Printer className="mr-1 h-4 w-4" /> Print Tags
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+                      Clear
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -1195,7 +1195,6 @@ const Products = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      </Tabs>
 
       <ImportMappingDialog
         open={mappingOpen}
