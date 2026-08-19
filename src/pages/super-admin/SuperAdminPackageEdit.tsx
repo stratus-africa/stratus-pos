@@ -1,250 +1,754 @@
-// Unified entitlement resolver hook
-// Replaces the pattern of useSubscription + useModuleAccess with a single, clean API
-// This is the authoritative hook for checking access.
-//
-// Resolution path (canonical):
-//   auth.uid()
-//     → businesses.selected_package_id          ← ONLY application-level plan ID
-//     → subscription_packages
-//     → package_features (enabled = true)
-//     → canonical module keys
-//     → sidebar / FeatureGate / routes
-//
-// subscriptions.product_id is a billing-provider reference and is NOT used here.
-
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/contexts/AuthContext";
-import { useBusiness } from "@/contexts/BusinessContext";
-import { usePermissions } from "./usePermissions";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
+import { createSubscriptionPlan, updateSubscriptionPlan, updatePlanModules } from "@/lib/entitlementResolver";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  checkModuleEntitlement,
-  checkFeatureAccess,
-  getPlanModules,
-  getModuleFeatures,
-  resolveBusinessEntitlement,
-  type EntitlementResolutionStatus,
-} from "@/lib/entitlementResolver";
-import type { ModuleEntitlement, FeatureAccess, ModuleFeature } from "@/types/entitlement";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import { APP_MODULES, applyModuleToggleDependencyRule, moduleGroupLabels, type ModuleGroup } from "@/lib/modules";
+import {
+  ArrowLeft,
+  Tag,
+  Save,
+  Loader2,
+  AlertTriangle,
+  Trash2,
+  Check,
+  Package,
+  Users,
+  Warehouse,
+  Contact,
+  Truck,
+  Info,
+  ShoppingCart,
+  Briefcase,
+  Calculator,
+  Store,
+  ArrowLeftRight,
+  Wrench,
+  Sparkles,
+  ListChecks,
+  LayoutDashboard,
+  Boxes,
+  Receipt,
+  ShoppingBag,
+  BarChart3,
+  Wallet,
+  BookOpen,
+  FileCheck,
+} from "lucide-react";
 
-interface UseEntitlementOptions {
-  enabled?: boolean;
+const ALL_FEATURES = APP_MODULES;
+
+interface Form {
+  name: string;
+  slug: string;
+  monthly_price_kes: number;
+  yearly_price_kes: number;
+  is_active: boolean;
+  is_private: boolean;
+  free_trial: boolean;
+  trial_days: number;
+  max_products: number;
+  max_users: number;
+  max_locations: number;
+  max_customers: number;
+  max_suppliers: number;
 }
 
-/**
- * Unified hook for all entitlement checks.
- *
- * Usage:
- *   const { hasModule, hasPlan, isLoading, resolutionStatus, entitlementError } = useEntitlement();
- *   if (hasModule("accounting")) { ... }
- */
-export function useEntitlement(options: UseEntitlementOptions = {}) {
-  const { enabled = true } = options;
-  const { user } = useAuth();
-  const { business } = useBusiness();
-  const { permissions } = usePermissions();
-  const queryClient = useQueryClient();
+const emptyForm: Form = {
+  name: "",
+  slug: "",
+  monthly_price_kes: 0,
+  yearly_price_kes: 0,
+  is_active: true,
+  is_private: false,
+  free_trial: false,
+  trial_days: 14,
+  max_products: 50,
+  max_users: 1,
+  max_locations: 1,
+  max_customers: 50,
+  max_suppliers: 10,
+};
 
-  // ─── Subscription row (billing state only — NOT used as package ID) ──────────
-  // We fetch this so the subscription expiry/status is available to consumers
-  // (e.g. BusinessContext posting guard), but we do NOT use product_id to look
-  // up the plan. businesses.selected_package_id is the sole package reference.
-  const { data: activeSubscription, isLoading: isLoadingSubscription } = useQuery({
-    queryKey: ["entitlement:active_subscription", user?.id, business?.id],
-    queryFn: async () => {
-      if (!user) return null;
-      const { data, error } = await supabase.rpc("get_current_business_subscription");
-      if (error) {
-        // RPC failure must not cascade into "Upgrade Required". Log and return null
-        // so the canonical query (which uses selected_package_id directly) governs.
-        console.warn("[useEntitlement] get_current_business_subscription failed:", error.message);
-        return null;
+const fmtKes = (n: number) =>
+  `KES ${new Intl.NumberFormat("en-KE", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n)}`;
+
+export default function SuperAdminPackageEdit() {
+  const { id } = useParams<{ id: string }>();
+  const isNew = !id || id === "new";
+  const navigate = useNavigate();
+
+  const [form, setForm] = useState<Form>(emptyForm);
+  const [featureToggles, setFeatureToggles] = useState<Record<string, boolean>>(
+    Object.fromEntries(ALL_FEATURES.map((f) => [f.key, false])), // Default to disabled for new plans
+  );
+  const [activeModuleGroup, setActiveModuleGroup] = useState<ModuleGroup>("core");
+  const [loading, setLoading] = useState(!isNew);
+  const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [subscriberCount, setSubscriberCount] = useState(0);
+
+  useEffect(() => {
+    if (isNew) return;
+    const load = async () => {
+      const [pkgRes, featRes, subsRes] = await Promise.all([
+        supabase.from("subscription_packages").select("*").eq("id", id).maybeSingle(),
+        supabase.from("package_features").select("*").eq("package_id", id),
+        supabase.from("subscriptions").select("status").eq("product_id", id),
+      ]);
+      const pkg: any = pkgRes.data;
+      if (!pkg) {
+        toast.error("Plan not found");
+        navigate("/super-admin/packages");
+        return;
       }
-      const rows = (Array.isArray(data) ? data : data ? [data] : []) as Array<any>;
-      if (rows.length === 0) return null;
-      return (
-        rows.find((row: any) => ["active", "trialing"].includes((row.status || "").toLowerCase())) || rows[0] || null
+      setForm({
+        name: pkg.name,
+        slug: pkg.name.toLowerCase().replace(/\s+/g, ""),
+        monthly_price_kes: Number(pkg.monthly_price_kes || 0),
+        yearly_price_kes: Number(pkg.yearly_price_kes || 0),
+        is_active: pkg.is_active,
+        is_private: pkg.is_public === false,
+        free_trial: (pkg.trial_days || 0) > 0,
+        trial_days: pkg.trial_days || 14,
+        max_products: pkg.max_products,
+        max_users: pkg.max_users,
+        max_locations: pkg.max_locations,
+        max_customers: pkg.max_customers ?? 50,
+        max_suppliers: pkg.max_suppliers ?? 10,
+      });
+      const toggles: Record<string, boolean> = {};
+      ALL_FEATURES.forEach((f) => {
+        const existing = (featRes.data || []).find((pf: any) => pf.feature_key === f.key);
+        toggles[f.key] = existing?.enabled ?? false;
+      });
+      setFeatureToggles(toggles);
+      setSavedToggles(toggles);
+      setSubscriberCount(
+        (subsRes.data || []).filter((s: any) => s.status === "active" || s.status === "trialing").length,
       );
-    },
-    enabled: enabled && !!user,
-    staleTime: 15_000,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-  });
+      setLoading(false);
+    };
+    load();
+  }, [id, isNew, navigate]);
 
-  // ─── AUTHORITATIVE package ID — comes ONLY from businesses.selected_package_id ─
-  const packageId: string | null = business?.selected_package_id ?? null;
+  const enabledModuleCount = useMemo(() => Object.values(featureToggles).filter(Boolean).length, [featureToggles]);
 
-  // ─── Canonical entitlement — the single source of truth ──────────────────────
-  // resolveBusinessEntitlement reads selected_package_id → subscription_packages
-  // → package_features and returns the full entitlement result including
-  // resolutionStatus and error. We pass activeSubscription purely so it's
-  // available in the result object for billing-state consumers.
-  const {
-    data: canonicalEntitlement,
-    isLoading: isLoadingCanonical,
-    error: canonicalQueryError,
-  } = useQuery({
-    queryKey: ["entitlement:canonical", business?.id, packageId],
-    queryFn: () => resolveBusinessEntitlement({ business, activeSubscription }),
-    enabled: enabled && !!business?.id,
-    staleTime: 30_000,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-  });
+  // Track which toggles were last persisted so we can show unsaved-changes state
+  const [savedToggles, setSavedToggles] = useState<Record<string, boolean>>({});
+  const [savingModules, setSavingModules] = useState(false);
 
-  // ─── Realtime invalidation is handled by useSubscription ─────────────────────
-  // useSubscription already listens to package_features and subscription_packages
-  // changes and invalidates ["entitlement:canonical"]. No second realtime listener
-  // is needed here — adding one causes a blank-screen crash when the Supabase
-  // realtime socket throws during React's commit phase.
+  const hasUnsavedModuleChanges = useMemo(() => {
+    return ALL_FEATURES.some((f) => (featureToggles[f.key] ?? false) !== (savedToggles[f.key] ?? false));
+  }, [featureToggles, savedToggles]);
 
-  // ─── Derive the result ────────────────────────────────────────────────────────
-  // While the canonical query is still loading we use a safe loading sentinel so
-  // consumers see isLoading=true and don't prematurely render "Upgrade Required".
-  const isLoading = isLoadingSubscription || isLoadingCanonical;
+  const limitsConfigured = useMemo(() => {
+    return [form.max_products, form.max_users, form.max_locations, form.max_customers, form.max_suppliers].filter(
+      (v) => v > 0,
+    ).length;
+  }, [form]);
 
-  const entitlement = canonicalEntitlement ?? {
-    hasPlan: false,
-    subscription: null,
-    package: null,
-    packageId: packageId,
-    packageName: null,
-    packageFeatures: [],
-    enabledModules: [] as string[],
-    resolutionStatus: (business?.id
-      ? packageId
-        ? "loading"
-        : "no_plan"
-      : "no_business") as EntitlementResolutionStatus,
-    error: canonicalQueryError ? (canonicalQueryError as Error).message : null,
+  const handleSave = async () => {
+    if (!form.name.trim()) {
+      toast.error("Plan name is required");
+      return;
+    }
+    setSaving(true);
+    try {
+      let pkgId: string | null = id || null;
+
+      // Create or update plan metadata using secure RPC
+      if (isNew) {
+        const result = await createSubscriptionPlan({
+          name: form.name.trim(),
+          monthly_price_kes: form.monthly_price_kes,
+          yearly_price_kes: form.yearly_price_kes,
+          max_products: form.max_products,
+          max_users: form.max_users,
+          max_locations: form.max_locations,
+          max_customers: form.max_customers,
+          max_suppliers: form.max_suppliers,
+          trial_days: form.free_trial ? form.trial_days : 0,
+        });
+
+        if (!result.success) {
+          throw new Error(result.message);
+        }
+        pkgId = result.package_id || null;
+      } else {
+        const result = await updateSubscriptionPlan(id!, {
+          name: form.name.trim(),
+          monthly_price_kes: form.monthly_price_kes,
+          yearly_price_kes: form.yearly_price_kes,
+          max_products: form.max_products,
+          max_users: form.max_users,
+          max_locations: form.max_locations,
+          max_customers: form.max_customers,
+          max_suppliers: form.max_suppliers,
+          trial_days: form.free_trial ? form.trial_days : 0,
+          is_active: form.is_active,
+        });
+
+        if (!result.success) {
+          throw new Error(result.message);
+        }
+      }
+
+      // Assign modules to plan using secure RPC (transactional)
+      if (pkgId) {
+        const enabledModules = ALL_FEATURES.filter((f) => featureToggles[f.key] ?? false).map((f) => f.key);
+
+        const moduleResult = await updatePlanModules(pkgId, enabledModules);
+        if (!moduleResult.success) {
+          throw new Error(moduleResult.message);
+        }
+      } else {
+        throw new Error("Failed to create plan - no ID returned");
+      }
+
+      toast.success(isNew ? "Plan created" : "Plan updated");
+      if (!isNew) setSavedToggles({ ...featureToggles });
+      navigate("/super-admin/packages");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to save plan");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // ─── Debug logging ────────────────────────────────────────────────────────────
-  if (typeof window !== "undefined" && (window as any).__DEBUG_ENTITLEMENT) {
-    console.debug("[useEntitlement]", {
-      authUserId: user?.id,
-      businessId: business?.id,
-      selectedPackageId: business?.selected_package_id,
-      packageId,
-      isLoading,
-      resolutionStatus: entitlement.resolutionStatus,
-      hasPlan: entitlement.hasPlan,
-      enabledModules: entitlement.enabledModules,
-      error: entitlement.error,
-    });
+  const handleDelete = async () => {
+    if (!id || isNew) return;
+    if (subscriberCount > 0) {
+      toast.error("Cannot delete a plan with active subscribers.");
+      setConfirmDelete(false);
+      return;
+    }
+    setDeleting(true);
+    try {
+      await supabase.from("package_features").delete().eq("package_id", id);
+      const { error } = await supabase.from("subscription_packages").delete().eq("id", id);
+      if (error) throw error;
+      toast.success("Plan deleted");
+      navigate("/super-admin/packages");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to delete plan");
+      setDeleting(false);
+    }
+  };
+
+  /** Save only modules without touching plan metadata. Available on existing plans only. */
+  const handleSaveModules = async () => {
+    if (!id || isNew) return;
+    setSavingModules(true);
+    try {
+      const enabledModules = ALL_FEATURES.filter((f) => featureToggles[f.key] ?? false).map((f) => f.key);
+      const result = await updatePlanModules(id, enabledModules);
+      // updatePlanModules returns { success, message } — success=true means saved OK
+      if (!result.success) throw new Error(result.message);
+      setSavedToggles({ ...featureToggles });
+      toast.success(`Modules updated — ${enabledModules.length} enabled`);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to save modules");
+    } finally {
+      setSavingModules(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
 
-  // ─── Public API ───────────────────────────────────────────────────────────────
+  return (
+    <div className="space-y-6">
+      {/* Header — flush to top, no close button */}
+      <div>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
+          <Link to="/super-admin/packages" className="hover:text-foreground inline-flex items-center gap-1">
+            <ArrowLeft className="h-3 w-3" /> Plans
+          </Link>
+          <span>/</span>
+          <span className="text-foreground font-medium">{form.name || "New plan"}</span>
+        </div>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">{isNew ? "New plan" : "Edit plan"}</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {isNew
+                ? "Create a billing plan with limits and module access."
+                : `Update pricing, limits, and modules for ${form.name}.`}
+            </p>
+          </div>
+          <Badge
+            className={
+              form.is_active
+                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                : "bg-muted text-muted-foreground"
+            }
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full mr-1.5 ${form.is_active ? "bg-emerald-500" : "bg-muted-foreground"}`}
+            />
+            {form.is_active ? "Active" : "Inactive"}
+          </Badge>
+        </div>
+      </div>
 
-  /**
-   * Returns true only when:
-   *   1. Entitlement has resolved (not loading)
-   *   2. The tenant's plan includes this module (package_features.enabled = true)
-   *
-   * Returns false — never throws — on any error or loading state so callers
-   * don't accidentally show content before access is confirmed.
-   */
-  const hasModule = (moduleKey: string): boolean => {
-    if (isLoading) return false;
-    if (!entitlement.enabledModules || entitlement.enabledModules.length === 0) return false;
-    const normalized = moduleKey.toLowerCase();
-    return entitlement.enabledModules.some(
-      (key: string) => key.toLowerCase() === normalized || key.toLowerCase().startsWith(`${normalized}.`),
-    );
-  };
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
+        {/* Main column */}
+        <div className="space-y-5">
+          {/* Plan details */}
+          <section className="bg-white border border-border rounded-xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Tag className="h-4 w-4 text-muted-foreground" />
+              <h2 className="font-semibold text-sm">Plan details</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs">
+                  Plan name <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  value={form.name}
+                  onChange={(e) =>
+                    setForm({ ...form, name: e.target.value, slug: e.target.value.toLowerCase().replace(/\s+/g, "") })
+                  }
+                  placeholder="Starter"
+                  className="h-10"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">
+                  Slug <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  value={form.slug}
+                  onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                  placeholder="starter"
+                  className="h-10"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">
+                  Monthly price (KES) <span className="text-red-500">*</span>
+                </Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-semibold">
+                    KES
+                  </span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.monthly_price_kes}
+                    onChange={(e) => setForm({ ...form, monthly_price_kes: Number(e.target.value) })}
+                    className="h-10 pl-12"
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground">Price charged per month in Kenyan Shillings.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">
+                  Yearly price (KES) <span className="text-red-500">*</span>
+                </Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-semibold">
+                    KES
+                  </span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.yearly_price_kes}
+                    onChange={(e) => setForm({ ...form, yearly_price_kes: Number(e.target.value) })}
+                    className="h-10 pl-12"
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Price charged per year. Set 0 to disable yearly billing.
+                </p>
+              </div>
+            </div>
 
-  const hasFeature = (moduleKey: string, featureKey: string): boolean => {
-    if (!hasModule(moduleKey)) return false;
-    return permissions.has(featureKey);
-  };
+            <div className="mt-5 space-y-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <Checkbox
+                  checked={form.is_active}
+                  onCheckedChange={(v) => setForm({ ...form, is_active: !!v })}
+                  className="mt-0.5 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                />
+                <div>
+                  <span className="text-sm font-medium">Active</span>
+                  <p className="text-xs text-muted-foreground">
+                    Inactive plans won't be available for new subscriptions.
+                  </p>
+                </div>
+              </label>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <Checkbox
+                  checked={form.is_private}
+                  onCheckedChange={(v) => setForm({ ...form, is_private: !!v })}
+                  className="mt-0.5 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                />
+                <div>
+                  <span className="text-sm font-medium">🔒 Private Plan</span>
+                  <p className="text-xs text-muted-foreground">
+                    Private plans are hidden from the landing page, registration form, and tenant billing page. Only a
+                    super admin can assign them to tenants.
+                  </p>
+                </div>
+              </label>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <Checkbox
+                  checked={form.free_trial}
+                  onCheckedChange={(v) => setForm({ ...form, free_trial: !!v })}
+                  className="mt-0.5 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                />
+                <div>
+                  <span className="text-sm font-medium">Free trial</span>
+                  <p className="text-xs text-muted-foreground">Allow users to try this plan for free before paying.</p>
+                </div>
+              </label>
+            </div>
+          </section>
 
-  const getEntitledModules = (): string[] => entitlement.enabledModules || [];
+          {/* Usage limits */}
+          <section className="bg-white border border-border rounded-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Info className="h-4 w-4 text-muted-foreground" />
+                <h2 className="font-semibold text-sm">Usage limits</h2>
+              </div>
+              <span className="text-xs text-muted-foreground">Use 0 or any negative value (e.g. -1) for unlimited</span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+              {[
+                { key: "max_products", label: "Products", Icon: Package },
+                { key: "max_users", label: "Users", Icon: Users },
+                { key: "max_locations", label: "Warehouses", Icon: Warehouse },
+                { key: "max_customers", label: "Customers", Icon: Contact },
+                { key: "max_suppliers", label: "Suppliers", Icon: Truck },
+              ].map(({ key, label, Icon }) => (
+                <div key={key} className="border border-border rounded-lg p-3">
+                  <div className="flex items-center gap-1.5 mb-2 text-xs text-muted-foreground">
+                    <Icon className="h-3.5 w-3.5" /> {label}
+                  </div>
+                  <Input
+                    type="number"
+                    step="1"
+                    value={(form as any)[key]}
+                    onChange={(e) => setForm({ ...form, [key]: Number(e.target.value) } as Form)}
+                    className="h-9 text-sm"
+                    placeholder="∞"
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
 
-  const checkModuleAccess = (moduleKey: string) => checkModuleEntitlement(packageId || undefined, moduleKey);
+          {/* Modules */}
+          <section className="bg-white border border-border rounded-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <ListChecks className="h-4 w-4 text-muted-foreground" />
+                <h2 className="font-semibold text-sm">Modules</h2>
+                {hasUnsavedModuleChanges && !isNew && (
+                  <Badge variant="outline" className="text-amber-600 border-amber-400 text-[10px]">
+                    Unsaved changes
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {Object.values(featureToggles).filter(Boolean).length} of {ALL_FEATURES.length} enabled
+                </span>
+                {!isNew && (
+                  <Button
+                    size="sm"
+                    onClick={handleSaveModules}
+                    disabled={savingModules || !hasUnsavedModuleChanges}
+                    className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    {savingModules ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" /> Saving…
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-3 w-3 mr-1" /> Save modules
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </div>
 
-  const checkFeatureAccessFn = (moduleKey: string, featureKey: string) =>
-    checkFeatureAccess(packageId || undefined, moduleKey, featureKey, permissions);
+            {(() => {
+              const GROUPS: { key: ModuleGroup; label: string; accent: string }[] = [
+                { key: "core", label: moduleGroupLabels.core, accent: "text-emerald-700" },
+                { key: "accounting", label: moduleGroupLabels.accounting, accent: "text-blue-700" },
+                { key: "premium", label: moduleGroupLabels.premium, accent: "text-purple-700" },
+              ];
 
-  const getAccessibleModuleFeatures = async (moduleKey: string): Promise<ModuleFeature[]> => {
-    if (!hasModule(moduleKey)) return [];
-    const features = await getModuleFeatures(moduleKey);
-    return features.filter((f) => permissions.has(f.permission_key));
-  };
+              const moduleCard = (f: (typeof ALL_FEATURES)[number]) => {
+                const enabled = featureToggles[f.key] ?? false;
+                const dependsOnAccounting = f.key === "banking" || f.key === "manual_journals";
+                const accountingForced =
+                  f.key === "accounting" && (featureToggles.banking || featureToggles.manual_journals);
 
-  return {
-    // ── Access checks ──────────────────────────────────────────────────────
-    hasModule,
-    hasFeature,
-    checkModuleAccess,
-    checkFeatureAccess: checkFeatureAccessFn,
-    getEntitledModules,
-    getAccessibleModuleFeatures,
+                const handleToggle = () => {
+                  const nextState = applyModuleToggleDependencyRule(f.key, !enabled, featureToggles);
+                  if (nextState.blocked) {
+                    toast.info(
+                      nextState.reason || "This change is not allowed for the current module dependency rules.",
+                    );
+                    return;
+                  }
+                  setFeatureToggles(nextState.next);
+                };
 
-    // ── Plan data ──────────────────────────────────────────────────────────
-    planModules: entitlement.enabledModules || [],
-    allPlanFeatures: entitlement.packageFeatures || [],
-    hasPlan: entitlement.hasPlan,
-    plan: entitlement.package,
-    planId: entitlement.packageId,
-    package: entitlement.package,
-    packageName: entitlement.packageName,
+                return (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={handleToggle}
+                    className={`text-left rounded-lg p-3 border transition-all flex items-start justify-between gap-3 w-full ${
+                      enabled
+                        ? "border-emerald-500 bg-emerald-50/40"
+                        : "border-border bg-white hover:border-muted-foreground/30"
+                    } ${accountingForced ? "opacity-90" : ""}`}
+                  >
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <div
+                        className={`h-9 w-9 rounded-md flex items-center justify-center shrink-0 ${enabled ? "bg-white" : "bg-muted"}`}
+                      >
+                        <f.Icon className={`h-4 w-4 ${enabled ? "text-emerald-600" : "text-muted-foreground"}`} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm leading-tight">{f.label}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{f.description}</p>
+                        {dependsOnAccounting && enabled && (
+                          <p className="text-[10px] text-emerald-700 mt-1 font-medium">Requires Accounting</p>
+                        )}
+                        {accountingForced && (
+                          <p className="text-[10px] text-emerald-700 mt-1 font-medium">
+                            Locked on by Banking / Manual Journals
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div
+                      className={`h-5 w-5 rounded-full shrink-0 flex items-center justify-center ${enabled ? "bg-emerald-600 text-white" : "border border-border"}`}
+                    >
+                      {enabled && <Check className="h-3 w-3" strokeWidth={3} />}
+                    </div>
+                  </button>
+                );
+              };
 
-    // ── Billing subscription (for billing-state consumers only) ────────────
-    activeSubscription,
+              return (
+                <>
+                  {/* Mobile: dropdown group selector */}
+                  <div className="sm:hidden mb-3">
+                    <Select value={activeModuleGroup} onValueChange={(v) => setActiveModuleGroup(v as ModuleGroup)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {GROUPS.map((g) => {
+                          const count = ALL_FEATURES.filter((f) => f.group === g.key && featureToggles[f.key]).length;
+                          return (
+                            <SelectItem key={g.key} value={g.key}>
+                              {g.label}
+                              {count > 0 && ` (${count})`}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <div className="grid grid-cols-1 gap-3 mt-3">
+                      {ALL_FEATURES.filter((f) => f.group === activeModuleGroup).map(moduleCard)}
+                    </div>
+                  </div>
 
-    // ── Loading / error state ──────────────────────────────────────────────
-    isLoading,
-    isReady: !isLoading,
-    resolutionStatus: entitlement.resolutionStatus,
-    entitlementError: entitlement.error ?? (canonicalQueryError ? (canonicalQueryError as Error).message : null),
+                  {/* Desktop: tabs */}
+                  <Tabs
+                    value={activeModuleGroup}
+                    onValueChange={(v) => setActiveModuleGroup(v as ModuleGroup)}
+                    className="hidden sm:block"
+                  >
+                    <TabsList className="mb-4 w-full grid grid-cols-3">
+                      {GROUPS.map((g) => {
+                        const count = ALL_FEATURES.filter((f) => f.group === g.key && featureToggles[f.key]).length;
+                        const total = ALL_FEATURES.filter((f) => f.group === g.key).length;
+                        return (
+                          <TabsTrigger key={g.key} value={g.key} className="gap-1.5">
+                            <span>{g.label}</span>
+                            <Badge
+                              variant="secondary"
+                              className={`text-[10px] px-1.5 py-0 h-4 ${count > 0 ? "bg-emerald-100 text-emerald-700" : ""}`}
+                            >
+                              {count}/{total}
+                            </Badge>
+                          </TabsTrigger>
+                        );
+                      })}
+                    </TabsList>
+                    {GROUPS.map((g) => (
+                      <TabsContent key={g.key} value={g.key} className="mt-0">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {ALL_FEATURES.filter((f) => f.group === g.key).map(moduleCard)}
+                        </div>
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                </>
+              );
+            })()}
+          </section>
 
-    // ── Legacy aliases ─────────────────────────────────────────────────────
-    resolvedPlanId: entitlement.packageId,
-    resolvedPackageName: entitlement.packageName,
-    userRole: business?.owner_id === user?.id ? "owner" : "member",
-  };
-}
+          {/* Action buttons */}
+          <div className="flex items-center gap-2">
+            <Button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+              {isNew ? "Create plan" : "Update plan"}
+            </Button>
+            <Button variant="ghost" onClick={() => navigate("/super-admin/packages")} disabled={saving}>
+              Cancel
+            </Button>
+          </div>
 
-/**
- * Hook for tenant admins to list features available to assign to roles.
- * Derives the list from the tenant's plan entitlement — no separate query.
- */
-export function useModuleManagement() {
-  const { business } = useBusiness();
+          {/* Danger zone */}
+          {!isNew && (
+            <section className="bg-white border border-border rounded-xl p-5">
+              <div className="flex items-center gap-2 mb-3 text-red-600">
+                <AlertTriangle className="h-4 w-4" />
+                <h2 className="font-semibold text-sm">Danger zone</h2>
+              </div>
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <p className="text-sm font-medium">Delete this plan</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Once deleted, this plan cannot be recovered. Plans with active subscribers cannot be deleted.
+                  </p>
+                </div>
+                <Button
+                  variant="destructive"
+                  onClick={() => setConfirmDelete(true)}
+                  disabled={subscriberCount > 0}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  <Trash2 className="h-4 w-4 mr-1.5" /> Delete plan
+                </Button>
+              </div>
+            </section>
+          )}
+        </div>
 
-  const { data: availableFeatures, isLoading } = useQuery({
-    queryKey: ["module_management:available_features", business?.id, business?.selected_package_id],
-    queryFn: async () => {
-      if (!business?.id || !business.selected_package_id) return [];
-      const planModules = await getPlanModules(business.selected_package_id);
-      if (!planModules) return [];
-      const allFeatures: ModuleFeature[] = [];
-      for (const moduleKey of planModules.modules) {
-        const features = await getModuleFeatures(moduleKey);
-        allFeatures.push(...features);
-      }
-      return allFeatures;
-    },
-    enabled: !!business?.id && !!business?.selected_package_id,
-    staleTime: 5 * 60 * 1000,
-  });
+        {/* Summary sidebar */}
+        <aside className="space-y-5">
+          <section className="bg-white border border-border rounded-xl p-5 sticky top-20">
+            <div className="flex items-center gap-2 mb-4">
+              <Info className="h-4 w-4 text-muted-foreground" />
+              <h2 className="font-semibold text-sm">Plan summary</h2>
+            </div>
+            <dl className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Name</dt>
+                <dd className="font-semibold">{form.name || "—"}</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Monthly</dt>
+                <dd className="font-semibold">{fmtKes(form.monthly_price_kes)} / mo</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Yearly</dt>
+                <dd className="font-semibold">{fmtKes(form.yearly_price_kes)} / yr</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Limits</dt>
+                <dd className="font-semibold">{limitsConfigured} configured</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Modules</dt>
+                <dd className="font-semibold">{enabledModuleCount} enabled</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Subscribers</dt>
+                <dd className="font-semibold">{subscriberCount}</dd>
+              </div>
+            </dl>
 
-  return {
-    availableFeatures: availableFeatures || [],
-    isLoading,
-    canAssignFeature: (featureKey: string) => availableFeatures?.some((f) => f.feature_key === featureKey) ?? false,
-  };
-}
+            <div className="mt-5 pt-4 border-t border-border">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                Active modules
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {ALL_FEATURES.filter((f) => featureToggles[f.key]).map((f) => (
+                  <Badge
+                    key={f.key}
+                    className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-normal"
+                  >
+                    {f.label}
+                  </Badge>
+                ))}
+                {enabledModuleCount === 0 && <span className="text-xs text-muted-foreground">None</span>}
+              </div>
+            </div>
+          </section>
+        </aside>
+      </div>
 
-/**
- * Superadmin-only plan management capabilities.
- */
-export function usePlanManagement() {
-  const { user } = useAuth();
-  const isSuperAdmin = user?.user_metadata?.is_super_admin === true;
-  return {
-    isSuperAdmin,
-    canManagePlans: isSuperAdmin,
-  };
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this plan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{form.name}" will be permanently removed along with its feature configuration. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Keep plan</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Deleting…
+                </>
+              ) : (
+                "Yes, delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
 }
