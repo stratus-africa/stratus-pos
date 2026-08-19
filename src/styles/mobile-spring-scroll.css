@@ -1,0 +1,90 @@
+/*
+ * StratusPOS mobile spring / safe-area scrolling
+ *
+ * Import this stylesheet once from the application's global CSS entry point.
+ * It intentionally uses native browser overscroll/momentum behavior rather
+ * than a JavaScript scroll animation.
+ */
+
+@media (max-width: 767px) {
+  /*
+   * Primary page scroll container.
+   * Apply this class to the element that owns vertical page scrolling.
+   */
+  .mobile-page-scroll {
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior-y: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+
+    /*
+     * Keep the final content above the fixed mobile navigation while still
+     * making the spacer part of the scrollable content.
+     */
+    padding-bottom: calc(
+      var(--mobile-bottom-nav-height, 72px) +
+      env(safe-area-inset-bottom, 0px) +
+      16px
+    );
+  }
+
+  /*
+   * Use this instead of padding on an outer/non-scrolling wrapper when the
+   * page is rendered inside a flex layout.
+   */
+  .mobile-scroll-content {
+    padding-bottom: calc(
+      var(--mobile-bottom-nav-height, 72px) +
+      env(safe-area-inset-bottom, 0px) +
+      16px
+    );
+  }
+
+  /*
+   * Prevent the fixed bottom navigation from becoming transparent over page
+   * content and account for devices with a home-indicator area.
+   */
+  .mobile-bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    min-height: var(--mobile-bottom-nav-height, 72px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: hsl(var(--background));
+    border-top: 1px solid hsl(var(--border));
+    opacity: 1;
+    isolation: isolate;
+  }
+
+  /*
+   * Keep horizontal table scrolling independent from vertical page scrolling.
+   */
+  .mobile-table-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  /*
+   * Do not accidentally disable native overscroll on normal mobile pages.
+   */
+  .mobile-page-scroll,
+  .mobile-scroll-content {
+    touch-action: pan-y;
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-page-scroll {
+    padding-bottom: 0;
+  }
+
+  .mobile-scroll-content {
+    padding-bottom: 0;
+  }
