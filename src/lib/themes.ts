@@ -1,11 +1,9 @@
 import { createContext, useContext } from "react";
 
-export type ThemeKey = "burgundy" | "moss" | "rewaff" | "crafthive" | "openclaw" | "whatsapp";
-
+export type ThemeKey = "burgundy" | "moss" | "rewaff" | "crafthive" | "openclaw" | "whatsapp" | "minimal-neutral";
 export type ThemeMode = "light" | "dark";
 export type ThemeScope = "tenant" | "super-admin";
 export type ThemeTokens = Record<string, string>;
-
 export interface ThemeDef {
   id: ThemeKey;
   name: string;
@@ -36,14 +34,11 @@ const keys = [
   "input",
   "ring",
 ];
-
 const make = (values: string[], charts: string[], sidebar: string[]) => {
   const result: ThemeTokens = Object.fromEntries(keys.map((key, index) => [`--${key}`, values[index]]));
-
   [1, 2, 3, 4, 5].forEach((n, index) => {
     result[`--chart-${n}`] = charts[index];
   });
-
   [
     "sidebar",
     "sidebar-foreground",
@@ -56,17 +51,14 @@ const make = (values: string[], charts: string[], sidebar: string[]) => {
   ].forEach((key, index) => {
     result[`--${key}`] = sidebar[index];
   });
-
   result["--success"] = "#16a34a";
   result["--success-foreground"] = "#ffffff";
   result["--warning"] = "#d97706";
   result["--warning-foreground"] = "#ffffff";
   result["--info"] = "#2563eb";
   result["--info-foreground"] = "#ffffff";
-
   return result;
 };
-
 const theme = (
   id: ThemeKey,
   name: string,
@@ -74,14 +66,7 @@ const theme = (
   preview: string[],
   light: ThemeTokens,
   dark: ThemeTokens,
-): ThemeDef => ({
-  id,
-  name,
-  description,
-  preview,
-  light,
-  dark,
-});
+): ThemeDef => ({ id, name, description, preview, light, dark });
 
 export const THEMES: Record<ThemeKey, ThemeDef> = {
   burgundy: theme(
@@ -140,7 +125,6 @@ export const THEMES: Record<ThemeKey, ThemeDef> = {
       ["#0a0102", "#fceef0", "#e63946", "#ffffff", "#1a0507", "#fceef0", "#2b0d10", "#e63946"],
     ),
   ),
-
   moss: theme(
     "moss",
     "Moss",
@@ -197,7 +181,6 @@ export const THEMES: Record<ThemeKey, ThemeDef> = {
       ["#040302", "#f0eeeb", "#AFBEA5", "#040302", "#495940", "#FFF", "#272117", "#AFBEA5"],
     ),
   ),
-
   rewaff: theme(
     "rewaff",
     "Rewaff",
@@ -254,7 +237,6 @@ export const THEMES: Record<ThemeKey, ThemeDef> = {
       ["#02080e", "#e9f0f5", "#2fbc5b", "#000408", "#172128", "#e9f0f5", "#202a32", "#2fbc5b"],
     ),
   ),
-
   crafthive: theme(
     "crafthive",
     "Crafthive",
@@ -368,7 +350,62 @@ export const THEMES: Record<ThemeKey, ThemeDef> = {
       ["#0d0d0d", "#f5f0eb", "#e03e3e", "#ffffff", "#2a2a2a", "#f5f0eb", "#3d3d3d", "#e03e3e"],
     ),
   ),
-
+  "minimal-neutral": theme(
+    "minimal-neutral",
+    "Minimal Neutral",
+    "Elegant flat minimal monochrome professional",
+    ["#ffffff", "#171717", "#f5f5f5", "#737373"],
+    make(
+      [
+        "#ffffff",
+        "#171717",
+        "#ffffff",
+        "#171717",
+        "#ffffff",
+        "#171717",
+        "#171717",
+        "#ffffff",
+        "#f5f5f5",
+        "#171717",
+        "#f5f5f5",
+        "#737373",
+        "#e5e5e5",
+        "#171717",
+        "#ef4444",
+        "#ffffff",
+        "#e5e5e5",
+        "#e5e5e5",
+        "#171717",
+      ],
+      ["#171717", "#525252", "#737373", "#a3a3a3", "#d4d4d4"],
+      ["#fafafa", "#171717", "#171717", "#ffffff", "#f5f5f5", "#171717", "#e5e5e5", "#171717"],
+    ),
+    make(
+      [
+        "#171717",
+        "#fafafa",
+        "#262626",
+        "#fafafa",
+        "#262626",
+        "#fafafa",
+        "#fafafa",
+        "#171717",
+        "#404040",
+        "#fafafa",
+        "#404040",
+        "#a3a3a3",
+        "#525252",
+        "#fafafa",
+        "#f87171",
+        "#171717",
+        "#404040",
+        "#404040",
+        "#fafafa",
+      ],
+      ["#fafafa", "#d4d4d4", "#a3a3a3", "#737373", "#525252"],
+      ["#0a0a0a", "#fafafa", "#fafafa", "#171717", "#262626", "#fafafa", "#404040", "#fafafa"],
+    ),
+  ),
   whatsapp: theme(
     "whatsapp",
     "WhatsApp",
@@ -429,25 +466,20 @@ export const THEMES: Record<ThemeKey, ThemeDef> = {
 
 export const DEFAULT_THEME: ThemeKey = "burgundy";
 export const DEFAULT_MODE: ThemeMode = "light";
-
 export function resolveThemeKey(value?: string | null): ThemeKey {
   return value && value in THEMES ? (value as ThemeKey) : DEFAULT_THEME;
 }
-
 export function getThemeStorageKey(scope: ThemeScope = "tenant") {
   return scope === "super-admin" ? "stratus-super-admin-theme" : "stratus-tenant-theme";
 }
-
 export function getModeStorageKey() {
   return "stratus-theme-mode";
 }
-
 export function getInitialTheme(scope: ThemeScope = "tenant") {
   return typeof window === "undefined"
     ? DEFAULT_THEME
     : resolveThemeKey(window.localStorage.getItem(getThemeStorageKey(scope)));
 }
-
 export function getInitialMode(): ThemeMode {
   return typeof window === "undefined"
     ? DEFAULT_MODE
@@ -455,31 +487,21 @@ export function getInitialMode(): ThemeMode {
       ? "dark"
       : DEFAULT_MODE;
 }
-
 export function applyTheme(themeKey?: string | null, scope: ThemeScope = "tenant", mode: ThemeMode = getInitialMode()) {
   const key = resolveThemeKey(themeKey);
-
   if (typeof document !== "undefined") {
     const root = document.documentElement;
-
     root.dataset.theme = key;
     root.dataset.mode = mode;
     root.classList.toggle("dark", mode === "dark");
-
-    for (const [name, value] of Object.entries(THEMES[key][mode])) {
-      root.style.setProperty(name, value);
-    }
+    for (const [name, value] of Object.entries(THEMES[key][mode])) root.style.setProperty(name, value);
   }
-
   if (typeof window !== "undefined") {
     window.localStorage.setItem(getThemeStorageKey(scope), key);
-
     window.localStorage.setItem(getModeStorageKey(), mode);
   }
-
   return key;
 }
-
 export interface ThemeContextValue {
   theme: ThemeKey;
   mode: ThemeMode;
@@ -487,43 +509,18 @@ export interface ThemeContextValue {
   setMode: (mode: ThemeMode) => void;
   themes: typeof THEMES;
 }
-
 export const ThemeContext = createContext<ThemeContextValue | null>(null);
-
 export function useTheme() {
   const context = useContext(ThemeContext);
-
-  if (!context) {
-    throw new Error("useTheme must be used within ThemeProvider");
-  }
-
+  if (!context) throw new Error("useTheme must be used within ThemeProvider");
   return context;
 }
 
 export type BusinessType = "general" | "minimart" | "liquor_store" | "pharmacy" | "clothing";
-
-export const BUSINESS_TYPE_OPTIONS: {
-  value: BusinessType;
-  label: string;
-}[] = [
-  {
-    value: "general",
-    label: "General / Other",
-  },
-  {
-    value: "minimart",
-    label: "Minimart",
-  },
-  {
-    value: "liquor_store",
-    label: "Liquor Store",
-  },
-  {
-    value: "pharmacy",
-    label: "Pharmacy",
-  },
-  {
-    value: "clothing",
-    label: "Clothing & Apparel",
-  },
+export const BUSINESS_TYPE_OPTIONS: { value: BusinessType; label: string }[] = [
+  { value: "general", label: "General / Other" },
+  { value: "minimart", label: "Minimart" },
+  { value: "liquor_store", label: "Liquor Store" },
+  { value: "pharmacy", label: "Pharmacy" },
+  { value: "clothing", label: "Clothing & Apparel" },
 ];
