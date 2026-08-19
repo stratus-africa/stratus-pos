@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { createSubscriptionPlan, updateSubscriptionPlan, updatePlanModules } from "@/lib/entitlementResolver";
@@ -24,6 +23,7 @@ import { toast } from "sonner";
 import {
   APP_MODULES,
   applyModuleToggleDependencyRule,
+  getEnabledCanonicalModules,
   getCanonicalFeatureKey,
   moduleGroupLabels,
   type ModuleGroup,
@@ -101,11 +101,11 @@ export default function SuperAdminPackageEdit() {
   const { id } = useParams<{ id: string }>();
   const isNew = !id || id === "new";
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   const [form, setForm] = useState<Form>(emptyForm);
-  const [selectedModuleKeys, setSelectedModuleKeys] = useState<string[]>([]);
-  const [savedModuleKeys, setSavedModuleKeys] = useState<string[]>([]);
+  const [featureToggles, setFeatureToggles] = useState<Record<string, boolean>>(
+    Object.fromEntries(ALL_FEATURES.map((f) => [f.key, false])), // Default to disabled for new plans
+  );
   const [activeModuleGroup, setActiveModuleGroup] = useState<ModuleGroup>("core");
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
@@ -117,14 +117,16 @@ export default function SuperAdminPackageEdit() {
     if (isNew) return;
     const load = async () => {
       try {
-        const [pkgRes, featRes, businessRes] = await Promise.all([
+        const [pkgRes, featRes, subsRes] = await Promise.all([
           supabase.from("subscription_packages").select("*").eq("id", id).maybeSingle(),
           supabase.from("package_features").select("*").eq("package_id", id),
-          supabase.from("businesses").select("id", { count: "exact", head: true }).eq("selected_package_id", id),
+          supabase.from("subscriptions").select("status").eq("product_id", id),
         ]);
-        if (pkgRes.error) throw pkgRes.error;
-        if (featRes.error) throw featRes.error;
-        if (businessRes.error) throw businessRes.error;
+
+        if (pkgRes.error) throw new Error(pkgRes.error.message);
+        if (featRes.error) throw new Error(`Failed to load plan modules: ${featRes.error.message}`);
+        if (subsRes.error) console.warn("Failed to load subscriber count:", subsRes.error);
+
         const pkg: any = pkgRes.data;
         if (!pkg) {
           toast.error("Plan not found");
@@ -146,45 +148,27 @@ export default function SuperAdminPackageEdit() {
           max_customers: pkg.max_customers ?? 50,
           max_suppliers: pkg.max_suppliers ?? 10,
         });
-        const assignedModuleKeys = ALL_FEATURES.filter((feature) =>
-          (featRes.data || []).some((pf: any) => getCanonicalFeatureKey(pf.feature_key) === feature.key && pf.enabled),
-        ).map((feature) => feature.key);
-        setSelectedModuleKeys(assignedModuleKeys);
-        setSavedModuleKeys(assignedModuleKeys);
-        setSubscriberCount(businessRes.count ?? 0);
-        setLoading(false);
+        const enabledKeys = new Set(getEnabledCanonicalModules(featRes.data || [], id));
+        const toggles: Record<string, boolean> = Object.fromEntries(
+          ALL_FEATURES.map((feature) => [feature.key, enabledKeys.has(feature.key)]),
+        );
+        setFeatureToggles(toggles);
+        setSubscriberCount(
+          (subsRes.data || []).filter((s: any) => s.status === "active" || s.status === "trialing").length,
+        );
       } catch (error: any) {
-        console.error("Failed to load plan configuration", error);
-        toast.error(error.message || "Unable to load plan configuration. Please try again.");
+        console.error("Failed to load plan:", error);
+        toast.error(error?.message || "Failed to load plan");
+        navigate("/super-admin/packages");
+        return;
+      } finally {
         setLoading(false);
       }
     };
     load();
   }, [id, isNew, navigate]);
 
-  const selectedModuleSet = useMemo(() => new Set(selectedModuleKeys), [selectedModuleKeys]);
-  const enabledModuleCount = selectedModuleKeys.length;
-  const hasModuleChanges = useMemo(
-    () =>
-      selectedModuleKeys.length !== savedModuleKeys.length ||
-      selectedModuleKeys.some((key) => !savedModuleKeys.includes(key)),
-    [selectedModuleKeys, savedModuleKeys],
-  );
-
-  const toggleModule = (moduleKey: string) => {
-    setSelectedModuleKeys((currentKeys) => {
-      const enabled = currentKeys.includes(moduleKey);
-      const currentState = Object.fromEntries(
-        ALL_FEATURES.map((feature) => [feature.key, currentKeys.includes(feature.key)]),
-      );
-      const nextState = applyModuleToggleDependencyRule(moduleKey, !enabled, currentState);
-      if (nextState.blocked) {
-        toast.info(nextState.reason || "This module cannot be changed while its dependencies are active.");
-        return currentKeys;
-      }
-      return ALL_FEATURES.filter((feature) => nextState.next[feature.key]).map((feature) => feature.key);
-    });
-  };
+  const enabledModuleCount = useMemo(() => Object.values(featureToggles).filter(Boolean).length, [featureToggles]);
 
   const limitsConfigured = useMemo(() => {
     return [form.max_products, form.max_users, form.max_locations, form.max_customers, form.max_suppliers].filter(
@@ -240,24 +224,14 @@ export default function SuperAdminPackageEdit() {
 
       // Assign modules to plan using secure RPC (transactional)
       if (pkgId) {
-        const moduleResult = await updatePlanModules(pkgId, selectedModuleKeys);
+        const enabledModules = ALL_FEATURES.filter((feature) => featureToggles[feature.key] ?? false)
+          .map((feature) => getCanonicalFeatureKey(feature.key))
+          .filter(Boolean);
+
+        const moduleResult = await updatePlanModules(pkgId, [...new Set(enabledModules)]);
         if (!moduleResult.success) {
           throw new Error(moduleResult.message);
         }
-        const { data: refreshedFeatures, error: refreshError } = await supabase
-          .from("package_features")
-          .select("feature_key, enabled")
-          .eq("package_id", pkgId);
-        if (refreshError) throw refreshError;
-        const refreshedModuleKeys = ALL_FEATURES.filter((feature) =>
-          (refreshedFeatures || []).some(
-            (saved: any) => getCanonicalFeatureKey(saved.feature_key) === feature.key && saved.enabled,
-          ),
-        ).map((feature) => feature.key);
-        setSelectedModuleKeys(refreshedModuleKeys);
-        setSavedModuleKeys(refreshedModuleKeys);
-        await queryClient.invalidateQueries({ queryKey: ["sa-modules-features"] });
-        await queryClient.invalidateQueries({ queryKey: ["entitlement:plan_modules", pkgId] });
       } else {
         throw new Error("Failed to create plan - no ID returned");
       }
@@ -511,49 +485,51 @@ export default function SuperAdminPackageEdit() {
                 const accountingForced =
                   f.key === "accounting" && (featureToggles.banking || featureToggles.manual_journals);
 
+                const handleToggle = () => {
+                  const nextState = applyModuleToggleDependencyRule(f.key, !enabled, featureToggles);
+                  if (nextState.blocked) {
+                    toast.info(
+                      nextState.reason || "This change is not allowed for the current module dependency rules.",
+                    );
+                    return;
+                  }
+                  setFeatureToggles(nextState.next);
+                };
+
                 return (
                   <button
                     key={f.key}
                     type="button"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => toggleModule(f.key)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        toggleModule(f.key);
-                      }
-                    }}
+                    role="switch"
+                    aria-checked={enabled}
+                    aria-label={`${enabled ? "Disable" : "Enable"} ${f.label}`}
                     disabled={saving}
-                    aria-pressed={enabled}
-                    aria-label={`${f.label}: ${enabled ? "enabled" : "disabled"}`}
+                    onClick={handleToggle}
                     className={`text-left rounded-lg p-3 border transition-all flex items-start justify-between gap-3 w-full ${
-                      enabled
-                        ? "border-emerald-500 bg-emerald-50/40"
-                        : "border-border bg-white hover:border-muted-foreground/30"
-                    } ${accountingForced ? "opacity-90" : ""} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60`}
+                      enabled ? "border-primary bg-primary/5" : "border-border bg-background hover:border-primary/40"
+                    } ${accountingForced ? "opacity-90" : ""}`}
                   >
                     <div className="flex items-start gap-2.5 min-w-0">
                       <div
-                        className={`h-9 w-9 rounded-md flex items-center justify-center shrink-0 ${enabled ? "bg-white" : "bg-muted"}`}
+                        className={`h-9 w-9 rounded-md flex items-center justify-center shrink-0 ${enabled ? "bg-primary/10" : "bg-muted"}`}
                       >
-                        <f.Icon className={`h-4 w-4 ${enabled ? "text-emerald-600" : "text-muted-foreground"}`} />
+                        <f.Icon className={`h-4 w-4 ${enabled ? "text-primary" : "text-muted-foreground"}`} />
                       </div>
                       <div className="min-w-0">
                         <p className="font-semibold text-sm leading-tight">{f.label}</p>
                         <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{f.description}</p>
                         {dependsOnAccounting && enabled && (
-                          <p className="text-[10px] text-emerald-700 mt-1 font-medium">Requires Accounting</p>
+                          <p className="text-[10px] text-primary mt-1 font-medium">Requires Accounting</p>
                         )}
                         {accountingForced && (
-                          <p className="text-[10px] text-emerald-700 mt-1 font-medium">
+                          <p className="text-[10px] text-primary mt-1 font-medium">
                             Locked on by Banking / Manual Journals
                           </p>
                         )}
                       </div>
                     </div>
                     <div
-                      className={`h-5 w-5 rounded-full shrink-0 flex items-center justify-center ${enabled ? "bg-emerald-600 text-white" : "border border-border"}`}
+                      className={`h-5 w-5 rounded-full shrink-0 flex items-center justify-center ${enabled ? "bg-primary text-primary-foreground" : "border border-border"}`}
                     >
                       {enabled && <Check className="h-3 w-3" strokeWidth={3} />}
                     </div>
@@ -601,7 +577,7 @@ export default function SuperAdminPackageEdit() {
                             <span>{g.label}</span>
                             <Badge
                               variant="secondary"
-                              className={`text-[10px] px-1.5 py-0 h-4 ${count > 0 ? "bg-emerald-100 text-emerald-700" : ""}`}
+                              className={`text-[10px] px-1.5 py-0 h-4 ${count > 0 ? "bg-primary/10 text-primary" : ""}`}
                             >
                               {count}/{total}
                             </Badge>
@@ -624,12 +600,7 @@ export default function SuperAdminPackageEdit() {
 
           {/* Action buttons */}
           <div className="flex items-center gap-2">
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              aria-label={hasModuleChanges ? "Update plan with unsaved module changes" : "Update plan"}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
+            <Button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700 text-white">
               {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
               {isNew ? "Create plan" : "Update plan"}
             </Button>
