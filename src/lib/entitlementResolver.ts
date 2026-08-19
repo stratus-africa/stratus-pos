@@ -318,7 +318,7 @@ export async function updatePlanModules(
   }
 
   // data is of type { success: boolean, message: string }
-  return data as { success: boolean; message: string };
+  return (Array.isArray(data) ? data[0] : data) as { success: boolean; message: string };
 }
 
 /**
@@ -339,7 +339,7 @@ export async function createSubscriptionPlan(input: {
 }): Promise<{ success: boolean; message: string; package_id?: string }> {
   const { data, error } = await supabase.rpc("create_subscription_plan", {
     _name: input.name,
-    _description: input.description ?? undefined,
+    _description: input.description ?? "",
     _monthly_price_kes: input.monthly_price_kes,
     _yearly_price_kes: input.yearly_price_kes,
     _max_products: input.max_products,
@@ -355,7 +355,7 @@ export async function createSubscriptionPlan(input: {
     throw new Error(error.message);
   }
 
-  return data as { success: boolean; message: string; package_id?: string };
+  return (Array.isArray(data) ? data[0] : data) as { success: boolean; message: string; package_id?: string };
 }
 
 /**
@@ -381,7 +381,7 @@ export async function updateSubscriptionPlan(
   const { data, error } = await supabase.rpc("update_subscription_plan", {
     _package_id: planId,
     _name: input.name,
-    _description: input.description ?? undefined,
+    _description: input.description ?? "",
     _monthly_price_kes: input.monthly_price_kes,
     _yearly_price_kes: input.yearly_price_kes,
     _max_products: input.max_products,
@@ -398,5 +398,5 @@ export async function updateSubscriptionPlan(
     throw new Error(error.message);
   }
 
-  return data as { success: boolean; message: string };
+  return (Array.isArray(data) ? data[0] : data) as { success: boolean; message: string };
 }
