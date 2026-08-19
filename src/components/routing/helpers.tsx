@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
-import { useBusiness } from "@/contexts/BusinessContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useEntitlement } from "@/hooks/useEntitlement";
-import { findModule, getModuleRouteAccess } from "@/lib/modules";
+import { findModule } from "@/lib/modules";
 
 export const PageLoader = () => (
   <div className="flex min-h-[40vh] items-center justify-center">
@@ -43,8 +42,7 @@ export function PermissionGuard({
   route?: string;
   children: ReactNode;
 }) {
-  const { userRole } = useBusiness();
-  const { permissions, hasPermission, isLoading: permLoading } = usePermissions();
+  const { hasPermission, isLoading: permLoading } = usePermissions();
   // Use the canonical entitlement hook (businesses.selected_package_id → package_features).
   // This replaces the legacy useSubscription path which required an active billing
   // subscription and returned false for manually-approved tenants without a live
@@ -57,17 +55,23 @@ export function PermissionGuard({
     // Wait for both permissions and entitlement to finish loading.
     if (isLoading) return <PageLoader />;
 
-    const registryAccess = getModuleRouteAccess(moduleKey, route ?? findModule(moduleKey)?.route ?? undefined, {
-      role: userRole,
-      permissions,
-      subscriptions: new Set(),
-      // Use the canonical entitlement resolver rather than the legacy billing hook.
-      featureKey: hasModule,
-      moduleEnabled: () => true,
-      dependenciesReady: () => true,
-      setupComplete: () => true,
-    });
-    if (!registryAccess.allowed) return <AccessDenied />;
+    const module = findModule(moduleKey);
+    const normalizedRoute = (route ?? module?.route ?? "").split("?")[0].split("#")[0].trim();
+    const routeMatches =
+      !!module &&
+      (!normalizedRoute ||
+        normalizedRoute === module.route ||
+        module.navigation.some((item) => {
+          const candidate = item.route.split("?")[0].split("#")[0].trim();
+          return candidate === normalizedRoute || normalizedRoute.startsWith(`${candidate}/`);
+        }));
+
+    // The route's explicit permission is authoritative for the current user.
+    // Module roles are used for navigation defaults, but must not override a
+    // permission granted by the business administrator.
+    if (!module || !hasModule(moduleKey) || !routeMatches || (permission && !hasPermission(permission))) {
+      return <AccessDenied />;
+    }
     return <>{children}</>;
   }
 
