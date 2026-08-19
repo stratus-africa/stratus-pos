@@ -1,97 +1,302 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "@/lib/router-compat";
+import { useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
+import { createSubscriptionPlan, updateSubscriptionPlan, updatePlanModules } from "@/lib/entitlementResolver";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { APP_MODULES, getEnabledCanonicalModules } from "@/lib/modules";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Plus,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import {
+  APP_MODULES,
+  applyModuleToggleDependencyRule,
+  getCanonicalFeatureKey,
+  moduleGroupLabels,
+  type ModuleGroup,
+} from "@/lib/modules";
+import {
+  ArrowLeft,
   Tag,
-  Pencil,
+  Save,
   Loader2,
+  AlertTriangle,
+  Trash2,
+  Check,
   Package,
   Users,
   Warehouse,
   Contact,
   Truck,
-  Settings2,
-  Infinity as InfinityIcon,
-  LayoutGrid,
+  Info,
+  ShoppingCart,
+  Briefcase,
+  Calculator,
+  Store,
+  ArrowLeftRight,
+  Wrench,
+  Sparkles,
+  ListChecks,
+  LayoutDashboard,
+  Boxes,
+  Receipt,
+  ShoppingBag,
+  BarChart3,
+  Wallet,
+  BookOpen,
+  FileCheck,
 } from "lucide-react";
 
-interface PackageData {
-  id: string;
+const ALL_FEATURES = APP_MODULES;
+
+interface Form {
   name: string;
-  description: string | null;
+  slug: string;
   monthly_price_kes: number;
   yearly_price_kes: number;
-  max_locations: number;
+  is_active: boolean;
+  is_private: boolean;
+  free_trial: boolean;
+  trial_days: number;
   max_products: number;
   max_users: number;
-  trial_days: number;
-  is_active: boolean;
-  sort_order: number;
+  max_locations: number;
+  max_customers: number;
+  max_suppliers: number;
 }
 
-interface PackageFeature {
-  id: string;
-  package_id: string;
-  feature_key: string;
-  feature_label: string;
-  enabled: boolean;
-}
-
-const PALETTES = [
-  { iconBg: "bg-violet-100", iconFg: "text-violet-600" },
-  { iconBg: "bg-emerald-100", iconFg: "text-emerald-600" },
-  { iconBg: "bg-emerald-600", iconFg: "text-white" },
-  { iconBg: "bg-blue-100", iconFg: "text-blue-600" },
-];
+const emptyForm: Form = {
+  name: "",
+  slug: "",
+  monthly_price_kes: 0,
+  yearly_price_kes: 0,
+  is_active: true,
+  is_private: false,
+  free_trial: false,
+  trial_days: 14,
+  max_products: 50,
+  max_users: 1,
+  max_locations: 1,
+  max_customers: 50,
+  max_suppliers: 10,
+};
 
 const fmtKes = (n: number) =>
   `KES ${new Intl.NumberFormat("en-KE", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n)}`;
 
-const isUnlimited = (n: number) => n < 0 || n >= 9999;
-
-const LimitRow = ({ Icon, label, value }: { Icon: React.ElementType; label: string; value: number }) => (
-  <div className="flex items-center justify-between py-1.5 text-sm">
-    <span className="flex items-center gap-2 text-muted-foreground">
-      <Icon className="h-3.5 w-3.5" /> {label}
-    </span>
-    <span className="font-semibold">
-      {isUnlimited(value) ? <InfinityIcon className="h-4 w-4 inline" /> : value.toLocaleString()}
-    </span>
-  </div>
-);
-
-export default function SuperAdminPackages() {
+export default function SuperAdminPackageEdit() {
+  const { id } = useParams<{ id: string }>();
+  const isNew = !id || id === "new";
   const navigate = useNavigate();
-  const [packages, setPackages] = useState<PackageData[]>([]);
-  const [features, setFeatures] = useState<PackageFeature[]>([]);
-  const [subCounts, setSubCounts] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(true);
-  const fetchAll = async () => {
-    const [pkgRes, featRes, businessesRes] = await Promise.all([
-      supabase.from("subscription_packages").select("*").order("sort_order"),
-      supabase.from("package_features").select("*"),
-      supabase.from("businesses").select("id, selected_package_id").not("selected_package_id", "is", null),
-    ]);
-    setPackages((pkgRes.data as any) || []);
-    setFeatures((featRes.data as PackageFeature[]) || []);
+  const queryClient = useQueryClient();
 
-    const counts: Record<string, number> = {};
-    (businessesRes.data || []).forEach((business: any) => {
-      if (business.selected_package_id) {
-        counts[business.selected_package_id] = (counts[business.selected_package_id] || 0) + 1;
-      }
-    });
-    setSubCounts(counts);
-    setLoading(false);
-  };
+  const [form, setForm] = useState<Form>(emptyForm);
+  const [featureToggles, setFeatureToggles] = useState<Record<string, boolean>>(
+    Object.fromEntries(ALL_FEATURES.map((f) => [f.key, false])), // Default to disabled for new plans
+  );
+  const [savedFeatureToggles, setSavedFeatureToggles] = useState<Record<string, boolean>>(
+    Object.fromEntries(ALL_FEATURES.map((f) => [f.key, false])),
+  );
+  const [activeModuleGroup, setActiveModuleGroup] = useState<ModuleGroup>("core");
+  const [loading, setLoading] = useState(!isNew);
+  const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [subscriberCount, setSubscriberCount] = useState(0);
 
   useEffect(() => {
-    fetchAll();
-  }, []);
+    if (isNew) return;
+    const load = async () => {
+      try {
+        const [pkgRes, featRes, businessRes] = await Promise.all([
+          supabase.from("subscription_packages").select("*").eq("id", id).maybeSingle(),
+          supabase.from("package_features").select("*").eq("package_id", id),
+          supabase.from("businesses").select("id", { count: "exact", head: true }).eq("selected_package_id", id),
+        ]);
+        if (pkgRes.error) throw pkgRes.error;
+        if (featRes.error) throw featRes.error;
+        if (businessRes.error) throw businessRes.error;
+        const pkg: any = pkgRes.data;
+        if (!pkg) {
+          toast.error("Plan not found");
+          navigate("/super-admin/packages");
+          return;
+        }
+        setForm({
+          name: pkg.name,
+          slug: pkg.name.toLowerCase().replace(/\s+/g, ""),
+          monthly_price_kes: Number(pkg.monthly_price_kes || 0),
+          yearly_price_kes: Number(pkg.yearly_price_kes || 0),
+          is_active: pkg.is_active,
+          is_private: pkg.is_public === false,
+          free_trial: (pkg.trial_days || 0) > 0,
+          trial_days: pkg.trial_days || 14,
+          max_products: pkg.max_products,
+          max_users: pkg.max_users,
+          max_locations: pkg.max_locations,
+          max_customers: pkg.max_customers ?? 50,
+          max_suppliers: pkg.max_suppliers ?? 10,
+        });
+        const toggles: Record<string, boolean> = {};
+        ALL_FEATURES.forEach((f) => {
+          const existing = (featRes.data || []).find(
+            (pf: any) => getCanonicalFeatureKey(pf.feature_key) === f.key && pf.enabled,
+          );
+          toggles[f.key] = existing?.enabled ?? false;
+        });
+        setFeatureToggles(toggles);
+        setSavedFeatureToggles(toggles);
+        setSubscriberCount(businessRes.count ?? 0);
+        setLoading(false);
+      } catch (error: any) {
+        console.error("Failed to load plan configuration", error);
+        toast.error(error.message || "Unable to load plan configuration. Please try again.");
+        setLoading(false);
+      }
+    };
+    load();
+  }, [id, isNew, navigate]);
+
+  const enabledModuleCount = useMemo(() => Object.values(featureToggles).filter(Boolean).length, [featureToggles]);
+  const hasModuleChanges = useMemo(
+    () => ALL_FEATURES.some((feature) => featureToggles[feature.key] !== savedFeatureToggles[feature.key]),
+    [featureToggles, savedFeatureToggles],
+  );
+
+  const toggleModule = (moduleKey: string) => {
+    setFeatureToggles((currentState) => {
+      const enabled = currentState[moduleKey] ?? false;
+      const nextState = applyModuleToggleDependencyRule(moduleKey, !enabled, currentState);
+      if (nextState.blocked) {
+        toast.info(nextState.reason || "This module cannot be changed while its dependencies are active.");
+        return currentState;
+      }
+      return { ...currentState, ...nextState.next, [moduleKey]: !enabled };
+    });
+  };
+
+  const limitsConfigured = useMemo(() => {
+    return [form.max_products, form.max_users, form.max_locations, form.max_customers, form.max_suppliers].filter(
+      (v) => v > 0,
+    ).length;
+  }, [form]);
+
+  const handleSave = async () => {
+    if (!form.name.trim()) {
+      toast.error("Plan name is required");
+      return;
+    }
+    setSaving(true);
+    try {
+      let pkgId: string | null = id || null;
+
+      // Create or update plan metadata using secure RPC
+      if (isNew) {
+        const result = await createSubscriptionPlan({
+          name: form.name.trim(),
+          monthly_price_kes: form.monthly_price_kes,
+          yearly_price_kes: form.yearly_price_kes,
+          max_products: form.max_products,
+          max_users: form.max_users,
+          max_locations: form.max_locations,
+          max_customers: form.max_customers,
+          max_suppliers: form.max_suppliers,
+          trial_days: form.free_trial ? form.trial_days : 0,
+        });
+
+        if (!result.success) {
+          throw new Error(result.message);
+        }
+        pkgId = result.package_id || null;
+      } else {
+        const result = await updateSubscriptionPlan(id!, {
+          name: form.name.trim(),
+          monthly_price_kes: form.monthly_price_kes,
+          yearly_price_kes: form.yearly_price_kes,
+          max_products: form.max_products,
+          max_users: form.max_users,
+          max_locations: form.max_locations,
+          max_customers: form.max_customers,
+          max_suppliers: form.max_suppliers,
+          trial_days: form.free_trial ? form.trial_days : 0,
+          is_active: form.is_active,
+        });
+
+        if (!result.success) {
+          throw new Error(result.message);
+        }
+      }
+
+      // Assign modules to plan using secure RPC (transactional)
+      if (pkgId) {
+        const enabledModules = ALL_FEATURES.filter((f) => featureToggles[f.key] ?? false).map((f) => f.key);
+
+        const moduleResult = await updatePlanModules(pkgId, enabledModules);
+        if (!moduleResult.success) {
+          throw new Error(moduleResult.message);
+        }
+        const { data: refreshedFeatures, error: refreshError } = await supabase
+          .from("package_features")
+          .select("feature_key, enabled")
+          .eq("package_id", pkgId);
+        if (refreshError) throw refreshError;
+        const refreshedToggles = Object.fromEntries(
+          ALL_FEATURES.map((feature) => [
+            feature.key,
+            (refreshedFeatures || []).some(
+              (saved: any) => getCanonicalFeatureKey(saved.feature_key) === feature.key && saved.enabled,
+            ),
+          ]),
+        );
+        setFeatureToggles(refreshedToggles);
+        setSavedFeatureToggles(refreshedToggles);
+        await queryClient.invalidateQueries({ queryKey: ["sa-modules-features"] });
+        await queryClient.invalidateQueries({ queryKey: ["entitlement:plan_modules", pkgId] });
+      } else {
+        throw new Error("Failed to create plan - no ID returned");
+      }
+
+      toast.success(isNew ? "Plan created" : "Plan updated");
+      navigate("/super-admin/packages");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to save plan");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!id || isNew) return;
+    if (subscriberCount > 0) {
+      toast.error("Cannot delete a plan with active subscribers.");
+      setConfirmDelete(false);
+      return;
+    }
+    setDeleting(true);
+    try {
+      await supabase.from("package_features").delete().eq("package_id", id);
+      const { error } = await supabase.from("subscription_packages").delete().eq("id", id);
+      if (error) throw error;
+      toast.success("Plan deleted");
+      navigate("/super-admin/packages");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to delete plan");
+      setDeleting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -103,137 +308,453 @@ export default function SuperAdminPackages() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Plans</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage subscription plans, pricing, limits and module access.
-          </p>
+      {/* Header — flush to top, no close button */}
+      <div>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
+          <Link to="/super-admin/packages" className="hover:text-foreground inline-flex items-center gap-1">
+            <ArrowLeft className="h-3 w-3" /> Plans
+          </Link>
+          <span>/</span>
+          <span className="text-foreground font-medium">{form.name || "New plan"}</span>
         </div>
-        <Button
-          onClick={() => navigate("/super-admin/packages/new")}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white"
-        >
-          <Plus className="h-4 w-4 mr-1.5" /> New plan
-        </Button>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">{isNew ? "New plan" : "Edit plan"}</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {isNew
+                ? "Create a billing plan with limits and module access."
+                : `Update pricing, limits, and modules for ${form.name}.`}
+            </p>
+          </div>
+          <Badge
+            className={
+              form.is_active
+                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                : "bg-muted text-muted-foreground"
+            }
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full mr-1.5 ${form.is_active ? "bg-emerald-500" : "bg-muted-foreground"}`}
+            />
+            {form.is_active ? "Active" : "Inactive"}
+          </Badge>
+        </div>
       </div>
 
-      {packages.length === 0 ? (
-        <div className="bg-white border border-border rounded-xl p-16 text-center">
-          <Tag className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
-          <p className="text-sm text-muted-foreground">No plans yet. Click "New plan" to get started.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {packages.map((pkg, idx) => {
-            const palette = PALETTES[idx % PALETTES.length];
-            const enabledModuleKeys = getEnabledCanonicalModules(features, pkg.id);
-            const enabledModules = APP_MODULES.filter((mod) => enabledModuleKeys.includes(mod.key));
-            const slug = pkg.name.toLowerCase().replace(/\s+/g, "");
-            const monthly = Number(pkg.monthly_price_kes || 0);
-            const yearly = Number(pkg.yearly_price_kes || 0);
-            const savePct =
-              monthly > 0 && yearly > 0 ? Math.max(0, Math.round((1 - yearly / (monthly * 12)) * 100)) : 0;
-            const subscribers = subCounts[pkg.id] || 0;
-
-            return (
-              <div key={pkg.id} className="bg-white border border-border rounded-xl overflow-hidden flex flex-col">
-                <div className="p-5 flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className={`h-11 w-11 rounded-lg ${palette.iconBg} flex items-center justify-center shrink-0`}>
-                      <Tag className={`h-5 w-5 ${palette.iconFg}`} />
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="font-bold text-lg leading-tight truncate">{pkg.name}</h3>
-                      <p className="text-xs text-muted-foreground mt-0.5">{slug}</p>
-                    </div>
-                  </div>
-                  <Badge
-                    className={
-                      pkg.is_active
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                        : "bg-muted text-muted-foreground"
-                    }
-                  >
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full mr-1.5 ${pkg.is_active ? "bg-emerald-500" : "bg-muted-foreground"}`}
-                    />
-                    {pkg.is_active ? "Active" : "Inactive"}
-                  </Badge>
-                </div>
-
-                <div className="px-5 pb-4">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-bold tracking-tight">{fmtKes(monthly)}</span>
-                    <span className="text-sm text-muted-foreground">/ mo</span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-sm text-muted-foreground">{fmtKes(yearly)} / yr</span>
-                    {savePct > 0 && (
-                      <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] py-0 h-5">
-                        Save {savePct}%
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-
-                <div className="px-5 py-4 border-t border-border">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Limits</span>
-                    <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] py-0 h-4 px-1.5">
-                      5
-                    </Badge>
-                  </div>
-                  <LimitRow Icon={Package} label="Products" value={pkg.max_products} />
-                  <LimitRow Icon={Users} label="Users" value={pkg.max_users} />
-                  <LimitRow Icon={Warehouse} label="Warehouses" value={pkg.max_locations} />
-                  <LimitRow Icon={Contact} label="Customers" value={(pkg as any).max_customers ?? -1} />
-                  <LimitRow Icon={Truck} label="Suppliers" value={(pkg as any).max_suppliers ?? -1} />
-                </div>
-
-                <div className="px-5 py-4 border-t border-border flex-1">
-                  <div className="flex items-center gap-2 mb-2.5">
-                    <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Modules
-                    </span>
-                    <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] py-0 h-4 px-1.5">
-                      {enabledModules.length}
-                    </Badge>
-                  </div>
-                  {enabledModules.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No modules enabled.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-1.5">
-                      {enabledModules.map((mod) => (
-                        <Badge
-                          key={mod.key}
-                          className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-normal"
-                        >
-                          {mod.label}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="px-5 py-3.5 border-t border-border flex items-center justify-between bg-muted/30">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Users className="h-3 w-3" />
-                    {subscribers} subscriber{subscribers === 1 ? "" : "s"}
-                  </div>
-                  <Button asChild size="sm" variant="outline" className="h-8 text-xs">
-                    <Link to={`/super-admin/packages/${pkg.id}/edit`}>
-                      <Pencil className="h-3 w-3 mr-1" /> Edit
-                    </Link>
-                  </Button>
-                </div>
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
+        {/* Main column */}
+        <div className="space-y-5">
+          {/* Plan details */}
+          <section className="bg-white border border-border rounded-xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Tag className="h-4 w-4 text-muted-foreground" />
+              <h2 className="font-semibold text-sm">Plan details</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs">
+                  Plan name <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  value={form.name}
+                  onChange={(e) =>
+                    setForm({ ...form, name: e.target.value, slug: e.target.value.toLowerCase().replace(/\s+/g, "") })
+                  }
+                  placeholder="Starter"
+                  className="h-10"
+                />
               </div>
-            );
-          })}
+              <div className="space-y-1.5">
+                <Label className="text-xs">
+                  Slug <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  value={form.slug}
+                  onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                  placeholder="starter"
+                  className="h-10"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">
+                  Monthly price (KES) <span className="text-red-500">*</span>
+                </Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-semibold">
+                    KES
+                  </span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.monthly_price_kes}
+                    onChange={(e) => setForm({ ...form, monthly_price_kes: Number(e.target.value) })}
+                    className="h-10 pl-12"
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground">Price charged per month in Kenyan Shillings.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">
+                  Yearly price (KES) <span className="text-red-500">*</span>
+                </Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-semibold">
+                    KES
+                  </span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.yearly_price_kes}
+                    onChange={(e) => setForm({ ...form, yearly_price_kes: Number(e.target.value) })}
+                    className="h-10 pl-12"
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Price charged per year. Set 0 to disable yearly billing.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <Checkbox
+                  checked={form.is_active}
+                  onCheckedChange={(v) => setForm({ ...form, is_active: !!v })}
+                  className="mt-0.5 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                />
+                <div>
+                  <span className="text-sm font-medium">Active</span>
+                  <p className="text-xs text-muted-foreground">
+                    Inactive plans won't be available for new subscriptions.
+                  </p>
+                </div>
+              </label>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <Checkbox
+                  checked={form.is_private}
+                  onCheckedChange={(v) => setForm({ ...form, is_private: !!v })}
+                  className="mt-0.5 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                />
+                <div>
+                  <span className="text-sm font-medium">🔒 Private Plan</span>
+                  <p className="text-xs text-muted-foreground">
+                    Private plans are hidden from the landing page, registration form, and tenant billing page. Only a
+                    super admin can assign them to tenants.
+                  </p>
+                </div>
+              </label>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <Checkbox
+                  checked={form.free_trial}
+                  onCheckedChange={(v) => setForm({ ...form, free_trial: !!v })}
+                  className="mt-0.5 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                />
+                <div>
+                  <span className="text-sm font-medium">Free trial</span>
+                  <p className="text-xs text-muted-foreground">Allow users to try this plan for free before paying.</p>
+                </div>
+              </label>
+            </div>
+          </section>
+
+          {/* Usage limits */}
+          <section className="bg-white border border-border rounded-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Info className="h-4 w-4 text-muted-foreground" />
+                <h2 className="font-semibold text-sm">Usage limits</h2>
+              </div>
+              <span className="text-xs text-muted-foreground">Use 0 or any negative value (e.g. -1) for unlimited</span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+              {[
+                { key: "max_products", label: "Products", Icon: Package },
+                { key: "max_users", label: "Users", Icon: Users },
+                { key: "max_locations", label: "Warehouses", Icon: Warehouse },
+                { key: "max_customers", label: "Customers", Icon: Contact },
+                { key: "max_suppliers", label: "Suppliers", Icon: Truck },
+              ].map(({ key, label, Icon }) => (
+                <div key={key} className="border border-border rounded-lg p-3">
+                  <div className="flex items-center gap-1.5 mb-2 text-xs text-muted-foreground">
+                    <Icon className="h-3.5 w-3.5" /> {label}
+                  </div>
+                  <Input
+                    type="number"
+                    step="1"
+                    value={(form as any)[key]}
+                    onChange={(e) => setForm({ ...form, [key]: Number(e.target.value) } as Form)}
+                    className="h-9 text-sm"
+                    placeholder="∞"
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Modules */}
+          <section className="bg-white border border-border rounded-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <ListChecks className="h-4 w-4 text-muted-foreground" />
+                <h2 className="font-semibold text-sm">Modules</h2>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {Object.values(featureToggles).filter(Boolean).length} of {ALL_FEATURES.length} enabled
+              </span>
+            </div>
+
+            {(() => {
+              const GROUPS: { key: ModuleGroup; label: string; accent: string }[] = [
+                { key: "core", label: moduleGroupLabels.core, accent: "text-emerald-700" },
+                { key: "accounting", label: moduleGroupLabels.accounting, accent: "text-blue-700" },
+                { key: "premium", label: moduleGroupLabels.premium, accent: "text-purple-700" },
+              ];
+
+              const moduleCard = (f: (typeof ALL_FEATURES)[number]) => {
+                const enabled = featureToggles[f.key] ?? false;
+                const dependsOnAccounting = f.key === "banking" || f.key === "manual_journals";
+                const accountingForced =
+                  f.key === "accounting" && (featureToggles.banking || featureToggles.manual_journals);
+
+                return (
+                  <button
+                    key={f.key}
+                    type="button"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => toggleModule(f.key)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        toggleModule(f.key);
+                      }
+                    }}
+                    disabled={saving}
+                    aria-pressed={enabled}
+                    aria-label={`${f.label}: ${enabled ? "enabled" : "disabled"}`}
+                    className={`text-left rounded-lg p-3 border transition-all flex items-start justify-between gap-3 w-full ${
+                      enabled
+                        ? "border-emerald-500 bg-emerald-50/40"
+                        : "border-border bg-white hover:border-muted-foreground/30"
+                    } ${accountingForced ? "opacity-90" : ""} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60`}
+                  >
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <div
+                        className={`h-9 w-9 rounded-md flex items-center justify-center shrink-0 ${enabled ? "bg-white" : "bg-muted"}`}
+                      >
+                        <f.Icon className={`h-4 w-4 ${enabled ? "text-emerald-600" : "text-muted-foreground"}`} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm leading-tight">{f.label}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{f.description}</p>
+                        {dependsOnAccounting && enabled && (
+                          <p className="text-[10px] text-emerald-700 mt-1 font-medium">Requires Accounting</p>
+                        )}
+                        {accountingForced && (
+                          <p className="text-[10px] text-emerald-700 mt-1 font-medium">
+                            Locked on by Banking / Manual Journals
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div
+                      className={`h-5 w-5 rounded-full shrink-0 flex items-center justify-center ${enabled ? "bg-emerald-600 text-white" : "border border-border"}`}
+                    >
+                      {enabled && <Check className="h-3 w-3" strokeWidth={3} />}
+                    </div>
+                  </button>
+                );
+              };
+
+              return (
+                <>
+                  {/* Mobile: dropdown group selector */}
+                  <div className="sm:hidden mb-3">
+                    <Select value={activeModuleGroup} onValueChange={(v) => setActiveModuleGroup(v as ModuleGroup)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {GROUPS.map((g) => {
+                          const count = ALL_FEATURES.filter((f) => f.group === g.key && featureToggles[f.key]).length;
+                          return (
+                            <SelectItem key={g.key} value={g.key}>
+                              {g.label}
+                              {count > 0 && ` (${count})`}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <div className="grid grid-cols-1 gap-3 mt-3">
+                      {ALL_FEATURES.filter((f) => f.group === activeModuleGroup).map(moduleCard)}
+                    </div>
+                  </div>
+
+                  {/* Desktop: tabs */}
+                  <Tabs
+                    value={activeModuleGroup}
+                    onValueChange={(v) => setActiveModuleGroup(v as ModuleGroup)}
+                    className="hidden sm:block"
+                  >
+                    <TabsList className="mb-4 w-full grid grid-cols-3">
+                      {GROUPS.map((g) => {
+                        const count = ALL_FEATURES.filter((f) => f.group === g.key && featureToggles[f.key]).length;
+                        const total = ALL_FEATURES.filter((f) => f.group === g.key).length;
+                        return (
+                          <TabsTrigger key={g.key} value={g.key} className="gap-1.5">
+                            <span>{g.label}</span>
+                            <Badge
+                              variant="secondary"
+                              className={`text-[10px] px-1.5 py-0 h-4 ${count > 0 ? "bg-emerald-100 text-emerald-700" : ""}`}
+                            >
+                              {count}/{total}
+                            </Badge>
+                          </TabsTrigger>
+                        );
+                      })}
+                    </TabsList>
+                    {GROUPS.map((g) => (
+                      <TabsContent key={g.key} value={g.key} className="mt-0">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {ALL_FEATURES.filter((f) => f.group === g.key).map(moduleCard)}
+                        </div>
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                </>
+              );
+            })()}
+          </section>
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              aria-label={hasModuleChanges ? "Update plan with unsaved module changes" : "Update plan"}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+              {isNew ? "Create plan" : "Update plan"}
+            </Button>
+            <Button variant="ghost" onClick={() => navigate("/super-admin/packages")} disabled={saving}>
+              Cancel
+            </Button>
+          </div>
+
+          {/* Danger zone */}
+          {!isNew && (
+            <section className="bg-white border border-border rounded-xl p-5">
+              <div className="flex items-center gap-2 mb-3 text-red-600">
+                <AlertTriangle className="h-4 w-4" />
+                <h2 className="font-semibold text-sm">Danger zone</h2>
+              </div>
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <p className="text-sm font-medium">Delete this plan</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Once deleted, this plan cannot be recovered. Plans with active subscribers cannot be deleted.
+                  </p>
+                </div>
+                <Button
+                  variant="destructive"
+                  onClick={() => setConfirmDelete(true)}
+                  disabled={subscriberCount > 0}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  <Trash2 className="h-4 w-4 mr-1.5" /> Delete plan
+                </Button>
+              </div>
+            </section>
+          )}
         </div>
-      )}
+
+        {/* Summary sidebar */}
+        <aside className="space-y-5">
+          <section className="bg-white border border-border rounded-xl p-5 sticky top-20">
+            <div className="flex items-center gap-2 mb-4">
+              <Info className="h-4 w-4 text-muted-foreground" />
+              <h2 className="font-semibold text-sm">Plan summary</h2>
+            </div>
+            <dl className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Name</dt>
+                <dd className="font-semibold">{form.name || "—"}</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Monthly</dt>
+                <dd className="font-semibold">{fmtKes(form.monthly_price_kes)} / mo</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Yearly</dt>
+                <dd className="font-semibold">{fmtKes(form.yearly_price_kes)} / yr</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Limits</dt>
+                <dd className="font-semibold">{limitsConfigured} configured</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Modules</dt>
+                <dd className="font-semibold">{enabledModuleCount} enabled</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Subscribers</dt>
+                <dd className="font-semibold">{subscriberCount}</dd>
+              </div>
+            </dl>
+
+            <div className="mt-5 pt-4 border-t border-border">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                Active modules
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {ALL_FEATURES.filter((f) => featureToggles[f.key]).map((f) => (
+                  <Badge
+                    key={f.key}
+                    className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-normal"
+                  >
+                    {f.label}
+                  </Badge>
+                ))}
+                {enabledModuleCount === 0 && <span className="text-xs text-muted-foreground">None</span>}
+              </div>
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this plan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{form.name}" will be permanently removed along with its feature configuration. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Keep plan</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Deleting…
+                </>
+              ) : (
+                "Yes, delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
