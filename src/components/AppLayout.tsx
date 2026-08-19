@@ -88,7 +88,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <SubscriptionExpiredBanner />
 
           <TopBar />
-          <main className="flex-1 overflow-auto p-3 sm:p-4 lg:p-6 pb-20 lg:pb-6">{children}</main>
+          <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain scroll-smooth p-3 sm:p-4 lg:p-6 pb-[calc(7.5rem+env(safe-area-inset-bottom))] lg:pb-6">
+            {children}
+          </main>
           <MobileBottomNav />
         </div>
         <CommandPalette />
