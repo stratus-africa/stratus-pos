@@ -25,6 +25,7 @@ import {
   type AppRole,
   CONFIGURED_MARKER,
   type ModuleDef,
+  normalizePermissions,
 } from "@/lib/permissions";
 
 interface TeamMember {
@@ -107,7 +108,11 @@ export function RolesPermissionsTab() {
         next[row.role].push(row.permission);
       });
     }
-    setRolePermissions(next);
+    setRolePermissions(
+      Object.fromEntries(
+        Object.entries(next).map(([role, permissions]) => [role, normalizePermissions(permissions)]),
+      ) as Record<AppRole, string[]>,
+    );
   };
 
   const fetchMembers = async () => {
@@ -187,12 +192,13 @@ export function RolesPermissionsTab() {
 
   const openEditRole = (role: AppRole) => {
     setEditingRole(role);
-    setEditPerms([...(rolePermissions[role] || [])]);
+    setEditPerms(normalizePermissions(rolePermissions[role] || []));
   };
 
   // Cascade rules:
   //   - Enabling edit/delete auto-enables view + create
-  //   - Disabling view auto-disables create/edit/delete
+  //   - Enabling create auto-enables view
+  //   - Disabling view/create auto-disables dependent actions
   const togglePerm = (perm: string) => {
     setEditPerms((prev) => {
       const set = new Set(prev);
@@ -204,19 +210,24 @@ export function RolesPermissionsTab() {
 
       if (turningOn) {
         set.add(perm);
-        if (mod && (action === "edit" || action === "delete")) {
+        if (mod && (action === "create" || action === "edit" || action === "delete")) {
           if (mod.actions.includes("view")) set.add(permKey(mod.key, "view"));
-          if (mod.actions.includes("create")) set.add(permKey(mod.key, "create"));
+        }
+        if (mod && (action === "edit" || action === "delete") && mod.actions.includes("create")) {
+          set.add(permKey(mod.key, "create"));
+        }
+        if (mod && action === "delete" && mod.actions.includes("edit")) {
+          set.add(permKey(mod.key, "edit"));
         }
       } else {
         set.delete(perm);
-        if (mod && action === "view") {
-          (["create", "edit", "delete"] as const).forEach((a) => {
+        if (mod && (action === "view" || action === "create")) {
+          (action === "view" ? ["create", "edit", "delete"] : (["edit", "delete"] as const)).forEach((a) => {
             if (mod.actions.includes(a)) set.delete(permKey(mod.key, a));
           });
         }
       }
-      return Array.from(set);
+      return normalizePermissions(set);
     });
   };
 
@@ -236,7 +247,8 @@ export function RolesPermissionsTab() {
         .eq("role", editingRole);
       if (delErr) throw delErr;
       {
-        const rows = [...editPerms, CONFIGURED_MARKER].map((permission) => ({
+        const normalizedPerms = normalizePermissions(editPerms);
+        const rows = [...normalizedPerms, CONFIGURED_MARKER].map((permission) => ({
           business_id: business.id,
           role: editingRole,
           permission,
@@ -244,7 +256,7 @@ export function RolesPermissionsTab() {
         const { error: insErr } = await (supabase as any).from("role_permissions").insert(rows);
         if (insErr) throw insErr;
       }
-      setRolePermissions((prev) => ({ ...prev, [editingRole]: editPerms }));
+      setRolePermissions((prev) => ({ ...prev, [editingRole]: normalizePermissions(editPerms) }));
       toast.success(`${roleDescriptions[editingRole].label} permissions saved`);
       setEditingRole(null);
     } catch (err: any) {
