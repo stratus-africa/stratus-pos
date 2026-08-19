@@ -1,5 +1,4 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { useLocation } from "@tanstack/react-router";
 import {
   applyTheme,
   DEFAULT_MODE,
@@ -10,37 +9,47 @@ import {
   THEMES,
   type ThemeKey,
   type ThemeMode,
-  type ThemeScope,
 } from "@/lib/themes";
 
-function getScope(pathname: string): ThemeScope {
-  return pathname.startsWith("/super-admin") ? "super-admin" : "tenant";
-}
-
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const { pathname } = useLocation();
-  const scope = getScope(pathname);
-  const [theme, setThemeState] = useState<ThemeKey>(() => getInitialTheme(scope));
+  const [theme, setThemeState] = useState<ThemeKey>(() => getInitialTheme());
   const [mode, setModeState] = useState<ThemeMode>(() => getInitialMode());
 
   useEffect(() => {
-    const storedTheme = getInitialTheme(scope);
-    setThemeState(storedTheme);
-    applyTheme(storedTheme, scope, mode);
-  }, [scope, mode]);
+    let cancelled = false;
+
+    const loadGlobalBranding = async () => {
+      try {
+        const { supabase } = await import("@/integrations/supabase/client");
+        const { data } = await (supabase as any).from("app_settings").select("value").eq("key", "global").maybeSingle();
+        const configured = (data?.value as { theme_color?: string } | null)?.theme_color;
+        if (!cancelled && configured && configured in THEMES) {
+          setThemeState(configured as ThemeKey);
+          applyTheme(configured, undefined, mode);
+        }
+      } catch {
+        // Keep the locally cached/default theme if global branding is unavailable.
+      }
+    };
+
+    void loadGlobalBranding();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
-    applyTheme(theme, scope, mode);
-  }, [mode, scope, theme]);
+    applyTheme(theme, undefined, mode);
+  }, [mode, theme]);
 
-  const setTheme = (nextTheme: ThemeKey, nextScope: ThemeScope = scope) => {
+  const setTheme = (nextTheme: ThemeKey) => {
     setThemeState(nextTheme);
-    applyTheme(nextTheme, nextScope, mode);
+    applyTheme(nextTheme, undefined, mode);
   };
 
   const setMode = (nextMode: ThemeMode) => {
     setModeState(nextMode);
-    applyTheme(theme, scope, nextMode);
+    applyTheme(theme, undefined, nextMode);
   };
 
   return (
