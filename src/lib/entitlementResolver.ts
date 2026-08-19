@@ -83,7 +83,8 @@ export type EntitlementResolutionStatus =
   | "subscription_inactive"
   | "package_not_found"
   | "no_enabled_features"
-  | "modules_resolved";
+  | "modules_resolved"
+  | "db_error";
 
 export async function resolveBusinessEntitlement(input: {
   business?: { id?: string | null; owner_id?: string | null; selected_package_id?: string | null } | null;
@@ -102,10 +103,15 @@ export async function resolveBusinessEntitlement(input: {
       packageFeatures: [],
       enabledModules: [],
       resolutionStatus: "no_business" as EntitlementResolutionStatus,
+      error: null as string | null,
     };
   }
 
-  const packageId = business.selected_package_id || activeSubscription?.product_id || null;
+  // AUTHORITATIVE: businesses.selected_package_id is the ONLY application-level
+  // package assignment. subscriptions.product_id is a billing-provider reference
+  // and must not be used as the application package ID.
+  const packageId = business.selected_package_id ?? null;
+
   if (!packageId) {
     return {
       hasPlan: false,
@@ -115,7 +121,8 @@ export async function resolveBusinessEntitlement(input: {
       packageName: null,
       packageFeatures: [],
       enabledModules: [],
-      resolutionStatus: activeSubscription ? "subscription_inactive" : ("no_plan" as EntitlementResolutionStatus),
+      resolutionStatus: "no_plan" as EntitlementResolutionStatus,
+      error: null as string | null,
     };
   }
 
@@ -123,9 +130,23 @@ export async function resolveBusinessEntitlement(input: {
     _id: packageId,
   });
 
+  if (pkgError) {
+    return {
+      hasPlan: false,
+      subscription: activeSubscription,
+      package: null,
+      packageId,
+      packageName: null,
+      packageFeatures: [],
+      enabledModules: [],
+      resolutionStatus: "db_error" as EntitlementResolutionStatus,
+      error: pkgError.message,
+    };
+  }
+
   const pkg = Array.isArray(pkgRows) ? (pkgRows[0] ?? null) : (pkgRows ?? null);
 
-  if (pkgError || !pkg) {
+  if (!pkg) {
     return {
       hasPlan: false,
       subscription: activeSubscription,
@@ -135,6 +156,7 @@ export async function resolveBusinessEntitlement(input: {
       packageFeatures: [],
       enabledModules: [],
       resolutionStatus: "package_not_found" as EntitlementResolutionStatus,
+      error: null as string | null,
     };
   }
 
@@ -145,7 +167,17 @@ export async function resolveBusinessEntitlement(input: {
     .eq("enabled", true);
 
   if (featureError) {
-    throw featureError;
+    return {
+      hasPlan: true, // Package exists; features query failed — don't say "no plan"
+      subscription: activeSubscription,
+      package: pkg,
+      packageId: pkg.id,
+      packageName: pkg.name,
+      packageFeatures: [],
+      enabledModules: [],
+      resolutionStatus: "db_error" as EntitlementResolutionStatus,
+      error: featureError.message,
+    };
   }
 
   const packageFeatures = (featureRows || []) as PlanModule[];
@@ -167,39 +199,18 @@ export async function resolveBusinessEntitlement(input: {
   }
   const enabledModules = [...moduleSet].filter(Boolean);
 
-  const hasActiveSubscription = Boolean(
-    activeSubscription && ["active", "trialing"].includes((activeSubscription.status || "").toLowerCase()),
-  );
-  const hasAssignedPackage = Boolean(business?.selected_package_id || activeSubscription?.product_id);
-  const hasPlan = hasActiveSubscription || (hasAssignedPackage && Boolean(pkg));
-
-  // A tenant plan is valid when the business has a resolved package assignment, even if the
-  // subscription row is still pending or inactive. The package assignment is the canonical
-  // source of entitlement; the subscription only determines active billing state.
-  if (business?.selected_package_id && pkg) {
-    return {
-      hasPlan: true,
-      subscription: activeSubscription,
-      package: pkg,
-      packageId: pkg.id,
-      packageName: pkg.name,
-      packageFeatures,
-      enabledModules,
-      resolutionStatus:
-        enabledModules.length > 0 ? "modules_resolved" : ("no_enabled_features" as EntitlementResolutionStatus),
-    };
-  }
-
   return {
-    hasPlan,
+    hasPlan: true,
     subscription: activeSubscription,
     package: pkg,
     packageId: pkg.id,
     packageName: pkg.name,
     packageFeatures,
     enabledModules,
-    resolutionStatus:
-      enabledModules.length > 0 ? "modules_resolved" : ("no_enabled_features" as EntitlementResolutionStatus),
+    resolutionStatus: (enabledModules.length > 0
+      ? "modules_resolved"
+      : "no_enabled_features") as EntitlementResolutionStatus,
+    error: null as string | null,
   };
 }
 
@@ -318,7 +329,7 @@ export async function updatePlanModules(
   }
 
   // data is of type { success: boolean, message: string }
-  return (Array.isArray(data) ? data[0] : data) as { success: boolean; message: string };
+  return data as { success: boolean; message: string };
 }
 
 /**
@@ -339,7 +350,7 @@ export async function createSubscriptionPlan(input: {
 }): Promise<{ success: boolean; message: string; package_id?: string }> {
   const { data, error } = await supabase.rpc("create_subscription_plan", {
     _name: input.name,
-    _description: input.description ?? "",
+    _description: input.description ?? undefined,
     _monthly_price_kes: input.monthly_price_kes,
     _yearly_price_kes: input.yearly_price_kes,
     _max_products: input.max_products,
@@ -355,7 +366,7 @@ export async function createSubscriptionPlan(input: {
     throw new Error(error.message);
   }
 
-  return (Array.isArray(data) ? data[0] : data) as { success: boolean; message: string; package_id?: string };
+  return data as { success: boolean; message: string; package_id?: string };
 }
 
 /**
@@ -381,7 +392,7 @@ export async function updateSubscriptionPlan(
   const { data, error } = await supabase.rpc("update_subscription_plan", {
     _package_id: planId,
     _name: input.name,
-    _description: input.description ?? "",
+    _description: input.description ?? undefined,
     _monthly_price_kes: input.monthly_price_kes,
     _yearly_price_kes: input.yearly_price_kes,
     _max_products: input.max_products,
@@ -398,5 +409,5 @@ export async function updateSubscriptionPlan(
     throw new Error(error.message);
   }
 
-  return (Array.isArray(data) ? data[0] : data) as { success: boolean; message: string };
+  return data as { success: boolean; message: string };
 }
