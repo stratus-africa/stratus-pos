@@ -1,8 +1,19 @@
 // Unified entitlement resolver hook
 // Replaces the pattern of useSubscription + useModuleAccess with a single, clean API
-// This is the authoritative hook for checking access
+// This is the authoritative hook for checking access.
+//
+// Resolution path (canonical):
+//   auth.uid()
+//     → businesses.selected_package_id          ← ONLY application-level plan ID
+//     → subscription_packages
+//     → package_features (enabled = true)
+//     → canonical module keys
+//     → sidebar / FeatureGate / routes
+//
+// subscriptions.product_id is a billing-provider reference and is NOT used here.
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { usePermissions } from "./usePermissions";
@@ -13,6 +24,7 @@ import {
   getPlanModules,
   getModuleFeatures,
   resolveBusinessEntitlement,
+  type EntitlementResolutionStatus,
 } from "@/lib/entitlementResolver";
 import type { ModuleEntitlement, FeatureAccess, ModuleFeature } from "@/types/entitlement";
 
@@ -21,30 +33,36 @@ interface UseEntitlementOptions {
 }
 
 /**
- * Unified hook for all entitlement checks
- * Replaces fragmented useSubscription + useModuleAccess pattern
+ * Unified hook for all entitlement checks.
  *
  * Usage:
- * const { hasModule, hasFeature, getModuleEntitlement, isLoading } = useEntitlement();
- * if (hasModule("accounting")) { show accounting }
+ *   const { hasModule, hasPlan, isLoading, resolutionStatus, entitlementError } = useEntitlement();
+ *   if (hasModule("accounting")) { ... }
  */
 export function useEntitlement(options: UseEntitlementOptions = {}) {
   const { enabled = true } = options;
   const { user } = useAuth();
   const { business } = useBusiness();
   const { permissions } = usePermissions();
+  const queryClient = useQueryClient();
 
+  // ─── Subscription row (billing state only — NOT used as package ID) ──────────
+  // We fetch this so the subscription expiry/status is available to consumers
+  // (e.g. BusinessContext posting guard), but we do NOT use product_id to look
+  // up the plan. businesses.selected_package_id is the sole package reference.
   const { data: activeSubscription, isLoading: isLoadingSubscription } = useQuery({
     queryKey: ["entitlement:active_subscription", user?.id, business?.id],
     queryFn: async () => {
-      if (!enabled || !user) return null;
-
+      if (!user) return null;
       const { data, error } = await supabase.rpc("get_current_business_subscription");
-      if (error) throw error;
-
+      if (error) {
+        // RPC failure must not cascade into "Upgrade Required". Log and return null
+        // so the canonical query (which uses selected_package_id directly) governs.
+        console.warn("[useEntitlement] get_current_business_subscription failed:", error.message);
+        return null;
+      }
       const rows = (Array.isArray(data) ? data : data ? [data] : []) as Array<any>;
       if (rows.length === 0) return null;
-
       return (
         rows.find((row: any) => ["active", "trialing"].includes((row.status || "").toLowerCase())) || rows[0] || null
       );
@@ -55,94 +73,105 @@ export function useEntitlement(options: UseEntitlementOptions = {}) {
     refetchOnReconnect: true,
   });
 
-  const packageId = business?.selected_package_id || activeSubscription?.product_id || null;
-  const resolvedPackageId = packageId;
+  // ─── AUTHORITATIVE package ID — comes ONLY from businesses.selected_package_id ─
+  const packageId: string | null = business?.selected_package_id ?? null;
 
-  const { data: resolvedPackage, isLoading: isLoadingPackage } = useQuery({
-    queryKey: ["entitlement:resolved_package", resolvedPackageId],
-    queryFn: async () => {
-      if (!resolvedPackageId) return null;
-      const { data, error } = await supabase.rpc("get_subscription_package_safe", {
-        _id: resolvedPackageId,
-      });
-      if (error) throw error;
-      const rows = Array.isArray(data) ? data : data ? [data] : [];
-      return rows[0] ?? null;
-    },
-    enabled: enabled && !!resolvedPackageId,
-    staleTime: 30_000,
-  });
-
-  const { data: planModules, isLoading: isLoadingPlan } = useQuery({
-    queryKey: ["entitlement:plan_modules", resolvedPackageId],
-    queryFn: async () => {
-      if (!resolvedPackageId) return null;
-      return getPlanModules(resolvedPackageId);
-    },
-    enabled: enabled && !!resolvedPackageId,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const canonicalEntitlement = useQuery({
-    queryKey: ["entitlement:canonical", business?.id, business?.selected_package_id, activeSubscription?.product_id],
-    queryFn: async () => resolveBusinessEntitlement({ business, activeSubscription }),
+  // ─── Canonical entitlement — the single source of truth ──────────────────────
+  // resolveBusinessEntitlement reads selected_package_id → subscription_packages
+  // → package_features and returns the full entitlement result including
+  // resolutionStatus and error. We pass activeSubscription purely so it's
+  // available in the result object for billing-state consumers.
+  const {
+    data: canonicalEntitlement,
+    isLoading: isLoadingCanonical,
+    error: canonicalQueryError,
+  } = useQuery({
+    queryKey: ["entitlement:canonical", business?.id, packageId],
+    queryFn: () => resolveBusinessEntitlement({ business, activeSubscription }),
     enabled: enabled && !!business?.id,
     staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
-  const entitlement = canonicalEntitlement.data ?? {
-    hasPlan:
-      !!resolvedPackageId &&
-      ((!!activeSubscription && ["active", "trialing"].includes((activeSubscription?.status || "").toLowerCase())) ||
-        !!resolvedPackage ||
-        !!business?.selected_package_id),
-    subscription: activeSubscription,
-    package: resolvedPackage,
-    packageId: resolvedPackageId,
-    packageName: resolvedPackage?.name || null,
-    packageFeatures: planModules?.features || [],
-    enabledModules: planModules?.modules || [],
-    resolutionStatus: resolvedPackageId
-      ? planModules?.modules?.length
-        ? "modules_resolved"
-        : "no_enabled_features"
-      : "no_plan",
+  // ─── Realtime invalidation — when plan/features change, re-resolve immediately ─
+  useEffect(() => {
+    if (!business?.id) return;
+    const channel = supabase
+      .channel(`entitlement-realtime-${business.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "package_features" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["entitlement:canonical", business.id] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "subscription_packages" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["entitlement:canonical", business.id] });
+      })
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "businesses",
+          filter: `id=eq.${business.id}`,
+        },
+        () => {
+          // selected_package_id may have changed
+          queryClient.invalidateQueries({ queryKey: ["entitlement:canonical", business.id] });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [business?.id, queryClient]);
+
+  // ─── Derive the result ────────────────────────────────────────────────────────
+  // While the canonical query is still loading we use a safe loading sentinel so
+  // consumers see isLoading=true and don't prematurely render "Upgrade Required".
+  const isLoading = isLoadingSubscription || isLoadingCanonical;
+
+  const entitlement = canonicalEntitlement ?? {
+    hasPlan: false,
+    subscription: null,
+    package: null,
+    packageId: packageId,
+    packageName: null,
+    packageFeatures: [],
+    enabledModules: [] as string[],
+    resolutionStatus: (business?.id
+      ? packageId
+        ? "loading"
+        : "no_plan"
+      : "no_business") as EntitlementResolutionStatus,
+    error: canonicalQueryError ? (canonicalQueryError as Error).message : null,
   };
 
+  // ─── Debug logging ────────────────────────────────────────────────────────────
   if (typeof window !== "undefined" && (window as any).__DEBUG_ENTITLEMENT) {
     console.debug("[useEntitlement]", {
       authUserId: user?.id,
       businessId: business?.id,
-      businessOwnerId: business?.owner_id,
-      businessSelectedPackageId: business?.selected_package_id,
-      subscriptionId: activeSubscription?.id,
-      subscriptionStatus: activeSubscription?.status,
-      subscriptionProductId: activeSubscription?.product_id,
-      paymentProvider: activeSubscription?.payment_provider,
-      subscriptionPeriodEnd: activeSubscription?.current_period_end,
-      packageId: entitlement.packageId,
-      packageName: entitlement.packageName,
-      packageFeatureCount: entitlement.packageFeatures?.length ?? 0,
-      enabledFeatureKeys: entitlement.packageFeatures?.map((f: any) => f.feature_key) ?? [],
-      resolvedModuleKeys: entitlement.enabledModules ?? [],
+      selectedPackageId: business?.selected_package_id,
+      packageId,
+      isLoading,
       resolutionStatus: entitlement.resolutionStatus,
+      hasPlan: entitlement.hasPlan,
+      enabledModules: entitlement.enabledModules,
+      error: entitlement.error,
     });
   }
 
-  const checkModuleAccess = async (moduleKey: string) => {
-    return checkModuleEntitlement(entitlement.packageId || business?.selected_package_id, moduleKey);
-  };
+  // ─── Public API ───────────────────────────────────────────────────────────────
 
-  const checkFeatureAccess_Fn = async (moduleKey: string, featureKey: string) => {
-    return checkFeatureAccess(
-      entitlement.packageId || business?.selected_package_id,
-      moduleKey,
-      featureKey,
-      permissions,
-    );
-  };
-
+  /**
+   * Returns true only when:
+   *   1. Entitlement has resolved (not loading)
+   *   2. The tenant's plan includes this module (package_features.enabled = true)
+   *
+   * Returns false — never throws — on any error or loading state so callers
+   * don't accidentally show content before access is confirmed.
+   */
   const hasModule = (moduleKey: string): boolean => {
+    if (isLoading) return false;
     if (!entitlement.enabledModules || entitlement.enabledModules.length === 0) return false;
     const normalized = moduleKey.toLowerCase();
     return entitlement.enabledModules.some(
@@ -155,35 +184,47 @@ export function useEntitlement(options: UseEntitlementOptions = {}) {
     return permissions.has(featureKey);
   };
 
-  const getEntitledModules = (): string[] => {
-    return entitlement.enabledModules || [];
-  };
+  const getEntitledModules = (): string[] => entitlement.enabledModules || [];
+
+  const checkModuleAccess = (moduleKey: string) => checkModuleEntitlement(packageId || undefined, moduleKey);
+
+  const checkFeatureAccessFn = (moduleKey: string, featureKey: string) =>
+    checkFeatureAccess(packageId || undefined, moduleKey, featureKey, permissions);
 
   const getAccessibleModuleFeatures = async (moduleKey: string): Promise<ModuleFeature[]> => {
     if (!hasModule(moduleKey)) return [];
-
     const features = await getModuleFeatures(moduleKey);
     return features.filter((f) => permissions.has(f.permission_key));
   };
 
   return {
+    // ── Access checks ──────────────────────────────────────────────────────
     hasModule,
     hasFeature,
     checkModuleAccess,
-    checkFeatureAccess: checkFeatureAccess_Fn,
+    checkFeatureAccess: checkFeatureAccessFn,
     getEntitledModules,
     getAccessibleModuleFeatures,
+
+    // ── Plan data ──────────────────────────────────────────────────────────
     planModules: entitlement.enabledModules || [],
     allPlanFeatures: entitlement.packageFeatures || [],
-    isLoading: isLoadingSubscription || isLoadingPackage || isLoadingPlan || canonicalEntitlement.isLoading,
-    isReady: !isLoadingSubscription && !isLoadingPackage && !isLoadingPlan && !canonicalEntitlement.isLoading,
     hasPlan: entitlement.hasPlan,
-    activeSubscription,
     plan: entitlement.package,
     planId: entitlement.packageId,
     package: entitlement.package,
     packageName: entitlement.packageName,
+
+    // ── Billing subscription (for billing-state consumers only) ────────────
+    activeSubscription,
+
+    // ── Loading / error state ──────────────────────────────────────────────
+    isLoading,
+    isReady: !isLoading,
     resolutionStatus: entitlement.resolutionStatus,
+    entitlementError: entitlement.error ?? (canonicalQueryError ? (canonicalQueryError as Error).message : null),
+
+    // ── Legacy aliases ─────────────────────────────────────────────────────
     resolvedPlanId: entitlement.packageId,
     resolvedPackageName: entitlement.packageName,
     userRole: business?.owner_id === user?.id ? "owner" : "member",
@@ -191,58 +232,42 @@ export function useEntitlement(options: UseEntitlementOptions = {}) {
 }
 
 /**
- * Hook for tenant admins to manage module entitlements
- * Used in settings to assign/revoke module access for roles
+ * Hook for tenant admins to list features available to assign to roles.
+ * Derives the list from the tenant's plan entitlement — no separate query.
  */
 export function useModuleManagement() {
   const { business } = useBusiness();
-  const { permissions } = usePermissions();
 
-  // Get all features that can be assigned to a role
   const { data: availableFeatures, isLoading } = useQuery({
-    queryKey: ["module_management:available_features", business?.id],
+    queryKey: ["module_management:available_features", business?.id, business?.selected_package_id],
     queryFn: async () => {
-      if (!business?.id) return [];
-
-      // Get list of modules this plan is entitled to
-      const planModules = await getPlanModules(business.selected_package_id || "");
+      if (!business?.id || !business.selected_package_id) return [];
+      const planModules = await getPlanModules(business.selected_package_id);
       if (!planModules) return [];
-
-      // For each module, get its features
       const allFeatures: ModuleFeature[] = [];
       for (const moduleKey of planModules.modules) {
         const features = await getModuleFeatures(moduleKey);
         allFeatures.push(...features);
       }
-
       return allFeatures;
     },
-    enabled: !!business?.id,
+    enabled: !!business?.id && !!business?.selected_package_id,
     staleTime: 5 * 60 * 1000,
   });
 
   return {
     availableFeatures: availableFeatures || [],
     isLoading,
-    canAssignFeature: (featureKey: string) => {
-      // Only features from entitled modules can be assigned to roles
-      return availableFeatures?.some((f) => f.feature_key === featureKey) || false;
-    },
+    canAssignFeature: (featureKey: string) => availableFeatures?.some((f) => f.feature_key === featureKey) ?? false,
   };
 }
 
 /**
- * Hook for superadmins to manage subscription plans
- * Used in SuperAdminPackages to create/modify plans
+ * Superadmin-only plan management capabilities.
  */
 export function usePlanManagement() {
   const { user } = useAuth();
   const isSuperAdmin = user?.user_metadata?.is_super_admin === true;
-
-  if (!isSuperAdmin) {
-    console.warn("usePlanManagement: User is not a superadmin");
-  }
-
   return {
     isSuperAdmin,
     canManagePlans: isSuperAdmin,
