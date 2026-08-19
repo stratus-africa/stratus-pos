@@ -7,7 +7,20 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Eye, Trash2, Ban, RotateCcw, Pause, Play, X, RefreshCw, MoreHorizontal, Pencil } from "lucide-react";
+import {
+  Search,
+  Eye,
+  Trash2,
+  Ban,
+  RotateCcw,
+  Pause,
+  Play,
+  X,
+  RefreshCw,
+  MoreHorizontal,
+  Pencil,
+  CreditCard,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -399,6 +412,26 @@ const Sales = () => {
                               >
                                 <Eye className="h-4 w-4 mr-2" /> View
                               </DropdownMenuItem>
+                              {sale.status !== "cancelled" &&
+                                ["credit", "unpaid", "partial"].includes(sale.payment_status) &&
+                                sale.customer_id && (
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      sessionStorage.setItem(
+                                        "stratuspos.creditSaleToSettle",
+                                        JSON.stringify({
+                                          saleId: sale.id,
+                                          customerId: sale.customer_id,
+                                          customerName: sale.customers?.name || "Customer",
+                                          invoiceNumber: sale.invoice_number || "",
+                                        }),
+                                      );
+                                      navigate({ to: "/pos" });
+                                    }}
+                                  >
+                                    <CreditCard className="h-4 w-4 mr-2" /> Record Payment
+                                  </DropdownMenuItem>
+                                )}
                               {canEdit && (
                                 <DropdownMenuItem
                                   onClick={() => {
