@@ -12,7 +12,6 @@ import { Switch } from "@/components/ui/switch";
 import {
   Settings2,
   Palette,
-  Brush,
   Building2,
   CreditCard,
   Loader2,
@@ -26,9 +25,9 @@ import {
   ListOrdered,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { THEMES, DEFAULT_THEME, useTheme, type ThemeKey } from "@/lib/themes";
+import { THEMES, DEFAULT_THEME, applyTheme, type ThemeKey } from "@/lib/themes";
 
-type TabKey = "general" | "branding" | "appearance" | "company" | "payments" | "offline";
+type TabKey = "general" | "branding" | "company" | "payments" | "offline";
 
 interface AppSettings {
   app_name?: string;
@@ -52,7 +51,6 @@ interface AppSettings {
 const TABS: { key: TabKey; label: string; icon: any }[] = [
   { key: "general", label: "General", icon: Settings2 },
   { key: "branding", label: "Branding", icon: Palette },
-  { key: "appearance", label: "Appearance", icon: Brush },
   { key: "company", label: "Company", icon: Building2 },
   { key: "payments", label: "Payments", icon: CreditCard },
   { key: "offline", label: "Offline Payments", icon: Banknote },
@@ -102,7 +100,6 @@ export default function SuperAdminSettings() {
   const [saving, setSaving] = useState(false);
   const [s, setS] = useState<AppSettings>(DEFAULTS);
   const [offline, setOffline] = useState<OfflineSettings>(OFFLINE_DEFAULTS);
-  const { setTheme } = useTheme();
 
   useEffect(() => {
     (async () => {
@@ -114,7 +111,7 @@ export default function SuperAdminSettings() {
       setS(globalSettings);
       if (globalSettings.theme_color) {
         const selected = globalSettings.theme_color as ThemeKey;
-        setTheme(selected, "super-admin");
+        applyTheme(selected);
       }
       setOffline({ ...OFFLINE_DEFAULTS, ...((o?.value as OfflineSettings) || {}) });
       setLoading(false);
@@ -208,7 +205,7 @@ export default function SuperAdminSettings() {
               <Button
                 onClick={save}
                 disabled={saving}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
               >
                 {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
                 Save Settings
@@ -273,14 +270,10 @@ export default function SuperAdminSettings() {
                   value={s.theme_color}
                   onChange={(theme) => {
                     set("theme_color", theme);
-                    setTheme(theme as ThemeKey, "super-admin");
+                    applyTheme(theme as ThemeKey);
                   }}
                 />
               </div>
-            )}
-
-            {tab === "appearance" && (
-              <p className="text-sm text-muted-foreground">Choose the application palette from the Branding section.</p>
             )}
 
             {tab === "company" && (
