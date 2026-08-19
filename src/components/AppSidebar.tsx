@@ -28,7 +28,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronRight } from "lucide-react";
 import { APP_MODULES, moduleCategoryLabels } from "@/lib/modules";
 
-const categoryOrder = ["dashboard", "operations", "finance", "people", "compliance", "tools", "settings"] as const;
+const categoryOrder = ["dashboard", "operations", "finance", "people", "tools", "settings"] as const;
 
 export function AppSidebar() {
   const { state } = useSidebar();
