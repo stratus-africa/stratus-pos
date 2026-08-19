@@ -153,20 +153,37 @@ export function useSubscription() {
 
       const pkgsById = new Map(publicPkgs.map((pkg) => [pkg.id, pkg]));
       const privatePkgs: any[] = [];
+      const unresolvedPackageIds: string[] = [];
 
+      // A tenant's own (possibly private) plan must always be fetched and merged here.
+      // One private/custom plan failing to resolve must never take down the whole
+      // packages/features query for every other package on the page - so each lookup
+      // is isolated and logged instead of thrown, and the caller finds out which
+      // package id(s) failed via `unresolvedPackageIds` for debugging.
       for (const packageId of packageIds) {
         if (!packageId || pkgsById.has(packageId)) continue;
-        const [{ data: pkgRow, error: pkgErr }, { data: featRows, error: featErr }] = await Promise.all([
-          (supabase as any).rpc("get_subscription_package_safe", { _id: packageId }),
-          (supabase as any).rpc("get_package_features_safe", { _package_id: packageId }),
-        ]);
-        if (pkgErr) throw pkgErr;
-        if (featErr) throw featErr;
-        const pkg = Array.isArray(pkgRow) ? pkgRow[0] : null;
-        if (pkg) {
-          pkgsById.set(pkg.id, pkg);
-          privatePkgs.push(pkg);
+        try {
+          const [{ data: pkgRow, error: pkgErr }, { data: featRows, error: featErr }] = await Promise.all([
+            (supabase as any).rpc("get_subscription_package_safe", { _id: packageId }),
+            (supabase as any).rpc("get_package_features_safe", { _package_id: packageId }),
+          ]);
+          if (pkgErr) throw pkgErr;
+          if (featErr) throw featErr;
+          const pkg = Array.isArray(pkgRow) ? pkgRow[0] : null;
+          if (pkg) {
+            pkgsById.set(pkg.id, pkg);
+            privatePkgs.push(pkg);
+          } else {
+            unresolvedPackageIds.push(packageId);
+          }
+        } catch (err) {
+          unresolvedPackageIds.push(packageId);
+          console.error(`[useSubscription] failed to resolve package ${packageId}`, err);
         }
+      }
+
+      if (unresolvedPackageIds.length > 0 && typeof window !== "undefined" && window.__DEBUG_SUBSCRIPTION) {
+        console.warn("[useSubscription] unresolved package ids", unresolvedPackageIds);
       }
 
       const allPackages = [...pkgsById.values(), ...privatePkgs.filter((pkg) => !pkgsById.has(pkg.id))];
@@ -181,14 +198,18 @@ export function useSubscription() {
       const featureIds = new Set(allFeatures.map((feature) => `${feature.package_id}:${feature.feature_key}`));
       for (const packageId of packageIds) {
         if (!packageId || !pkgsById.has(packageId)) continue;
-        const safeRes = await (supabase as any).rpc("get_package_features_safe", { _package_id: packageId });
-        if (safeRes.error) throw safeRes.error;
-        for (const feature of safeRes.data || []) {
-          const key = `${feature.package_id}:${feature.feature_key}`;
-          if (!featureIds.has(key)) {
-            featureIds.add(key);
-            allFeatures.push(feature);
+        try {
+          const safeRes = await (supabase as any).rpc("get_package_features_safe", { _package_id: packageId });
+          if (safeRes.error) throw safeRes.error;
+          for (const feature of safeRes.data || []) {
+            const key = `${feature.package_id}:${feature.feature_key}`;
+            if (!featureIds.has(key)) {
+              featureIds.add(key);
+              allFeatures.push(feature);
+            }
           }
+        } catch (err) {
+          console.error(`[useSubscription] failed to resolve features for package ${packageId}`, err);
         }
       }
 
@@ -198,8 +219,8 @@ export function useSubscription() {
           ...feature,
           enabled: true,
         })) as PackageFeature[],
+        unresolvedPackageIds,
       };
-
     },
     enabled: !!planUserId || packageCandidates.length > 0,
     staleTime: 30_000,
@@ -247,6 +268,7 @@ export function useSubscription() {
 
   const packages = packagesData?.packages ?? [];
   const features = packagesData?.features ?? [];
+  const unresolvedPackageIds = packagesData?.unresolvedPackageIds ?? [];
 
   const currentPackage: SubscriptionPackage | null = (() => {
     const matched = resolveSubscriptionPlan(subscription ?? undefined, packages as any[], {
@@ -260,7 +282,13 @@ export function useSubscription() {
       if (strictMatch) return strictMatch as SubscriptionPackage;
     }
 
-    if (subscription && ["active", "trialing"].includes(subscription.status || "")) {
+    // The tenant has a known package reference (their own plan assignment or a billing
+    // subscription's product_id) but we couldn't resolve it above - this includes
+    // manually-provisioned/custom plans with no subscriptions row at all. Never silently
+    // downgrade a tenant with a real, if currently unresolved, package reference to an
+    // arbitrary public/free plan; surface it as unresolved instead so the failure is visible
+    // rather than quietly granting the wrong entitlements.
+    if (business?.selected_package_id || subscription?.product_id) {
       return null;
     }
 
@@ -269,12 +297,14 @@ export function useSubscription() {
       null) as SubscriptionPackage | null;
   })();
 
-  const packageResolved =
-    !subscription || !["active", "trialing"].includes(subscription.status || "") || !!currentPackage;
-  const packageError =
-    subscription && ["active", "trialing"].includes(subscription.status || "") && !currentPackage
-      ? "Unable to determine your subscription plan."
-      : null;
+  // A tenant's assigned package (business.selected_package_id) is a stronger signal of intent
+  // than subscription status - a manually-provisioned/custom plan may have no billing
+  // subscription row at all. So package resolution only "gives up" when there is truly no
+  // package reference to chase (no selected_package_id, no product_id, no active subscription),
+  // not merely because the subscription itself is inactive.
+  const hasPackageReference = !!(business?.selected_package_id || subscription?.product_id);
+  const packageResolved = !hasPackageReference || !!currentPackage;
+  const packageError = hasPackageReference && !currentPackage ? "Unable to determine your subscription plan." : null;
 
   const enabledModules = new Set(
     features
@@ -331,6 +361,7 @@ export function useSubscription() {
     currentPackage,
     packageResolved,
     packageError,
+    unresolvedPackageIds,
     packageMatchCandidates: Array.from(
       new Set(
         [business?.selected_package_id, subscription?.product_id, subscription?.plan_code].filter(Boolean) as string[],
