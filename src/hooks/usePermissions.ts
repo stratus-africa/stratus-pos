@@ -6,6 +6,7 @@ import {
   cashierDeniedPermissions,
   defaultRolePermissions,
   moduleCatalog,
+  normalizePermissions,
   type AppRole,
 } from "@/lib/permissions";
 
@@ -64,7 +65,7 @@ export function usePermissions() {
     }
   }
 
-  const set = new Set(effective);
+  const set = new Set(normalizePermissions(effective));
 
   // Hard role-level denial: cashiers never get accounting or stock movement access.
   if (role === "cashier") {
