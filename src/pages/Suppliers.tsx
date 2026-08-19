@@ -6,8 +6,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Plus, Pencil, Trash2, MoreHorizontal, Eye } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Search, Plus, Pencil, Trash2, MoreHorizontal, Eye, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { usePurchases, useSuppliers, type Purchase, type Supplier } from "@/hooks/usePurchases";
 import { usePermissions } from "@/hooks/usePermissions";
 import { SupplierFormDialog } from "@/components/purchases/SupplierFormDialog";
@@ -30,11 +35,30 @@ const Suppliers = () => {
   const [viewing, setViewing] = useState<Supplier | null>(null);
   const [viewingPurchase, setViewingPurchase] = useState<Purchase | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
+  const [sortKey, setSortKey] = useState<"name" | "balance">("name");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   const suppliers = query.data ?? [];
   const filtered = suppliers.filter(
-    (s) => s.name.toLowerCase().includes(search.toLowerCase()) || (s.phone || "").includes(search),
+    (s) =>
+      s.name.toLowerCase().includes(search.toLowerCase()) ||
+      (s.phone || "").includes(search) ||
+      (s.email || "").toLowerCase().includes(search.toLowerCase()),
   );
+  const sortedSuppliers = [...filtered].sort((a, b) => {
+    const comparison =
+      sortKey === "name"
+        ? a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+        : Number(a.balance || 0) - Number(b.balance || 0);
+    return sortDirection === "asc" ? comparison : -comparison;
+  });
+  const toggleSort = (key: "name" | "balance") => {
+    if (sortKey === key) setSortDirection((direction) => (direction === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(key);
+      setSortDirection("asc");
+    }
+  };
   const totalOutstanding = suppliers.reduce((sum, supplier) => sum + Math.max(0, Number(supplier.balance || 0)), 0);
   const supplierPurchases = viewing
     ? (purchasesQuery.data || []).filter((purchase) => purchase.supplier_id === viewing.id)
@@ -160,27 +184,67 @@ const Suppliers = () => {
                     aria-label="Select all suppliers"
                   />
                 </TableHead>
-                <TableHead>Name</TableHead>
+                <TableHead
+                  aria-sort={sortKey === "name" ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}
+                >
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 hover:text-foreground"
+                    onClick={() => toggleSort("name")}
+                  >
+                    Supplier Name
+                    {sortKey === "name" ? (
+                      sortDirection === "asc" ? (
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      ) : (
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      )
+                    ) : (
+                      <ArrowUpDown className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                </TableHead>
                 <TableHead>Phone</TableHead>
-                <TableHead className="text-right">Balance</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead
+                  className="text-right"
+                  aria-sort={sortKey === "balance" ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}
+                >
+                  <button
+                    type="button"
+                    className="ml-auto inline-flex items-center gap-1 hover:text-foreground"
+                    onClick={() => toggleSort("balance")}
+                  >
+                    Balance
+                    {sortKey === "balance" ? (
+                      sortDirection === "asc" ? (
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      ) : (
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      )
+                    ) : (
+                      <ArrowUpDown className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                </TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {query.isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     No suppliers yet.
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((s) => (
+                sortedSuppliers.map((s) => (
                   <TableRow key={s.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setViewing(s)}>
                     <TableCell onClick={(event) => event.stopPropagation()}>
                       <Checkbox
@@ -191,8 +255,9 @@ const Suppliers = () => {
                     </TableCell>
                     <TableCell className="font-medium">{s.name}</TableCell>
                     <TableCell>{s.phone || "—"}</TableCell>
+                    <TableCell className="max-w-[240px] truncate">{s.email || "—"}</TableCell>
                     <TableCell className="text-right">{formatKES(s.balance)}</TableCell>
-                    {(
+                    {
                       <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -205,7 +270,12 @@ const Suppliers = () => {
                               <Eye className="mr-2 h-4 w-4" /> View
                             </DropdownMenuItem>
                             {canEdit && (
-                              <DropdownMenuItem onClick={() => { setEditing(s); setOpen(true); }}>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setEditing(s);
+                                  setOpen(true);
+                                }}
+                              >
                                 <Pencil className="mr-2 h-4 w-4" /> Edit
                               </DropdownMenuItem>
                             )}
@@ -217,7 +287,7 @@ const Suppliers = () => {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
-                    )}
+                    }
                   </TableRow>
                 ))
               )}
