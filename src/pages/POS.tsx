@@ -75,6 +75,43 @@ const POS = () => {
   const isMobile = useIsMobile();
   const { user: authUser } = useAuth();
   const offline = useOfflineSales();
+
+  // Resume a credit-sale settlement requested from the Sales receipt.
+  // The payload is consumed once all required POS data is available.
+  useEffect(() => {
+    if (!currentLocation || !business?.id || !productsQuery.data?.length) return;
+
+    const raw = sessionStorage.getItem("stratuspos.creditSaleToSettle");
+    if (!raw) return;
+
+    let request: { saleId: string; customerId: string; customerName: string };
+    try {
+      request = JSON.parse(raw);
+    } catch {
+      sessionStorage.removeItem("stratuspos.creditSaleToSettle");
+      toast.error("Could not load the credit sale for payment.");
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const ok = await pos.loadCreditSale(
+        request.saleId,
+        request.customerId,
+        request.customerName,
+        productsQuery.data ?? [],
+      );
+      if (cancelled) return;
+      if (ok) {
+        sessionStorage.removeItem("stratuspos.creditSaleToSettle");
+        toast.info("Credit sale loaded — choose a payment method to settle the balance.");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentLocation, business?.id, productsQuery.data, pos.loadCreditSale]);
   /** Mobile only: tap to switch between the product list and a full-screen cart. */
   const [mobilePane, setMobilePane] = useState<"cart" | "summary">("cart");
 
