@@ -37,7 +37,9 @@ function MasqueradeBanner() {
 function SubscriptionExpiredBanner() {
   const { subscriptionExpired, subscriptionEndsAt } = useBusiness();
   const navigate = useNavigate();
+
   if (!subscriptionExpired) return null;
+
   return (
     <div className="w-full bg-destructive/10 border-b border-destructive/30 px-4 py-2 flex items-center justify-between text-sm text-destructive">
       <div className="flex items-center gap-2">
@@ -54,6 +56,7 @@ function SubscriptionExpiredBanner() {
           . Transactions are blocked until you renew.
         </span>
       </div>
+
       <Button
         size="sm"
         variant="destructive"
@@ -74,6 +77,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   // Auto-collapse sidebar on POS; auto-expand when returning to Dashboard.
   const isDashboard = location.pathname === "/" || location.pathname.startsWith("/dashboard");
+
   useEffect(() => {
     if (isPOS) setOpen(false);
     else if (isDashboard) setOpen(true);
@@ -81,18 +85,22 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider open={open} onOpenChange={setOpen}>
-      <div className="min-h-screen flex w-full bg-background text-foreground">
+      <div className="min-h-dvh flex w-full min-w-0 bg-background text-foreground">
         {!isMobilePortrait && <AppSidebar />}
+
         <div className="flex-1 flex flex-col min-w-0">
           <MasqueradeBanner />
           <SubscriptionExpiredBanner />
 
           <TopBar />
-          <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain scroll-smooth p-3 sm:p-4 lg:p-6 pb-[calc(7.5rem+env(safe-area-inset-bottom))] lg:pb-6">
+
+          <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-auto scroll-smooth touch-pan-y [-webkit-overflow-scrolling:touch] p-3 sm:p-4 lg:p-6 pb-[calc(7.5rem+env(safe-area-inset-bottom))] lg:pb-6">
             {children}
           </main>
+
           <MobileBottomNav />
         </div>
+
         <CommandPalette />
       </div>
     </SidebarProvider>
