@@ -148,6 +148,9 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setBusiness(biz as Business);
         setNeedsOnboarding(false);
         setIsSuspended(biz.is_active === false);
+        // Business branding belongs to the signed-in business, not to the
+        // user's role. Admins, managers, cashiers and stores managers all see
+        // the same branding for their business.
         applyTheme((biz as { theme_color?: string }).theme_color || DEFAULT_THEME);
 
         // These requests do not depend on each other. Loading them together shortens
