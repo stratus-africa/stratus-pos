@@ -186,7 +186,7 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
                             : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground",
                         )}
                       >
-                        <item.icon className={cn("h-4 w-4 shrink-0", active && "text-emerald-600")} />
+                        <item.icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
                         <span className="truncate flex-1">{item.title}</span>
                         {item.url === "/super-admin/tenant-approvals" && pendingCount > 0 && (
                           <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold">
@@ -239,13 +239,13 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate("/super-admin/businesses")}>
-                  <Building2 className="h-4 w-4 mr-2 text-emerald-600" /> Tenants
+                  <Building2 className="h-4 w-4 mr-2 text-primary" /> Tenants
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/super-admin/packages/new")}>
-                  <Plus className="h-4 w-4 mr-2 text-emerald-600" /> New plan
+                  <Plus className="h-4 w-4 mr-2 text-primary" /> New plan
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/super-admin/subscriptions")}>
-                  <CreditCard className="h-4 w-4 mr-2 text-emerald-600" /> Subscriptions
+                  <CreditCard className="h-4 w-4 mr-2 text-primary" /> Subscriptions
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
