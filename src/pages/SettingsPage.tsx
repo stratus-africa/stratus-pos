@@ -218,8 +218,13 @@ const SettingsPage = () => {
   const activeTab = allowed.find((t) => t.key === currentTab) ?? allowed[0];
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Settings</h1>
+    <div className="space-y-5">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Manage your business, POS, accounting, and integrations.</p>
+        </div>
+      </div>
 
       {/* Mobile: dropdown selector */}
       <div className="md:hidden">
@@ -245,14 +250,14 @@ const SettingsPage = () => {
         </Select>
       </div>
 
-      <Tabs value={currentTab} onValueChange={setCurrentTab} className="flex flex-col md:flex-row gap-4 md:gap-6">
+      <Tabs value={currentTab} onValueChange={setCurrentTab} className="flex flex-col md:flex-row gap-4 md:gap-5">
         {/* Desktop: vertical sidebar tabs */}
-        <TabsList className="hidden md:flex text-muted-foreground md:flex-col h-auto w-full md:w-52 bg-muted rounded-lg p-1.5 shrink-0 md:items-start md:justify-start">
+        <TabsList className="hidden md:flex text-muted-foreground md:flex-col h-fit max-h-[calc(100dvh-8rem)] overflow-y-auto w-full md:w-56 bg-muted/60 border border-border/60 rounded-xl p-1.5 shrink-0 md:items-start md:justify-start sticky top-20">
           {allowed.map((t) => (
             <TabsTrigger
               key={t.key}
               value={t.key}
-              className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0"
+              className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0 rounded-lg data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs"
             >
               {t.icon}
               {t.label}
