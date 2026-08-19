@@ -480,20 +480,39 @@ export default function SuperAdminPackageEdit() {
               ];
 
               const moduleCard = (f: (typeof ALL_FEATURES)[number]) => {
-                const enabled = featureToggles[f.key] ?? false;
-                const dependsOnAccounting = f.key === "banking" || f.key === "manual_journals";
+                const enabled = Boolean(featureToggles[f.key]);
+                const accountingDependency = f.key === "banking" || f.key === "manual_journals";
                 const accountingForced =
-                  f.key === "accounting" && (featureToggles.banking || featureToggles.manual_journals);
+                  f.key === "accounting" &&
+                  (Boolean(featureToggles.banking) || Boolean(featureToggles.manual_journals));
 
                 const handleToggle = () => {
-                  const nextState = applyModuleToggleDependencyRule(f.key, !enabled, featureToggles);
-                  if (nextState.blocked) {
+                  if (saving) return;
+
+                  // Use the functional React state update so a click can never
+                  // be overwritten by a stale featureToggles closure.
+                  setFeatureToggles((current) => {
+                    const nextEnabled = !Boolean(current[f.key]);
+                    const result = applyModuleToggleDependencyRule(f.key, nextEnabled, current);
+
+                    if (result.blocked) {
+                      // State setters must remain pure. The toast is handled
+                      // outside the state calculation below.
+                      return current;
+                    }
+
+                    return result.next;
+                  });
+
+                  // Keep the dependency rule's user-facing message available
+                  // without making the checkbox/button read-only.
+                  const result = applyModuleToggleDependencyRule(f.key, !enabled, featureToggles);
+
+                  if (result.blocked) {
                     toast.info(
-                      nextState.reason || "This change is not allowed for the current module dependency rules.",
+                      result.reason || "This module cannot be changed while another dependent module is enabled.",
                     );
-                    return;
                   }
-                  setFeatureToggles(nextState.next);
                 };
 
                 return (
@@ -505,22 +524,35 @@ export default function SuperAdminPackageEdit() {
                     aria-label={`${enabled ? "Disable" : "Enable"} ${f.label}`}
                     disabled={saving}
                     onClick={handleToggle}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        handleToggle();
+                      }
+                    }}
                     className={`text-left rounded-lg p-3 border transition-all flex items-start justify-between gap-3 w-full ${
                       enabled ? "border-primary bg-primary/5" : "border-border bg-background hover:border-primary/40"
-                    } ${accountingForced ? "opacity-90" : ""}`}
+                    } ${accountingForced ? "opacity-90" : ""} ${
+                      saving ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                    }`}
                   >
                     <div className="flex items-start gap-2.5 min-w-0">
                       <div
-                        className={`h-9 w-9 rounded-md flex items-center justify-center shrink-0 ${enabled ? "bg-primary/10" : "bg-muted"}`}
+                        className={`h-9 w-9 rounded-md flex items-center justify-center shrink-0 ${
+                          enabled ? "bg-primary/10" : "bg-muted"
+                        }`}
                       >
                         <f.Icon className={`h-4 w-4 ${enabled ? "text-primary" : "text-muted-foreground"}`} />
                       </div>
+
                       <div className="min-w-0">
                         <p className="font-semibold text-sm leading-tight">{f.label}</p>
                         <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{f.description}</p>
-                        {dependsOnAccounting && enabled && (
+
+                        {accountingDependency && enabled && (
                           <p className="text-[10px] text-primary mt-1 font-medium">Requires Accounting</p>
                         )}
+
                         {accountingForced && (
                           <p className="text-[10px] text-primary mt-1 font-medium">
                             Locked on by Banking / Manual Journals
@@ -528,11 +560,15 @@ export default function SuperAdminPackageEdit() {
                         )}
                       </div>
                     </div>
-                    <div
-                      className={`h-5 w-5 rounded-full shrink-0 flex items-center justify-center ${enabled ? "bg-primary text-primary-foreground" : "border border-border"}`}
+
+                    <span
+                      aria-hidden="true"
+                      className={`h-5 w-5 rounded-full shrink-0 flex items-center justify-center ${
+                        enabled ? "bg-primary text-primary-foreground" : "border border-border bg-background"
+                      }`}
                     >
                       {enabled && <Check className="h-3 w-3" strokeWidth={3} />}
-                    </div>
+                    </span>
                   </button>
                 );
               };
