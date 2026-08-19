@@ -5,10 +5,9 @@ import { format, parseISO } from "date-fns";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useNavigate } from "@/lib/router-compat";
 
-
 const chartConfig = {
-  total: { label: "Sales (KES)", color: "hsl(var(--primary))" },
-  revenue: { label: "Revenue (KES)", color: "hsl(var(--primary))" },
+  total: { label: "Sales (KES)", color: "var(--chart-1)" },
+  revenue: { label: "Revenue (KES)", color: "var(--chart-1)" },
 };
 
 interface DashboardChartsProps {
@@ -31,9 +30,7 @@ export function DashboardCharts({ salesTrend, topProducts }: DashboardChartsProp
 
   const tickFontSize = isMobile ? 10 : 11;
   const chartHeight = isMobile ? "h-[220px]" : "h-[250px]";
-  const trendMargin = isMobile
-    ? { top: 8, right: 4, left: -16, bottom: 4 }
-    : { top: 8, right: 8, left: 0, bottom: 8 };
+  const trendMargin = isMobile ? { top: 8, right: 4, left: -16, bottom: 4 } : { top: 8, right: 8, left: 0, bottom: 8 };
   const productsMargin = isMobile
     ? { top: 8, right: 4, left: -16, bottom: 4 }
     : { top: 8, right: 8, left: 0, bottom: 8 };
@@ -73,11 +70,7 @@ export function DashboardCharts({ salesTrend, topProducts }: DashboardChartsProp
                 />
                 <ChartTooltip
                   wrapperClassName={tooltipClass}
-                  content={
-                    <ChartTooltipContent
-                      labelFormatter={(v) => format(parseISO(v as string), "dd MMM yyyy")}
-                    />
-                  }
+                  content={<ChartTooltipContent labelFormatter={(v) => format(parseISO(v as string), "dd MMM yyyy")} />}
                 />
                 <Bar dataKey="total" fill="var(--color-total)" radius={[4, 4, 0, 0]} maxBarSize={isMobile ? 14 : 28} />
               </BarChart>
@@ -95,7 +88,12 @@ export function DashboardCharts({ salesTrend, topProducts }: DashboardChartsProp
         <CardContent className="px-2 sm:px-6">
           {topProducts.length > 0 ? (
             <ChartContainer config={chartConfig} className={`${chartHeight} w-full`}>
-              <BarChart data={productData} margin={productsMargin} onClick={onProductBarClick} style={{ cursor: "pointer" }}>
+              <BarChart
+                data={productData}
+                margin={productsMargin}
+                onClick={onProductBarClick}
+                style={{ cursor: "pointer" }}
+              >
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
                 <XAxis
                   dataKey="display_name"
@@ -115,9 +113,7 @@ export function DashboardCharts({ salesTrend, topProducts }: DashboardChartsProp
                   wrapperClassName={tooltipClass}
                   content={
                     <ChartTooltipContent
-                      labelFormatter={(_, payload) =>
-                        (payload?.[0]?.payload as any)?.product_name ?? ""
-                      }
+                      labelFormatter={(_, payload) => (payload?.[0]?.payload as any)?.product_name ?? ""}
                     />
                   }
                 />
