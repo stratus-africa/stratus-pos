@@ -280,8 +280,8 @@ const Purchases = () => {
 
           <Card>
             <CardHeader className="pb-3">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
+              <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-2 sm:flex sm:flex-row sm:gap-3">
+                <div className="relative min-w-0">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search by invoice # or supplier..."
@@ -291,7 +291,7 @@ const Purchases = () => {
                   />
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[140px]">
+                  <SelectTrigger className="w-full sm:w-[140px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
