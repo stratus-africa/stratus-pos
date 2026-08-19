@@ -34,6 +34,7 @@ import DailySalesReportTab from "@/components/reports/DailySalesReportTab";
 import ZReportTab from "@/components/reports/ZReportTab";
 import StockAgingReportTab from "@/components/reports/StockAgingReportTab";
 import StockLedgerTab from "@/components/inventory/StockLedgerTab";
+import POSReportsTab from "@/components/reports/POSReportsTab";
 import { DateRangeFilter } from "@/components/reports/DateRangeFilter";
 import { useFeatureLimit, RequireFeature } from "@/components/FeatureGate";
 import { useAccountingSettings, financialYearLabel } from "@/hooks/useAccountingSettings";
@@ -57,6 +58,7 @@ const Reports = () => {
   // EOD & Z report ride on sales report permission
   const canEOD = canSales;
   const canZ = canSales;
+  const canPOSReports = canSales;
 
   const firstTab = canSales
     ? "sales"
@@ -118,7 +120,7 @@ const Reports = () => {
       return all;
     },
     // The P&L tab also uses detailed sales rows to calculate COGS.
-    enabled: !!business && canSales && (activeTab === "sales" || activeTab === "pnl"),
+    enabled: !!business && canSales && (activeTab === "sales" || activeTab === "pnl" || activeTab === "pos"),
   });
 
   const inventoryReport = useQuery({
@@ -290,6 +292,7 @@ const Reports = () => {
 
   const loading =
     (activeTab === "sales" && salesReport.isLoading) ||
+    (activeTab === "pos" && salesReport.isLoading) ||
     (activeTab === "purchases" && purchasesReport.isLoading) ||
     (activeTab === "expenses" && expensesReport.isLoading) ||
     (activeTab === "inventory" && inventoryReport.isLoading) ||
@@ -336,6 +339,7 @@ const Reports = () => {
             { value: "pnl", label: "P&L", icon: TrendingUp, show: canPnL },
             { value: "eod", label: "End of Day", icon: Sun, show: canEOD },
             { value: "zreport", label: "Z Report", icon: FileText, show: canZ },
+            { value: "pos", label: "POS Reports", icon: BarChart3, show: canPOSReports },
             { value: "audit", label: "Audit Trail", icon: ClipboardList, show: canAudit },
           ].filter((i) => i.show);
           return (
@@ -375,6 +379,11 @@ const Reports = () => {
           {canSales && (
             <TabsContent value="sales" className="mt-0">
               <DailySalesReportTab from={from} to={to} onRegisterExport={registerExport} />
+            </TabsContent>
+          )}
+          {canPOSReports && (
+            <TabsContent value="pos" className="mt-0">
+              <POSReportsTab sales={sales} loading={salesReport.isLoading} />
             </TabsContent>
           )}
           {canPurchases && (
