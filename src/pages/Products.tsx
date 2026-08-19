@@ -644,6 +644,7 @@ const Products = () => {
                   </Button>
                 </div>
               )}
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
@@ -1194,6 +1195,8 @@ const Products = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </Tabs>
+
       <ImportMappingDialog
         open={mappingOpen}
         onOpenChange={setMappingOpen}
