@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "@/lib/router-compat";
 import { useAuth } from "@/contexts/AuthContext";
-import { useBusiness } from "@/contexts/BusinessContext";
+import { useOptionalBusiness } from "@/contexts/BusinessContext";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -50,7 +50,7 @@ export default function SignIn() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { user, loading, signIn, signOut } = useAuth();
-  const { needsOnboarding, loading: bizLoading } = useBusiness();
+  const { needsOnboarding, loading: bizLoading } = useOptionalBusiness();
   const { isSuperAdmin, loading: saLoading } = useSuperAdmin();
 
   const [email, setEmail] = useState("");
