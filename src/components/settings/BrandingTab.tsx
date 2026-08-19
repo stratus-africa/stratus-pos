@@ -129,19 +129,16 @@ export function BrandingTab() {
         <CardContent className="space-y-5">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {Object.values(THEMES).map((t) => {
-              const active = themeColor === t.key;
-              const palette = Array.isArray((t as { colors?: unknown }).colors)
-                ? (t as { colors: unknown[] }).colors.filter((color): color is string => typeof color === "string")
-                : [];
-              const previewColors = palette.length > 0 ? palette : [t.swatch];
+              const active = themeColor === t.id;
+              const previewColors = t.preview;
               return (
                 <button
-                  key={t.key}
+                  key={t.id}
                   type="button"
                   aria-pressed={active}
                   onClick={() => {
-                    setThemeColor(t.key);
-                    applyTheme(t.key);
+                    setThemeColor(t.id);
+                    applyTheme(t.id);
                   }}
                   className={`group relative flex flex-col gap-2 rounded-xl border-2 p-3 text-left transition-all ${
                     active ? "border-primary shadow-md" : "border-border hover:border-primary/40 hover:shadow-sm"
@@ -150,11 +147,11 @@ export function BrandingTab() {
                   <span className="flex items-center gap-2">
                     <span
                       className="h-9 w-9 rounded-lg border shadow-inner shrink-0"
-                      style={{ backgroundColor: t.swatch }}
+                      style={{ backgroundColor: t.preview[1] }}
                     />
                     <span className="flex flex-col min-w-0">
-                      <span className="text-sm font-medium truncate">{t.label}</span>
-                      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{t.swatch}</span>
+                      <span className="text-sm font-medium truncate">{t.name}</span>
+                      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{t.preview[1]}</span>
                     </span>
                   </span>
                   <span className="flex h-8 overflow-hidden rounded-md border">
