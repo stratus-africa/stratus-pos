@@ -20,7 +20,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { APP_MODULES, applyModuleToggleDependencyRule, moduleGroupLabels, type ModuleGroup } from "@/lib/modules";
+import {
+  APP_MODULES,
+  applyModuleToggleDependencyRule,
+  getEnabledCanonicalModules,
+  getCanonicalFeatureKey,
+  moduleGroupLabels,
+  type ModuleGroup,
+} from "@/lib/modules";
 import {
   ArrowLeft,
   Tag,
@@ -135,13 +142,11 @@ export default function SuperAdminPackageEdit() {
         max_customers: pkg.max_customers ?? 50,
         max_suppliers: pkg.max_suppliers ?? 10,
       });
-      const toggles: Record<string, boolean> = {};
-      ALL_FEATURES.forEach((f) => {
-        const existing = (featRes.data || []).find((pf: any) => pf.feature_key === f.key);
-        toggles[f.key] = existing?.enabled ?? false;
-      });
+      const enabledKeys = new Set(getEnabledCanonicalModules(featRes.data || [], id));
+      const toggles: Record<string, boolean> = Object.fromEntries(
+        ALL_FEATURES.map((feature) => [feature.key, enabledKeys.has(feature.key)]),
+      );
       setFeatureToggles(toggles);
-      setSavedToggles(toggles);
       setSubscriberCount(
         (subsRes.data || []).filter((s: any) => s.status === "active" || s.status === "trialing").length,
       );
@@ -151,14 +156,6 @@ export default function SuperAdminPackageEdit() {
   }, [id, isNew, navigate]);
 
   const enabledModuleCount = useMemo(() => Object.values(featureToggles).filter(Boolean).length, [featureToggles]);
-
-  // Track which toggles were last persisted so we can show unsaved-changes state
-  const [savedToggles, setSavedToggles] = useState<Record<string, boolean>>({});
-  const [savingModules, setSavingModules] = useState(false);
-
-  const hasUnsavedModuleChanges = useMemo(() => {
-    return ALL_FEATURES.some((f) => (featureToggles[f.key] ?? false) !== (savedToggles[f.key] ?? false));
-  }, [featureToggles, savedToggles]);
 
   const limitsConfigured = useMemo(() => {
     return [form.max_products, form.max_users, form.max_locations, form.max_customers, form.max_suppliers].filter(
@@ -214,9 +211,11 @@ export default function SuperAdminPackageEdit() {
 
       // Assign modules to plan using secure RPC (transactional)
       if (pkgId) {
-        const enabledModules = ALL_FEATURES.filter((f) => featureToggles[f.key] ?? false).map((f) => f.key);
+        const enabledModules = ALL_FEATURES.filter((feature) => featureToggles[feature.key] ?? false)
+          .map((feature) => getCanonicalFeatureKey(feature.key))
+          .filter(Boolean);
 
-        const moduleResult = await updatePlanModules(pkgId, enabledModules);
+        const moduleResult = await updatePlanModules(pkgId, [...new Set(enabledModules)]);
         if (!moduleResult.success) {
           throw new Error(moduleResult.message);
         }
@@ -225,7 +224,6 @@ export default function SuperAdminPackageEdit() {
       }
 
       toast.success(isNew ? "Plan created" : "Plan updated");
-      if (!isNew) setSavedToggles({ ...featureToggles });
       navigate("/super-admin/packages");
     } catch (e: any) {
       toast.error(e.message || "Failed to save plan");
@@ -251,24 +249,6 @@ export default function SuperAdminPackageEdit() {
     } catch (e: any) {
       toast.error(e.message || "Failed to delete plan");
       setDeleting(false);
-    }
-  };
-
-  /** Save only modules without touching plan metadata. Available on existing plans only. */
-  const handleSaveModules = async () => {
-    if (!id || isNew) return;
-    setSavingModules(true);
-    try {
-      const enabledModules = ALL_FEATURES.filter((f) => featureToggles[f.key] ?? false).map((f) => f.key);
-      const result = await updatePlanModules(id, enabledModules);
-      // updatePlanModules returns { success, message } — success=true means saved OK
-      if (!result.success) throw new Error(result.message);
-      setSavedToggles({ ...featureToggles });
-      toast.success(`Modules updated — ${enabledModules.length} enabled`);
-    } catch (e: any) {
-      toast.error(e.message || "Failed to save modules");
-    } finally {
-      setSavingModules(false);
     }
   };
 
@@ -473,35 +453,10 @@ export default function SuperAdminPackageEdit() {
               <div className="flex items-center gap-2">
                 <ListChecks className="h-4 w-4 text-muted-foreground" />
                 <h2 className="font-semibold text-sm">Modules</h2>
-                {hasUnsavedModuleChanges && !isNew && (
-                  <Badge variant="outline" className="text-amber-600 border-amber-400 text-[10px]">
-                    Unsaved changes
-                  </Badge>
-                )}
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">
-                  {Object.values(featureToggles).filter(Boolean).length} of {ALL_FEATURES.length} enabled
-                </span>
-                {!isNew && (
-                  <Button
-                    size="sm"
-                    onClick={handleSaveModules}
-                    disabled={savingModules || !hasUnsavedModuleChanges}
-                    className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                  >
-                    {savingModules ? (
-                      <>
-                        <Loader2 className="h-3 w-3 mr-1 animate-spin" /> Saving…
-                      </>
-                    ) : (
-                      <>
-                        <Save className="h-3 w-3 mr-1" /> Save modules
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
+              <span className="text-xs text-muted-foreground">
+                {Object.values(featureToggles).filter(Boolean).length} of {ALL_FEATURES.length} enabled
+              </span>
             </div>
 
             {(() => {
@@ -532,6 +487,10 @@ export default function SuperAdminPackageEdit() {
                   <button
                     key={f.key}
                     type="button"
+                    role="switch"
+                    aria-checked={enabled}
+                    aria-label={`${enabled ? "Disable" : "Enable"} ${f.label}`}
+                    disabled={saving}
                     onClick={handleToggle}
                     className={`text-left rounded-lg p-3 border transition-all flex items-start justify-between gap-3 w-full ${
                       enabled
