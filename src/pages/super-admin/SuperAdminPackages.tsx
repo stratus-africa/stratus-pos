@@ -71,19 +71,18 @@ export default function SuperAdminPackages() {
   const [subCounts, setSubCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const fetchAll = async () => {
-    const [pkgRes, featRes, subsRes] = await Promise.all([
+    const [pkgRes, featRes, businessesRes] = await Promise.all([
       supabase.from("subscription_packages").select("*").order("sort_order"),
       supabase.from("package_features").select("*"),
-      supabase.from("subscriptions").select("product_id, status"),
+      supabase.from("businesses").select("id, selected_package_id").not("selected_package_id", "is", null),
     ]);
     setPackages((pkgRes.data as any) || []);
     setFeatures((featRes.data as PackageFeature[]) || []);
 
     const counts: Record<string, number> = {};
-    (subsRes.data || []).forEach((s: any) => {
-      if (!s.product_id) return;
-      if (s.status === "active" || s.status === "trialing") {
-        counts[s.product_id] = (counts[s.product_id] || 0) + 1;
+    (businessesRes.data || []).forEach((business: any) => {
+      if (business.selected_package_id) {
+        counts[business.selected_package_id] = (counts[business.selected_package_id] || 0) + 1;
       }
     });
     setSubCounts(counts);
