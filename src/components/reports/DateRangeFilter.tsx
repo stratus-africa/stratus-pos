@@ -108,8 +108,8 @@ export function DateRangeFilter({ from, to, onChange, defaultPreset = "custom", 
   };
 
   return (
-    <div className={`grid grid-cols-2 gap-2 items-end sm:flex sm:flex-wrap sm:gap-3 ${className ?? ""}`}>
-      <div className="space-y-1.5 col-span-2 sm:col-span-1">
+    <div className={`grid w-full grid-cols-2 items-end gap-2 sm:flex sm:flex-wrap sm:gap-3 ${className ?? ""}`}>
+      <div className="col-span-2 space-y-1.5 sm:col-span-auto">
         <Label className="text-xs flex items-center gap-1.5 text-muted-foreground">
           <Filter className="h-3.5 w-3.5" /> Filters
         </Label>
@@ -154,7 +154,7 @@ export function DateRangeFilter({ from, to, onChange, defaultPreset = "custom", 
       )}
 
       {preset !== "custom" && (from || to) && (
-        <span className="text-xs text-muted-foreground pb-2.5">
+        <span className="col-span-2 text-xs text-muted-foreground pb-1 sm:col-span-auto sm:pb-2.5">
           {from} → {to}
         </span>
       )}
