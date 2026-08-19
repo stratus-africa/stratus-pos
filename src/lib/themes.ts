@@ -1,242 +1,353 @@
-// Theme presets for StratusPOS.
-// Each preset is a brand theme expressed through shadcn semantic CSS variables.
+import { createContext, useContext } from "react";
 
-export type ThemeKey = "fiery-red" | "deep-blue-green" | "minty-serenity" | "light-steel";
-
+export type ThemeKey = "burgundy" | "moss" | "rewaff" | "crafthive";
+export type ThemeMode = "light" | "dark";
+export type ThemeScope = "tenant" | "super-admin";
+export type ThemeTokens = Record<string, string>;
 export interface ThemeDef {
-  key: ThemeKey;
-  label: string;
+  id: ThemeKey;
+  name: string;
   description: string;
-  swatch: string;
-  colors: string[];
+  preview: string[];
+  light: ThemeTokens;
+  dark: ThemeTokens;
 }
+
+const keys = [
+  "background",
+  "foreground",
+  "card",
+  "card-foreground",
+  "popover",
+  "popover-foreground",
+  "primary",
+  "primary-foreground",
+  "secondary",
+  "secondary-foreground",
+  "muted",
+  "muted-foreground",
+  "accent",
+  "accent-foreground",
+  "destructive",
+  "destructive-foreground",
+  "border",
+  "input",
+  "ring",
+];
+const make = (values: string[], charts: string[], sidebar: string[]) => {
+  const result: ThemeTokens = Object.fromEntries(keys.map((key, index) => [`--${key}`, values[index]]));
+  [1, 2, 3, 4, 5].forEach((n, index) => {
+    result[`--chart-${n}`] = charts[index];
+  });
+  [
+    "sidebar",
+    "sidebar-foreground",
+    "sidebar-primary",
+    "sidebar-primary-foreground",
+    "sidebar-accent",
+    "sidebar-accent-foreground",
+    "sidebar-border",
+    "sidebar-ring",
+  ].forEach((key, index) => {
+    result[`--${key}`] = sidebar[index];
+  });
+  result["--success"] = "#16a34a";
+  result["--success-foreground"] = "#ffffff";
+  result["--warning"] = "#d97706";
+  result["--warning-foreground"] = "#ffffff";
+  result["--info"] = "#2563eb";
+  result["--info-foreground"] = "#ffffff";
+  return result;
+};
+const theme = (
+  id: ThemeKey,
+  name: string,
+  description: string,
+  preview: string[],
+  light: ThemeTokens,
+  dark: ThemeTokens,
+): ThemeDef => ({ id, name, description, preview, light, dark });
 
 export const THEMES: Record<ThemeKey, ThemeDef> = {
-  "fiery-red": {
-    key: "fiery-red",
-    label: "Fiery Red Inferno",
-    description: "Dark · Bold · Premium",
-    swatch: "#650000",
-    colors: ["#0F0606", "#200B0B", "#2F0000", "#490000", "#650000"],
-  },
-  "deep-blue-green": {
-    key: "deep-blue-green",
-    label: "Deep Blue & Green",
-    description: "Enterprise · Professional · Modern",
-    swatch: "#005595",
-    colors: ["#041630", "#00814A", "#CFD1D5", "#005595", "#27364C"],
-  },
-  "minty-serenity": {
-    key: "minty-serenity",
-    label: "Minty Serenity",
-    description: "Calm · Clean · Sophisticated",
-    swatch: "#284B63",
-    colors: ["#B4B8AB", "#153243", "#284B63", "#F4F9E9", "#EEF0EB"],
-  },
-  "light-steel": {
-    key: "light-steel",
-    label: "Light Steel",
-    description: "Minimal · Neutral · Professional",
-    swatch: "#6C757D",
-    colors: ["#F8F9FA", "#E9ECEF", "#DEE2E6", "#CED4DA", "#ADB5BD", "#6C757D", "#495057", "#343A40", "#212529"],
-  },
+  burgundy: theme(
+    "burgundy",
+    "Burgundy",
+    "Minimal and warm",
+    ["#fdf8f9", "#800020", "#9a1b32", "#3d0a0d"],
+    make(
+      [
+        "#fdf8f9",
+        "#3d0a0d",
+        "#ffffff",
+        "#3d0a0d",
+        "#ffffff",
+        "#3d0a0d",
+        "#800020",
+        "#ffffff",
+        "#f4e7ea",
+        "#800020",
+        "#f4e7ea",
+        "#7c5c5f",
+        "#9a1b32",
+        "#ffffff",
+        "#be123c",
+        "#ffffff",
+        "#e5d1d4",
+        "#e5d1d4",
+        "#800020",
+      ],
+      ["#800020", "#9a1b32", "#be123c", "#d44a63", "#ea869a"],
+      ["#3d0a0d", "#fdf8f9", "#800020", "#ffffff", "#591116", "#fdf8f9", "#591116", "#800020"],
+    ),
+    make(
+      [
+        "#0f0203",
+        "#fceef0",
+        "#1a0507",
+        "#fceef0",
+        "#1a0507",
+        "#fceef0",
+        "#e63946",
+        "#ffffff",
+        "#3d0a0d",
+        "#ffdce0",
+        "#2a0a0d",
+        "#d4a1a6",
+        "#cd182a",
+        "#ffffff",
+        "#ff4d6d",
+        "#ffffff",
+        "#2b0d10",
+        "#4a151b",
+        "#ff2e44",
+      ],
+      ["#e63946", "#ff8fa3", "#800020", "#ffb3c1", "#591116"],
+      ["#0a0102", "#fceef0", "#e63946", "#ffffff", "#1a0507", "#fceef0", "#2b0d10", "#e63946"],
+    ),
+  ),
+  moss: theme(
+    "moss",
+    "Moss",
+    "Minimal and nature-led",
+    ["#fdfdfd", "#7F956A", "#495940", "#AFBEA5"],
+    make(
+      [
+        "#fdfdfd",
+        "#000000",
+        "#fdfdfd",
+        "#000000",
+        "#fcfcfc",
+        "#000000",
+        "#7F956A",
+        "#FFFFFF",
+        "#D4D9D0",
+        "#080808",
+        "#f5f5f5",
+        "#878787",
+        "#495940",
+        "#FFFF",
+        "#b3191f",
+        "#ffffff",
+        "#e7e7ee",
+        "#ebebeb",
+        "#AFBEA5",
+      ],
+      ["#408a0f", "#59a626", "#73bd42", "#0051BA", "#a9e382"],
+      ["#f5f8fb", "#000000", "#000000", "#ffffff", "#e4eae1", "#000000", "#ebebeb", "#AFBEA5"],
+    ),
+    make(
+      [
+        "#070503",
+        "#f9f8f7",
+        "#100d08",
+        "#f9f8f7",
+        "#0b0905",
+        "#f9f8f7",
+        "#AFBEA5",
+        "#040302",
+        "#26211a",
+        "#e7e4df",
+        "#1e1a14",
+        "#928f8a",
+        "#495940",
+        "#FFF",
+        "#b3191f",
+        "#f9f8f7",
+        "#2f281b",
+        "#1a150e",
+        "#AFBEA5",
+      ],
+      ["#408a0f", "#59a626", "#73bd42", "#a9e382", "#AFBEA5"],
+      ["#040302", "#f0eeeb", "#AFBEA5", "#040302", "#495940", "#FFF", "#272117", "#AFBEA5"],
+    ),
+  ),
+  rewaff: theme(
+    "rewaff",
+    "Rewaff",
+    "Colorful and energetic",
+    ["#f3faff", "#00a33d", "#0083e0", "#f46800"],
+    make(
+      [
+        "#f3faff",
+        "#09131a",
+        "#ffffff",
+        "#09131a",
+        "#ffffff",
+        "#09131a",
+        "#00a33d",
+        "#f3faff",
+        "#e0edf8",
+        "#202a32",
+        "#e0edf8",
+        "#4c575f",
+        "#28bc5e",
+        "#f3faff",
+        "#f22a36",
+        "#f3faff",
+        "#d3e0ea",
+        "#d3e0ea",
+        "#00a33d",
+      ],
+      ["#00a33d", "#0083e0", "#f46800", "#a264f6", "#f83e54"],
+      ["#f3faff", "#09131a", "#00a33d", "#f3faff", "#28bc5e", "#f3faff", "#d3e0ea", "#00a33d"],
+    ),
+    make(
+      [
+        "#02080e",
+        "#e9f0f5",
+        "#09131a",
+        "#e9f0f5",
+        "#09131a",
+        "#e9f0f5",
+        "#2fbc5b",
+        "#000408",
+        "#172128",
+        "#e9f0f5",
+        "#172128",
+        "#85919a",
+        "#32c364",
+        "#000408",
+        "#f22a36",
+        "#f3faff",
+        "#202a32",
+        "#202a32",
+        "#2fbc5b",
+      ],
+      ["#2fbc5b", "#319cfc", "#ff7f16", "#b478ff", "#ff5969"],
+      ["#02080e", "#e9f0f5", "#2fbc5b", "#000408", "#172128", "#e9f0f5", "#202a32", "#2fbc5b"],
+    ),
+  ),
+  crafthive: theme(
+    "crafthive",
+    "Crafthive",
+    "Warm and professional",
+    ["#ffffff", "#d87943", "#527575", "#fbcb97"],
+    make(
+      [
+        "#ffffff",
+        "#111827",
+        "#ffffff",
+        "#111827",
+        "#ffffff",
+        "#111827",
+        "#d87943",
+        "#ffffff",
+        "#527575",
+        "#ffffff",
+        "#f3f4f6",
+        "#6b7280",
+        "#eeeeee",
+        "#111827",
+        "#ef4444",
+        "#fafafa",
+        "#e5e7eb",
+        "#e5e7eb",
+        "#d87943",
+      ],
+      ["#5f8787", "#e78a53", "#fbcb97", "#888888", "#999999"],
+      ["#f3f4f6", "#111827", "#d87943", "#ffffff", "#ffffff", "#111827", "#e5e7eb", "#d87943"],
+    ),
+    make(
+      [
+        "#121113",
+        "#c1c1c1",
+        "#121212",
+        "#c1c1c1",
+        "#121113",
+        "#c1c1c1",
+        "#e78a53",
+        "#121113",
+        "#5f8787",
+        "#121113",
+        "#222222",
+        "#888888",
+        "#333333",
+        "#c1c1c1",
+        "#5f8787",
+        "#121113",
+        "#222222",
+        "#222222",
+        "#e78a53",
+      ],
+      ["#5f8787", "#e78a53", "#fbcb97", "#888888", "#999999"],
+      ["#121212", "#c1c1c1", "#e78a53", "#121113", "#333333", "#c1c1c1", "#222222", "#e78a53"],
+    ),
+  ),
 };
 
-export const DEFAULT_THEME: ThemeKey = "light-steel";
-
-export function resolveThemeKey(themeKey?: string | null): ThemeKey {
-  return themeKey && themeKey in THEMES ? (themeKey as ThemeKey) : DEFAULT_THEME;
+export const DEFAULT_THEME: ThemeKey = "burgundy";
+export const DEFAULT_MODE: ThemeMode = "light";
+export function resolveThemeKey(value?: string | null): ThemeKey {
+  return value && value in THEMES ? (value as ThemeKey) : DEFAULT_THEME;
 }
-
-export type ThemeScope = "tenant" | "super-admin";
-
 export function getThemeStorageKey(scope: ThemeScope = "tenant") {
   return scope === "super-admin" ? "stratus-super-admin-theme" : "stratus-tenant-theme";
 }
-
-const THEME_CSS_VARIABLES: Record<ThemeKey, Record<string, string>> = {
-  "fiery-red": {
-    "--background": "0 19% 9%",
-    "--foreground": "0 0% 95%",
-    "--card": "0 33% 12%",
-    "--card-foreground": "0 0% 95%",
-    "--popover": "0 33% 12%",
-    "--popover-foreground": "0 0% 95%",
-    "--primary": "0 100% 19%",
-    "--primary-foreground": "0 0% 100%",
-    "--secondary": "0 30% 16%",
-    "--secondary-foreground": "0 0% 95%",
-    "--muted": "0 18% 16%",
-    "--muted-foreground": "0 14% 75%",
-    "--accent": "0 30% 18%",
-    "--accent-foreground": "0 0% 95%",
-    "--destructive": "5 72% 57%",
-    "--destructive-foreground": "0 0% 100%",
-    "--success": "142 71% 45%",
-    "--success-foreground": "0 0% 100%",
-    "--warning": "36 92% 48%",
-    "--warning-foreground": "0 0% 100%",
-    "--info": "210 90% 47%",
-    "--info-foreground": "0 0% 100%",
-    "--border": "0 20% 24%",
-    "--input": "0 18% 18%",
-    "--ring": "0 88% 40%",
-    "--sidebar-background": "0 24% 10%",
-    "--sidebar-foreground": "0 0% 95%",
-    "--sidebar-primary": "0 100% 19%",
-    "--sidebar-primary-foreground": "0 0% 100%",
-    "--sidebar-accent": "0 36% 18%",
-    "--sidebar-accent-foreground": "0 0% 95%",
-    "--sidebar-border": "0 28% 20%",
-    "--sidebar-ring": "0 88% 40%",
-    "--table-alt-row": "0 20% 12%",
-    "--primary-glow": "0 80% 35%",
-  },
-  "deep-blue-green": {
-    "--background": "212 83% 11%",
-    "--foreground": "210 20% 95%",
-    "--card": "213 36% 17%",
-    "--card-foreground": "210 20% 95%",
-    "--popover": "213 36% 17%",
-    "--popover-foreground": "210 20% 95%",
-    "--primary": "202 100% 29%",
-    "--primary-foreground": "0 0% 100%",
-    "--secondary": "211 34% 26%",
-    "--secondary-foreground": "210 20% 95%",
-    "--muted": "211 34% 22%",
-    "--muted-foreground": "210 12% 82%",
-    "--accent": "152 100% 26%",
-    "--accent-foreground": "0 0% 100%",
-    "--destructive": "0 84% 60%",
-    "--destructive-foreground": "0 0% 100%",
-    "--success": "147 78% 32%",
-    "--success-foreground": "0 0% 100%",
-    "--warning": "42 93% 52%",
-    "--warning-foreground": "0 0% 100%",
-    "--info": "210 90% 47%",
-    "--info-foreground": "0 0% 100%",
-    "--border": "213 22% 30%",
-    "--input": "210 22% 22%",
-    "--ring": "204 100% 29%",
-    "--sidebar-background": "212 80% 12%",
-    "--sidebar-foreground": "210 20% 96%",
-    "--sidebar-primary": "202 100% 29%",
-    "--sidebar-primary-foreground": "0 0% 100%",
-    "--sidebar-accent": "210 30% 26%",
-    "--sidebar-accent-foreground": "210 20% 96%",
-    "--sidebar-border": "213 20% 27%",
-    "--sidebar-ring": "202 100% 29%",
-    "--table-alt-row": "213 25% 19%",
-    "--primary-glow": "202 95% 42%",
-  },
-  "minty-serenity": {
-    "--background": "90 12% 88%",
-    "--foreground": "206 33% 22%",
-    "--card": "90 18% 95%",
-    "--card-foreground": "206 33% 22%",
-    "--popover": "90 18% 95%",
-    "--popover-foreground": "206 33% 22%",
-    "--primary": "206 36% 23%",
-    "--primary-foreground": "0 0% 100%",
-    "--secondary": "92 16% 86%",
-    "--secondary-foreground": "206 33% 22%",
-    "--muted": "90 16% 92%",
-    "--muted-foreground": "206 20% 35%",
-    "--accent": "90 17% 96%",
-    "--accent-foreground": "206 33% 22%",
-    "--destructive": "0 84% 60%",
-    "--destructive-foreground": "0 0% 100%",
-    "--success": "142 71% 45%",
-    "--success-foreground": "0 0% 100%",
-    "--warning": "35 75% 50%",
-    "--warning-foreground": "0 0% 100%",
-    "--info": "210 90% 47%",
-    "--info-foreground": "0 0% 100%",
-    "--border": "210 25% 72%",
-    "--input": "90 15% 91%",
-    "--ring": "206 36% 23%",
-    "--sidebar-background": "206 36% 23%",
-    "--sidebar-foreground": "90 15% 94%",
-    "--sidebar-primary": "206 36% 23%",
-    "--sidebar-primary-foreground": "0 0% 100%",
-    "--sidebar-accent": "206 28% 30%",
-    "--sidebar-accent-foreground": "90 15% 94%",
-    "--sidebar-border": "206 28% 30%",
-    "--sidebar-ring": "206 36% 23%",
-    "--table-alt-row": "90 16% 92%",
-    "--primary-glow": "206 36% 35%",
-  },
-  "light-steel": {
-    "--background": "210 17% 96%",
-    "--foreground": "210 9% 18%",
-    "--card": "0 0% 100%",
-    "--card-foreground": "210 9% 18%",
-    "--popover": "0 0% 100%",
-    "--popover-foreground": "210 9% 18%",
-    "--primary": "210 9% 25%",
-    "--primary-foreground": "0 0% 100%",
-    "--secondary": "210 15% 94%",
-    "--secondary-foreground": "210 9% 18%",
-    "--muted": "210 15% 94%",
-    "--muted-foreground": "210 6% 46%",
-    "--accent": "210 15% 90%",
-    "--accent-foreground": "210 9% 18%",
-    "--destructive": "0 84% 60%",
-    "--destructive-foreground": "0 0% 100%",
-    "--success": "142 71% 45%",
-    "--success-foreground": "0 0% 100%",
-    "--warning": "38 92% 50%",
-    "--warning-foreground": "0 0% 100%",
-    "--info": "210 90% 47%",
-    "--info-foreground": "0 0% 100%",
-    "--border": "210 14% 86%",
-    "--input": "210 14% 90%",
-    "--ring": "210 9% 25%",
-    "--sidebar-background": "210 14% 97%",
-    "--sidebar-foreground": "210 9% 18%",
-    "--sidebar-primary": "210 9% 25%",
-    "--sidebar-primary-foreground": "0 0% 100%",
-    "--sidebar-accent": "210 18% 92%",
-    "--sidebar-accent-foreground": "210 9% 18%",
-    "--sidebar-border": "210 14% 86%",
-    "--sidebar-ring": "210 9% 25%",
-    "--table-alt-row": "210 18% 95%",
-    "--primary-glow": "210 8% 40%",
-  },
-};
-
-export function applyTheme(themeKey?: string | null, scope: ThemeScope = "tenant") {
+export function getModeStorageKey() {
+  return "stratus-theme-mode";
+}
+export function getInitialTheme(scope: ThemeScope = "tenant") {
+  return typeof window === "undefined"
+    ? DEFAULT_THEME
+    : resolveThemeKey(window.localStorage.getItem(getThemeStorageKey(scope)));
+}
+export function getInitialMode(): ThemeMode {
+  return typeof window === "undefined"
+    ? DEFAULT_MODE
+    : window.localStorage.getItem(getModeStorageKey()) === "dark"
+      ? "dark"
+      : DEFAULT_MODE;
+}
+export function applyTheme(themeKey?: string | null, scope: ThemeScope = "tenant", mode: ThemeMode = getInitialMode()) {
   const key = resolveThemeKey(themeKey);
-
   if (typeof document !== "undefined") {
     const root = document.documentElement;
     root.dataset.theme = key;
-
-    const values = THEME_CSS_VARIABLES[key];
-    for (const [cssVar, value] of Object.entries(values)) {
-      root.style.setProperty(cssVar, value);
-    }
+    root.dataset.mode = mode;
+    root.classList.toggle("dark", mode === "dark");
+    for (const [name, value] of Object.entries(THEMES[key][mode])) root.style.setProperty(name, value);
   }
-
   if (typeof window !== "undefined") {
     window.localStorage.setItem(getThemeStorageKey(scope), key);
+    window.localStorage.setItem(getModeStorageKey(), mode);
   }
+  return key;
 }
-
-export function initializeTheme(scope: ThemeScope = "tenant") {
-  if (typeof window === "undefined") return;
-  const saved = window.localStorage.getItem(getThemeStorageKey(scope));
-  applyTheme(saved || DEFAULT_THEME, scope);
+export interface ThemeContextValue {
+  theme: ThemeKey;
+  mode: ThemeMode;
+  setTheme: (theme: ThemeKey, scope?: ThemeScope) => void;
+  setMode: (mode: ThemeMode) => void;
+  themes: typeof THEMES;
 }
-
-export function getInitialTheme(scope: ThemeScope = "tenant") {
-  if (typeof window === "undefined") return DEFAULT_THEME;
-  const saved = window.localStorage.getItem(getThemeStorageKey(scope));
-  return resolveThemeKey(saved || DEFAULT_THEME);
+export const ThemeContext = createContext<ThemeContextValue | null>(null);
+export function useTheme() {
+  const context = useContext(ThemeContext);
+  if (!context) throw new Error("useTheme must be used within ThemeProvider");
+  return context;
 }
 
 export type BusinessType = "general" | "minimart" | "liquor_store" | "pharmacy" | "clothing";
-
 export const BUSINESS_TYPE_OPTIONS: { value: BusinessType; label: string }[] = [
   { value: "general", label: "General / Other" },
   { value: "minimart", label: "Minimart" },
