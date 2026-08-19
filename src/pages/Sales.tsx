@@ -7,20 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Search,
-  Eye,
-  Trash2,
-  Ban,
-  RotateCcw,
-  Pause,
-  Play,
-  X,
-  RefreshCw,
-  MoreHorizontal,
-  Pencil,
-  CreditCard,
-} from "lucide-react";
+import { Search, Eye, Trash2, Ban, RotateCcw, Pause, Play, X, RefreshCw, MoreHorizontal, Pencil } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -316,23 +303,23 @@ const Sales = () => {
                     <TableHead>Invoice</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Customer</TableHead>
-                    <TableHead>Location</TableHead>
+                    <TableHead className="hidden md:table-cell">Location</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                     <TableHead>Payment</TableHead>
-                    <TableHead>Fiscal</TableHead>
+                    <TableHead className="hidden md:table-cell">Fiscal</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {salesQuery.isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         Loading...
                       </TableCell>
                     </TableRow>
                   ) : filteredSales.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         No sales found. Create sales from the POS screen.
                       </TableCell>
                     </TableRow>
@@ -349,7 +336,7 @@ const Sales = () => {
                         <TableCell className="font-medium">{sale.invoice_number || "—"}</TableCell>
                         <TableCell>{format(new Date(sale.created_at), "PP")}</TableCell>
                         <TableCell>{sale.customers?.name || "Walk-in"}</TableCell>
-                        <TableCell>{sale.locations?.name}</TableCell>
+                        <TableCell className="hidden md:table-cell">{sale.locations?.name}</TableCell>
                         <TableCell className="text-right font-medium">
                           KES {Number(sale.total).toLocaleString()}
                         </TableCell>
@@ -372,7 +359,7 @@ const Sales = () => {
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden md:table-cell">
                           {sale.fiscal_status ? (
                             <Badge
                               variant="outline"
@@ -412,26 +399,6 @@ const Sales = () => {
                               >
                                 <Eye className="h-4 w-4 mr-2" /> View
                               </DropdownMenuItem>
-                              {sale.status !== "cancelled" &&
-                                ["credit", "unpaid", "partial"].includes(sale.payment_status) &&
-                                sale.customer_id && (
-                                  <DropdownMenuItem
-                                    onClick={() => {
-                                      sessionStorage.setItem(
-                                        "stratuspos.creditSaleToSettle",
-                                        JSON.stringify({
-                                          saleId: sale.id,
-                                          customerId: sale.customer_id,
-                                          customerName: sale.customers?.name || "Customer",
-                                          invoiceNumber: sale.invoice_number || "",
-                                        }),
-                                      );
-                                      navigate({ to: "/pos" });
-                                    }}
-                                  >
-                                    <CreditCard className="h-4 w-4 mr-2" /> Record Payment
-                                  </DropdownMenuItem>
-                                )}
                               {canEdit && (
                                 <DropdownMenuItem
                                   onClick={() => {
@@ -539,7 +506,7 @@ const Sales = () => {
                     <TableHead>Suspended On</TableHead>
                     <TableHead>Label</TableHead>
                     <TableHead>Customer</TableHead>
-                    <TableHead>Location</TableHead>
+                    <TableHead className="hidden md:table-cell">Location</TableHead>
                     <TableHead className="text-right">Items</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
