@@ -108,13 +108,13 @@ export function DateRangeFilter({ from, to, onChange, defaultPreset = "custom", 
   };
 
   return (
-    <div className={`flex flex-wrap items-end gap-3 ${className ?? ""}`}>
-      <div className="space-y-1.5">
+    <div className={`grid grid-cols-2 gap-2 items-end sm:flex sm:flex-wrap sm:gap-3 ${className ?? ""}`}>
+      <div className="space-y-1.5 col-span-2 sm:col-span-1">
         <Label className="text-xs flex items-center gap-1.5 text-muted-foreground">
           <Filter className="h-3.5 w-3.5" /> Filters
         </Label>
         <Select value={preset} onValueChange={handlePreset}>
-          <SelectTrigger className="w-[210px]">
+          <SelectTrigger className="w-full sm:w-[210px]">
             <span className="text-muted-foreground mr-1 shrink-0">As of :</span>
             <SelectValue />
           </SelectTrigger>
@@ -134,11 +134,21 @@ export function DateRangeFilter({ from, to, onChange, defaultPreset = "custom", 
         <>
           <div className="space-y-1.5">
             <Label className="text-xs">From</Label>
-            <Input type="date" value={from} onChange={(e) => onChange({ from: e.target.value, to })} className="w-40" />
+            <Input
+              type="date"
+              value={from}
+              onChange={(e) => onChange({ from: e.target.value, to })}
+              className="w-full sm:w-40"
+            />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">To</Label>
-            <Input type="date" value={to} onChange={(e) => onChange({ from, to: e.target.value })} className="w-40" />
+            <Input
+              type="date"
+              value={to}
+              onChange={(e) => onChange({ from, to: e.target.value })}
+              className="w-full sm:w-40"
+            />
           </div>
         </>
       )}
