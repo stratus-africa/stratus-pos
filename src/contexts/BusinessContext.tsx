@@ -303,6 +303,35 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   );
 };
 
+/**
+ * Safe variant for public/authentication screens that may render before the
+ * authenticated business provider is mounted. It intentionally does not
+ * throw when BusinessProvider is unavailable.
+ */
+export const useOptionalBusiness = () => {
+  const context = useContext(BusinessContext);
+  if (!context) {
+    return {
+      business: null,
+      locations: [] as Location[],
+      currentLocation: null,
+      setCurrentLocation: (_location: Location) => {},
+      loading: false,
+      needsOnboarding: false,
+      isSuspended: false,
+      subscriptionExpired: false,
+      subscriptionEndsAt: null,
+      createBusiness: async () => ({ error: new Error("Business provider is not mounted") }),
+      refreshBusiness: async () => {},
+      userRole: null,
+      hasAccess: (_requiredRoles: AppRole[]) => false,
+      isMasquerading: false,
+      stopMasquerade: () => {},
+    } satisfies BusinessContextType;
+  }
+  return context;
+};
+
 export const useBusiness = () => {
   const context = useContext(BusinessContext);
   if (!context) throw new Error("useBusiness must be used within BusinessProvider");
