@@ -8,12 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import {
-  Shield, Mail, Lock, Eye, EyeOff, ArrowLeft, ArrowRight, Info, Copy, Check,
-} from "lucide-react";
+import { Shield, Mail, Lock, Eye, EyeOff, ArrowLeft, ArrowRight, Info, Copy, Check } from "lucide-react";
 
 export default function SuperAdminLogin() {
   const { user, loading, signIn } = useAuth();
@@ -69,7 +72,10 @@ export default function SuperAdminLogin() {
       <aside className="relative hidden lg:flex flex-col justify-between p-12 overflow-hidden bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-600 text-white">
         {/* Decorative blobs */}
         <div className="absolute -top-32 -left-32 w-[450px] h-[450px] rounded-full bg-white/15 blur-2xl" aria-hidden />
-        <div className="absolute -bottom-40 -right-20 w-[500px] h-[500px] rounded-full bg-white/10 blur-3xl" aria-hidden />
+        <div
+          className="absolute -bottom-40 -right-20 w-[500px] h-[500px] rounded-full bg-white/10 blur-3xl"
+          aria-hidden
+        />
         <div className="absolute top-[55%] right-[28%] w-32 h-32 rounded-full bg-white/10" aria-hidden />
         <div className="absolute bottom-[18%] left-[25%] w-24 h-24 rounded-3xl bg-white/10" aria-hidden />
 
@@ -109,13 +115,16 @@ export default function SuperAdminLogin() {
       <main className="flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-sm space-y-7">
           {/* Mobile back link */}
-          <Link to="/landing" className="lg:hidden inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+          <Link
+            to="/landing"
+            className="lg:hidden inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          >
             <ArrowLeft className="h-4 w-4" /> Back
           </Link>
 
           {/* Brand */}
           <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-white font-bold shadow-md shadow-emerald-500/20">
+            <div className="h-11 w-11 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-white font-bold shadow-md shadow-primary/20">
               $
             </div>
             <span className="text-2xl font-bold tracking-tight">StratusPOS</span>
@@ -130,7 +139,9 @@ export default function SuperAdminLogin() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="sa-email" className="text-sm font-medium">Email address</Label>
+              <Label htmlFor="sa-email" className="text-sm font-medium">
+                Email address
+              </Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-500" />
                 <Input
@@ -146,7 +157,9 @@ export default function SuperAdminLogin() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="sa-password" className="text-sm font-medium">Password</Label>
+              <Label htmlFor="sa-password" className="text-sm font-medium">
+                Password
+              </Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -160,7 +173,7 @@ export default function SuperAdminLogin() {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(s => !s)}
+                  onClick={() => setShowPassword((s) => !s)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
@@ -176,8 +189,11 @@ export default function SuperAdminLogin() {
               </label>
               <button
                 type="button"
-                onClick={() => { setForgotEmail(email); setForgotOpen(true); }}
-                className="text-sm font-semibold text-emerald-600 hover:text-emerald-700"
+                onClick={() => {
+                  setForgotEmail(email);
+                  setForgotOpen(true);
+                }}
+                className="text-sm font-semibold text-primary hover:text-primary/80"
               >
                 Forgot password?
               </button>
@@ -186,9 +202,15 @@ export default function SuperAdminLogin() {
             <Button
               type="submit"
               disabled={submitting}
-              className="w-full h-11 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-sm font-semibold shadow-md shadow-emerald-500/20"
+              className="w-full h-11 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-semibold shadow-md shadow-primary/20"
             >
-              {submitting ? "Signing in..." : (<>Sign in <ArrowRight className="ml-2 h-4 w-4" /></>)}
+              {submitting ? (
+                "Signing in..."
+              ) : (
+                <>
+                  Sign in <ArrowRight className="ml-2 h-4 w-4" />
+                </>
+              )}
             </Button>
           </form>
 
@@ -224,7 +246,9 @@ export default function SuperAdminLogin() {
           </div>
 
           <Button asChild variant="outline" className="w-full h-11 rounded-lg font-medium">
-            <Link to="/landing"><ArrowLeft className="mr-2 h-4 w-4" /> Back to homepage</Link>
+            <Link to="/landing">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to homepage
+            </Link>
           </Button>
 
           <p className="text-xs text-center text-muted-foreground">
@@ -261,11 +285,7 @@ export default function SuperAdminLogin() {
               <Button type="button" variant="outline" onClick={() => setForgotOpen(false)}>
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                disabled={sendingReset}
-                className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white"
-              >
+              <Button type="submit" disabled={sendingReset} className="bg-primary hover:bg-primary/90 text-white">
                 {sendingReset ? "Sending…" : "Send reset link"}
               </Button>
             </DialogFooter>
@@ -276,7 +296,17 @@ export default function SuperAdminLogin() {
   );
 }
 
-function DemoRow({ label, value, onCopy, copied }: { label: string; value: string; onCopy: () => void; copied: boolean }) {
+function DemoRow({
+  label,
+  value,
+  onCopy,
+  copied,
+}: {
+  label: string;
+  value: string;
+  onCopy: () => void;
+  copied: boolean;
+}) {
   return (
     <div className="flex items-center justify-between gap-2 text-xs">
       <span className="font-semibold text-indigo-700">{label}</span>
