@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +10,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { format } from "date-fns";
-import { Printer, RefreshCw } from "lucide-react";
+import { CreditCard, Printer, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import ReceiptDialog from "@/components/pos/ReceiptDialog";
 
@@ -25,19 +26,22 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
   const { hasPermission: _hp } = usePermissions();
   const canRetryFiscal = userRole !== "cashier";
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [items, setItems] = useState<SaleItem[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
   const [fiscalError, setFiscalError] = useState<string | null>(null);
   const [reprintOpen, setReprintOpen] = useState(false);
 
-
   useEffect(() => {
     if (sale && open) {
       setLoading(true);
       setFiscalError(null);
       getSaleDetails(sale.id)
-        .then(({ items, payments }) => { setItems(items); setPayments(payments); })
+        .then(({ items, payments }) => {
+          setItems(items);
+          setPayments(payments);
+        })
         .finally(() => setLoading(false));
       // Fetch latest DigiTax queue row for this sale (for error message)
       import("@/integrations/supabase/client").then(({ supabase }) => {
@@ -55,7 +59,8 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
 
   if (!sale) return null;
 
-  const statusColor = sale.payment_status === "paid" ? "default" : sale.payment_status === "partial" ? "secondary" : "destructive";
+  const statusColor =
+    sale.payment_status === "paid" ? "default" : sale.payment_status === "partial" ? "secondary" : "destructive";
 
   // Build the same payload the POS receipt uses so the reprint matches the
   // configured customization layout exactly.
@@ -78,7 +83,7 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
     customerName: sale.customers?.name || null,
     locationName: sale.locations?.name || "",
     businessName: business?.name || "",
-    servedBy: ((user?.user_metadata as { full_name?: string } | undefined)?.full_name) || user?.email || null,
+    servedBy: (user?.user_metadata as { full_name?: string } | undefined)?.full_name || user?.email || null,
     date: new Date(sale.created_at),
     fiscal: {
       fiscal_status: sale.fiscal_status,
@@ -97,10 +102,32 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
     setReprintOpen(true);
   };
 
+  const handleRecordPayment = () => {
+    if (loading) {
+      toast.info("Loading receipt details…");
+      return;
+    }
+    if (!sale.customer_id) {
+      toast.error("A customer is required to record payment for a credit sale.");
+      return;
+    }
+
+    sessionStorage.setItem(
+      "stratuspos.creditSaleToSettle",
+      JSON.stringify({
+        saleId: sale.id,
+        customerId: sale.customer_id,
+        customerName: sale.customers?.name || "Customer",
+        invoiceNumber: sale.invoice_number || "",
+      }),
+    );
+    onOpenChange(false);
+    navigate({ to: "/pos" });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto [&>button]:h-9 [&>button]:w-9 [&>button]:rounded-full [&>button]:border [&>button]:bg-background [&>button]:opacity-100 [&>button]:shadow-sm [&>button]:hover:bg-muted [&>button]:focus:ring-2 [&>button]:focus:ring-ring">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             Invoice {sale.invoice_number || "—"}
@@ -109,10 +136,18 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-4 text-sm">
-          <div><span className="text-muted-foreground">Date:</span> {format(new Date(sale.created_at), "PPp")}</div>
-          <div><span className="text-muted-foreground">Location:</span> {sale.locations?.name}</div>
-          <div><span className="text-muted-foreground">Customer:</span> {sale.customers?.name || "Walk-in"}</div>
-          <div><span className="text-muted-foreground">Status:</span> {sale.status}</div>
+          <div>
+            <span className="text-muted-foreground">Date:</span> {format(new Date(sale.created_at), "PPp")}
+          </div>
+          <div>
+            <span className="text-muted-foreground">Location:</span> {sale.locations?.name}
+          </div>
+          <div>
+            <span className="text-muted-foreground">Customer:</span> {sale.customers?.name || "Walk-in"}
+          </div>
+          <div>
+            <span className="text-muted-foreground">Status:</span> {sale.status}
+          </div>
         </div>
 
         <Separator />
@@ -149,11 +184,27 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
 
         <div className="flex justify-end">
           <div className="text-sm space-y-1 w-48">
-            <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{Number(sale.subtotal).toLocaleString()}</span></div>
-            {Number(sale.tax) > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Tax</span><span>{Number(sale.tax).toLocaleString()}</span></div>}
-            {Number(sale.discount) > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span>-{Number(sale.discount).toLocaleString()}</span></div>}
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span>{Number(sale.subtotal).toLocaleString()}</span>
+            </div>
+            {Number(sale.tax) > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Tax</span>
+                <span>{Number(sale.tax).toLocaleString()}</span>
+              </div>
+            )}
+            {Number(sale.discount) > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Discount</span>
+                <span>-{Number(sale.discount).toLocaleString()}</span>
+              </div>
+            )}
             <Separator />
-            <div className="flex justify-between font-semibold"><span>Total</span><span>KES {Number(sale.total).toLocaleString()}</span></div>
+            <div className="flex justify-between font-semibold">
+              <span>Total</span>
+              <span>KES {Number(sale.total).toLocaleString()}</span>
+            </div>
           </div>
         </div>
 
@@ -176,18 +227,33 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
                   {sale.fiscal_status.replace("_", " ")}
                 </Badge>
               </div>
-              {sale.fiscal_invoice_number && <div><span className="text-muted-foreground">Fiscal invoice:</span> {sale.fiscal_invoice_number}</div>}
-              {sale.fiscal_reference && <div><span className="text-muted-foreground">Reference:</span> {sale.fiscal_reference}</div>}
+              {sale.fiscal_invoice_number && (
+                <div>
+                  <span className="text-muted-foreground">Fiscal invoice:</span> {sale.fiscal_invoice_number}
+                </div>
+              )}
+              {sale.fiscal_reference && (
+                <div>
+                  <span className="text-muted-foreground">Reference:</span> {sale.fiscal_reference}
+                </div>
+              )}
               {sale.fiscal_verification_url && (
                 <div>
                   <span className="text-muted-foreground">Verify:</span>{" "}
-                  <a className="text-primary underline break-all" href={sale.fiscal_verification_url} target="_blank" rel="noreferrer">
+                  <a
+                    className="text-primary underline break-all"
+                    href={sale.fiscal_verification_url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     {sale.fiscal_verification_url}
                   </a>
                 </div>
               )}
               {fiscalError && (
-                <div className="text-destructive text-xs pt-1"><span className="font-semibold">Error:</span> {fiscalError}</div>
+                <div className="text-destructive text-xs pt-1">
+                  <span className="font-semibold">Error:</span> {fiscalError}
+                </div>
               )}
               {canRetryFiscal && (sale.fiscal_status === "failed" || sale.fiscal_status === "retry_required") && (
                 <div className="pt-2">
@@ -204,7 +270,6 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
             </div>
           </>
         )}
-
 
         {payments.length > 0 && (
           <>
@@ -235,9 +300,13 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
           </>
         )}
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-          <Button onClick={handleReprint} disabled={loading}>
+        <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-end gap-2">
+          {sale.payment_status !== "paid" && sale.payment_status !== "cancelled" && (
+            <Button onClick={handleRecordPayment} disabled={loading} className="w-full sm:w-auto">
+              <CreditCard className="h-4 w-4 mr-1" /> Record Payment
+            </Button>
+          )}
+          <Button variant="outline" onClick={handleReprint} disabled={loading} className="w-full sm:w-auto">
             <Printer className="h-4 w-4 mr-1" /> Reprint Receipt
           </Button>
         </DialogFooter>
@@ -245,6 +314,5 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
         <ReceiptDialog open={reprintOpen} onOpenChange={setReprintOpen} data={receiptPayload} reprint />
       </DialogContent>
     </Dialog>
-
   );
 }
