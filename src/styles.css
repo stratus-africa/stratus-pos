@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700;800&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
@@ -9,9 +9,8 @@
  * Design system definition — ported from the pre-migration src/index.css +
  * tailwind.config.ts (Nexus ERP-style theme).
  *
- * Tokens are kept as raw HSL triplets (e.g. `226 84% 54%`) and mapped through
- * hsl(var(--x)) in @theme inline so every existing `hsl(var(--token))` usage
- * in components, charts and inline styles keeps working unchanged.
+ * Tokens are the canonical tweakcn color values and are consumed directly by
+ * the Tailwind semantic utilities below.
  */
 
 @theme inline {
@@ -26,46 +25,46 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
 
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
-  --color-primary-glow: hsl(var(--primary-glow));
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
-  --color-success: hsl(var(--success));
-  --color-success-foreground: hsl(var(--success-foreground));
-  --color-warning: hsl(var(--warning));
-  --color-warning-foreground: hsl(var(--warning-foreground));
-  --color-teal: hsl(var(--teal));
-  --color-teal-foreground: hsl(var(--teal-foreground));
-  --color-teal-soft: hsl(var(--teal-soft));
-  --color-teal-deep: hsl(var(--teal-deep));
-  --color-rust: hsl(var(--rust));
-  --color-rust-foreground: hsl(var(--rust-foreground));
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
-  --color-ring-offset-background: hsl(var(--background));
-  --color-table-alt-row: hsl(var(--table-alt-row));
-  --color-sidebar: hsl(var(--sidebar-background));
-  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
-  --color-sidebar-primary: hsl(var(--sidebar-primary));
-  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
-  --color-sidebar-accent: hsl(var(--sidebar-accent));
-  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
-  --color-sidebar-border: hsl(var(--sidebar-border));
-  --color-sidebar-ring: hsl(var(--sidebar-ring));
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-teal: var(--accent);
+  --color-teal-foreground: var(--accent-foreground);
+  --color-teal-soft: var(--muted);
+  --color-teal-deep: var(--primary);
+  --color-rust: var(--primary);
+  --color-rust-foreground: var(--primary-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
 
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
@@ -89,11 +88,11 @@
 }
 
 :root {
-  --background: 210 33% 97%;
-  --foreground: 222 47% 11%;
+  --background: #fdf8f9;
+  --foreground: #3d0a0d;
 
-  --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
+  --card: #ffffff;
+  --card-foreground: #3d0a0d;
 
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 11%;
@@ -144,8 +143,6 @@
   --sidebar-ring: 226 84% 54%;
 
   /* Themed alternating row tint */
-  --table-alt-row: 217 100% 98%;
-  --primary-glow: 226 84% 65%;
 }
 
 .dark {
@@ -180,8 +177,6 @@
   --sidebar-accent-foreground: 210 40% 98%;
   --sidebar-border: 217 33% 14%;
   --sidebar-ring: 217 91% 60%;
-  --table-alt-row: 217 33% 12%;
-  --primary-glow: 217 91% 70%;
 }
 
 @layer base {
@@ -212,10 +207,10 @@
 
 /* Themed alternating rows — pair with class="theme-alt-rows" on a <tbody> or any list container */
 .theme-alt-rows > *:nth-child(even) {
-  background-color: hsl(var(--table-alt-row));
+  background-color: color-mix(in oklab, var(--muted) 70%, var(--background));
 }
 .theme-alt-rows tr:nth-child(even) {
-  background-color: hsl(var(--table-alt-row));
+  background-color: color-mix(in oklab, var(--muted) 70%, var(--background));
 }
 
 /* Scrollbar styling */
@@ -224,12 +219,12 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background-color: color-mix(in oklab, hsl(var(--muted)) 30%, transparent);
+  background-color: color-mix(in oklab, var(--muted) 30%, transparent);
 }
 ::-webkit-scrollbar-thumb {
-  background-color: color-mix(in oklab, hsl(var(--muted-foreground)) 20%, transparent);
+  background-color: color-mix(in oklab, var(--muted-foreground) 20%, transparent);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background-color: color-mix(in oklab, hsl(var(--muted-foreground)) 40%, transparent);
+  background-color: color-mix(in oklab, var(--muted-foreground) 40%, transparent);
 }
