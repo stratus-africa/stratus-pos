@@ -123,7 +123,8 @@ export function BrandingTab() {
             Appearance
           </CardTitle>
           <CardDescription>
-            Pick a brand palette. It drives buttons, highlights, alternating table rows and the sidebar.
+            Pick a brand palette for this business. The selected branding applies to every user in this business,
+            regardless of role.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
@@ -169,7 +170,8 @@ export function BrandingTab() {
             })}
           </div>
           <p className="text-xs text-muted-foreground">
-            The sidebar uses this color with white text. Changes preview instantly — click Save to keep them.
+            This branding is shared by all users in this business, regardless of role. Changes preview instantly — click
+            Save to keep them.
           </p>
         </CardContent>
       </Card>
