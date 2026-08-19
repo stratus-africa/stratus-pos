@@ -104,12 +104,8 @@ export default function SuperAdminPackageEdit() {
   const queryClient = useQueryClient();
 
   const [form, setForm] = useState<Form>(emptyForm);
-  const [featureToggles, setFeatureToggles] = useState<Record<string, boolean>>(
-    Object.fromEntries(ALL_FEATURES.map((f) => [f.key, false])), // Default to disabled for new plans
-  );
-  const [savedFeatureToggles, setSavedFeatureToggles] = useState<Record<string, boolean>>(
-    Object.fromEntries(ALL_FEATURES.map((f) => [f.key, false])),
-  );
+  const [selectedModuleKeys, setSelectedModuleKeys] = useState<string[]>([]);
+  const [savedModuleKeys, setSavedModuleKeys] = useState<string[]>([]);
   const [activeModuleGroup, setActiveModuleGroup] = useState<ModuleGroup>("core");
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
@@ -150,15 +146,11 @@ export default function SuperAdminPackageEdit() {
           max_customers: pkg.max_customers ?? 50,
           max_suppliers: pkg.max_suppliers ?? 10,
         });
-        const toggles: Record<string, boolean> = {};
-        ALL_FEATURES.forEach((f) => {
-          const existing = (featRes.data || []).find(
-            (pf: any) => getCanonicalFeatureKey(pf.feature_key) === f.key && pf.enabled,
-          );
-          toggles[f.key] = existing?.enabled ?? false;
-        });
-        setFeatureToggles(toggles);
-        setSavedFeatureToggles(toggles);
+        const assignedModuleKeys = ALL_FEATURES.filter((feature) =>
+          (featRes.data || []).some((pf: any) => getCanonicalFeatureKey(pf.feature_key) === feature.key && pf.enabled),
+        ).map((feature) => feature.key);
+        setSelectedModuleKeys(assignedModuleKeys);
+        setSavedModuleKeys(assignedModuleKeys);
         setSubscriberCount(businessRes.count ?? 0);
         setLoading(false);
       } catch (error: any) {
@@ -170,11 +162,29 @@ export default function SuperAdminPackageEdit() {
     load();
   }, [id, isNew, navigate]);
 
-  const enabledModuleCount = useMemo(() => Object.values(featureToggles).filter(Boolean).length, [featureToggles]);
+  const selectedModuleSet = useMemo(() => new Set(selectedModuleKeys), [selectedModuleKeys]);
+  const enabledModuleCount = selectedModuleKeys.length;
   const hasModuleChanges = useMemo(
-    () => ALL_FEATURES.some((feature) => featureToggles[feature.key] !== savedFeatureToggles[feature.key]),
-    [featureToggles, savedFeatureToggles],
+    () =>
+      selectedModuleKeys.length !== savedModuleKeys.length ||
+      selectedModuleKeys.some((key) => !savedModuleKeys.includes(key)),
+    [selectedModuleKeys, savedModuleKeys],
   );
+
+  const toggleModule = (moduleKey: string) => {
+    setSelectedModuleKeys((currentKeys) => {
+      const enabled = currentKeys.includes(moduleKey);
+      const currentState = Object.fromEntries(
+        ALL_FEATURES.map((feature) => [feature.key, currentKeys.includes(feature.key)]),
+      );
+      const nextState = applyModuleToggleDependencyRule(moduleKey, !enabled, currentState);
+      if (nextState.blocked) {
+        toast.info(nextState.reason || "This module cannot be changed while its dependencies are active.");
+        return currentKeys;
+      }
+      return ALL_FEATURES.filter((feature) => nextState.next[feature.key]).map((feature) => feature.key);
+    });
+  };
 
   const limitsConfigured = useMemo(() => {
     return [form.max_products, form.max_users, form.max_locations, form.max_customers, form.max_suppliers].filter(
@@ -230,9 +240,7 @@ export default function SuperAdminPackageEdit() {
 
       // Assign modules to plan using secure RPC (transactional)
       if (pkgId) {
-        const enabledModules = ALL_FEATURES.filter((f) => featureToggles[f.key] ?? false).map((f) => f.key);
-
-        const moduleResult = await updatePlanModules(pkgId, enabledModules);
+        const moduleResult = await updatePlanModules(pkgId, selectedModuleKeys);
         if (!moduleResult.success) {
           throw new Error(moduleResult.message);
         }
@@ -241,16 +249,13 @@ export default function SuperAdminPackageEdit() {
           .select("feature_key, enabled")
           .eq("package_id", pkgId);
         if (refreshError) throw refreshError;
-        const refreshedToggles = Object.fromEntries(
-          ALL_FEATURES.map((feature) => [
-            feature.key,
-            (refreshedFeatures || []).some(
-              (saved: any) => getCanonicalFeatureKey(saved.feature_key) === feature.key && saved.enabled,
-            ),
-          ]),
-        );
-        setFeatureToggles(refreshedToggles);
-        setSavedFeatureToggles(refreshedToggles);
+        const refreshedModuleKeys = ALL_FEATURES.filter((feature) =>
+          (refreshedFeatures || []).some(
+            (saved: any) => getCanonicalFeatureKey(saved.feature_key) === feature.key && saved.enabled,
+          ),
+        ).map((feature) => feature.key);
+        setSelectedModuleKeys(refreshedModuleKeys);
+        setSavedModuleKeys(refreshedModuleKeys);
         await queryClient.invalidateQueries({ queryKey: ["sa-modules-features"] });
         await queryClient.invalidateQueries({ queryKey: ["entitlement:plan_modules", pkgId] });
       } else {
@@ -506,22 +511,19 @@ export default function SuperAdminPackageEdit() {
                 const accountingForced =
                   f.key === "accounting" && (featureToggles.banking || featureToggles.manual_journals);
 
-                const handleToggle = () => {
-                  const nextState = applyModuleToggleDependencyRule(f.key, !enabled, featureToggles);
-                  if (nextState.blocked) {
-                    toast.info(
-                      nextState.reason || "This change is not allowed for the current module dependency rules.",
-                    );
-                    return;
-                  }
-                  setFeatureToggles(nextState.next);
-                };
-
                 return (
                   <button
                     key={f.key}
                     type="button"
-                    onClick={handleToggle}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => toggleModule(f.key)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        toggleModule(f.key);
+                      }
+                    }}
                     disabled={saving}
                     aria-pressed={enabled}
                     aria-label={`${f.label}: ${enabled ? "enabled" : "disabled"}`}
