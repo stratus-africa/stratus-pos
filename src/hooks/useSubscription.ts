@@ -172,9 +172,11 @@ export function useSubscription() {
       const allPackages = [...pkgsById.values(), ...privatePkgs.filter((pkg) => !pkgsById.has(pkg.id))];
 
       let allFeatures: any[] = [];
+      // The RPCs already filter to enabled features server-side and do not return
+      // an `enabled` column, so every returned row is an enabled feature.
       const publicFeatureRes = await (supabase as any).rpc("get_public_package_features");
       if (publicFeatureRes.error) throw publicFeatureRes.error;
-      allFeatures.push(...(publicFeatureRes.data || []).filter((feature: any) => Boolean(feature.enabled)));
+      allFeatures.push(...(publicFeatureRes.data || []));
 
       const featureIds = new Set(allFeatures.map((feature) => `${feature.package_id}:${feature.feature_key}`));
       for (const packageId of packageIds) {
@@ -182,7 +184,6 @@ export function useSubscription() {
         const safeRes = await (supabase as any).rpc("get_package_features_safe", { _package_id: packageId });
         if (safeRes.error) throw safeRes.error;
         for (const feature of safeRes.data || []) {
-          if (!feature.enabled) continue;
           const key = `${feature.package_id}:${feature.feature_key}`;
           if (!featureIds.has(key)) {
             featureIds.add(key);
@@ -195,9 +196,10 @@ export function useSubscription() {
         packages: allPackages as unknown as SubscriptionPackage[],
         features: allFeatures.map((feature) => ({
           ...feature,
-          enabled: Boolean(feature.enabled),
+          enabled: true,
         })) as PackageFeature[],
       };
+
     },
     enabled: !!planUserId || packageCandidates.length > 0,
     staleTime: 30_000,
