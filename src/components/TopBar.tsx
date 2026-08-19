@@ -24,6 +24,8 @@ import {
   LogOut,
   KeyRound,
   Building2,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { useLocation, useNavigate } from "@/lib/router-compat";
 import { usePOSSession } from "@/hooks/usePOSSession";
@@ -33,6 +35,7 @@ import EndDayDialog from "@/components/pos/EndDayDialog";
 import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
 import { useExpenses } from "@/hooks/useExpenses";
 import { NotificationBell } from "@/components/NotificationBell";
+import { useTheme } from "@/lib/themes";
 
 export function TopBar() {
   const { business, locations, currentLocation, setCurrentLocation } = useBusiness();
@@ -41,6 +44,7 @@ export function TopBar() {
   const navigate = useNavigate();
   const session = usePOSSession();
   const { create: createExpense } = useExpenses();
+  const { mode, setMode } = useTheme();
 
   const [zReportOpen, setZReportOpen] = useState(false);
   const [endDayOpen, setEndDayOpen] = useState(false);
@@ -68,7 +72,7 @@ export function TopBar() {
 
   return (
     <>
-      <header className="h-14 min-h-14 max-h-14 flex items-center justify-between gap-2 border-b border-border bg-card px-3 sm:px-6 shrink-0 sticky top-0 z-20 overflow-hidden">
+      <header className="h-14 min-h-14 max-h-14 flex items-center justify-between gap-2 border-b border-border/70 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 px-3 sm:px-6 shrink-0 sticky top-0 z-30 overflow-hidden shadow-[0_1px_0_color-mix(in_oklab,var(--color-foreground)_3%,transparent)]">
         <div className="flex items-center gap-3">
           <span className="portrait:max-md:hidden">
             <SidebarTrigger />
@@ -84,7 +88,7 @@ export function TopBar() {
                     if (loc) setCurrentLocation(loc);
                   }}
                 >
-                  <SelectTrigger className="h-7 w-auto border-none bg-transparent text-sm p-0 gap-1">
+                  <SelectTrigger className="h-8 w-auto border border-transparent hover:border-border hover:bg-muted/50 bg-transparent text-sm px-2 gap-1">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -140,6 +144,17 @@ export function TopBar() {
             </>
           )}
           <NotificationBell />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-lg hover:bg-muted"
+            onClick={() => setMode(mode === "dark" ? "light" : "dark")}
+            aria-label={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            title={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {mode === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
