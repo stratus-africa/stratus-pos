@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useEntitlement } from "@/hooks/useEntitlement";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { findModule } from "@/lib/modules";
 
 export const PageLoader = () => (
@@ -43,6 +44,7 @@ export function PermissionGuard({
   children: ReactNode;
 }) {
   const { hasPermission, isLoading: permLoading } = usePermissions();
+  const { userRole } = useBusiness();
   // Use the canonical entitlement hook (businesses.selected_package_id → package_features).
   // This replaces the legacy useSubscription path which required an active billing
   // subscription and returned false for manually-approved tenants without a live
@@ -66,10 +68,17 @@ export function PermissionGuard({
           return candidate === normalizedRoute || normalizedRoute.startsWith(`${candidate}/`);
         }));
 
-    // The route's explicit permission is authoritative for the current user.
-    // Module roles are used for navigation defaults, but must not override a
-    // permission granted by the business administrator.
-    if (!module || !hasModule(moduleKey) || !routeMatches || (permission && !hasPermission(permission))) {
+    // Module role membership is a hard boundary. A custom permission cannot
+    // grant a user access to a module their role is not allowed to use.
+    const roleAllowed = !module?.roles?.length || (userRole ? module.roles.includes(userRole as any) : false);
+
+    if (
+      !module ||
+      !hasModule(moduleKey) ||
+      !routeMatches ||
+      !roleAllowed ||
+      (permission && !hasPermission(permission))
+    ) {
       return <AccessDenied />;
     }
     return <>{children}</>;
