@@ -240,19 +240,22 @@ export function MobileBottomNav() {
 
   const chosen = selected.map((k) => items.find((i) => keyOf(i) === k)).filter((i): i is Item => Boolean(i));
 
-  // Quick tabs: user preference first, otherwise the first few available modules.
-  // Active HR and Bakery modules are promoted into the initial bar so staff
-  // with access can discover them without having to open More first.
-  // The active module is always surfaced so the pill never looks unselected.
+  // Dashboard is permanently pinned to the left-most position. The remaining
+  // quick tabs can continue to rotate/promote the current module as before.
   const quick = (() => {
+    const dashboard = items.find((item) => item.to === "/");
+    const nonDashboard = items.filter((item) => item.to !== "/");
+    const chosenNonDashboard = chosen.filter((item) => item.to !== "/");
     const defaultItems = [
-      ...items.filter((item) => item.to === "/hr" || item.to === "/bakery"),
-      ...items.filter((item) => item.to !== "/hr" && item.to !== "/bakery"),
+      ...nonDashboard.filter((item) => item.to === "/hr" || item.to === "/bakery"),
+      ...nonDashboard.filter((item) => item.to !== "/hr" && item.to !== "/bakery"),
     ];
-    const base = (chosen.length ? chosen : defaultItems).slice(0, MAX_QUICK);
-    if (base.some((i) => isActive(i.to))) return base;
-    const current = items.find((i) => isActive(i.to));
-    return current ? [current, ...base.slice(0, MAX_QUICK - 1)] : base;
+    let base = (chosenNonDashboard.length ? chosenNonDashboard : defaultItems).slice(0, MAX_QUICK - 1);
+    const current = nonDashboard.find((i) => isActive(i.to));
+    if (current && !base.some((i) => keyOf(i) === keyOf(current))) {
+      base = [current, ...base.slice(0, MAX_QUICK - 2)];
+    }
+    return dashboard ? [dashboard, ...base] : base;
   })();
 
   const badgeFor = (to: string) => {
@@ -276,10 +279,10 @@ export function MobileBottomNav() {
     const dx = t.clientX - start.x;
     const dy = t.clientY - start.y;
     if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-    const currentIndex = quick.findIndex((i) => isActive(i.to));
-    const from = currentIndex === -1 ? 0 : currentIndex;
+    const currentIndex = quick.findIndex((i) => i.to !== "/" && isActive(i.to));
+    const from = currentIndex < 1 ? 1 : currentIndex;
     const next = dx < 0 ? from + 1 : from - 1;
-    if (next < 0 || next >= quick.length) return;
+    if (next < 1 || next >= quick.length) return;
     navigate(quick[next].to);
   };
 
