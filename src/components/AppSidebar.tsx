@@ -57,10 +57,19 @@ export function AppSidebar() {
   // Filter APP_MODULES to only those in the tenant's plan AND visible to the user's role.
   const visibleModules = APP_MODULES.filter((module) => {
     const entitled = entitledModuleKeys.has(module.key);
-    if (typeof window !== "undefined" && (window as any).__DEBUG_SIDEBAR && !entitled) {
-      console.debug(`[Sidebar] ${module.key} blocked — not in plan`);
+    const roleAllowed = !module.roles?.length || (!!userRole && module.roles.includes(userRole as any));
+    const permissionAllowed =
+      module.permissions.length === 0 || module.permissions.some((permission) => hasPermission(permission));
+
+    if (
+      typeof window !== "undefined" &&
+      (window as any).__DEBUG_SIDEBAR &&
+      (!entitled || !roleAllowed || !permissionAllowed)
+    ) {
+      console.debug(`[Sidebar] ${module.key} blocked`, { entitled, roleAllowed, permissionAllowed, userRole });
     }
-    return entitled;
+
+    return entitled && roleAllowed && permissionAllowed;
   });
 
   const renderModule = (module: (typeof APP_MODULES)[number]) => {
