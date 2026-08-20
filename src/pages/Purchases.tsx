@@ -76,7 +76,7 @@ const Purchases = () => {
   const paymentBadge = (s: string) => {
     switch (s) {
       case "paid":
-        return <Badge variant="default">Paid</Badge>;
+        return <Badge className="border-green-600 bg-green-600 text-white hover:bg-green-600">Paid</Badge>;
       case "partial":
         return <Badge variant="secondary">Partial</Badge>;
       default:
@@ -87,7 +87,7 @@ const Purchases = () => {
   const statusBadge = (s: string) => {
     switch (s) {
       case "received":
-        return <Badge variant="default">Received</Badge>;
+        return <Badge className="border-green-600 bg-green-600 text-white hover:bg-green-600">Received</Badge>;
       case "cancelled":
         return <Badge variant="destructive">Cancelled</Badge>;
       default:
