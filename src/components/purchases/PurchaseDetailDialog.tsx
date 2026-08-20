@@ -17,7 +17,9 @@ interface Line {
 }
 
 const formatKES = (n: number) =>
-  new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 2 }).format(Number(n || 0));
+  new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 2 }).format(
+    Number(n || 0),
+  );
 
 const escapeHtml = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -139,10 +141,26 @@ export function PurchaseDetailDialog({
         <DialogHeader>
           <DialogTitle className="flex flex-wrap items-center gap-2">
             Purchase {purchase.invoice_number || purchase.id.slice(0, 8)}
-            <Badge variant={purchase.status === "received" ? "default" : purchase.status === "cancelled" ? "destructive" : "secondary"}>
+            <Badge
+              className={
+                purchase.status === "received"
+                  ? "border-green-600 bg-green-600 text-white hover:bg-green-600"
+                  : purchase.status === "cancelled"
+                    ? "border-destructive bg-destructive text-destructive-foreground"
+                    : ""
+              }
+            >
               {purchase.status}
             </Badge>
-            <Badge variant={purchase.payment_status === "paid" ? "default" : purchase.payment_status === "partial" ? "secondary" : "destructive"}>
+            <Badge
+              className={
+                purchase.payment_status === "paid"
+                  ? "border-green-600 bg-green-600 text-white hover:bg-green-600"
+                  : purchase.payment_status === "partial"
+                    ? ""
+                    : "border-destructive bg-destructive text-destructive-foreground"
+              }
+            >
               {purchase.payment_status}
             </Badge>
           </DialogTitle>
@@ -160,7 +178,11 @@ export function PurchaseDetailDialog({
           <div>
             <div className="text-xs text-muted-foreground">Date</div>
             <div className="font-medium">
-              {new Date(purchase.created_at).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })}
+              {new Date(purchase.created_at).toLocaleDateString("en-KE", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })}
             </div>
           </div>
           <div>
@@ -182,11 +204,15 @@ export function PurchaseDetailDialog({
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground py-6">Loading...</TableCell>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
+                    Loading...
+                  </TableCell>
                 </TableRow>
               ) : items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground py-6">No items on this purchase.</TableCell>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
+                    No items on this purchase.
+                  </TableCell>
                 </TableRow>
               ) : (
                 items.map((i, idx) => (
@@ -206,13 +232,25 @@ export function PurchaseDetailDialog({
         </div>
 
         <div className="flex flex-col items-end gap-1 text-sm">
-          <div className="flex gap-8"><span className="text-muted-foreground">Subtotal</span><span>{formatKES(purchase.subtotal)}</span></div>
-          <div className="flex gap-8"><span className="text-muted-foreground">VAT</span><span>{formatKES(purchase.tax)}</span></div>
-          <div className="flex gap-8 font-semibold text-base"><span>Total</span><span>{formatKES(purchase.total)}</span></div>
+          <div className="flex gap-8">
+            <span className="text-muted-foreground">Subtotal</span>
+            <span>{formatKES(purchase.subtotal)}</span>
+          </div>
+          <div className="flex gap-8">
+            <span className="text-muted-foreground">VAT</span>
+            <span>{formatKES(purchase.tax)}</span>
+          </div>
+          <div className="flex gap-8 font-semibold text-base">
+            <span>Total</span>
+            <span>{formatKES(purchase.total)}</span>
+          </div>
         </div>
 
         {purchase.notes && (
-          <p className="text-sm text-muted-foreground"><span className="font-medium text-foreground">Notes: </span>{purchase.notes}</p>
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">Notes: </span>
+            {purchase.notes}
+          </p>
         )}
 
         <div className="flex flex-wrap justify-end gap-2">
@@ -228,7 +266,6 @@ export function PurchaseDetailDialog({
             <Printer className="h-4 w-4 mr-2" /> Print
           </Button>
         </div>
-
       </DialogContent>
     </Dialog>
   );
