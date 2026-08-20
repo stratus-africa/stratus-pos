@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { formatKES, downloadCSV } from "./reportUtils";
 import ReportTableScroll from "./ReportTableScroll";
@@ -25,11 +26,16 @@ const ALL = "__all__";
 
 export default function EndOfDayReportTab() {
   const { business, currentLocation, userRole } = useBusiness();
+  const { user } = useAuth();
+  const ownOnly = !!userRole && userRole !== "admin" && userRole !== "manager";
   const queryClient = useQueryClient();
   const canManageReconciliations = userRole === "admin";
   const [date, setDate] = useState(todayStr());
-  const [cashierId, setCashierId] = useState<string>(ALL);
+  const [cashierId, setCashierId] = useState<string>(ownOnly && user?.id ? user.id : ALL);
   const [drawerId, setDrawerId] = useState<string>(ALL);
+  useEffect(() => {
+    if (ownOnly && user?.id && cashierId !== user.id) setCashierId(user.id);
+  }, [ownOnly, user?.id, cashierId]);
   const [rerunning, setRerunning] = useState(false);
 
   // Cashiers in this business
@@ -37,10 +43,9 @@ export default function EndOfDayReportTab() {
     queryKey: ["eod-cashiers", business?.id],
     queryFn: async () => {
       if (!business) return [];
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, email")
-        .eq("business_id", business.id);
+      let q = supabase.from("profiles").select("id, full_name, email").eq("business_id", business.id);
+      if (ownOnly && user?.id) q = q.eq("id", user.id);
+      const { data, error } = await q;
       if (error) throw error;
       return data || [];
     },
@@ -80,13 +85,15 @@ export default function EndOfDayReportTab() {
         .lte("created_at", end)
         .order("created_at", { ascending: true });
       if (currentLocation) salesQ.eq("location_id", currentLocation.id);
+      if (ownOnly && user?.id) salesQ.eq("created_by", user.id);
       if (cashierId !== ALL) salesQ.eq("created_by", cashierId);
 
       const expensesQ = supabase
         .from("expenses")
-        .select("id, amount, description, payment_method, expense_categories(name)")
+        .select("id, amount, description, payment_method, created_by, expense_categories(name)")
         .eq("business_id", business.id)
         .eq("date", date);
+      if (ownOnly && user?.id) expensesQ.eq("created_by", user.id);
 
       const sessionsQ = supabase
         .from("pos_sessions")
@@ -95,6 +102,7 @@ export default function EndOfDayReportTab() {
         .gte("opened_at", start)
         .lte("opened_at", end);
       if (currentLocation) sessionsQ.eq("location_id", currentLocation.id);
+      if (ownOnly && user?.id) sessionsQ.eq("opened_by", user.id);
       if (cashierId !== ALL) sessionsQ.eq("opened_by", cashierId);
       if (drawerId !== ALL) sessionsQ.eq("cash_account_id", drawerId);
 
@@ -433,7 +441,7 @@ export default function EndOfDayReportTab() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL}>All cashiers</SelectItem>
+                {!ownOnly && <SelectItem value={ALL}>All cashiers</SelectItem>}
                 {(cashiersQ.data || []).map((c: any) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.full_name || c.email}
