@@ -215,9 +215,7 @@ export default function SuperAdminPackageEdit() {
   };
 
   const selectedModuleKeys = useMemo(() => {
-    const keys = ALL_FEATURES.filter(
-      (feature) => feature.group === "core" || Boolean(featureToggles[feature.key]),
-    )
+    const keys = ALL_FEATURES.filter((feature) => feature.group === "core" || Boolean(featureToggles[feature.key]))
       .map((feature) => getCanonicalFeatureKey(feature.key))
       .filter(Boolean);
 
@@ -308,8 +306,6 @@ export default function SuperAdminPackageEdit() {
       setSaving(false);
     }
   };
-
-
 
   const handleDelete = async () => {
     if (!id || isNew) return;
@@ -717,9 +713,18 @@ export default function SuperAdminPackageEdit() {
                 <h2 className="font-semibold text-sm">Modules</h2>
               </div>
 
-              <span className="text-xs text-muted-foreground">
-                {enabledModuleCount} of {ALL_FEATURES.length} enabled
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground">
+                  {enabledModuleCount} of {ALL_FEATURES.length} enabled
+                </span>
+
+                {!isNew && (
+                  <Button type="button" size="sm" variant="outline" onClick={handleSaveModulesOnly} disabled={saving}>
+                    {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+                    Save modules
+                  </Button>
+                )}
+              </div>
             </div>
 
             <div className="sm:hidden mb-3">
