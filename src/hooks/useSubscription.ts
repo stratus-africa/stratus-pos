@@ -117,11 +117,23 @@ export function useSubscription() {
   } = useQuery({
     queryKey: ["subscription", planUserId],
     queryFn: async () => {
-      if (!user) return null;
-      const { data, error } = await supabase.rpc("get_current_business_subscription");
+      if (!planUserId) return null;
+
+      // Do not rely on a single "current" RPC row here. Tenants can have
+      // multiple historical subscriptions, including stale live records and
+      // currently-active records. Fetch the owner's rows and let the shared
+      // resolver choose the subscription that is actually valid now.
+      const { data, error } = await supabase
+        .from("subscriptions")
+        .select(
+          "id, user_id, paystack_subscription_code, paystack_customer_code, plan_code, product_id, price_id, status, current_period_start, current_period_end, cancel_at_period_end, environment, created_at, updated_at",
+        )
+        .eq("user_id", planUserId)
+        .order("updated_at", { ascending: false });
+
       if (error) throw error;
-      const rows = (Array.isArray(data) ? data : data ? [data] : []) as any[];
-      const preferred = resolvePreferredSubscription(rows);
+
+      const preferred = resolvePreferredSubscription((data || []) as any[]);
       return (preferred as unknown as Subscription) || null;
     },
     enabled: !!user,
