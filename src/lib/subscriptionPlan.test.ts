@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { resolveSubscriptionPlan, resolvePreferredSubscription } from "./subscriptionPlan";
+import {
+  resolveSubscriptionPlan,
+  resolvePreferredSubscription,
+  isSubscriptionCurrentlyActive,
+} from "./subscriptionPlan";
 
 describe("subscription plan resolution", () => {
   const plans = [
@@ -79,6 +83,40 @@ describe("subscription plan resolution", () => {
       { selected_package_id: null },
     );
     expect(plan).toBeNull();
+  });
+
+  it("prefers a currently-active subscription over an inactive live record", () => {
+    const chosen = resolvePreferredSubscription([
+      {
+        id: "stale-live",
+        user_id: "u1",
+        environment: "live",
+        status: "active",
+        current_period_end: "2025-01-01T00:00:00Z",
+        created_at: "2026-03-01",
+      },
+      {
+        id: "current-sandbox",
+        user_id: "u1",
+        environment: "sandbox",
+        status: "active",
+        current_period_end: "2099-01-01T00:00:00Z",
+        created_at: "2026-02-01",
+      },
+    ] as any[]);
+
+    expect(chosen?.id).toBe("current-sandbox");
+  });
+
+  it("recognizes active and trialing subscriptions only while their period is valid", () => {
+    expect(isSubscriptionCurrentlyActive({ status: "active", current_period_end: "2099-01-01T00:00:00Z" })).toBe(true);
+    expect(isSubscriptionCurrentlyActive({ status: "trialing", current_period_end: "2099-01-01T00:00:00Z" })).toBe(
+      true,
+    );
+    expect(isSubscriptionCurrentlyActive({ status: "active", current_period_end: "2025-01-01T00:00:00Z" })).toBe(false);
+    expect(isSubscriptionCurrentlyActive({ status: "canceled", current_period_end: "2099-01-01T00:00:00Z" })).toBe(
+      false,
+    );
   });
 
   it("prefers the active live subscription over an inactive or sandbox subscription", () => {
