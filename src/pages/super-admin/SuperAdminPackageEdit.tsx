@@ -214,6 +214,32 @@ export default function SuperAdminPackageEdit() {
     setFeatureToggles(result.next);
   };
 
+  const selectedModuleKeys = useMemo(() => {
+    const keys = ALL_FEATURES.filter(
+      (feature) => feature.group === "core" || Boolean(featureToggles[feature.key]),
+    )
+      .map((feature) => getCanonicalFeatureKey(feature.key))
+      .filter(Boolean);
+
+    return [...new Set(keys)];
+  }, [featureToggles]);
+
+  const handleSaveModulesOnly = async () => {
+    if (isNew || !id) return;
+
+    setSaving(true);
+
+    try {
+      await updatePlanModules(id, selectedModuleKeys);
+
+      toast.success(`Modules updated - ${selectedModuleKeys.length} enabled for ${form.name}`);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to update plan modules");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!form.name.trim()) {
       toast.error("Plan name is required");
@@ -243,8 +269,22 @@ export default function SuperAdminPackageEdit() {
         }
 
         pkgId = result.package_id || null;
-      } else {
-        const result = await updateSubscriptionPlan(id!, {
+
+        if (!pkgId) {
+          throw new Error("Failed to create plan - no ID returned");
+        }
+      }
+
+      if (!pkgId) {
+        throw new Error("Missing plan id");
+      }
+
+      // Save module entitlements FIRST so a failure while saving pricing/limits
+      // can never silently discard the module changes.
+      await updatePlanModules(pkgId, selectedModuleKeys);
+
+      if (!isNew) {
+        await updateSubscriptionPlan(id!, {
           name: form.name.trim(),
           monthly_price_kes: form.monthly_price_kes,
           yearly_price_kes: form.yearly_price_kes,
@@ -255,32 +295,11 @@ export default function SuperAdminPackageEdit() {
           max_suppliers: form.max_suppliers,
           trial_days: form.free_trial ? form.trial_days : 0,
           is_active: form.is_active,
+          is_public: !form.is_private,
         });
-
-        if (!result.success) {
-          throw new Error(result.message);
-        }
       }
 
-      if (!pkgId) {
-        throw new Error("Failed to create plan - no ID returned");
-      }
-
-      const enabledModules = ALL_FEATURES.filter(
-        (feature) => feature.group === "core" || Boolean(featureToggles[feature.key]),
-      )
-        .map((feature) => getCanonicalFeatureKey(feature.key))
-        .filter(Boolean);
-
-      const uniqueEnabledModules = [...new Set(enabledModules)];
-
-      const moduleResult = await updatePlanModules(pkgId, uniqueEnabledModules);
-
-      if (!moduleResult.success) {
-        throw new Error(moduleResult.message);
-      }
-
-      toast.success(isNew ? "Plan created" : "Plan updated");
+      toast.success(isNew ? "Plan created" : `Plan updated - ${selectedModuleKeys.length} modules enabled`);
 
       navigate("/super-admin/packages");
     } catch (error: any) {
@@ -289,6 +308,8 @@ export default function SuperAdminPackageEdit() {
       setSaving(false);
     }
   };
+
+
 
   const handleDelete = async () => {
     if (!id || isNew) return;
