@@ -6,6 +6,8 @@ export type SubscriptionPlanInput = {
   created_at?: string | null;
   id?: string | null;
   user_id?: string | null;
+  current_period_start?: string | null;
+  current_period_end?: string | null;
 };
 
 export type SubscriptionPlanLike = {
@@ -68,30 +70,57 @@ export function resolveSubscriptionPlan(
   return freePlan ?? null;
 }
 
+export function isSubscriptionCurrentlyActive(
+  subscription: SubscriptionPlanInput | null | undefined,
+  now = Date.now(),
+) {
+  if (!subscription) return false;
+
+  const status = normalizeValue(subscription.status).toLowerCase();
+  if (status !== "active" && status !== "trialing") return false;
+
+  if (!subscription.current_period_end) return true;
+
+  const endsAt = new Date(subscription.current_period_end).getTime();
+  return Number.isNaN(endsAt) || endsAt > now;
+}
+
 export function resolvePreferredSubscription<T extends SubscriptionPlanInput>(subscriptions: T[] = []) {
   if (!Array.isArray(subscriptions) || subscriptions.length === 0) return null;
 
-  const activePriority = ["active", "trialing", "past_due", "pending"];
-  const order = [...subscriptions].sort((a, b) => {
-    const getEnvRank = (item: T) => {
-      const env = normalizeValue(item.environment).toLowerCase();
-      if (env === "live") return 2;
-      if (env === "sandbox") return 1;
-      return 0;
-    };
+  const getStatusRank = (item: T) => {
+    const status = normalizeValue(item.status).toLowerCase();
 
-    const getStatusRank = (item: T) => {
-      const status = normalizeValue(item.status).toLowerCase();
-      const idx = activePriority.indexOf(status);
-      if (idx >= 0) return idx;
-      return activePriority.length;
-    };
+    // A currently-valid subscription must always outrank an expired/cancelled
+    // record, regardless of whether the stale record is from live Paystack.
+    if (isSubscriptionCurrentlyActive(item)) {
+      return status === "active" ? 4 : 3;
+    }
+
+    // Keep non-active records available as a fallback so the UI can still show
+    // the actual subscription state instead of pretending there is no record.
+    if (status === "pending") return 2;
+    if (status === "past_due") return 1;
+    return 0;
+  };
+
+  const getEnvRank = (item: T) => {
+    const env = normalizeValue(item.environment).toLowerCase();
+    if (env === "live") return 2;
+    if (env === "sandbox") return 1;
+    return 0;
+  };
+
+  const order = [...subscriptions].sort((a, b) => {
+    const statusDiff = getStatusRank(b) - getStatusRank(a);
+    if (statusDiff !== 0) return statusDiff;
 
     const envDiff = getEnvRank(b) - getEnvRank(a);
     if (envDiff !== 0) return envDiff;
 
-    const statusDiff = getStatusRank(b) - getStatusRank(a);
-    if (statusDiff !== 0) return statusDiff;
+    const endA = a.current_period_end ? new Date(a.current_period_end).getTime() : 0;
+    const endB = b.current_period_end ? new Date(b.current_period_end).getTime() : 0;
+    if (endB !== endA) return endB - endA;
 
     const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
     const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
