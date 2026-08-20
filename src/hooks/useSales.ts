@@ -189,12 +189,21 @@ export function useSales({ subscribeToFiscalUpdates = true }: { subscribeToFisca
       if (cashierOnly) {
         throw new Error("Cashiers cannot delete sales.");
       }
-      // Snapshot for audit
-      const { data: saleSnap } = await supabase
-        .from("sales")
-        .select("invoice_number, total, business_id")
-        .eq("id", id)
-        .maybeSingle();
+      // Full snapshot for audit before deleting anything. This allows an admin to
+      // preview the deleted sale/receipt later from the Audit Trail report.
+      const [
+        { data: saleSnap, error: saleSnapError },
+        { data: saleItemsSnap, error: saleItemsError },
+        { data: salePaymentsSnap, error: salePaymentsError },
+      ] = await Promise.all([
+        supabase.from("sales").select("*, customers(name, phone), locations(name)").eq("id", id).maybeSingle(),
+        supabase.from("sale_items").select("*, products(name)").eq("sale_id", id),
+        supabase.from("payments").select("*").eq("sale_id", id).order("created_at"),
+      ]);
+      if (saleSnapError) throw saleSnapError;
+      if (saleItemsError) throw saleItemsError;
+      if (salePaymentsError) throw salePaymentsError;
+      if (!saleSnap) throw new Error("Sale not found");
 
       // Defensive cleanup: delete payments and items before the sale (FK now cascades, but this keeps old DBs safe).
       // Bank transactions referencing this sale are removed automatically by a database trigger.
@@ -212,7 +221,15 @@ export function useSales({ subscribeToFiscalUpdates = true }: { subscribeToFisca
           entity_type: "sale",
           entity_id: id,
           description: `Deleted sale ${saleSnap.invoice_number || id} (KES ${Number(saleSnap.total || 0).toLocaleString()})`,
-          metadata: { invoice_number: saleSnap.invoice_number, total: saleSnap.total },
+          metadata: {
+            invoice_number: saleSnap.invoice_number,
+            total: saleSnap.total,
+            snapshot: {
+              sale: saleSnap,
+              items: saleItemsSnap ?? [],
+              payments: salePaymentsSnap ?? [],
+            },
+          },
         });
       }
     },
