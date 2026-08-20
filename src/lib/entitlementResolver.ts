@@ -397,6 +397,7 @@ export async function updateSubscriptionPlan(
     max_suppliers?: number;
     trial_days: number;
     is_active: boolean;
+    is_public?: boolean;
   },
 ): Promise<{ success: boolean; message: string }> {
   const { data, error } = await supabase.rpc("update_subscription_plan", {
@@ -412,12 +413,25 @@ export async function updateSubscriptionPlan(
     _max_suppliers: input.max_suppliers ?? 10,
     _trial_days: input.trial_days,
     _is_active: input.is_active,
-  });
+    ...(input.is_public === undefined ? {} : { _is_public: input.is_public }),
+  } as any);
 
   if (error) {
     console.error("Error updating plan:", error);
     throw new Error(error.message);
   }
 
-  return data as { success: boolean; message: string };
+  // update_subscription_plan returns jsonb, but normalize array/object shapes defensively
+  // so a RETURNS TABLE variant can never be read as "no success".
+  const result: any = Array.isArray(data) ? data[0] : data;
+
+  if (result && result.success === false) {
+    throw new Error(result.message || "Failed to update plan");
+  }
+
+  return {
+    success: true,
+    message: result?.message || "Plan updated successfully",
+  };
 }
+
