@@ -20,6 +20,7 @@ import { Loader2, RefreshCw, TrendingUp, ShoppingCart } from "lucide-react";
 import SaleDetailDialog from "@/components/sales/SaleDetailDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { formatKES, downloadCSV } from "./reportUtils";
 import ReportTableScroll from "./ReportTableScroll";
 import { toast } from "sonner";
@@ -44,12 +45,14 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 
 export default function DailySalesReportTab({ from, to, onRegisterExport }: Props) {
   const { business, currentLocation, userRole } = useBusiness();
+  const { user } = useAuth();
+  const ownOnly = !!userRole && userRole !== "admin" && userRole !== "manager";
   const queryClient = useQueryClient();
   const [recalculating, setRecalculating] = useState(false);
   const canRecalculate = userRole === "admin" || userRole === "manager";
 
   const query = useQuery({
-    queryKey: ["daily-sales-report", business?.id, currentLocation?.id, from, to],
+    queryKey: ["daily-sales-report", business?.id, currentLocation?.id, from, to, ownOnly ? user?.id : "all"],
     queryFn: async () => {
       if (!business) return [];
       const pageSize = 1000;
@@ -69,6 +72,7 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
           .order("created_at", { ascending: true })
           .range(offset, offset + pageSize - 1);
         if (currentLocation) q.eq("location_id", currentLocation.id);
+        if (ownOnly && user?.id) q.eq("created_by", user.id);
         const { data, error } = await q;
         if (error) throw error;
         const batch = data || [];
@@ -117,10 +121,12 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
 
   // Cashier list for the filter — names resolved from profiles in this business.
   const cashiersQuery = useQuery({
-    queryKey: ["report-cashiers", business?.id],
+    queryKey: ["report-cashiers", business?.id, ownOnly ? user?.id : "all"],
     queryFn: async () => {
       if (!business) return [] as { id: string; full_name: string | null }[];
-      const { data, error } = await supabase.from("profiles").select("id, full_name").eq("business_id", business.id);
+      let q = supabase.from("profiles").select("id, full_name").eq("business_id", business.id);
+      if (ownOnly && user?.id) q = q.eq("id", user.id);
+      const { data, error } = await q;
       if (error) throw error;
       return data || [];
     },
@@ -129,7 +135,7 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
 
   const cashierName = (id: string | null) => (cashiersQuery.data || []).find((c: any) => c.id === id)?.full_name || "—";
 
-  const [cashierFilter, setCashierFilter] = useState("all");
+  const [cashierFilter, setCashierFilter] = useState(ownOnly && user?.id ? user.id : "all");
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [drillSale, setDrillSale] = useState<any | null>(null);
   const [drillOpen, setDrillOpen] = useState(false);
@@ -164,8 +170,9 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
     localStorage.setItem("daily-sales-report:pageSize", String(pageSize));
   }, [pageSize]);
   useEffect(() => {
+    if (ownOnly && user?.id && cashierFilter !== user.id) setCashierFilter(user.id);
     setPage(1);
-  }, [pageSize, from, to, cashierFilter, paymentFilter]);
+  }, [pageSize, from, to, cashierFilter, paymentFilter, ownOnly, user?.id]);
 
   const stats = useMemo(() => {
     const active = filteredSales.filter((s: any) => s.status !== "cancelled");
@@ -278,7 +285,7 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
             <SelectValue placeholder="Cashier" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All cashiers</SelectItem>
+            {!ownOnly && <SelectItem value="all">All cashiers</SelectItem>}
             {(cashiersQuery.data || []).map((c: any) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.full_name || "Unnamed user"}
