@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
+import { createStableContext } from "@/lib/stable-context";
 import { validateSignupEmail } from "@/lib/disposableEmails";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,7 +13,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createStableContext<AuthContextType | undefined>("auth", undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
