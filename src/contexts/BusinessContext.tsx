@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
+import { createStableContext } from "@/lib/stable-context";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 import { applyTheme, DEFAULT_THEME } from "@/lib/themes";
@@ -52,7 +53,7 @@ interface BusinessContextType {
   stopMasquerade: () => void;
 }
 
-const BusinessContext = createContext<BusinessContextType | undefined>(undefined);
+const BusinessContext = createStableContext<BusinessContextType | undefined>("business", undefined);
 
 export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();

@@ -1,4 +1,5 @@
-import { createContext, useContext } from "react";
+import { useContext } from "react";
+import { createStableContext } from "@/lib/stable-context";
 
 export type ThemeKey =
   | "burgundy"
@@ -554,7 +555,7 @@ export interface ThemeContextValue {
   themes: typeof THEMES;
 }
 
-export const ThemeContext = createContext<ThemeContextValue | null>(null);
+export const ThemeContext = createStableContext<ThemeContextValue | null>("theme", null);
 
 export function useTheme() {
   const context = useContext(ThemeContext);
