@@ -17,7 +17,7 @@ import BatchesTab from "@/components/products/BatchesTab";
 import QuickStockActions from "@/components/products/QuickStockActions";
 import { useFeatureLimit } from "@/components/FeatureGate";
 import { ledgerView } from "@/hooks/useInventory";
-
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface ProductDetailDialogProps {
   product?: Product | null;
@@ -28,16 +28,29 @@ interface ProductDetailDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-
 const fmt = (n: number) =>
   new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(n);
 
 const fmtDate = (d: string) => new Date(d).toLocaleString("en-KE", { dateStyle: "medium", timeStyle: "short" });
 
-export default function ProductDetailDialog({ product: productProp, productId: productIdProp, locationId, open, onOpenChange }: ProductDetailDialogProps) {
+export default function ProductDetailDialog({
+  product: productProp,
+  productId: productIdProp,
+  locationId,
+  open,
+  onOpenChange,
+}: ProductDetailDialogProps) {
   const { business } = useBusiness();
+  const { hasPermission } = usePermissions();
   const { hasFeatureKey } = useFeatureLimit();
-  const showBatches = hasFeatureKey("batch_tracking") && (business as any)?.business_type === "pharmacy" && (business as any)?.track_batches === true;
+  const canViewInventory = hasPermission("inventory.view");
+  const canViewPurchases = hasPermission("purchases.view");
+  const canViewSales = hasPermission("sales.view");
+  const canViewTimeline = canViewInventory || canViewPurchases || canViewSales;
+  const showBatches =
+    hasFeatureKey("batch_tracking") &&
+    (business as any)?.business_type === "pharmacy" &&
+    (business as any)?.track_batches === true;
   const productId = productProp?.id ?? productIdProp ?? undefined;
 
   const queryClient = useQueryClient();
@@ -89,7 +102,6 @@ export default function ProductDetailDialog({ product: productProp, productId: p
     };
   }, [open, productId, queryClient]);
 
-
   const fetchedProduct = useQuery({
     queryKey: ["product-detail", productId],
     queryFn: async () => {
@@ -127,14 +139,15 @@ export default function ProductDetailDialog({ product: productProp, productId: p
     if (inventoryQuery.error) toast.error("Couldn't load stock levels for this item.");
   }, [inventoryQuery.error]);
 
-
   const purchasesQuery = useQuery({
     queryKey: ["product-purchases", productId],
     queryFn: async () => {
       if (!productId) return [];
       const { data, error } = await supabase
         .from("purchase_items")
-        .select("id, quantity, unit_cost, total, created_at, purchases(invoice_number, created_at, location_id, suppliers(name))")
+        .select(
+          "id, quantity, unit_cost, total, created_at, purchases(invoice_number, created_at, location_id, suppliers(name))",
+        )
         .eq("product_id", productId)
         .order("created_at", { ascending: false })
         .limit(50);
@@ -150,7 +163,9 @@ export default function ProductDetailDialog({ product: productProp, productId: p
       if (!productId) return [];
       const { data, error } = await supabase
         .from("sale_items")
-        .select("id, quantity, unit_price, discount, total, created_at, sales(invoice_number, created_at, location_id, customers(name))")
+        .select(
+          "id, quantity, unit_price, discount, total, created_at, sales(invoice_number, created_at, location_id, customers(name))",
+        )
         .eq("product_id", productId)
         .order("created_at", { ascending: false })
         .limit(50);
@@ -202,7 +217,6 @@ export default function ProductDetailDialog({ product: productProp, productId: p
     enabled: !!productId && open,
   });
 
-
   const invRows = (inventoryQuery.data || []) as any[];
 
   // Inline editing of the low-stock threshold, per inventory row (location).
@@ -219,8 +233,15 @@ export default function ProductDetailDialog({ product: productProp, productId: p
     setSavingThreshold(rowId);
     const { error } = await supabase.from("inventory").update({ low_stock_threshold: value }).eq("id", rowId);
     setSavingThreshold(null);
-    if (error) { toast.error(error.message); return; }
-    setThresholdDraft((d) => { const n = { ...d }; delete n[rowId]; return n; });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setThresholdDraft((d) => {
+      const n = { ...d };
+      delete n[rowId];
+      return n;
+    });
     queryClient.invalidateQueries({ queryKey: ["product-inventory", productId] });
     queryClient.invalidateQueries({ queryKey: ["inventory"] });
     queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -307,7 +328,6 @@ export default function ProductDetailDialog({ product: productProp, productId: p
       .slice(0, 80);
   }, [purchasesQuery.data, salesQuery.data, adjustmentsQuery.data, historyQuery.data, selectedLocation]);
 
-
   if (!product) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -318,7 +338,9 @@ export default function ProductDetailDialog({ product: productProp, productId: p
           </DialogHeader>
           <div className="space-y-3">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full rounded-lg" />
+              ))}
             </div>
             <Skeleton className="h-40 w-full rounded-lg" />
           </div>
@@ -344,14 +366,26 @@ export default function ProductDetailDialog({ product: productProp, productId: p
 
         <Tabs defaultValue="details" className="space-y-3">
           <TabsList className={`grid w-full ${showBatches ? "grid-cols-6" : "grid-cols-5"}`}>
-            <TabsTrigger value="details"><Package className="mr-1 h-4 w-4" /> Details</TabsTrigger>
+            <TabsTrigger value="details">
+              <Package className="mr-1 h-4 w-4" /> Details
+            </TabsTrigger>
             {showBatches && (
-              <TabsTrigger value="batches"><Layers className="mr-1 h-4 w-4" /> Batches</TabsTrigger>
+              <TabsTrigger value="batches" disabled={!canViewInventory}>
+                <Layers className="mr-1 h-4 w-4" /> Batches
+              </TabsTrigger>
             )}
-            <TabsTrigger value="timeline"><History className="mr-1 h-4 w-4" /> Timeline</TabsTrigger>
-            <TabsTrigger value="purchases"><Truck className="mr-1 h-4 w-4" /> Purchases</TabsTrigger>
-            <TabsTrigger value="sales"><ShoppingCart className="mr-1 h-4 w-4" /> Sales</TabsTrigger>
-            <TabsTrigger value="adjustments"><ClipboardList className="mr-1 h-4 w-4" /> Adjustments</TabsTrigger>
+            <TabsTrigger value="timeline" disabled={!canViewTimeline}>
+              <History className="mr-1 h-4 w-4" /> Timeline
+            </TabsTrigger>
+            <TabsTrigger value="purchases" disabled={!canViewPurchases}>
+              <Truck className="mr-1 h-4 w-4" /> Purchases
+            </TabsTrigger>
+            <TabsTrigger value="sales" disabled={!canViewSales}>
+              <ShoppingCart className="mr-1 h-4 w-4" /> Sales
+            </TabsTrigger>
+            <TabsTrigger value="adjustments" disabled={!canViewInventory}>
+              <ClipboardList className="mr-1 h-4 w-4" /> Adjustments
+            </TabsTrigger>
           </TabsList>
 
           {/* TIMELINE */}
@@ -359,11 +393,15 @@ export default function ProductDetailDialog({ product: productProp, productId: p
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <h4 className="text-sm font-semibold">Item history &amp; stock movements · {selectedLocationName}</h4>
               <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-                <SelectTrigger className="h-8 w-[200px]"><SelectValue placeholder="Location" /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[200px]">
+                  <SelectValue placeholder="Location" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Locations</SelectItem>
                   {invRows.map((r) => (
-                    <SelectItem key={`tl-${r.location_id || r.id}`} value={r.location_id}>{r.locations?.name || "—"}</SelectItem>
+                    <SelectItem key={`tl-${r.location_id || r.id}`} value={r.location_id}>
+                      {r.locations?.name || "—"}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -379,26 +417,44 @@ export default function ProductDetailDialog({ product: productProp, productId: p
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {purchasesQuery.isLoading || salesQuery.isLoading || adjustmentsQuery.isLoading || historyQuery.isLoading ? (
+                {purchasesQuery.isLoading ||
+                salesQuery.isLoading ||
+                adjustmentsQuery.isLoading ||
+                historyQuery.isLoading ? (
                   Array.from({ length: 4 }).map((_, i) => (
                     <TableRow key={i}>
                       {Array.from({ length: 5 }).map((__, j) => (
-                        <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
+                        <TableCell key={j}>
+                          <Skeleton className="h-4 w-full" />
+                        </TableCell>
                       ))}
                     </TableRow>
                   ))
                 ) : timeline.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No activity yet</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-6">
+                      No activity yet
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   timeline.map((e) => (
                     <TableRow key={e.id}>
                       <TableCell className="whitespace-nowrap">{fmtDate(e.date)}</TableCell>
                       <TableCell>
-                        <Badge variant={e.kind === "Sale" ? "secondary" : e.kind === "Purchase" ? "default" : "outline"}>{e.kind}</Badge>
+                        <Badge
+                          variant={e.kind === "Sale" ? "secondary" : e.kind === "Purchase" ? "default" : "outline"}
+                        >
+                          {e.kind}
+                        </Badge>
                       </TableCell>
                       <TableCell>{e.reference}</TableCell>
-                      <TableCell className="text-muted-foreground">{e.locationName ? `${e.locationName} · ` : ""}{e.detail}</TableCell>
-                      <TableCell className={`text-right font-semibold ${e.change === null ? "text-muted-foreground" : e.change >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                      <TableCell className="text-muted-foreground">
+                        {e.locationName ? `${e.locationName} · ` : ""}
+                        {e.detail}
+                      </TableCell>
+                      <TableCell
+                        className={`text-right font-semibold ${e.change === null ? "text-muted-foreground" : e.change >= 0 ? "text-emerald-600" : "text-destructive"}`}
+                      >
                         {e.change === null ? "—" : `${e.change > 0 ? "+" : ""}${e.change}`}
                       </TableCell>
                     </TableRow>
@@ -410,21 +466,29 @@ export default function ProductDetailDialog({ product: productProp, productId: p
 
           {/* DETAILS */}
           <TabsContent value="details" className="space-y-4">
-
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
               <Info label="Category" value={product.categories?.name || "—"} />
               <Info label="Brand" value={product.brands?.name || "—"} />
               <Info label="Unit" value={product.units?.name || "—"} />
-              <Info label="Status" value={<Badge variant={product.is_active ? "default" : "secondary"}>{product.is_active ? "Active" : "Inactive"}</Badge>} />
+              <Info
+                label="Status"
+                value={
+                  <Badge variant={product.is_active ? "default" : "secondary"}>
+                    {product.is_active ? "Active" : "Inactive"}
+                  </Badge>
+                }
+              />
               <Info label="Purchase Price" value={fmt(product.purchase_price)} />
               <Info label="Selling Price" value={fmt(product.selling_price)} />
               <Info label="Tax Rate" value={`${product.tax_rate ?? 0}%`} />
               <Info
                 label={selectedLocation === "all" ? "Total Stock" : `Stock · ${selectedLocationName}`}
                 value={
-                  inventoryQuery.isLoading
-                    ? <Skeleton className="h-4 w-10" />
-                    : <span className="font-semibold">{selectedLocation === "all" ? totalQty : selectedQty}</span>
+                  inventoryQuery.isLoading ? (
+                    <Skeleton className="h-4 w-10" />
+                  ) : (
+                    <span className="font-semibold">{selectedLocation === "all" ? totalQty : selectedQty}</span>
+                  )
                 }
               />
             </div>
@@ -433,11 +497,15 @@ export default function ProductDetailDialog({ product: productProp, productId: p
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <h4 className="text-sm font-semibold">Stock by Location</h4>
                 <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-                  <SelectTrigger className="h-8 w-[200px]"><SelectValue placeholder="Location" /></SelectTrigger>
+                  <SelectTrigger className="h-8 w-[200px]">
+                    <SelectValue placeholder="Location" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Locations</SelectItem>
                     {invRows.map((r) => (
-                      <SelectItem key={r.location_id || r.id} value={r.location_id}>{r.locations?.name || "—"}</SelectItem>
+                      <SelectItem key={r.location_id || r.id} value={r.location_id}>
+                        {r.locations?.name || "—"}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -456,12 +524,18 @@ export default function ProductDetailDialog({ product: productProp, productId: p
                     Array.from({ length: 3 }).map((_, i) => (
                       <TableRow key={i}>
                         {Array.from({ length: 4 }).map((__, j) => (
-                          <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
+                          <TableCell key={j}>
+                            <Skeleton className="h-4 w-full" />
+                          </TableCell>
                         ))}
                       </TableRow>
                     ))
                   ) : filteredInv.length === 0 ? (
-                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">No inventory records</TableCell></TableRow>
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-muted-foreground">
+                        No inventory records
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     filteredInv.map((row) => {
                       const low = Number(row.quantity) <= Number(row.low_stock_threshold);
@@ -478,7 +552,12 @@ export default function ProductDetailDialog({ product: productProp, productId: p
                                 className="h-8 w-24 text-right"
                                 value={thresholdDraft[row.id] ?? String(row.low_stock_threshold ?? 0)}
                                 onChange={(e) => setThresholdDraft((d) => ({ ...d, [row.id]: e.target.value }))}
-                                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveThreshold(row.id); } }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    saveThreshold(row.id);
+                                  }
+                                }}
                               />
                               {thresholdDraft[row.id] !== undefined &&
                                 thresholdDraft[row.id] !== String(row.low_stock_threshold ?? 0) && (
@@ -502,7 +581,6 @@ export default function ProductDetailDialog({ product: productProp, productId: p
                       );
                     })
                   )}
-
                 </TableBody>
               </Table>
             </div>
@@ -530,9 +608,17 @@ export default function ProductDetailDialog({ product: productProp, productId: p
               </TableHeader>
               <TableBody>
                 {purchasesQuery.isLoading ? (
-                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                      Loading…
+                    </TableCell>
+                  </TableRow>
                 ) : (purchasesQuery.data || []).length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">No purchase history</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-6">
+                      No purchase history
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   (purchasesQuery.data as any[]).map((row) => (
                     <TableRow key={row.id}>
@@ -565,9 +651,17 @@ export default function ProductDetailDialog({ product: productProp, productId: p
               </TableHeader>
               <TableBody>
                 {salesQuery.isLoading ? (
-                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                      Loading…
+                    </TableCell>
+                  </TableRow>
                 ) : (salesQuery.data || []).length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">No sales history</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
+                      No sales history
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   (salesQuery.data as any[]).map((row) => (
                     <TableRow key={row.id}>
@@ -599,9 +693,17 @@ export default function ProductDetailDialog({ product: productProp, productId: p
               </TableHeader>
               <TableBody>
                 {adjustmentsQuery.isLoading ? (
-                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      Loading…
+                    </TableCell>
+                  </TableRow>
                 ) : (adjustmentsQuery.data || []).length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No adjustments</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-6">
+                      No adjustments
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   (adjustmentsQuery.data as any[]).map((row) => {
                     const change = Number(row.quantity_change);
@@ -611,8 +713,11 @@ export default function ProductDetailDialog({ product: productProp, productId: p
                         <TableCell>{row.locations?.name || "—"}</TableCell>
                         <TableCell className="capitalize">{row.reason}</TableCell>
                         <TableCell className="text-muted-foreground">{row.notes || "—"}</TableCell>
-                        <TableCell className={`text-right font-semibold ${change >= 0 ? "text-emerald-600" : "text-destructive"}`}>
-                          {change > 0 ? "+" : ""}{change}
+                        <TableCell
+                          className={`text-right font-semibold ${change >= 0 ? "text-emerald-600" : "text-destructive"}`}
+                        >
+                          {change > 0 ? "+" : ""}
+                          {change}
                         </TableCell>
                       </TableRow>
                     );
