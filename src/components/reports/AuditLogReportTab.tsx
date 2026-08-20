@@ -100,11 +100,13 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
     );
 
   const hasSnapshot = (l: AuditLog) => !!(l.metadata && l.metadata.snapshot);
+  const isSaleSnapshot = (l: AuditLog) => !!l.metadata?.snapshot?.sale;
 
   const printSnapshot = (l: AuditLog) => {
     const snap = l.metadata?.snapshot;
     if (!snap) return;
-    const p = snap.purchase || {};
+    const p = snap.sale || snap.purchase || {};
+    const isSale = !!snap.sale;
     const items = snap.items || [];
     const payments = snap.payments || [];
     const win = window.open("", "_blank", "width=820,height=900");
@@ -115,7 +117,7 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
       <tr>
         <td>${it.products?.name || "—"}${it.products?.sku ? ` <span style="color:#888">(${it.products.sku})</span>` : ""}</td>
         <td style="text-align:right">${Number(it.quantity || 0)}</td>
-        <td style="text-align:right">${formatKES(Number(it.unit_cost || 0))}</td>
+        <td style="text-align:right">${formatKES(Number(it.unit_cost ?? it.unit_price ?? 0))}</td>
         <td style="text-align:right">${formatKES(Number(it.total || 0))}</td>
       </tr>`,
       )
@@ -124,15 +126,15 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
       .map(
         (pay: any) => `
       <tr>
-        <td>${pay.date || ""}</td>
-        <td>${pay.bank_accounts?.name || "—"}</td>
+        <td>${pay.date || (pay.created_at ? format(new Date(pay.created_at), "dd MMM yyyy HH:mm") : "")}</td>
+        <td>${pay.bank_accounts?.name || pay.method || "—"}</td>
         <td>${pay.reference || ""}</td>
         <td style="text-align:right">${formatKES(Number(pay.amount || 0))}</td>
       </tr>`,
       )
       .join("");
     win.document
-      .write(`<!doctype html><html><head><meta charset="utf-8"><title>Deleted Purchase ${p.invoice_number || ""}</title>
+      .write(`<!doctype html><html><head><meta charset="utf-8"><title>Deleted ${isSale ? "Receipt" : "Purchase"} ${p.invoice_number || ""}</title>
       <style>
         body{font-family:ui-sans-serif,system-ui,Arial;color:#1e293b;padding:24px;max-width:780px;margin:auto}
         h1{font-size:18px;margin:0 0 4px}
@@ -150,25 +152,27 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
       <div class="noprint" style="text-align:right;margin-bottom:10px">
         <button onclick="window.print()" style="padding:6px 12px;background:#1e293b;color:white;border:0;border-radius:4px;cursor:pointer">Print</button>
       </div>
-      <div class="banner"><strong>DELETED RECORD</strong> — Purchase deleted on ${format(new Date(l.created_at), "dd MMM yyyy HH:mm")} by ${l.user_name || l.user_email || "—"}</div>
-      <h1>Purchase ${p.invoice_number || (p.id ? String(p.id).slice(0, 8) : "")}</h1>
+      <div class="banner"><strong>DELETED RECORD</strong> — ${isSale ? "Sale/receipt" : "Purchase"} deleted on ${format(new Date(l.created_at), "dd MMM yyyy HH:mm")} by ${l.user_name || l.user_email || "—"}</div>
+      <h1>${isSale ? "Receipt" : "Purchase"} ${p.invoice_number || (p.id ? String(p.id).slice(0, 8) : "")}</h1>
       <div class="meta">
-        Supplier: ${p.suppliers?.name || "—"} · Location: ${p.locations?.name || "—"}<br/>
+        ${isSale ? `Customer: ${p.customers?.name || "Walk-in customer"} · Location: ${p.locations?.name || "—"}<br/>` : `Supplier: ${p.suppliers?.name || "—"} · Location: ${p.locations?.name || "—"}<br/>`}
         Status at deletion: <strong>${p.status || "—"}</strong> · Payment: ${p.payment_status || "—"}<br/>
-        Created: ${p.created_at ? format(new Date(p.created_at), "dd MMM yyyy") : "—"}
+        Created: ${p.created_at ? format(new Date(p.created_at), "dd MMM yyyy HH:mm") : "—"}
       </div>
       <h2>Items (${items.length})</h2>
-      <table><thead><tr><th>Product</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit Cost</th><th style="text-align:right">Total</th></tr></thead>
+      <table><thead><tr><th>Product</th><th style="text-align:right">Qty</th><th style="text-align:right">${isSale ? "Unit Price" : "Unit Cost"}</th><th style="text-align:right">Total</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="4" style="text-align:center;color:#94a3b8">No items</td></tr>`}</tbody></table>
       <div class="totals">
         <div>Subtotal: ${formatKES(Number(p.subtotal || 0))}</div>
+        ${Number(p.discount || 0) ? `<div>Discount: ${formatKES(Number(p.discount || 0))}</div>` : ""}
         <div>Tax: ${formatKES(Number(p.tax || 0))}</div>
         <div class="grand">Total: ${formatKES(Number(p.total || 0))}</div>
+        ${Number(p.total_paid || 0) ? `<div>Paid: ${formatKES(Number(p.total_paid || 0))}</div>` : ""}
       </div>
       ${
         payments.length
-          ? `<h2>Linked Payments (reversed)</h2>
-      <table><thead><tr><th>Date</th><th>Account</th><th>Reference</th><th style="text-align:right">Amount</th></tr></thead>
+          ? `<h2>${isSale ? "Payments" : "Linked Payments (reversed)"}</h2>
+      <table><thead><tr><th>Date</th><th>${isSale ? "Method" : "Account"}</th><th>Reference</th><th style="text-align:right">Amount</th></tr></thead>
       <tbody>${payRows}</tbody></table>`
           : ""
       }
@@ -398,8 +402,8 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
                                 variant="ghost"
                                 className="h-7 px-2"
                                 onClick={() => setPreviewLog(l)}
-                                aria-label="Print preview deleted record"
-                                title="Print preview deleted record"
+                                aria-label={isSaleSnapshot(l) ? "Preview deleted receipt" : "Preview deleted record"}
+                                title={isSaleSnapshot(l) ? "Preview deleted receipt" : "Preview deleted record"}
                               >
                                 <Printer className="h-4 w-4" />
                               </Button>
@@ -419,13 +423,16 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
       <Dialog open={!!previewLog} onOpenChange={(o) => !o && setPreviewLog(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Deleted record preview</DialogTitle>
+            <DialogTitle>
+              {previewLog && isSaleSnapshot(previewLog) ? "Deleted receipt preview" : "Deleted record preview"}
+            </DialogTitle>
           </DialogHeader>
           {previewLog &&
             previewLog.metadata?.snapshot &&
             (() => {
               const snap = previewLog.metadata.snapshot;
-              const p = snap.purchase || {};
+              const p = snap.sale || snap.purchase || {};
+              const sale = !!snap.sale;
               const items = snap.items || [];
               const payments = snap.payments || [];
               return (
@@ -444,8 +451,10 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
                       <div className="font-medium">{formatKES(Number(p.total || 0))}</div>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Supplier</span>
-                      <div className="font-medium">{p.suppliers?.name || "—"}</div>
+                      <span className="text-muted-foreground">{sale ? "Customer" : "Supplier"}</span>
+                      <div className="font-medium">
+                        {sale ? p.customers?.name || "Walk-in customer" : p.suppliers?.name || "—"}
+                      </div>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Location</span>
@@ -471,7 +480,9 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
                             <tr key={i} className="border-t">
                               <td className="p-1.5">{it.products?.name || "—"}</td>
                               <td className="p-1.5 text-right">{Number(it.quantity || 0)}</td>
-                              <td className="p-1.5 text-right">{formatKES(Number(it.unit_cost || 0))}</td>
+                              <td className="p-1.5 text-right">
+                                {formatKES(Number(it.unit_cost ?? it.unit_price ?? 0))}
+                              </td>
                               <td className="p-1.5 text-right">{formatKES(Number(it.total || 0))}</td>
                             </tr>
                           ))}
@@ -482,13 +493,16 @@ export default function AuditLogReportTab({ logs, loading, from, to }: Props) {
                   {payments.length > 0 && (
                     <div>
                       <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">
-                        Payments reversed ({payments.length})
+                        {sale ? "Payments" : "Payments reversed"} ({payments.length})
                       </div>
                       <ul className="text-xs space-y-1">
                         {payments.map((pay: any, i: number) => (
                           <li key={i} className="flex justify-between border-b py-1">
                             <span>
-                              {pay.date} · {pay.bank_accounts?.name || "—"} {pay.reference ? `· ${pay.reference}` : ""}
+                              {pay.date ||
+                                (pay.created_at ? format(new Date(pay.created_at), "dd MMM yyyy HH:mm") : "")}{" "}
+                              · {sale ? pay.method || "—" : pay.bank_accounts?.name || "—"}{" "}
+                              {pay.reference ? `· ${pay.reference}` : ""}
                             </span>
                             <span className="font-medium">{formatKES(Number(pay.amount || 0))}</span>
                           </li>
