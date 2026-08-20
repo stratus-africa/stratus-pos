@@ -5,6 +5,7 @@ import { useAuth } from "./AuthContext";
 import { applyTheme, DEFAULT_THEME } from "@/lib/themes";
 import { setPostingState } from "@/lib/postingGuard";
 import { resolveBusinessId } from "@/lib/onboarding";
+import { isSubscriptionCurrentlyActive, resolvePreferredSubscription } from "@/lib/subscriptionPlan";
 
 interface Business {
   id: string;
@@ -160,12 +161,12 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const subscriptionRequest = ownerId
           ? supabase
               .from("subscriptions")
-              .select("status, current_period_end")
+              .select(
+                "id, user_id, status, current_period_start, current_period_end, environment, created_at, updated_at",
+              )
               .eq("user_id", ownerId)
               .order("updated_at", { ascending: false })
-              .limit(1)
-              .maybeSingle()
-          : Promise.resolve({ data: null });
+          : Promise.resolve({ data: [] as any[] });
         const [subscriptionResult, roleResult, profileResult, locationsResult] = await Promise.all([
           subscriptionRequest,
           supabase.from("user_roles").select("role").eq("user_id", user.id).eq("business_id", biz.id).maybeSingle(),
@@ -178,11 +179,11 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         let endsAt: Date | null = null;
         let expired = false;
         if (ownerId) {
-          const subRow = subscriptionResult.data;
+          const rows = Array.isArray(subscriptionResult.data) ? subscriptionResult.data : [];
+          const subRow = resolvePreferredSubscription(rows as any[]);
           if (subRow) {
             endsAt = subRow.current_period_end ? new Date(subRow.current_period_end) : null;
-            const statusOk = ["active", "trialing"].includes(subRow.status);
-            expired = !statusOk || (endsAt !== null && endsAt.getTime() <= Date.now());
+            expired = !isSubscriptionCurrentlyActive(subRow);
           } else {
             // No subscription record → treat as expired unless business is active.
             expired = true;
