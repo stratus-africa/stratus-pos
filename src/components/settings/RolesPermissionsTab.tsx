@@ -25,6 +25,7 @@ import {
   type AppRole,
   CONFIGURED_MARKER,
   type ModuleDef,
+  type ModuleAction,
   normalizePermissions,
 } from "@/lib/permissions";
 
