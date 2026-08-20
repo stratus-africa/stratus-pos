@@ -223,7 +223,7 @@ export function RolesPermissionsTab() {
         set.delete(perm);
         if (mod && (action === "view" || action === "create")) {
           (action === "view" ? ["create", "edit", "delete"] : (["edit", "delete"] as const)).forEach((a) => {
-            if (mod.actions.includes(a)) set.delete(permKey(mod.key, a));
+            if (mod.actions.includes(a as ModuleAction)) set.delete(permKey(mod.key, a as ModuleAction));
           });
         }
       }

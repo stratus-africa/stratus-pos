@@ -399,8 +399,6 @@ function describe(tab: TabKey) {
       return "Application name, currency and core defaults.";
     case "branding":
       return "Upload your logo and favicon.";
-    case "appearance":
-      return "Customize the look and feel.";
     case "company":
       return "Your company contact information for invoices and emails.";
     case "payments":
