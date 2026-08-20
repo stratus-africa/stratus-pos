@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +17,7 @@ import { toast } from "sonner";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInventory } from "@/hooks/useInventory";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const REASONS = ["Damage", "Loss", "Correction", "Return", "Other"];
 
@@ -29,8 +37,12 @@ export default function QuickStockActions({ productId, productName, locationId }
   const { locations, currentLocation } = useBusiness();
   const { user } = useAuth();
   const { adjustStock } = useInventory();
+  const { hasPermission } = usePermissions();
+  const canAdjust = hasPermission("inventory.edit") || hasPermission("inventory.create");
+  const canTransfer = hasPermission("inventory.edit");
 
-  const defaultLocation = (locationId && locationId !== "all" ? locationId : currentLocation?.id) || locations?.[0]?.id || "";
+  const defaultLocation =
+    (locationId && locationId !== "all" ? locationId : currentLocation?.id) || locations?.[0]?.id || "";
 
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
@@ -112,12 +124,16 @@ export default function QuickStockActions({ productId, productName, locationId }
 
   return (
     <div className="flex flex-wrap gap-2">
-      <Button size="sm" variant="outline" onClick={() => setAdjustOpen(true)}>
-        <SlidersHorizontal className="mr-1.5 h-4 w-4" /> Adjust stock
-      </Button>
-      <Button size="sm" variant="outline" onClick={() => setTransferOpen(true)}>
-        <ArrowLeftRight className="mr-1.5 h-4 w-4" /> Transfer stock
-      </Button>
+      {canAdjust && (
+        <Button size="sm" variant="outline" onClick={() => setAdjustOpen(true)}>
+          <SlidersHorizontal className="mr-1.5 h-4 w-4" /> Adjust stock
+        </Button>
+      )}
+      {canTransfer && (
+        <Button size="sm" variant="outline" onClick={() => setTransferOpen(true)}>
+          <ArrowLeftRight className="mr-1.5 h-4 w-4" /> Transfer stock
+        </Button>
+      )}
 
       {/* ADJUST */}
       <Dialog open={adjustOpen} onOpenChange={setAdjustOpen}>
@@ -130,22 +146,39 @@ export default function QuickStockActions({ productId, productName, locationId }
             <div className="space-y-1.5">
               <Label>Location</Label>
               <Select value={adjLocation} onValueChange={setAdjLocation}>
-                <SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select location" />
+                </SelectTrigger>
                 <SelectContent>
-                  {(locations || []).map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                  {(locations || []).map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
               <Label>Quantity change</Label>
-              <Input type="number" value={adjQty} onChange={(e) => setAdjQty(e.target.value)} placeholder="e.g. -2 or 5" />
+              <Input
+                type="number"
+                value={adjQty}
+                onChange={(e) => setAdjQty(e.target.value)}
+                placeholder="e.g. -2 or 5"
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Reason</Label>
               <Select value={adjReason} onValueChange={setAdjReason}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {REASONS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  {REASONS.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {r}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -155,8 +188,12 @@ export default function QuickStockActions({ productId, productName, locationId }
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAdjustOpen(false)}>Cancel</Button>
-            <Button onClick={submitAdjust} disabled={adjustStock.isPending}>Post adjustment</Button>
+            <Button variant="outline" onClick={() => setAdjustOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={submitAdjust} disabled={adjustStock.isPending}>
+              Post adjustment
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -173,20 +210,32 @@ export default function QuickStockActions({ productId, productName, locationId }
               <div className="space-y-1.5">
                 <Label>From</Label>
                 <Select value={fromLocation} onValueChange={setFromLocation}>
-                  <SelectTrigger><SelectValue placeholder="Source" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Source" />
+                  </SelectTrigger>
                   <SelectContent>
-                    {(locations || []).map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                    {(locations || []).map((l) => (
+                      <SelectItem key={l.id} value={l.id}>
+                        {l.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>To</Label>
                 <Select value={toLocation} onValueChange={setToLocation}>
-                  <SelectTrigger><SelectValue placeholder="Destination" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Destination" />
+                  </SelectTrigger>
                   <SelectContent>
-                    {(locations || []).filter((l) => l.id !== fromLocation).map((l) => (
-                      <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
-                    ))}
+                    {(locations || [])
+                      .filter((l) => l.id !== fromLocation)
+                      .map((l) => (
+                        <SelectItem key={l.id} value={l.id}>
+                          {l.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -201,8 +250,12 @@ export default function QuickStockActions({ productId, productName, locationId }
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setTransferOpen(false)}>Cancel</Button>
-            <Button onClick={submitTransfer} disabled={adjustStock.isPending}>Transfer</Button>
+            <Button variant="outline" onClick={() => setTransferOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={submitTransfer} disabled={adjustStock.isPending}>
+              Transfer
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
