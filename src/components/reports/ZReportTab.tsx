@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { formatKES, downloadCSV } from "./reportUtils";
 import ReportTableScroll from "./ReportTableScroll";
 
@@ -18,13 +19,18 @@ interface Props {
 }
 
 export default function ZReportTab({ from, to, onRegisterExport }: Props) {
-  const { business, locations } = useBusiness();
+  const { business, locations, userRole } = useBusiness();
+  const { user } = useAuth();
+  const ownOnly = !!userRole && userRole !== "admin" && userRole !== "manager";
   const [locationFilter, setLocationFilter] = useState<string>("all");
-  const [cashierFilter, setCashierFilter] = useState<string>("all");
+  const [cashierFilter, setCashierFilter] = useState<string>(ownOnly && user?.id ? user.id : "all");
+  useEffect(() => {
+    if (ownOnly && user?.id && cashierFilter !== user.id) setCashierFilter(user.id);
+  }, [ownOnly, user?.id, cashierFilter]);
 
   // Fetch business users (cashier filter list = everyone with POS access on this business)
   const usersQuery = useQuery({
-    queryKey: ["zreport-users", business?.id],
+    queryKey: ["zreport-users", business?.id, ownOnly ? user?.id : "all"],
     queryFn: async () => {
       if (!business) return [];
       const { data, error } = await supabase
@@ -34,7 +40,7 @@ export default function ZReportTab({ from, to, onRegisterExport }: Props) {
       if (error) throw error;
       // include any role that touches POS (admin, manager, cashier)
       return (data || [])
-        .filter((r: any) => ["admin", "manager", "cashier"].includes(r.role))
+        .filter((r: any) => ["admin", "manager", "cashier"].includes(r.role) && (!ownOnly || r.user_id === user?.id))
         .map((r: any) => ({
           id: r.user_id,
           name: r.profiles?.full_name || r.profiles?.email || r.user_id.slice(0, 8),
@@ -45,17 +51,20 @@ export default function ZReportTab({ from, to, onRegisterExport }: Props) {
   });
 
   const salesQuery = useQuery({
-    queryKey: ["zreport-sales", business?.id, from, to, locationFilter, cashierFilter],
+    queryKey: ["zreport-sales", business?.id, from, to, locationFilter, cashierFilter, ownOnly ? user?.id : "all"],
     queryFn: async () => {
       if (!business) return [];
       let q = supabase
         .from("sales")
-        .select("id, invoice_number, total, tax, discount, status, created_at, created_by, location_id, payments(method, amount), locations(name)")
+        .select(
+          "id, invoice_number, total, tax, discount, status, created_at, created_by, location_id, payments(method, amount), locations(name)",
+        )
         .eq("business_id", business.id)
         .neq("status", "cancelled")
         .gte("created_at", `${from}T00:00:00`)
         .lte("created_at", `${to}T23:59:59`)
         .order("created_at", { ascending: true });
+      if (ownOnly && user?.id) q = q.eq("created_by", user.id);
       if (locationFilter !== "all") q = q.eq("location_id", locationFilter);
       if (cashierFilter !== "all") q = q.eq("created_by", cashierFilter);
       const { data, error } = await q;
@@ -125,11 +134,15 @@ export default function ZReportTab({ from, to, onRegisterExport }: Props) {
           <div>
             <Label className="text-xs">Location</Label>
             <Select value={locationFilter} onValueChange={setLocationFilter}>
-              <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-48">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All locations</SelectItem>
                 {locations.map((l) => (
-                  <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -137,39 +150,81 @@ export default function ZReportTab({ from, to, onRegisterExport }: Props) {
           <div>
             <Label className="text-xs">Cashier</Label>
             <Select value={cashierFilter} onValueChange={setCashierFilter}>
-              <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-56">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All cashiers</SelectItem>
+                {!ownOnly && <SelectItem value="all">All cashiers</SelectItem>}
                 {(usersQuery.data || []).map((u) => (
-                  <SelectItem key={u.id} value={u.id}>{u.name} <span className="text-xs text-muted-foreground">({u.role})</span></SelectItem>
+                  <SelectItem key={u.id} value={u.id}>
+                    {u.name} <span className="text-xs text-muted-foreground">({u.role})</span>
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          <Badge variant="outline" className="h-9 self-end">{summary.totals.count} sales</Badge>
+          <Badge variant="outline" className="h-9 self-end">
+            {summary.totals.count} sales
+          </Badge>
         </CardContent>
       </Card>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">Revenue</div><div className="text-lg font-bold">{formatKES(summary.totals.revenue)}</div></CardContent></Card>
-        <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">Tax</div><div className="text-lg font-bold">{formatKES(summary.totals.tax)}</div></CardContent></Card>
-        <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">Discount</div><div className="text-lg font-bold">{formatKES(summary.totals.discount)}</div></CardContent></Card>
-        <Card><CardContent className="pt-4"><div className="text-xs text-muted-foreground">Transactions</div><div className="text-lg font-bold">{summary.totals.count}</div></CardContent></Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-xs text-muted-foreground">Revenue</div>
+            <div className="text-lg font-bold">{formatKES(summary.totals.revenue)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-xs text-muted-foreground">Tax</div>
+            <div className="text-lg font-bold">{formatKES(summary.totals.tax)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-xs text-muted-foreground">Discount</div>
+            <div className="text-lg font-bold">{formatKES(summary.totals.discount)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-xs text-muted-foreground">Transactions</div>
+            <div className="text-lg font-bold">{summary.totals.count}</div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
-          <CardHeader><CardTitle className="text-base">By Payment Method</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-base">By Payment Method</CardTitle>
+          </CardHeader>
           <CardContent>
             <ReportTableScroll>
               <Table>
-                <TableHeader><TableRow><TableHead>Method</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Method</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
                   {summary.byPay.length === 0 ? (
-                    <TableRow><TableCell colSpan={2} className="text-muted-foreground text-sm">No payments</TableCell></TableRow>
-                  ) : summary.byPay.map(([m, t]) => (
-                    <TableRow key={m}><TableCell className="capitalize">{m}</TableCell><TableCell className="text-right">{formatKES(t)}</TableCell></TableRow>
-                  ))}
+                    <TableRow>
+                      <TableCell colSpan={2} className="text-muted-foreground text-sm">
+                        No payments
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    summary.byPay.map(([m, t]) => (
+                      <TableRow key={m}>
+                        <TableCell className="capitalize">{m}</TableCell>
+                        <TableCell className="text-right">{formatKES(t)}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </ReportTableScroll>
@@ -177,17 +232,35 @@ export default function ZReportTab({ from, to, onRegisterExport }: Props) {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="text-base">By Cashier</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-base">By Cashier</CardTitle>
+          </CardHeader>
           <CardContent>
             <ReportTableScroll>
               <Table>
-                <TableHeader><TableRow><TableHead>Cashier</TableHead><TableHead className="text-right">Sales</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Cashier</TableHead>
+                    <TableHead className="text-right">Sales</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
                   {summary.byCashier.length === 0 ? (
-                    <TableRow><TableCell colSpan={3} className="text-muted-foreground text-sm">No data</TableCell></TableRow>
-                  ) : summary.byCashier.map((c) => (
-                    <TableRow key={c.name}><TableCell>{c.name}</TableCell><TableCell className="text-right">{c.count}</TableCell><TableCell className="text-right">{formatKES(c.total)}</TableCell></TableRow>
-                  ))}
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-muted-foreground text-sm">
+                        No data
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    summary.byCashier.map((c) => (
+                      <TableRow key={c.name}>
+                        <TableCell>{c.name}</TableCell>
+                        <TableCell className="text-right">{c.count}</TableCell>
+                        <TableCell className="text-right">{formatKES(c.total)}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </ReportTableScroll>
