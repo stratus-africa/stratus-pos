@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { FEATURE_KEYS } from "@/lib/featureCatalog";
 import {
   CONFIGURED_MARKER,
   cashierDeniedPermissions,
@@ -24,14 +25,34 @@ export function usePermissions() {
   const { data, isLoading } = useQuery({
     queryKey: ["role_permissions", business?.id, role],
     queryFn: async () => {
-      if (!business || !role) return [] as string[];
-      const { data, error } = await (supabase as any)
-        .from("role_permissions")
-        .select("permission")
-        .eq("business_id", business.id)
-        .eq("role", role);
-      if (error) throw error;
-      return (data ?? []).map((r: { permission: string }) => r.permission) as string[];
+      if (!business || !role) {
+        return { permissions: [] as string[], activeFeatureKeys: [] as string[] };
+      }
+
+      const [{ data: permissionRows, error: permissionError }, { data: featureRows, error: featureError }] =
+        await Promise.all([
+          (supabase as any)
+            .from("role_permissions")
+            .select("permission")
+            .eq("business_id", business.id)
+            .eq("role", role),
+          supabase.from("module_features").select("permission_key").eq("is_active", true),
+        ]);
+
+      if (permissionError) throw permissionError;
+      if (featureError) {
+        // Do not turn a temporary module_features query failure into a blanket
+        // permission denial. Keep role permissions intact until the catalogue
+        // can be loaded successfully.
+        console.warn("Failed to load active module features:", featureError);
+      }
+
+      return {
+        permissions: (permissionRows ?? []).map((r: { permission: string }) => r.permission) as string[],
+        activeFeatureKeys: featureError
+          ? null
+          : (featureRows ?? []).map((r: { permission_key: string }) => r.permission_key),
+      };
     },
     enabled: !!business && !!role,
     staleTime: 60_000,
@@ -46,7 +67,7 @@ export function usePermissions() {
     };
   }
 
-  const stored = data ?? [];
+  const stored = data?.permissions ?? [];
   const defaults = role ? defaultRolePermissions[role] : [];
   // A role saved by the current Roles editor always carries this marker. When it
   // is present the stored set is authoritative: anything the admin unchecked
@@ -66,6 +87,19 @@ export function usePermissions() {
   }
 
   const set = new Set(normalizePermissions(effective));
+
+  // The canonical Module Manager is the global feature catalogue. A tenant
+  // role cannot retain access to a feature that Super Admin has disabled.
+  // Legacy permissions remain untouched for backwards compatibility.
+  if (data?.activeFeatureKeys !== null && data?.activeFeatureKeys !== undefined) {
+    const activeFeatureKeys = new Set(data.activeFeatureKeys);
+    const catalogPermissionKeys = new Set(FEATURE_KEYS);
+    for (const permission of Array.from(set)) {
+      if (catalogPermissionKeys.has(permission) && !activeFeatureKeys.has(permission)) {
+        set.delete(permission);
+      }
+    }
+  }
 
   // Hard role-level denial: cashiers never get accounting or stock movement access.
   if (role === "cashier") {
