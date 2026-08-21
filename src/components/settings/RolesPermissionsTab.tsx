@@ -19,7 +19,6 @@ import {
   moduleCatalog,
   reportsCatalog,
   permKey,
-  allPermissionKeys,
   defaultRolePermissions,
   roleDescriptions,
   type AppRole,
@@ -28,6 +27,8 @@ import {
   type ModuleAction,
   normalizePermissions,
 } from "@/lib/permissions";
+import { FEATURE_CATALOG, type FeatureDefinition } from "@/lib/featureCatalog";
+import { APP_MODULES } from "@/lib/modules";
 
 interface TeamMember {
   user_id: string;
@@ -64,6 +65,8 @@ const roleBadgeVariant = (role: string) => {
   }
 };
 
+const moduleLabelMap = Object.fromEntries(APP_MODULES.map((module) => [module.key, module.label]));
+
 // Permission catalog & defaults are defined in @/lib/permissions and shared
 // with the runtime usePermissions hook so UI gating stays in sync.
 
@@ -89,19 +92,40 @@ export function RolesPermissionsTab() {
   const [savingPerms, setSavingPerms] = useState(false);
 
   const [rolePermissions, setRolePermissions] = useState<Record<AppRole, string[]>>(defaultRolePermissions);
+  const [activeFeatureKeys, setActiveFeatureKeys] = useState<Set<string>>(new Set());
 
   const isAdmin = userRole === "admin";
 
   const fetchPermissions = async () => {
     if (!business) return;
-    const { data } = await (supabase as any)
-      .from("role_permissions")
-      .select("role, permission")
-      .eq("business_id", business.id);
+
+    const [{ data: permissionRows }, { data: featureRows, error: featureError }] = await Promise.all([
+      (supabase as any).from("role_permissions").select("role, permission").eq("business_id", business.id),
+      supabase
+        .from("module_features")
+        .select("module_key, feature_key, permission_key, is_active")
+        .eq("is_active", true),
+    ]);
+
+    if (featureError) {
+      console.warn("Failed to load active module features:", featureError);
+    }
+
+    const activeKeys = new Set<string>(
+      (featureRows || []).map((row: { permission_key: string }) => row.permission_key),
+    );
+    // Core workspace features remain available even if a seed row is missing.
+    for (const feature of FEATURE_CATALOG) {
+      if (["dashboard", "settings", "profile"].includes(feature.moduleKey)) {
+        activeKeys.add(feature.permissionKey);
+      }
+    }
+    setActiveFeatureKeys(activeKeys);
+
     const next: Record<AppRole, string[]> = { ...defaultRolePermissions };
-    if (data && data.length > 0) {
+    if (permissionRows && permissionRows.length > 0) {
       const seenRoles = new Set<AppRole>();
-      data.forEach((row: { role: AppRole; permission: string }) => {
+      permissionRows.forEach((row: { role: AppRole; permission: string }) => {
         if (!seenRoles.has(row.role)) {
           next[row.role] = [];
           seenRoles.add(row.role);
@@ -237,6 +261,39 @@ export function RolesPermissionsTab() {
     setEditPerms((prev) => (on ? Array.from(new Set([...prev, ...keys])) : prev.filter((p) => !keys.includes(p))));
   };
 
+  const toggleFeature = (feature: FeatureDefinition) => {
+    setEditPerms((prev) => {
+      const next = new Set(prev);
+      const enabled = next.has(feature.permissionKey);
+
+      if (enabled) {
+        next.delete(feature.permissionKey);
+      } else {
+        next.add(feature.permissionKey);
+        for (const required of feature.requires || []) {
+          next.add(required);
+        }
+      }
+
+      return normalizePermissions(next);
+    });
+  };
+
+  const toggleFeatureGroup = (features: FeatureDefinition[], enabled: boolean) => {
+    setEditPerms((prev) => {
+      const next = new Set(prev);
+      for (const feature of features) {
+        if (enabled) {
+          next.add(feature.permissionKey);
+          for (const required of feature.requires || []) next.add(required);
+        } else {
+          next.delete(feature.permissionKey);
+        }
+      }
+      return normalizePermissions(next);
+    });
+  };
+
   const handleSaveRolePerms = async () => {
     if (!editingRole || !business) return;
     setSavingPerms(true);
@@ -248,7 +305,15 @@ export function RolesPermissionsTab() {
         .eq("role", editingRole);
       if (delErr) throw delErr;
       {
-        const normalizedPerms = normalizePermissions(editPerms);
+        // Preserve legacy permissions that are not part of the new canonical
+        // feature catalogue. The feature tree owns all FEATURE_CATALOG keys;
+        // older module/report permissions continue working until their screens
+        // are migrated to the granular keys.
+        const featurePermissionKeys = new Set(FEATURE_CATALOG.map((feature) => feature.permissionKey));
+        const legacyPermissions = (rolePermissions[editingRole] || []).filter(
+          (permission) => permission !== CONFIGURED_MARKER && !featurePermissionKeys.has(permission),
+        );
+        const normalizedPerms = normalizePermissions([...legacyPermissions, ...editPerms]);
         const rows = [...normalizedPerms, CONFIGURED_MARKER].map((permission) => ({
           business_id: business.id,
           role: editingRole,
@@ -520,85 +585,133 @@ export function RolesPermissionsTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Full-screen Roles Editor (Sheet) */}
+      {/* Feature-based Roles Editor */}
       <Sheet open={!!editingRole} onOpenChange={(open) => !open && setEditingRole(null)}>
-        <SheetContent side="right" className="w-full sm:max-w-3xl overflow-y-auto">
+        <SheetContent side="right" className="w-full sm:max-w-5xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               {editingRole && roleIcon(editingRole)}
               Edit Permissions — {editingRole && roleDescriptions[editingRole].label}
             </SheetTitle>
             <SheetDescription>
-              Toggle individual View / Create / Edit / Delete permissions per module, plus per-report visibility.
+              Assign the same granular feature permissions defined by the Super Admin Module Manager.
             </SheetDescription>
           </SheetHeader>
 
-          <div className="space-y-6 py-4">
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-sm">Modules</h3>
-                <div className="text-xs text-muted-foreground">
-                  {editPerms.filter((p) => !p.startsWith("report.")).length} selected
+          <div className="space-y-5 py-4">
+            {editingRole && (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/20 p-4">
+                  <div>
+                    <p className="font-medium">Feature permissions</p>
+                    <p className="text-xs text-muted-foreground">
+                      Only features enabled in the canonical module catalogue are available here.
+                    </p>
+                  </div>
+                  <Badge variant="secondary">
+                    {
+                      FEATURE_CATALOG.filter((feature) => activeFeatureKeys.has(feature.permissionKey)).filter(
+                        (feature) => editPerms.includes(feature.permissionKey),
+                      ).length
+                    }{" "}
+                    selected
+                  </Badge>
                 </div>
-              </div>
-              <div className="border rounded-lg overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Module</TableHead>
-                      <TableHead className="text-center w-20">View</TableHead>
-                      <TableHead className="text-center w-20">Create</TableHead>
-                      <TableHead className="text-center w-20">Edit</TableHead>
-                      <TableHead className="text-center w-20">Delete</TableHead>
-                      <TableHead className="text-center w-16">All</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {moduleCatalog.map((mod) => {
-                      const allOn = mod.actions.every((a) => editPerms.includes(permKey(mod.key, a)));
-                      return (
-                        <TableRow key={mod.key}>
-                          <TableCell className="font-medium">{mod.label}</TableCell>
-                          {(["view", "create", "edit", "delete"] as const).map((a) => {
-                            const supported = mod.actions.includes(a);
-                            const k = permKey(mod.key, a);
-                            return (
-                              <TableCell key={a} className="text-center">
-                                {supported ? (
-                                  <Checkbox checked={editPerms.includes(k)} onCheckedChange={() => togglePerm(k)} />
-                                ) : (
-                                  <span className="text-xs text-muted-foreground/50">—</span>
-                                )}
-                              </TableCell>
-                            );
-                          })}
-                          <TableCell className="text-center">
-                            <Checkbox checked={allOn} onCheckedChange={(v) => toggleModule(mod, !!v)} />
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </section>
 
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-sm">Reports — allow viewing each report</h3>
-                <div className="text-xs text-muted-foreground">
-                  {editPerms.filter((p) => p.startsWith("report.")).length} of {reportsCatalog.length}
+                <div className="space-y-6">
+                  {Array.from(
+                    new Set(
+                      FEATURE_CATALOG.filter((feature) => activeFeatureKeys.has(feature.permissionKey)).map(
+                        (feature) => feature.moduleKey,
+                      ),
+                    ),
+                  ).map((moduleKey) => {
+                    const moduleFeatures = FEATURE_CATALOG.filter(
+                      (feature) => feature.moduleKey === moduleKey && activeFeatureKeys.has(feature.permissionKey),
+                    );
+                    if (!moduleFeatures.length) return null;
+
+                    const moduleLabel = moduleLabelMap[moduleKey] || moduleKey.replace(/_/g, " ");
+                    const categories = Array.from(new Set(moduleFeatures.map((feature) => feature.category)));
+
+                    return (
+                      <section key={moduleKey} className="space-y-3 rounded-xl border p-4">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <h3 className="font-semibold capitalize">{moduleLabel}</h3>
+                            <p className="text-xs text-muted-foreground">{moduleFeatures.length} available features</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => toggleFeatureGroup(moduleFeatures, true)}
+                            >
+                              Enable all
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => toggleFeatureGroup(moduleFeatures, false)}>
+                              Clear
+                            </Button>
+                          </div>
+                        </div>
+
+                        {categories.map((category) => {
+                          const categoryFeatures = moduleFeatures.filter((feature) => feature.category === category);
+                          return (
+                            <div key={category} className="space-y-2">
+                              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                {category.replace(/_/g, " ")}
+                              </div>
+                              <div className="grid gap-2 md:grid-cols-2">
+                                {categoryFeatures.map((feature) => {
+                                  const checked = editPerms.includes(feature.permissionKey);
+                                  const riskClass =
+                                    feature.risk === "critical"
+                                      ? "border-red-200 bg-red-50/40 dark:border-red-900 dark:bg-red-950/20"
+                                      : feature.risk === "high"
+                                        ? "border-orange-200 bg-orange-50/30 dark:border-orange-900 dark:bg-orange-950/20"
+                                        : "";
+
+                                  return (
+                                    <label
+                                      key={feature.permissionKey}
+                                      className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/40 ${riskClass}`}
+                                    >
+                                      <Checkbox checked={checked} onCheckedChange={() => toggleFeature(feature)} />
+                                      <span className="min-w-0 flex-1">
+                                        <span className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                                          {feature.label}
+                                          {feature.risk !== "low" && (
+                                            <Badge variant="outline" className="text-[9px] uppercase">
+                                              {feature.risk}
+                                            </Badge>
+                                          )}
+                                        </span>
+                                        <span className="mt-1 block text-xs text-muted-foreground">
+                                          {feature.description}
+                                        </span>
+                                        <span className="mt-1 block font-mono text-[9px] text-muted-foreground/70">
+                                          {feature.permissionKey}
+                                        </span>
+                                      </span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </section>
+                    );
+                  })}
                 </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border rounded-lg p-3">
-                {reportsCatalog.map((r) => (
-                  <label key={r.key} className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer">
-                    <Checkbox checked={editPerms.includes(r.key)} onCheckedChange={() => togglePerm(r.key)} />
-                    <span className="text-sm">{r.label}</span>
-                  </label>
-                ))}
-              </div>
-            </section>
+
+                <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-200">
+                  High-risk and critical permissions should normally be reserved for managers or administrators. Role
+                  permissions do not override plan/module entitlement.
+                </div>
+              </>
+            )}
           </div>
 
           <SheetFooter className="gap-2">
