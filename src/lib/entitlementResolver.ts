@@ -28,6 +28,25 @@ const isAlwaysEntitledCoreModule = (moduleKey: string) =>
   );
 
 /**
+ * Returns the globally enabled module keys from the Super Admin module catalog.
+ * A premium module is only available to tenants when at least one of its
+ * catalog features is active. This is intentionally checked in addition to
+ * package_features so disabling a module in Modules Manager immediately removes
+ * it from every tenant, even when an older plan still contains that module.
+ */
+export async function getGloballyEnabledModuleKeys(): Promise<Set<string>> {
+  const { data, error } = await supabase.from("module_features").select("module_key").eq("is_active", true);
+
+  if (error) throw error;
+
+  return new Set(
+    ((data || []) as Array<{ module_key?: string | null }>)
+      .map((row) => row.module_key?.trim().toLowerCase())
+      .filter((key): key is string => !!key),
+  );
+}
+
+/**
  * Resolves the modules entitled to a plan
  * This is the core entitlement function - what modules does this plan include?
  */
@@ -39,6 +58,7 @@ export async function getPlanModules(
   }
 
   let features: PlanModule[] = [];
+  const globallyEnabledModules = await getGloballyEnabledModuleKeys();
 
   try {
     const { data, error } = await supabase.rpc("get_package_features_safe", {
@@ -66,7 +86,16 @@ export async function getPlanModules(
 
     const directModule = findModule(rawKey);
     const canonical = directModule ? directModule.key : getCanonicalFeatureKey(rawKey);
-    if (canonical) moduleSet.add(canonical.toLowerCase());
+    const canonicalKey = canonical?.toLowerCase();
+
+    // Core modules are always available. Commercial/premium modules must also
+    // be globally enabled in Modules Manager before a plan can expose them.
+    const moduleKeyForCatalog = canonicalKey || rawKey.split(".")[0]?.toLowerCase();
+    const globallyEnabled =
+      !!moduleKeyForCatalog &&
+      (isAlwaysEntitledCoreModule(moduleKeyForCatalog) || globallyEnabledModules.has(moduleKeyForCatalog));
+
+    if (canonicalKey && globallyEnabled) moduleSet.add(canonicalKey);
 
     const candidateKeys = new Set<string>();
     candidateKeys.add(rawKey.toLowerCase());
@@ -78,10 +107,19 @@ export async function getPlanModules(
     }
 
     const directPrefix = rawKey.split(".")[0]?.toLowerCase();
-    if (directPrefix) moduleSet.add(directPrefix);
+    if (directPrefix && (isAlwaysEntitledCoreModule(directPrefix) || globallyEnabledModules.has(directPrefix))) {
+      moduleSet.add(directPrefix);
+    }
 
     for (const key of candidateKeys) {
-      if (key) moduleSet.add(key);
+      if (!key) continue;
+      const candidateModule = findModule(key)?.key?.toLowerCase() || key.split(".")[0]?.toLowerCase();
+      if (
+        isAlwaysEntitledCoreModule(candidateModule || "") ||
+        (candidateModule ? globallyEnabledModules.has(candidateModule) : false)
+      ) {
+        moduleSet.add(key);
+      }
     }
   }
 
@@ -180,11 +218,12 @@ export async function resolveBusinessEntitlement(input: {
     };
   }
 
-  const { data: featureRows, error: featureError } = await supabase
-    .from("package_features")
-    .select("*")
-    .eq("package_id", pkg.id)
-    .eq("enabled", true);
+  const [featureResult, globallyEnabledModules] = await Promise.all([
+    supabase.from("package_features").select("*").eq("package_id", pkg.id).eq("enabled", true),
+    getGloballyEnabledModuleKeys(),
+  ]);
+
+  const { data: featureRows, error: featureError } = featureResult;
 
   if (featureError) {
     return {
@@ -210,11 +249,23 @@ export async function resolveBusinessEntitlement(input: {
     if (!rawKey) continue;
     const directModule = findModule(rawKey);
     const canonical = directModule ? directModule.key : getCanonicalFeatureKey(rawKey);
-    if (canonical) moduleSet.add(canonical.toLowerCase());
+    const canonicalKey = canonical?.toLowerCase();
     const directPrefix = rawKey.split(".")[0]?.toLowerCase();
-    if (directPrefix) moduleSet.add(directPrefix);
+    const moduleKeyForCatalog = canonicalKey || directPrefix;
+    const globallyEnabled =
+      !!moduleKeyForCatalog &&
+      (isAlwaysEntitledCoreModule(moduleKeyForCatalog) || globallyEnabledModules.has(moduleKeyForCatalog));
+
+    if (canonicalKey && globallyEnabled) moduleSet.add(canonicalKey);
+    if (directPrefix && (isAlwaysEntitledCoreModule(directPrefix) || globallyEnabledModules.has(directPrefix))) {
+      moduleSet.add(directPrefix);
+    }
     for (const key of moduleKeys(rawKey)) {
-      if (key) moduleSet.add(key.toLowerCase());
+      if (!key) continue;
+      const candidateModule = findModule(key)?.key?.toLowerCase() || key.toLowerCase().split(".")[0];
+      if (isAlwaysEntitledCoreModule(candidateModule) || globallyEnabledModules.has(candidateModule)) {
+        moduleSet.add(key.toLowerCase());
+      }
     }
   }
   // Core workspace modules are always entitled, independent of package_features.
