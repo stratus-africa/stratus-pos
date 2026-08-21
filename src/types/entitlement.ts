@@ -41,7 +41,7 @@ export interface ModuleFeature {
 export interface PlanModule {
   id: string;
   package_id: string;
-  feature_key: string; // This is the module key (canonical)
+  feature_key: string; // Canonical module key or module feature key (e.g. multi_location.transfer_stock)
   feature_label: string;
   enabled: boolean;
   created_at: string;
