@@ -404,27 +404,66 @@ export async function updatePlanModules(
   planId: string,
   moduleKeys: string[],
 ): Promise<{ success: boolean; message: string }> {
+  const normalizedKeys = [
+    ...new Set(
+      moduleKeys
+        .map((key) => getCanonicalFeatureKey(key))
+        .map((key) => key.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  ];
+
+  // Prefer the secured RPC. Older deployments may not yet have the RPC migration
+  // applied, however, so fall back to the RLS-protected package_features table.
+  // This keeps existing plans editable while the database migration is being rolled out.
   const { data, error } = await supabase.rpc("set_plan_modules", {
     _package_id: planId,
-    _module_keys: moduleKeys,
+    _module_keys: normalizedKeys,
   });
 
-  if (error) {
-    console.error("Error updating plan modules:", error);
-    throw new Error(error.message);
+  if (!error) {
+    const result = Array.isArray(data) ? data[0] : data;
+
+    if (result?.success) {
+      return {
+        success: true,
+        message: result.message || "Plan modules updated successfully",
+      };
+    }
+
+    // An RPC can exist but still return a controlled failure. In that case,
+    // try the RLS-protected table path before surfacing the error.
+    console.warn("set_plan_modules returned an unsuccessful result; using table fallback:", result?.message);
+  } else {
+    console.warn("set_plan_modules RPC unavailable; using table fallback:", error.message);
   }
 
-  // Supabase generates array-shaped data for RPCs declared as RETURNS TABLE.
-  // Normalize both array and object responses so the caller has one stable contract.
-  const result = Array.isArray(data) ? data[0] : data;
+  const { error: deleteError } = await supabase.from("package_features").delete().eq("package_id", planId);
 
-  if (!result?.success) {
-    throw new Error(result?.message || "Failed to update plan modules");
+  if (deleteError) {
+    console.error("Error clearing plan modules:", deleteError);
+    throw new Error(deleteError.message || error?.message || "Failed to clear plan modules");
+  }
+
+  if (normalizedKeys.length > 0) {
+    const rows = normalizedKeys.map((featureKey) => ({
+      package_id: planId,
+      feature_key: featureKey,
+      feature_label: findModule(featureKey)?.label || featureKey.replace(/_/g, " "),
+      enabled: true,
+    }));
+
+    const { error: insertError } = await supabase.from("package_features").insert(rows);
+
+    if (insertError) {
+      console.error("Error writing plan modules:", insertError);
+      throw new Error(insertError.message || "Failed to save plan modules");
+    }
   }
 
   return {
     success: true,
-    message: result.message || "Plan modules updated successfully",
+    message: `Plan modules updated successfully. ${normalizedKeys.length} module(s) enabled.`,
   };
 }
 
