@@ -464,7 +464,8 @@ export const MODULE_REGISTRY: AppModule[] = [
     status: "available",
     permissions: ["mpesa.view"],
     navigation: [
-      { key: "transactions", label: "Transactions", route: "/mpesa", permission: "mpesa.view" },
+      { key: "transactions", label: "Transactions", route: "/mpesa", permission: "mpesa.view_transactions" },
+      { key: "sms", label: "Incoming SMS", route: "/mpesa", permission: "mpesa.sms_inbox" },
       { key: "reconciliation", label: "Reconciliation", route: "/mpesa", permission: "mpesa.reconcile" },
     ],
     dependencies: ["pos", "sales"],
