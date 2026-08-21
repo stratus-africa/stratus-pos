@@ -26,7 +26,6 @@ function isValidKenyanPhone(msisdn: string): boolean {
   return /^254(7|1)\d{8}$/.test(msisdn);
 }
 
-
 const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
 interface BusinessMpesaConfig {
@@ -108,7 +107,6 @@ async function loadBusinessMpesaConfig(businessId: string | undefined): Promise<
   };
 }
 
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -174,6 +172,16 @@ Deno.serve(async (req) => {
       if (sale.payment_status === "paid") return jsonRes({ error: "This sale is already paid" }, 409);
 
       const resolvedBusinessId = sale.business_id as string;
+
+      // Server-side premium entitlement check. The browser gate is only UX;
+      // the actual Daraja request must also be blocked when the plan/module
+      // feature is disabled.
+      const { data: stkEnabled, error: entitlementError } = await supabase.rpc("business_has_mpesa_feature", {
+        _business_id: resolvedBusinessId,
+        _feature_key: "mpesa.stk_push",
+      });
+      if (entitlementError) throw entitlementError;
+      if (!stkEnabled) return jsonRes({ error: "M-Pesa STK Push is not enabled for this business plan" }, 403);
 
       const [{ data: profile }, { data: isSuperAdmin }] = await Promise.all([
         supabase.from("profiles").select("business_id").eq("id", userId).maybeSingle(),
@@ -248,7 +256,6 @@ Deno.serve(async (req) => {
         responseDescription: result.ResponseDescription,
       });
     }
-
 
     if (action === "stk-query") {
       const { checkoutRequestId, businessId } = body;
