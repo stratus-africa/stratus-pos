@@ -382,17 +382,83 @@ export async function checkFeatureAccess(
 
   const permissionKey = (feature as ModuleFeature)?.permission_key || featureKey;
 
+  // A plan may explicitly enable/disable an individual feature. For backwards
+  // compatibility, an enabled module-level row grants all of that module's
+  // features when no explicit feature row exists.
+  let planFeatureAllowed = entitlement.entitled;
+  if (planId && entitlement.entitled) {
+    const { data: planFeatureRows } = await supabase
+      .from("package_features")
+      .select("feature_key, enabled")
+      .eq("package_id", planId)
+      .in("feature_key", [featureKey, `${moduleKey}.${featureKey}`]);
+
+    const explicit = (planFeatureRows || []).find((row: any) => row.feature_key === featureKey);
+    const moduleFeature = (planFeatureRows || []).find((row: any) => row.feature_key === `${moduleKey}.${featureKey}`);
+    if (explicit) planFeatureAllowed = Boolean(explicit.enabled);
+    else if (moduleFeature) planFeatureAllowed = Boolean(moduleFeature.enabled);
+  }
+
+  const userPermission = userPermissions.has(permissionKey);
+
   return {
     feature_key: featureKey,
     feature_label: (feature as ModuleFeature)?.feature_label || featureKey,
-    allowed: entitlement.entitled && userPermissions.has(permissionKey),
+    allowed: planFeatureAllowed && userPermission,
     reason: !entitlement.entitled
       ? "module_not_entitled"
-      : !userPermissions.has(permissionKey)
-        ? "permission_denied"
-        : undefined,
+      : !planFeatureAllowed
+        ? "feature_not_in_plan"
+        : !userPermission
+          ? "permission_denied"
+          : undefined,
     module_entitled: entitlement.entitled,
-    user_permission: userPermissions.has(permissionKey),
+    user_permission: userPermission,
+  };
+}
+
+/**
+ * Superadmin function: Update individual plan feature entitlements.
+ * Feature keys are stored in package_features alongside module keys.
+ */
+export async function updatePlanFeatureKeys(
+  planId: string,
+  moduleKey: string,
+  featureKeys: string[],
+): Promise<{ success: boolean; message: string }> {
+  const normalizedModule = getCanonicalFeatureKey(moduleKey).trim().toLowerCase();
+  const normalizedFeatureKeys = [
+    ...new Set(
+      featureKeys.map((key) => key.trim().toLowerCase()).filter((key) => key.startsWith(`${normalizedModule}.`)),
+    ),
+  ];
+
+  const { error: deleteError } = await supabase
+    .from("package_features")
+    .delete()
+    .eq("package_id", planId)
+    .like("feature_key", `${normalizedModule}.%`);
+
+  if (deleteError) throw new Error(deleteError.message || "Failed to clear plan feature configuration");
+
+  if (normalizedFeatureKeys.length) {
+    const rows = normalizedFeatureKeys.map((featureKey) => ({
+      package_id: planId,
+      feature_key: featureKey,
+      feature_label: featureKey
+        .slice(normalizedModule.length + 1)
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase()),
+      enabled: true,
+    }));
+
+    const { error: insertError } = await supabase.from("package_features").insert(rows);
+    if (insertError) throw new Error(insertError.message || "Failed to save plan feature configuration");
+  }
+
+  return {
+    success: true,
+    message: `${normalizedModule} feature configuration updated. ${normalizedFeatureKeys.length} feature(s) enabled.`,
   };
 }
 
