@@ -2,6 +2,8 @@
 // editor and the runtime usePermissions hook so the UI and access checks stay
 // in sync.
 
+import { FEATURE_KEYS } from "@/lib/featureCatalog";
+
 export type AppRole = "admin" | "manager" | "cashier" | "stores_manager";
 
 export type ModuleAction = "view" | "create" | "edit" | "delete";
@@ -49,7 +51,7 @@ export const CONFIGURED_MARKER = "__configured__";
 export const permKey = (moduleKey: string, action: string) => `${moduleKey}.${action}`;
 export const allModulePerms = moduleCatalog.flatMap((m) => m.actions.map((a) => permKey(m.key, a)));
 export const allReportPerms = reportsCatalog.map((r) => r.key);
-export const allPermissionKeys = [...allModulePerms, ...allReportPerms];
+export const allPermissionKeys = Array.from(new Set([...allModulePerms, ...allReportPerms, ...FEATURE_KEYS]));
 
 /** Keeps module permissions in the required view/create/edit/delete order. */
 export function normalizePermissions(permissions: Iterable<string>): string[] {
