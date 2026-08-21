@@ -217,7 +217,9 @@ export function RolesPermissionsTab() {
 
   const openEditRole = (role: AppRole) => {
     setEditingRole(role);
-    setEditPerms(normalizePermissions(rolePermissions[role] || []));
+    setEditPerms(
+      normalizePermissions((rolePermissions[role] || []).filter((permission) => permission !== CONFIGURED_MARKER)),
+    );
   };
 
   // Cascade rules:
@@ -313,7 +315,8 @@ export function RolesPermissionsTab() {
         const legacyPermissions = (rolePermissions[editingRole] || []).filter(
           (permission) => permission !== CONFIGURED_MARKER && !featurePermissionKeys.has(permission),
         );
-        const normalizedPerms = normalizePermissions([...legacyPermissions, ...editPerms]);
+        const editablePermissions = editPerms.filter((permission) => permission !== CONFIGURED_MARKER);
+        const normalizedPerms = normalizePermissions([...legacyPermissions, ...editablePermissions]);
         const rows = [...normalizedPerms, CONFIGURED_MARKER].map((permission) => ({
           business_id: business.id,
           role: editingRole,
@@ -322,7 +325,10 @@ export function RolesPermissionsTab() {
         const { error: insErr } = await (supabase as any).from("role_permissions").insert(rows);
         if (insErr) throw insErr;
       }
-      setRolePermissions((prev) => ({ ...prev, [editingRole]: normalizePermissions(editPerms) }));
+      setRolePermissions((prev) => ({
+        ...prev,
+        [editingRole]: normalizePermissions(editPerms.filter((permission) => permission !== CONFIGURED_MARKER)),
+      }));
       toast.success(`${roleDescriptions[editingRole].label} permissions saved`);
       setEditingRole(null);
     } catch (err: any) {
