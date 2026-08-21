@@ -380,6 +380,13 @@ export const FEATURE_CATALOG: FeatureDefinition[] = [
   ),
   f(
     "mpesa",
+    "sms_inbox",
+    "Incoming SMS Inbox",
+    "Receive and review M-Pesa confirmation messages from a modem or SMS gateway.",
+    "payments",
+  ),
+  f(
+    "mpesa",
     "reconcile",
     "Reconcile M-Pesa",
     "Match M-Pesa receipts and transactions to sales.",
@@ -391,6 +398,14 @@ export const FEATURE_CATALOG: FeatureDefinition[] = [
     "manual_match",
     "Manually Match Payment",
     "Manually link an M-Pesa transaction to a sale or invoice.",
+    "reconciliation",
+    "high",
+  ),
+  f(
+    "mpesa",
+    "auto_reconcile",
+    "Auto-Reconcile M-Pesa",
+    "Automatically link matching M-Pesa receipts to STK transactions.",
     "reconciliation",
     "high",
   ),
