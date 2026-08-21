@@ -11,10 +11,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const supabase = createClient(
-  Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-);
+const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
 /** Safaricom always expects this shape, even when we could not process the event. */
 const accepted = () =>
@@ -111,9 +108,6 @@ async function handleSTKCallback(body: any) {
 
   console.log(`STK ${CheckoutRequestID} processed:`, JSON.stringify(data));
 }
-
-
-
 
 async function handleB2CCallback(body: any) {
   const result = body?.Result;
