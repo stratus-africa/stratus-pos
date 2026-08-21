@@ -476,7 +476,7 @@ export default function SuperAdminPackageEdit() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
         <div className="space-y-5">
-          <section className="bg-white border border-border rounded-xl p-5">
+          <section className="bg-card border border-border rounded-xl p-5">
             <div className="flex items-center gap-2 mb-4">
               <Tag className="h-4 w-4 text-muted-foreground" />
               <h2 className="font-semibold text-sm">Plan details</h2>
@@ -644,7 +644,7 @@ export default function SuperAdminPackageEdit() {
             </div>
           </section>
 
-          <section className="bg-white border border-border rounded-xl p-5">
+          <section className="bg-card border border-border rounded-xl p-5">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Info className="h-4 w-4 text-muted-foreground" />
@@ -706,7 +706,7 @@ export default function SuperAdminPackageEdit() {
             </div>
           </section>
 
-          <section className="bg-white border border-border rounded-xl p-5">
+          <section className="bg-card border border-border rounded-xl p-5">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <ListChecks className="h-4 w-4 text-muted-foreground" />
@@ -805,7 +805,7 @@ export default function SuperAdminPackageEdit() {
           </div>
 
           {!isNew && (
-            <section className="bg-white border border-border rounded-xl p-5">
+            <section className="bg-card border border-border rounded-xl p-5">
               <div className="flex items-center gap-2 mb-3 text-red-600">
                 <AlertTriangle className="h-4 w-4" />
                 <h2 className="font-semibold text-sm">Danger zone</h2>
@@ -835,7 +835,7 @@ export default function SuperAdminPackageEdit() {
         </div>
 
         <aside className="space-y-5">
-          <section className="bg-white border border-border rounded-xl p-5 sticky top-20">
+          <section className="bg-card border border-border rounded-xl p-5 sticky top-20">
             <div className="flex items-center gap-2 mb-4">
               <Info className="h-4 w-4 text-muted-foreground" />
 
