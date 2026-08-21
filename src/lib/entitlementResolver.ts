@@ -1,561 +1,934 @@
-// Server-side entitlement resolution
-// This is the canonical, authoritative source of truth for access checks
-// Used by both frontend (via API) and potentially backend functions
-
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
-import { findModule, getCanonicalFeatureKey, moduleKeys } from "@/lib/modules";
-import type {
-  ModuleFeature,
-  PlanModule,
-  SubscriptionPlan,
-  TenantSubscription,
-  EntitlementContext,
-  ModuleEntitlement,
-  FeatureAccess,
-} from "@/types/entitlement";
+import { createSubscriptionPlan, updateSubscriptionPlan, updatePlanModules } from "@/lib/entitlementResolver";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import {
+  APP_MODULES,
+  applyModuleToggleDependencyRule,
+  getEnabledCanonicalModules,
+  getCanonicalFeatureKey,
+  moduleGroupLabels,
+  type ModuleGroup,
+} from "@/lib/modules";
+import {
+  ArrowLeft,
+  Tag,
+  Save,
+  Loader2,
+  AlertTriangle,
+  Trash2,
+  Check,
+  Package,
+  Users,
+  Warehouse,
+  Contact,
+  Truck,
+  Info,
+  ListChecks,
+} from "lucide-react";
 
-/**
- * Core workspace modules are not subscription-gated. A tenant must always be
- * able to reach its dashboard, business settings, and own profile regardless
- * of which commercial modules are enabled on its plan. Role permissions still
- * control what the user can do once inside those areas.
- */
-export const ALWAYS_ENTITLED_CORE_MODULES = ["dashboard", "settings", "profile"] as const;
+const ALL_FEATURES = APP_MODULES;
 
-const isAlwaysEntitledCoreModule = (moduleKey: string) =>
-  ALWAYS_ENTITLED_CORE_MODULES.includes(
-    moduleKey.trim().toLowerCase() as (typeof ALWAYS_ENTITLED_CORE_MODULES)[number],
-  );
-
-/**
- * Returns the globally enabled module keys from the Super Admin module catalog.
- * A premium module is only available to tenants when at least one of its
- * catalog features is active. This is intentionally checked in addition to
- * package_features so disabling a module in Modules Manager immediately removes
- * it from every tenant, even when an older plan still contains that module.
- */
-export async function getGloballyEnabledModuleKeys(): Promise<Set<string>> {
-  const { data, error } = await supabase.from("module_features").select("module_key").eq("is_active", true);
-
-  if (error) throw error;
-
-  return new Set(
-    ((data || []) as Array<{ module_key?: string | null }>)
-      .map((row) => row.module_key?.trim().toLowerCase())
-      .filter((key): key is string => !!key),
-  );
-}
-
-/**
- * Resolves the modules entitled to a plan
- * This is the core entitlement function - what modules does this plan include?
- */
-export async function getPlanModules(
-  planId: string | null | undefined,
-): Promise<{ modules: string[]; features: PlanModule[] }> {
-  if (!planId) {
-    return { modules: [], features: [] };
-  }
-
-  let features: PlanModule[] = [];
-  const globallyEnabledModules = await getGloballyEnabledModuleKeys();
-
-  try {
-    const { data, error } = await supabase.rpc("get_package_features_safe", {
-      _package_id: planId,
-    });
-
-    if (error) throw error;
-    features = (data || []) as PlanModule[];
-  } catch {
-    const { data, error } = await supabase
-      .from("package_features")
-      .select("*")
-      .eq("package_id", planId)
-      .eq("enabled", true);
-
-    if (error) throw error;
-    features = (data || []) as PlanModule[];
-  }
-
-  const moduleSet = new Set<string>();
-
-  for (const feature of features) {
-    const rawKey = (feature.feature_key || "").trim();
-    if (!rawKey) continue;
-
-    const directModule = findModule(rawKey);
-    const canonical = directModule ? directModule.key : getCanonicalFeatureKey(rawKey);
-    const canonicalKey = canonical?.toLowerCase();
-
-    // Core modules are always available. Commercial/premium modules must also
-    // be globally enabled in Modules Manager before a plan can expose them.
-    const moduleKeyForCatalog = canonicalKey || rawKey.split(".")[0]?.toLowerCase();
-    const globallyEnabled =
-      !!moduleKeyForCatalog &&
-      (isAlwaysEntitledCoreModule(moduleKeyForCatalog) || globallyEnabledModules.has(moduleKeyForCatalog));
-
-    if (canonicalKey && globallyEnabled) moduleSet.add(canonicalKey);
-
-    const candidateKeys = new Set<string>();
-    candidateKeys.add(rawKey.toLowerCase());
-    candidateKeys.add(getCanonicalFeatureKey(rawKey).toLowerCase());
-    if (directModule) candidateKeys.add(directModule.key.toLowerCase());
-
-    for (const key of moduleKeys(rawKey)) {
-      candidateKeys.add(key.toLowerCase());
-    }
-
-    const directPrefix = rawKey.split(".")[0]?.toLowerCase();
-    if (directPrefix && (isAlwaysEntitledCoreModule(directPrefix) || globallyEnabledModules.has(directPrefix))) {
-      moduleSet.add(directPrefix);
-    }
-
-    for (const key of candidateKeys) {
-      if (!key) continue;
-      const candidateModule = findModule(key)?.key?.toLowerCase() || key.split(".")[0]?.toLowerCase();
-      if (
-        isAlwaysEntitledCoreModule(candidateModule || "") ||
-        (candidateModule ? globallyEnabledModules.has(candidateModule) : false)
-      ) {
-        moduleSet.add(key);
-      }
-    }
-  }
-
-  // Keep plan configuration authoritative for commercial modules, while core
-  // workspace modules remain available to every tenant.
-  for (const coreModule of ALWAYS_ENTITLED_CORE_MODULES) {
-    moduleSet.add(coreModule);
-  }
-
-  const modules = [...moduleSet].filter(Boolean);
-  return { modules, features };
-}
-
-export type EntitlementResolutionStatus =
-  | "loading"
-  | "no_business"
-  | "no_plan"
-  | "subscription_inactive"
-  | "package_not_found"
-  | "no_enabled_features"
-  | "modules_resolved"
-  | "db_error";
-
-export async function resolveBusinessEntitlement(input: {
-  business?: { id?: string | null; owner_id?: string | null; selected_package_id?: string | null } | null;
-  activeSubscription?: any | null;
-}) {
-  const business = input.business ?? null;
-  const activeSubscription = input.activeSubscription ?? null;
-
-  if (!business?.id) {
-    return {
-      hasPlan: false,
-      subscription: activeSubscription,
-      package: null,
-      packageId: business?.selected_package_id ?? null,
-      packageName: null,
-      packageFeatures: [],
-      enabledModules: [],
-      resolutionStatus: "no_business" as EntitlementResolutionStatus,
-      error: null as string | null,
-    };
-  }
-
-  // AUTHORITATIVE: businesses.selected_package_id is the ONLY application-level
-  // package assignment. subscriptions.product_id is a billing-provider reference
-  // and must not be used as the application package ID.
-  const packageId = business.selected_package_id ?? null;
-
-  if (!packageId) {
-    return {
-      hasPlan: false,
-      subscription: activeSubscription,
-      package: null,
-      packageId: null,
-      packageName: null,
-      packageFeatures: [],
-      // Core workspace access does not depend on a commercial package.
-      enabledModules: [...ALWAYS_ENTITLED_CORE_MODULES],
-      resolutionStatus: "no_plan" as EntitlementResolutionStatus,
-      error: null as string | null,
-    };
-  }
-
-  const { data: pkgRows, error: pkgError } = await supabase.rpc("get_subscription_package_safe", {
-    _id: packageId,
-  });
-
-  if (pkgError) {
-    return {
-      hasPlan: false,
-      subscription: activeSubscription,
-      package: null,
-      packageId,
-      packageName: null,
-      packageFeatures: [],
-      enabledModules: [...ALWAYS_ENTITLED_CORE_MODULES],
-      resolutionStatus: "db_error" as EntitlementResolutionStatus,
-      error: pkgError.message,
-    };
-  }
-
-  const pkg = Array.isArray(pkgRows) ? (pkgRows[0] ?? null) : (pkgRows ?? null);
-
-  if (!pkg) {
-    return {
-      hasPlan: false,
-      subscription: activeSubscription,
-      package: null,
-      packageId,
-      packageName: null,
-      packageFeatures: [],
-      enabledModules: [...ALWAYS_ENTITLED_CORE_MODULES],
-      resolutionStatus: "package_not_found" as EntitlementResolutionStatus,
-      error: null as string | null,
-    };
-  }
-
-  const [featureResult, globallyEnabledModules] = await Promise.all([
-    supabase.from("package_features").select("*").eq("package_id", pkg.id).eq("enabled", true),
-    getGloballyEnabledModuleKeys(),
-  ]);
-
-  const { data: featureRows, error: featureError } = featureResult;
-
-  if (featureError) {
-    return {
-      hasPlan: true, // Package exists; features query failed — don't say "no plan"
-      subscription: activeSubscription,
-      package: pkg,
-      packageId: pkg.id,
-      packageName: pkg.name,
-      packageFeatures: [],
-      enabledModules: [],
-      resolutionStatus: "db_error" as EntitlementResolutionStatus,
-      error: featureError.message,
-    };
-  }
-
-  const packageFeatures = (featureRows || []) as PlanModule[];
-
-  // Use the same comprehensive resolution as getPlanModules so feature_key variants
-  // (e.g. "sales.view", "chart_of_accounts", aliases) all map to canonical module keys.
-  const moduleSet = new Set<string>();
-  for (const feature of packageFeatures) {
-    const rawKey = (feature.feature_key || "").trim();
-    if (!rawKey) continue;
-    const directModule = findModule(rawKey);
-    const canonical = directModule ? directModule.key : getCanonicalFeatureKey(rawKey);
-    const canonicalKey = canonical?.toLowerCase();
-    const directPrefix = rawKey.split(".")[0]?.toLowerCase();
-    const moduleKeyForCatalog = canonicalKey || directPrefix;
-    const globallyEnabled =
-      !!moduleKeyForCatalog &&
-      (isAlwaysEntitledCoreModule(moduleKeyForCatalog) || globallyEnabledModules.has(moduleKeyForCatalog));
-
-    if (canonicalKey && globallyEnabled) moduleSet.add(canonicalKey);
-    if (directPrefix && (isAlwaysEntitledCoreModule(directPrefix) || globallyEnabledModules.has(directPrefix))) {
-      moduleSet.add(directPrefix);
-    }
-    for (const key of moduleKeys(rawKey)) {
-      if (!key) continue;
-      const candidateModule = findModule(key)?.key?.toLowerCase() || key.toLowerCase().split(".")[0];
-      if (isAlwaysEntitledCoreModule(candidateModule) || globallyEnabledModules.has(candidateModule)) {
-        moduleSet.add(key.toLowerCase());
-      }
-    }
-  }
-  // Core workspace modules are always entitled, independent of package_features.
-  // This prevents a plan configuration from locking a tenant out of its own
-  // dashboard, business settings, or profile. Role permissions remain separate.
-  for (const coreModule of ALWAYS_ENTITLED_CORE_MODULES) {
-    moduleSet.add(coreModule);
-  }
-  const enabledModules = [...moduleSet].filter(Boolean);
-
-  return {
-    hasPlan: true,
-    subscription: activeSubscription,
-    package: pkg,
-    packageId: pkg.id,
-    packageName: pkg.name,
-    packageFeatures,
-    enabledModules,
-    resolutionStatus: (enabledModules.length > 0
-      ? "modules_resolved"
-      : "no_enabled_features") as EntitlementResolutionStatus,
-    error: null as string | null,
-  };
-}
-
-/**
- * Resolves the features belonging to a module
- * Used by tenant admins to assign permissions
- */
-export async function getModuleFeatures(moduleKey: string): Promise<ModuleFeature[]> {
-  try {
-    const { data, error } = await supabase
-      .from("module_features")
-      .select("*")
-      .eq("module_key", moduleKey)
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true });
-
-    if (error) throw error;
-
-    return (data || []) as ModuleFeature[];
-  } catch (error) {
-    console.warn(`Failed to load module features for ${moduleKey}:`, error);
-    return [];
-  }
-}
-
-/**
- * Checks if a tenant is entitled to a specific module
- * Returns the entitlement result with reason if denied
- */
-export async function checkModuleEntitlement(
-  planId: string | undefined,
-  moduleKey: string,
-): Promise<ModuleEntitlement> {
-  if (isAlwaysEntitledCoreModule(moduleKey)) {
-    return {
-      module_key: moduleKey,
-      module_label: moduleKey,
-      entitled: true,
-      features: [],
-    };
-  }
-
-  if (!planId) {
-    return {
-      module_key: moduleKey,
-      module_label: moduleKey,
-      entitled: false,
-      reason: "no_plan",
-      features: [],
-    };
-  }
-
-  try {
-    const { modules, features } = await getPlanModules(planId);
-    const entitled = modules.includes(moduleKey);
-    const moduleFeatures = await getModuleFeatures(moduleKey);
-
-    return {
-      module_key: moduleKey,
-      module_label: moduleKey, // TODO: Get from module registry
-      entitled,
-      reason: entitled ? undefined : "not_in_plan",
-      features: moduleFeatures,
-    };
-  } catch (error) {
-    console.error(`Error checking entitlement for module ${moduleKey}:`, error);
-    return {
-      module_key: moduleKey,
-      module_label: moduleKey,
-      entitled: false,
-      reason: "error_checking_entitlement",
-      features: [],
-    };
-  }
-}
-
-/**
- * Checks if a user can access a specific feature
- * Requires both: module entitled AND user has permission
- */
-export async function checkFeatureAccess(
-  planId: string | undefined,
-  moduleKey: string,
-  featureKey: string,
-  userPermissions: Set<string>,
-): Promise<FeatureAccess> {
-  // Check module entitlement first
-  const entitlement = await checkModuleEntitlement(planId, moduleKey);
-
-  // Get feature details
-  const { data: feature } = await supabase.from("module_features").select("*").eq("feature_key", featureKey).single();
-
-  const permissionKey = (feature as ModuleFeature)?.permission_key || featureKey;
-
-  return {
-    feature_key: featureKey,
-    feature_label: (feature as ModuleFeature)?.feature_label || featureKey,
-    allowed: entitlement.entitled && userPermissions.has(permissionKey),
-    reason: !entitlement.entitled
-      ? "module_not_entitled"
-      : !userPermissions.has(permissionKey)
-        ? "permission_denied"
-        : undefined,
-    module_entitled: entitlement.entitled,
-    user_permission: userPermissions.has(permissionKey),
-  };
-}
-
-/**
- * Superadmin function: Safely update plan modules
- * Uses the secure RPC function under the hood
- */
-export async function updatePlanModules(
-  planId: string,
-  moduleKeys: string[],
-): Promise<{ success: boolean; message: string }> {
-  const normalizedKeys = [
-    ...new Set(
-      moduleKeys
-        .map((key) => getCanonicalFeatureKey(key))
-        .map((key) => key.trim().toLowerCase())
-        .filter(Boolean),
-    ),
-  ];
-
-  // Prefer the secured RPC. Older deployments may not yet have the RPC migration
-  // applied, however, so fall back to the RLS-protected package_features table.
-  // This keeps existing plans editable while the database migration is being rolled out.
-  const { data, error } = await supabase.rpc("set_plan_modules", {
-    _package_id: planId,
-    _module_keys: normalizedKeys,
-  });
-
-  if (!error) {
-    const result = Array.isArray(data) ? data[0] : data;
-
-    if (result?.success) {
-      return {
-        success: true,
-        message: result.message || "Plan modules updated successfully",
-      };
-    }
-
-    // An RPC can exist but still return a controlled failure. In that case,
-    // try the RLS-protected table path before surfacing the error.
-    console.warn("set_plan_modules returned an unsuccessful result; using table fallback:", result?.message);
-  } else {
-    console.warn("set_plan_modules RPC unavailable; using table fallback:", error.message);
-  }
-
-  const { error: deleteError } = await supabase.from("package_features").delete().eq("package_id", planId);
-
-  if (deleteError) {
-    console.error("Error clearing plan modules:", deleteError);
-    throw new Error(deleteError.message || error?.message || "Failed to clear plan modules");
-  }
-
-  if (normalizedKeys.length > 0) {
-    const rows = normalizedKeys.map((featureKey) => ({
-      package_id: planId,
-      feature_key: featureKey,
-      feature_label: findModule(featureKey)?.label || featureKey.replace(/_/g, " "),
-      enabled: true,
-    }));
-
-    const { error: insertError } = await supabase.from("package_features").insert(rows);
-
-    if (insertError) {
-      console.error("Error writing plan modules:", insertError);
-      throw new Error(insertError.message || "Failed to save plan modules");
-    }
-  }
-
-  return {
-    success: true,
-    message: `Plan modules updated successfully. ${normalizedKeys.length} module(s) enabled.`,
-  };
-}
-
-/**
- * Superadmin function: Safely create a plan
- * Uses the secure RPC function under the hood
- */
-export async function createSubscriptionPlan(input: {
+interface Form {
   name: string;
-  description?: string;
+  slug: string;
   monthly_price_kes: number;
   yearly_price_kes: number;
+  is_active: boolean;
+  is_private: boolean;
+  free_trial: boolean;
+  trial_days: number;
   max_products: number;
   max_users: number;
   max_locations: number;
-  max_customers?: number;
-  max_suppliers?: number;
-  trial_days: number;
-}): Promise<{ success: boolean; message: string; package_id?: string }> {
-  const { data, error } = await supabase.rpc("create_subscription_plan", {
-    _name: input.name,
-    _description: input.description ?? undefined,
-    _monthly_price_kes: input.monthly_price_kes,
-    _yearly_price_kes: input.yearly_price_kes,
-    _max_products: input.max_products,
-    _max_users: input.max_users,
-    _max_locations: input.max_locations,
-    _max_customers: input.max_customers ?? 50,
-    _max_suppliers: input.max_suppliers ?? 10,
-    _trial_days: input.trial_days,
-  });
-
-  if (error) {
-    console.error("Error creating plan:", error);
-    throw new Error(error.message);
-  }
-
-  return data as { success: boolean; message: string; package_id?: string };
+  max_customers: number;
+  max_suppliers: number;
 }
 
-/**
- * Superadmin function: Safely update plan metadata
- * Uses the secure RPC function under the hood
- */
-export async function updateSubscriptionPlan(
-  planId: string,
-  input: {
-    name: string;
-    description?: string;
-    monthly_price_kes: number;
-    yearly_price_kes: number;
-    max_products: number;
-    max_users: number;
-    max_locations: number;
-    max_customers?: number;
-    max_suppliers?: number;
-    trial_days: number;
-    is_active: boolean;
-    is_public?: boolean;
-  },
-): Promise<{ success: boolean; message: string }> {
-  const { data, error } = await supabase.rpc("update_subscription_plan", {
-    _package_id: planId,
-    _name: input.name,
-    _description: input.description ?? undefined,
-    _monthly_price_kes: input.monthly_price_kes,
-    _yearly_price_kes: input.yearly_price_kes,
-    _max_products: input.max_products,
-    _max_users: input.max_users,
-    _max_locations: input.max_locations,
-    _max_customers: input.max_customers ?? 50,
-    _max_suppliers: input.max_suppliers ?? 10,
-    _trial_days: input.trial_days,
-    _is_active: input.is_active,
-    ...(input.is_public === undefined ? {} : { _is_public: input.is_public }),
-  } as any);
+const emptyForm: Form = {
+  name: "",
+  slug: "",
+  monthly_price_kes: 0,
+  yearly_price_kes: 0,
+  is_active: true,
+  is_private: false,
+  free_trial: false,
+  trial_days: 14,
+  max_products: 50,
+  max_users: 1,
+  max_locations: 1,
+  max_customers: 50,
+  max_suppliers: 10,
+};
 
-  if (error) {
-    console.error("Error updating plan:", error);
-    throw new Error(error.message);
-  }
+const fmtKes = (n: number) =>
+  `KES ${new Intl.NumberFormat("en-KE", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(n)}`;
 
-  // update_subscription_plan returns jsonb, but normalize array/object shapes defensively
-  // so a RETURNS TABLE variant can never be read as "no success".
-  const result: any = Array.isArray(data) ? data[0] : data;
+export default function SuperAdminPackageEdit() {
+  const { id } = useParams<{ id: string }>();
+  const isNew = !id || id === "new";
+  const navigate = useNavigate();
 
-  if (result && result.success === false) {
-    throw new Error(result.message || "Failed to update plan");
-  }
+  const [form, setForm] = useState<Form>(emptyForm);
 
-  return {
-    success: true,
-    message: result?.message || "Plan updated successfully",
+  const [featureToggles, setFeatureToggles] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(ALL_FEATURES.map((feature) => [feature.key, feature.group === "core"])),
+  );
+
+  const [activeModuleGroup, setActiveModuleGroup] = useState<ModuleGroup>("core");
+
+  const [loading, setLoading] = useState(!isNew);
+  const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [subscriberCount, setSubscriberCount] = useState(0);
+
+  useEffect(() => {
+    if (isNew) return;
+
+    const load = async () => {
+      try {
+        const [pkgRes, featRes, subsRes] = await Promise.all([
+          supabase.from("subscription_packages").select("*").eq("id", id).maybeSingle(),
+
+          supabase.from("package_features").select("*").eq("package_id", id),
+
+          supabase.from("subscriptions").select("status").eq("product_id", id),
+        ]);
+
+        if (pkgRes.error) {
+          throw new Error(pkgRes.error.message);
+        }
+
+        if (featRes.error) {
+          throw new Error(`Failed to load plan modules: ${featRes.error.message}`);
+        }
+
+        if (subsRes.error) {
+          console.warn("Failed to load subscriber count:", subsRes.error);
+        }
+
+        const pkg: any = pkgRes.data;
+
+        if (!pkg) {
+          toast.error("Plan not found");
+          navigate("/super-admin/packages");
+          return;
+        }
+
+        setForm({
+          name: pkg.name,
+          slug: pkg.name.toLowerCase().replace(/\s+/g, ""),
+          monthly_price_kes: Number(pkg.monthly_price_kes || 0),
+          yearly_price_kes: Number(pkg.yearly_price_kes || 0),
+          is_active: pkg.is_active,
+          is_private: pkg.is_public === false,
+          free_trial: (pkg.trial_days || 0) > 0,
+          trial_days: pkg.trial_days || 14,
+          max_products: pkg.max_products,
+          max_users: pkg.max_users,
+          max_locations: pkg.max_locations,
+          max_customers: pkg.max_customers ?? 50,
+          max_suppliers: pkg.max_suppliers ?? 10,
+        });
+
+        const enabledKeys = new Set(getEnabledCanonicalModules(featRes.data || [], id));
+
+        const toggles: Record<string, boolean> = Object.fromEntries(
+          ALL_FEATURES.map((feature) => [feature.key, feature.group === "core" || enabledKeys.has(feature.key)]),
+        );
+
+        setFeatureToggles(toggles);
+
+        setSubscriberCount(
+          (subsRes.data || []).filter(
+            (subscription: any) => subscription.status === "active" || subscription.status === "trialing",
+          ).length,
+        );
+      } catch (error: any) {
+        console.error("Failed to load plan:", error);
+
+        toast.error(error?.message || "Failed to load plan");
+
+        navigate("/super-admin/packages");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [id, isNew, navigate]);
+
+  const enabledModuleCount = useMemo(() => Object.values(featureToggles).filter(Boolean).length, [featureToggles]);
+
+  const limitsConfigured = useMemo(() => {
+    return [form.max_products, form.max_users, form.max_locations, form.max_customers, form.max_suppliers].filter(
+      (value) => value > 0,
+    ).length;
+  }, [form]);
+
+  const handleModuleToggle = (featureKey: string) => {
+    if (saving) return;
+
+    const feature = ALL_FEATURES.find((item) => item.key === featureKey);
+
+    if (!feature) return;
+
+    if (feature.group === "core") {
+      toast.info(`${feature.label} is a core module and is included in every plan.`);
+      return;
+    }
+
+    const currentlyEnabled = Boolean(featureToggles[featureKey]);
+
+    const nextEnabled = !currentlyEnabled;
+
+    const result = applyModuleToggleDependencyRule(featureKey, nextEnabled, featureToggles);
+
+    if (result.blocked) {
+      toast.info(result.reason || "This module cannot be changed while another dependent module is enabled.");
+      return;
+    }
+
+    setFeatureToggles(result.next);
   };
+
+  const selectedModuleKeys = useMemo(() => {
+    const keys = ALL_FEATURES.filter((feature) => feature.group === "core" || Boolean(featureToggles[feature.key]))
+      .map((feature) => getCanonicalFeatureKey(feature.key))
+      .filter(Boolean);
+
+    return [...new Set(keys)];
+  }, [featureToggles]);
+
+  const handleSaveModulesOnly = async () => {
+    if (isNew || !id) return;
+
+    setSaving(true);
+
+    try {
+      await updatePlanModules(id, selectedModuleKeys);
+
+      toast.success(`Modules updated - ${selectedModuleKeys.length} enabled for ${form.name}`);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to update plan modules");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) {
+      toast.error("Plan name is required");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      let pkgId: string | null = id || null;
+
+      if (isNew) {
+        const result = await createSubscriptionPlan({
+          name: form.name.trim(),
+          monthly_price_kes: form.monthly_price_kes,
+          yearly_price_kes: form.yearly_price_kes,
+          max_products: form.max_products,
+          max_users: form.max_users,
+          max_locations: form.max_locations,
+          max_customers: form.max_customers,
+          max_suppliers: form.max_suppliers,
+          trial_days: form.free_trial ? form.trial_days : 0,
+        });
+
+        if (!result.success) {
+          throw new Error(result.message);
+        }
+
+        pkgId = result.package_id || null;
+
+        if (!pkgId) {
+          throw new Error("Failed to create plan - no ID returned");
+        }
+      }
+
+      if (!pkgId) {
+        throw new Error("Missing plan id");
+      }
+
+      // Save module entitlements FIRST so a failure while saving pricing/limits
+      // can never silently discard the module changes.
+      await updatePlanModules(pkgId, selectedModuleKeys);
+
+      if (!isNew) {
+        await updateSubscriptionPlan(id!, {
+          name: form.name.trim(),
+          monthly_price_kes: form.monthly_price_kes,
+          yearly_price_kes: form.yearly_price_kes,
+          max_products: form.max_products,
+          max_users: form.max_users,
+          max_locations: form.max_locations,
+          max_customers: form.max_customers,
+          max_suppliers: form.max_suppliers,
+          trial_days: form.free_trial ? form.trial_days : 0,
+          is_active: form.is_active,
+          is_public: !form.is_private,
+        });
+      }
+
+      toast.success(isNew ? "Plan created" : `Plan updated - ${selectedModuleKeys.length} modules enabled`);
+
+      navigate("/super-admin/packages");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to save plan");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!id || isNew) return;
+
+    if (subscriberCount > 0) {
+      toast.error("Cannot delete a plan with active subscribers.");
+
+      setConfirmDelete(false);
+      return;
+    }
+
+    setDeleting(true);
+
+    try {
+      const { error: featureDeleteError } = await supabase.from("package_features").delete().eq("package_id", id);
+
+      if (featureDeleteError) {
+        throw featureDeleteError;
+      }
+
+      const { error } = await supabase.from("subscription_packages").delete().eq("id", id);
+
+      if (error) {
+        throw error;
+      }
+
+      toast.success("Plan deleted");
+
+      navigate("/super-admin/packages");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to delete plan");
+
+      setDeleting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const GROUPS: {
+    key: ModuleGroup;
+    label: string;
+    accent: string;
+  }[] = [
+    {
+      key: "core",
+      label: moduleGroupLabels.core,
+      accent: "text-emerald-700",
+    },
+    {
+      key: "accounting",
+      label: moduleGroupLabels.accounting,
+      accent: "text-blue-700",
+    },
+    {
+      key: "premium",
+      label: moduleGroupLabels.premium,
+      accent: "text-purple-700",
+    },
+  ];
+
+  const moduleCard = (feature: (typeof ALL_FEATURES)[number]) => {
+    const isCore = feature.group === "core";
+    const enabled = isCore || Boolean(featureToggles[feature.key]);
+    const accountingDependency = feature.key === "banking" || feature.key === "manual_journals";
+    const accountingForced =
+      feature.key === "accounting" && (Boolean(featureToggles.banking) || Boolean(featureToggles.manual_journals));
+
+    const handleChange = (nextEnabled: boolean) => {
+      if (isCore || accountingForced || saving) return;
+      handleModuleToggle(feature.key);
+    };
+
+    return (
+      <div
+        key={feature.key}
+        className={`rounded-lg p-3 border transition-all flex items-start justify-between gap-3 w-full ${
+          enabled ? "border-primary bg-primary/5" : "border-border bg-background hover:border-primary/40"
+        } ${saving ? "opacity-60" : ""}`}
+      >
+        <div className="flex items-start gap-2.5 min-w-0">
+          <div
+            className={`h-9 w-9 rounded-md flex items-center justify-center shrink-0 ${
+              enabled ? "bg-primary/10" : "bg-muted"
+            }`}
+          >
+            <feature.Icon className={`h-4 w-4 ${enabled ? "text-primary" : "text-muted-foreground"}`} />
+          </div>
+
+          <div className="min-w-0">
+            <p className="font-semibold text-sm leading-tight">{feature.label}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{feature.description}</p>
+
+            {isCore && <p className="text-[10px] text-emerald-700 mt-1 font-medium">Included in every plan</p>}
+
+            {accountingDependency && enabled && (
+              <p className="text-[10px] text-primary mt-1 font-medium">Requires Accounting</p>
+            )}
+
+            {accountingForced && (
+              <p className="text-[10px] text-primary mt-1 font-medium">Locked on by Banking / Manual Journals</p>
+            )}
+          </div>
+        </div>
+
+        <Switch
+          checked={enabled}
+          disabled={saving || isCore || accountingForced}
+          onCheckedChange={handleChange}
+          aria-label={`${enabled ? "Disable" : "Enable"} ${feature.label}`}
+        />
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
+          <Link to="/super-admin/packages" className="hover:text-foreground inline-flex items-center gap-1">
+            <ArrowLeft className="h-3 w-3" />
+            Plans
+          </Link>
+
+          <span>/</span>
+
+          <span className="text-foreground font-medium">{form.name || "New plan"}</span>
+        </div>
+
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">{isNew ? "New plan" : "Edit plan"}</h1>
+
+            <p className="text-sm text-muted-foreground mt-1">
+              {isNew
+                ? "Create a billing plan with limits and module access."
+                : `Update pricing, limits, and modules for ${form.name}.`}
+            </p>
+          </div>
+
+          <Badge
+            className={
+              form.is_active
+                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                : "bg-muted text-muted-foreground"
+            }
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full mr-1.5 ${form.is_active ? "bg-emerald-500" : "bg-muted-foreground"}`}
+            />
+
+            {form.is_active ? "Active" : "Inactive"}
+          </Badge>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
+        <div className="space-y-5">
+          <section className="bg-card border border-border rounded-xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Tag className="h-4 w-4 text-muted-foreground" />
+              <h2 className="font-semibold text-sm">Plan details</h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs">
+                  Plan name <span className="text-red-500">*</span>
+                </Label>
+
+                <Input
+                  value={form.name}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      name: event.target.value,
+                      slug: event.target.value.toLowerCase().replace(/\s+/g, ""),
+                    })
+                  }
+                  placeholder="Starter"
+                  className="h-10"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">
+                  Slug <span className="text-red-500">*</span>
+                </Label>
+
+                <Input
+                  value={form.slug}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      slug: event.target.value,
+                    })
+                  }
+                  placeholder="starter"
+                  className="h-10"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">
+                  Monthly price (KES) <span className="text-red-500">*</span>
+                </Label>
+
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-semibold">
+                    KES
+                  </span>
+
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.monthly_price_kes}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        monthly_price_kes: Number(event.target.value),
+                      })
+                    }
+                    className="h-10 pl-12"
+                  />
+                </div>
+
+                <p className="text-[11px] text-muted-foreground">Price charged per month in Kenyan Shillings.</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">
+                  Yearly price (KES) <span className="text-red-500">*</span>
+                </Label>
+
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-semibold">
+                    KES
+                  </span>
+
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.yearly_price_kes}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        yearly_price_kes: Number(event.target.value),
+                      })
+                    }
+                    className="h-10 pl-12"
+                  />
+                </div>
+
+                <p className="text-[11px] text-muted-foreground">
+                  Price charged per year. Set 0 to disable yearly billing.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <Checkbox
+                  checked={form.is_active}
+                  onCheckedChange={(value) =>
+                    setForm({
+                      ...form,
+                      is_active: !!value,
+                    })
+                  }
+                  className="mt-0.5 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                />
+
+                <div>
+                  <span className="text-sm font-medium">Active</span>
+
+                  <p className="text-xs text-muted-foreground">
+                    Inactive plans won't be available for new subscriptions.
+                  </p>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 cursor-pointer">
+                <Checkbox
+                  checked={form.is_private}
+                  onCheckedChange={(value) =>
+                    setForm({
+                      ...form,
+                      is_private: !!value,
+                    })
+                  }
+                  className="mt-0.5 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                />
+
+                <div>
+                  <span className="text-sm font-medium">🔒 Private Plan</span>
+
+                  <p className="text-xs text-muted-foreground">
+                    Private plans are hidden from the landing page, registration form, and tenant billing page. Only a
+                    super admin can assign them to tenants.
+                  </p>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 cursor-pointer">
+                <Checkbox
+                  checked={form.free_trial}
+                  onCheckedChange={(value) =>
+                    setForm({
+                      ...form,
+                      free_trial: !!value,
+                    })
+                  }
+                  className="mt-0.5 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                />
+
+                <div>
+                  <span className="text-sm font-medium">Free trial</span>
+
+                  <p className="text-xs text-muted-foreground">Allow users to try this plan for free before paying.</p>
+                </div>
+              </label>
+            </div>
+          </section>
+
+          <section className="bg-card border border-border rounded-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Info className="h-4 w-4 text-muted-foreground" />
+                <h2 className="font-semibold text-sm">Usage limits</h2>
+              </div>
+
+              <span className="text-xs text-muted-foreground">Use 0 or any negative value (e.g. -1) for unlimited</span>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+              {[
+                {
+                  key: "max_products",
+                  label: "Products",
+                  Icon: Package,
+                },
+                {
+                  key: "max_users",
+                  label: "Users",
+                  Icon: Users,
+                },
+                {
+                  key: "max_locations",
+                  label: "Warehouses",
+                  Icon: Warehouse,
+                },
+                {
+                  key: "max_customers",
+                  label: "Customers",
+                  Icon: Contact,
+                },
+                {
+                  key: "max_suppliers",
+                  label: "Suppliers",
+                  Icon: Truck,
+                },
+              ].map(({ key, label, Icon }) => (
+                <div key={key} className="border border-border rounded-lg p-3">
+                  <div className="flex items-center gap-1.5 mb-2 text-xs text-muted-foreground">
+                    <Icon className="h-3.5 w-3.5" />
+                    {label}
+                  </div>
+
+                  <Input
+                    type="number"
+                    step="1"
+                    value={(form as any)[key]}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        [key]: Number(event.target.value),
+                      } as Form)
+                    }
+                    className="h-9 text-sm"
+                    placeholder="∞"
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="bg-card border border-border rounded-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <ListChecks className="h-4 w-4 text-muted-foreground" />
+                <h2 className="font-semibold text-sm">Modules</h2>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground">
+                  {enabledModuleCount} of {ALL_FEATURES.length} enabled
+                </span>
+
+                {!isNew && (
+                  <Button type="button" size="sm" variant="outline" onClick={handleSaveModulesOnly} disabled={saving}>
+                    {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+                    Save modules
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="sm:hidden mb-3">
+              <Select value={activeModuleGroup} onValueChange={(value) => setActiveModuleGroup(value as ModuleGroup)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+
+                <SelectContent>
+                  {GROUPS.map((group) => {
+                    const count = ALL_FEATURES.filter(
+                      (feature) => feature.group === group.key && featureToggles[feature.key],
+                    ).length;
+
+                    return (
+                      <SelectItem key={group.key} value={group.key}>
+                        {group.label}
+                        {count > 0 && ` (${count})`}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+
+              <div className="grid grid-cols-1 gap-3 mt-3">
+                {ALL_FEATURES.filter((feature) => feature.group === activeModuleGroup).map(moduleCard)}
+              </div>
+            </div>
+
+            <Tabs
+              value={activeModuleGroup}
+              onValueChange={(value) => setActiveModuleGroup(value as ModuleGroup)}
+              className="hidden sm:block"
+            >
+              <TabsList className="mb-4 w-full grid grid-cols-3">
+                {GROUPS.map((group) => {
+                  const count = ALL_FEATURES.filter(
+                    (feature) => feature.group === group.key && featureToggles[feature.key],
+                  ).length;
+
+                  const total = ALL_FEATURES.filter((feature) => feature.group === group.key).length;
+
+                  return (
+                    <TabsTrigger key={group.key} value={group.key} className="gap-1.5">
+                      <span>{group.label}</span>
+
+                      <Badge
+                        variant="secondary"
+                        className={`text-[10px] px-1.5 py-0 h-4 ${count > 0 ? "bg-primary/10 text-primary" : ""}`}
+                      >
+                        {count}/{total}
+                      </Badge>
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+
+              {GROUPS.map((group) => (
+                <TabsContent key={group.key} value={group.key} className="mt-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {ALL_FEATURES.filter((feature) => feature.group === group.key).map(moduleCard)}
+                  </div>
+                </TabsContent>
+              ))}
+            </Tabs>
+          </section>
+
+          <div className="flex items-center gap-2">
+            <Button onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+
+              {isNew ? "Create plan" : "Update plan"}
+            </Button>
+
+            <Button variant="ghost" onClick={() => navigate("/super-admin/packages")} disabled={saving}>
+              Cancel
+            </Button>
+          </div>
+
+          {!isNew && (
+            <section className="bg-card border border-border rounded-xl p-5">
+              <div className="flex items-center gap-2 mb-3 text-red-600">
+                <AlertTriangle className="h-4 w-4" />
+                <h2 className="font-semibold text-sm">Danger zone</h2>
+              </div>
+
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <p className="text-sm font-medium">Delete this plan</p>
+
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Once deleted, this plan cannot be recovered. Plans with active subscribers cannot be deleted.
+                  </p>
+                </div>
+
+                <Button
+                  variant="destructive"
+                  onClick={() => setConfirmDelete(true)}
+                  disabled={subscriberCount > 0}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  <Trash2 className="h-4 w-4 mr-1.5" />
+                  Delete plan
+                </Button>
+              </div>
+            </section>
+          )}
+        </div>
+
+        <aside className="space-y-5">
+          <section className="bg-card border border-border rounded-xl p-5 sticky top-20">
+            <div className="flex items-center gap-2 mb-4">
+              <Info className="h-4 w-4 text-muted-foreground" />
+
+              <h2 className="font-semibold text-sm">Plan summary</h2>
+            </div>
+
+            <dl className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Name</dt>
+
+                <dd className="font-semibold">{form.name || "—"}</dd>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Monthly</dt>
+
+                <dd className="font-semibold">{fmtKes(form.monthly_price_kes)} / mo</dd>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Yearly</dt>
+
+                <dd className="font-semibold">{fmtKes(form.yearly_price_kes)} / yr</dd>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Limits</dt>
+
+                <dd className="font-semibold">{limitsConfigured} configured</dd>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Modules</dt>
+
+                <dd className="font-semibold">{enabledModuleCount} enabled</dd>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Subscribers</dt>
+
+                <dd className="font-semibold">{subscriberCount}</dd>
+              </div>
+            </dl>
+
+            <div className="mt-5 pt-4 border-t border-border">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                Active modules
+              </p>
+
+              <div className="flex flex-wrap gap-1.5">
+                {ALL_FEATURES.filter((feature) => featureToggles[feature.key]).map((feature) => (
+                  <Badge
+                    key={feature.key}
+                    className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-normal"
+                  >
+                    {feature.label}
+                  </Badge>
+                ))}
+
+                {enabledModuleCount === 0 && <span className="text-xs text-muted-foreground">None</span>}
+              </div>
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this plan?</AlertDialogTitle>
+
+            <AlertDialogDescription>
+              "{form.name}" will be permanently removed along with its feature configuration. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Keep plan</AlertDialogCancel>
+
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                handleDelete();
+              }}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  Deleting…
+                </>
+              ) : (
+                "Yes, delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
 }
