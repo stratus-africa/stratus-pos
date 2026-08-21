@@ -30,6 +30,7 @@ import { Route as AppExpensesRouteImport } from './routes/_app.expenses'
 import { Route as AppHrRouteImport } from './routes/_app.hr'
 import { Route as AppInventoryRouteImport } from './routes/_app.inventory'
 import { Route as AppJournalEntriesRouteImport } from './routes/_app.journal-entries'
+import { Route as AppMpesaRouteImport } from './routes/_app.mpesa'
 import { Route as AppNotificationsRouteImport } from './routes/_app.notifications'
 import { Route as AppPosRouteImport } from './routes/_app.pos'
 import { Route as AppProductsRouteImport } from './routes/_app.products'
@@ -174,6 +175,11 @@ const AppInventoryRoute = AppInventoryRouteImport.update({
 const AppJournalEntriesRoute = AppJournalEntriesRouteImport.update({
   id: '/journal-entries',
   path: '/journal-entries',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMpesaRoute = AppMpesaRouteImport.update({
+  id: '/mpesa',
+  path: '/mpesa',
   getParentRoute: () => AppRoute,
 } as any)
 const AppNotificationsRoute = AppNotificationsRouteImport.update({
@@ -424,6 +430,7 @@ export interface FileRoutesByFullPath {
   '/hr': typeof AppHrRoute
   '/inventory': typeof AppInventoryRoute
   '/journal-entries': typeof AppJournalEntriesRoute
+  '/mpesa': typeof AppMpesaRoute
   '/notifications': typeof AppNotificationsRoute
   '/pos': typeof AppPosRoute
   '/products': typeof AppProductsRoute
@@ -487,6 +494,7 @@ export interface FileRoutesByTo {
   '/hr': typeof AppHrRoute
   '/inventory': typeof AppInventoryRoute
   '/journal-entries': typeof AppJournalEntriesRoute
+  '/mpesa': typeof AppMpesaRoute
   '/notifications': typeof AppNotificationsRoute
   '/pos': typeof AppPosRoute
   '/products': typeof AppProductsRoute
@@ -552,6 +560,7 @@ export interface FileRoutesById {
   '/_app/hr': typeof AppHrRoute
   '/_app/inventory': typeof AppInventoryRoute
   '/_app/journal-entries': typeof AppJournalEntriesRoute
+  '/_app/mpesa': typeof AppMpesaRoute
   '/_app/notifications': typeof AppNotificationsRoute
   '/_app/pos': typeof AppPosRoute
   '/_app/products': typeof AppProductsRoute
@@ -618,6 +627,7 @@ export interface FileRouteTypes {
     | '/hr'
     | '/inventory'
     | '/journal-entries'
+    | '/mpesa'
     | '/notifications'
     | '/pos'
     | '/products'
@@ -681,6 +691,7 @@ export interface FileRouteTypes {
     | '/hr'
     | '/inventory'
     | '/journal-entries'
+    | '/mpesa'
     | '/notifications'
     | '/pos'
     | '/products'
@@ -745,6 +756,7 @@ export interface FileRouteTypes {
     | '/_app/hr'
     | '/_app/inventory'
     | '/_app/journal-entries'
+    | '/_app/mpesa'
     | '/_app/notifications'
     | '/_app/pos'
     | '/_app/products'
@@ -953,6 +965,13 @@ declare module '@tanstack/react-router' {
       path: '/journal-entries'
       fullPath: '/journal-entries'
       preLoaderRoute: typeof AppJournalEntriesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/mpesa': {
+      id: '/_app/mpesa'
+      path: '/mpesa'
+      fullPath: '/mpesa'
+      preLoaderRoute: typeof AppMpesaRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/notifications': {
@@ -1262,6 +1281,7 @@ interface AppRouteChildren {
   AppHrRoute: typeof AppHrRoute
   AppInventoryRoute: typeof AppInventoryRoute
   AppJournalEntriesRoute: typeof AppJournalEntriesRoute
+  AppMpesaRoute: typeof AppMpesaRoute
   AppNotificationsRoute: typeof AppNotificationsRoute
   AppPosRoute: typeof AppPosRoute
   AppProductsRoute: typeof AppProductsRoute
@@ -1288,6 +1308,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppHrRoute: AppHrRoute,
   AppInventoryRoute: AppInventoryRoute,
   AppJournalEntriesRoute: AppJournalEntriesRoute,
+  AppMpesaRoute: AppMpesaRoute,
   AppNotificationsRoute: AppNotificationsRoute,
   AppPosRoute: AppPosRoute,
   AppProductsRoute: AppProductsRoute,
