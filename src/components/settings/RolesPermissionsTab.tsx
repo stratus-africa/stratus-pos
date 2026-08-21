@@ -315,9 +315,10 @@ export function RolesPermissionsTab() {
         const legacyPermissions = (rolePermissions[editingRole] || []).filter(
           (permission) => permission !== CONFIGURED_MARKER && !featurePermissionKeys.has(permission),
         );
-        const editablePermissions = editPerms.filter((permission) => permission !== CONFIGURED_MARKER);
-        const normalizedPerms = normalizePermissions([...legacyPermissions, ...editablePermissions]);
-        const rows = [...normalizedPerms, CONFIGURED_MARKER].map((permission) => ({
+        const normalizedPerms = normalizePermissions(
+          [...legacyPermissions, ...editPerms].filter((permission) => permission !== CONFIGURED_MARKER),
+        );
+        const rows = Array.from(new Set([...normalizedPerms, CONFIGURED_MARKER])).map((permission) => ({
           business_id: business.id,
           role: editingRole,
           permission,
