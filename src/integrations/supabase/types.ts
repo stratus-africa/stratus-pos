@@ -5363,19 +5363,19 @@ export type Database = {
           }
         | {
             Args: {
-              _description: string
-              _is_active: boolean
+              _description?: string
+              _is_active?: boolean
               _is_public?: boolean
-              _max_customers: number
-              _max_locations: number
-              _max_products: number
-              _max_suppliers: number
-              _max_users: number
-              _monthly_price_kes: number
+              _max_customers?: number
+              _max_locations?: number
+              _max_products?: number
+              _max_suppliers?: number
+              _max_users?: number
+              _monthly_price_kes?: number
               _name: string
               _package_id: string
-              _trial_days: number
-              _yearly_price_kes: number
+              _trial_days?: number
+              _yearly_price_kes?: number
             }
             Returns: Json
           }
