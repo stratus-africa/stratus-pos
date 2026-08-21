@@ -62,6 +62,7 @@ import { clampSplit, loadLocalSplit, saveLocalSplit, SPLIT_FALLBACK } from "@/li
 import { useOfflineSales } from "@/hooks/useOfflineSales";
 import UnknownBarcodeDialog from "@/components/pos/UnknownBarcodeDialog";
 import { ProductFormDialog } from "@/components/products/ProductFormDialog";
+import { useEntitlement } from "@/hooks/useEntitlement";
 
 const POS = () => {
   const { productsQuery, createProduct } = useProducts();
@@ -75,6 +76,8 @@ const POS = () => {
   const isMobile = useIsMobile();
   const { user: authUser } = useAuth();
   const offline = useOfflineSales();
+  const { hasModule, hasFeature } = useEntitlement();
+  const mpesaEnabled = hasModule("mpesa") && hasFeature("mpesa", "stk_push");
 
   // Resume a credit-sale settlement requested from the Sales receipt.
   // The payload is consumed once all required POS data is available.
@@ -528,6 +531,10 @@ const POS = () => {
   //   F9  park sale             ESC clear cart
   useEffect(() => {
     const openPayment = (method: "cash" | "mpesa" | "card") => {
+      if (method === "mpesa" && !mpesaEnabled) {
+        toast.error("M-Pesa is not included in this plan");
+        return;
+      }
       if (pos.cart.length === 0) return;
       setInitialPaymentMethod(method);
       setPaymentOpen(true);
@@ -1188,6 +1195,10 @@ const POS = () => {
                 className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
                 disabled={pos.cart.length === 0}
                 onClick={() => {
+                  if (!mpesaEnabled) {
+                    toast.error("M-Pesa is not included in this plan");
+                    return;
+                  }
                   setInitialPaymentMethod("mpesa");
                   setPaymentOpen(true);
                 }}
