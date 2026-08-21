@@ -1,11 +1,26 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { startOfDay, subDays, format } from "date-fns";
+import { startOfDay, subDays, addDays, format } from "date-fns";
 
-interface DailySales { date: string; total: number; count: number }
-interface TopProduct { product_id: string; product_name: string; total_qty: number; total_revenue: number }
-interface LowStockItem { product_id: string; product_name: string; quantity: number; threshold: number; location_name: string }
+interface DailySales {
+  date: string;
+  total: number;
+  count: number;
+}
+interface TopProduct {
+  product_id: string;
+  product_name: string;
+  total_qty: number;
+  total_revenue: number;
+}
+interface LowStockItem {
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  threshold: number;
+  location_name: string;
+}
 
 interface DashboardData {
   todaySales: number;
@@ -66,13 +81,22 @@ export function useDashboard(): DashboardData {
 
       const [salesSum, purchasesSum, trendRes, expensesRes, saleItemsRes, inventoryRes] = await Promise.all([
         supabase.rpc("get_sales_summary", {
-          _business_id: business.id, _location_id: currentLocation.id, _from: fromISO, _to: toISO,
+          _business_id: business.id,
+          _location_id: currentLocation.id,
+          _from: fromISO,
+          _to: toISO,
         }),
         supabase.rpc("get_purchases_summary", {
-          _business_id: business.id, _location_id: currentLocation.id, _from: fromISO, _to: toISO,
+          _business_id: business.id,
+          _location_id: currentLocation.id,
+          _from: fromISO,
+          _to: toISO,
         }),
         supabase.rpc("get_sales_trend", {
-          _business_id: business.id, _location_id: currentLocation.id, _from: trendFrom, _to: toDay,
+          _business_id: business.id,
+          _location_id: currentLocation.id,
+          _from: trendFrom,
+          _to: toDay,
         }),
         supabase
           .from("expenses")
@@ -83,7 +107,9 @@ export function useDashboard(): DashboardData {
         // Fetch top-product details (bounded by top-selling window; safe under 1000)
         supabase
           .from("sale_items")
-          .select("product_id, quantity, total, products(name), sales!inner(business_id, location_id, status, created_at)")
+          .select(
+            "product_id, quantity, total, products(name), sales!inner(business_id, location_id, status, created_at)",
+          )
           .eq("sales.business_id", business.id)
           .eq("sales.location_id", currentLocation.id)
           .neq("sales.status", "cancelled")
@@ -95,6 +121,60 @@ export function useDashboard(): DashboardData {
           .select("product_id, quantity, low_stock_threshold, location_id, products(name), locations(name)")
           .eq("location_id", currentLocation.id),
       ]);
+
+      // The dashboard RPC is the preferred source. If the RPC is missing/not deployed
+      // or returns an error, fall back to the sales table so the chart still renders.
+      let trendRows = trendRes.data ?? [];
+
+      if (trendRes.error) {
+        const fallbackStart = new Date(`${trendFrom}T00:00:00+03:00`);
+        const fallbackEnd = addDays(new Date(`${toDay}T00:00:00+03:00`), 1);
+        const fallbackRows: { created_at: string; total: number }[] = [];
+        const pageSize = 1000;
+
+        for (let from = 0; ; from += pageSize) {
+          const { data: page, error: pageError } = await supabase
+            .from("sales")
+            .select("created_at,total")
+            .eq("business_id", business.id)
+            .eq("location_id", currentLocation.id)
+            .neq("status", "cancelled")
+            .gte("created_at", fallbackStart.toISOString())
+            .lt("created_at", fallbackEnd.toISOString())
+            .order("created_at", { ascending: true })
+            .range(from, from + pageSize - 1);
+
+          if (pageError) {
+            console.error("Dashboard sales trend fallback failed:", pageError);
+            break;
+          }
+
+          fallbackRows.push(...((page ?? []) as { created_at: string; total: number }[]));
+          if (!page || page.length < pageSize) break;
+        }
+
+        const localDayFormatter = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Africa/Nairobi",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        });
+
+        const byDay = new Map<string, { total: number; cnt: number }>();
+        fallbackRows.forEach((row) => {
+          const day = localDayFormatter.format(new Date(row.created_at));
+          const current = byDay.get(day) ?? { total: 0, cnt: 0 };
+          current.total += Number(row.total ?? 0);
+          current.cnt += 1;
+          byDay.set(day, current);
+        });
+
+        trendRows = Array.from({ length: 30 }, (_, index) => {
+          const day = format(subDays(today, 29 - index), "yyyy-MM-dd");
+          const value = byDay.get(day) ?? { total: 0, cnt: 0 };
+          return { bucket: day, total: value.total, cnt: value.cnt };
+        });
+      }
 
       const s = (salesSum.data?.[0] ?? {}) as any;
       const p = (purchasesSum.data?.[0] ?? {}) as any;
