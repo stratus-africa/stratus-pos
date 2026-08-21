@@ -18,6 +18,7 @@ import {
   setMpesaCredentials,
   testMpesaCredentials,
 } from "@/lib/mpesaCredentials.functions";
+import { getMpesaSmsTokenStatus, generateMpesaSmsToken, revokeMpesaSmsToken } from "@/lib/mpesaSmsToken.functions";
 
 export function PaymentGatewaysTab() {
   const { business, refreshBusiness } = useBusiness();
@@ -25,6 +26,9 @@ export function PaymentGatewaysTab() {
   const setMpesaCredentialsFn = useServerFn(setMpesaCredentials);
   const deleteMpesaCredentialsFn = useServerFn(deleteMpesaCredentials);
   const testMpesaCredentialsFn = useServerFn(testMpesaCredentials);
+  const getSmsTokenStatusFn = useServerFn(getMpesaSmsTokenStatus);
+  const generateSmsTokenFn = useServerFn(generateMpesaSmsToken);
+  const revokeSmsTokenFn = useServerFn(revokeMpesaSmsToken);
 
   // Public M-Pesa config (lives on businesses)
   const [enabled, setEnabled] = useState((business as any)?.mpesa_enabled ?? false);
@@ -44,6 +48,10 @@ export function PaymentGatewaysTab() {
   const [savingSecrets, setSavingSecrets] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [smsTokenConfigured, setSmsTokenConfigured] = useState(false);
+  const [smsTokenPrefix, setSmsTokenPrefix] = useState<string | null>(null);
+  const [smsToken, setSmsToken] = useState<string | null>(null);
+  const [smsTokenBusy, setSmsTokenBusy] = useState(false);
 
   useEffect(() => {
     if (!business) return;
@@ -52,6 +60,9 @@ export function PaymentGatewaysTab() {
         const data = await checkMpesaCredentialsFn({ data: { business_id: business.id } });
         setHasCreds(!!data.has_credentials);
         setCredsUpdatedAt(data.updated_at ?? null);
+        const token = await getSmsTokenStatusFn({ data: { business_id: business.id } });
+        setSmsTokenConfigured(!!token.configured);
+        setSmsTokenPrefix(token.token_prefix ?? null);
       } catch {
         // ignore
       }
@@ -99,7 +110,9 @@ export function PaymentGatewaysTab() {
       toast.success("Credentials encrypted & stored");
       setHasCreds(true);
       setCredsUpdatedAt(new Date().toISOString());
-      setConsumerKey(""); setConsumerSecret(""); setPasskey("");
+      setConsumerKey("");
+      setConsumerSecret("");
+      setPasskey("");
     } catch (e: any) {
       toast.error("Failed to save credentials: " + (e?.message || "Unknown error"));
     } finally {
@@ -119,6 +132,38 @@ export function PaymentGatewaysTab() {
       toast.error(e?.message || "Unknown error");
     } finally {
       setRemoving(false);
+    }
+  };
+
+  const generateSmsToken = async () => {
+    if (!business) return;
+    setSmsTokenBusy(true);
+    try {
+      const result = await generateSmsTokenFn({ data: { business_id: business.id } });
+      setSmsToken(result.token);
+      setSmsTokenConfigured(true);
+      setSmsTokenPrefix(result.token_prefix);
+      toast.success("SMS gateway token generated. Copy it now; it will not be shown again.");
+    } catch (e: any) {
+      toast.error(e?.message || "Could not generate SMS gateway token");
+    } finally {
+      setSmsTokenBusy(false);
+    }
+  };
+
+  const revokeSmsToken = async () => {
+    if (!business) return;
+    setSmsTokenBusy(true);
+    try {
+      await revokeSmsTokenFn({ data: { business_id: business.id } });
+      setSmsToken(null);
+      setSmsTokenConfigured(false);
+      setSmsTokenPrefix(null);
+      toast.success("SMS gateway token revoked");
+    } catch (e: any) {
+      toast.error(e?.message || "Could not revoke SMS gateway token");
+    } finally {
+      setSmsTokenBusy(false);
     }
   };
 
@@ -164,8 +209,16 @@ export function PaymentGatewaysTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Smartphone className="h-5 w-5 text-emerald-600" /> M-Pesa Daraja
-            {hasCreds && enabled && <Badge variant="default" className="ml-2 bg-emerald-600">Active</Badge>}
-            {hasCreds && !enabled && <Badge variant="secondary" className="ml-2">Configured</Badge>}
+            {hasCreds && enabled && (
+              <Badge variant="default" className="ml-2 bg-emerald-600">
+                Active
+              </Badge>
+            )}
+            {hasCreds && !enabled && (
+              <Badge variant="secondary" className="ml-2">
+                Configured
+              </Badge>
+            )}
           </CardTitle>
           <CardDescription>
             Connect your own Safaricom Daraja account for STK push payments. Credentials are encrypted at rest.
@@ -186,7 +239,9 @@ export function PaymentGatewaysTab() {
             <div className="space-y-2">
               <Label>Environment</Label>
               <Select value={environment} onValueChange={setEnvironment}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="sandbox">Sandbox (testing)</SelectItem>
                   <SelectItem value="live">Live (production)</SelectItem>
@@ -196,7 +251,9 @@ export function PaymentGatewaysTab() {
             <div className="space-y-2">
               <Label>Account Type</Label>
               <Select value={paybillOrTill} onValueChange={setPaybillOrTill}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="paybill">Pay Bill</SelectItem>
                   <SelectItem value="till">Till Number (Buy Goods)</SelectItem>
@@ -209,11 +266,19 @@ export function PaymentGatewaysTab() {
             </div>
             <div className="space-y-2">
               <Label>Account Reference</Label>
-              <Input value={accountReference} onChange={(e) => setAccountReference(e.target.value)} placeholder="Shown on customer prompt" />
+              <Input
+                value={accountReference}
+                onChange={(e) => setAccountReference(e.target.value)}
+                placeholder="Shown on customer prompt"
+              />
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label>Callback URL</Label>
-              <Input value={callbackUrl} onChange={(e) => setCallbackUrl(e.target.value)} placeholder="https://your-callback-handler" />
+              <Input
+                value={callbackUrl}
+                onChange={(e) => setCallbackUrl(e.target.value)}
+                placeholder="https://your-callback-handler"
+              />
               <p className="text-xs text-muted-foreground">Daraja will POST payment results here.</p>
             </div>
           </div>
@@ -253,15 +318,30 @@ export function PaymentGatewaysTab() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Consumer Key</Label>
-              <Input type="password" value={consumerKey} onChange={(e) => setConsumerKey(e.target.value)} placeholder={hasCreds ? "•••••• (replace)" : ""} />
+              <Input
+                type="password"
+                value={consumerKey}
+                onChange={(e) => setConsumerKey(e.target.value)}
+                placeholder={hasCreds ? "•••••• (replace)" : ""}
+              />
             </div>
             <div className="space-y-2">
               <Label>Consumer Secret</Label>
-              <Input type="password" value={consumerSecret} onChange={(e) => setConsumerSecret(e.target.value)} placeholder={hasCreds ? "•••••• (replace)" : ""} />
+              <Input
+                type="password"
+                value={consumerSecret}
+                onChange={(e) => setConsumerSecret(e.target.value)}
+                placeholder={hasCreds ? "•••••• (replace)" : ""}
+              />
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label>Passkey (Lipa na M-Pesa)</Label>
-              <Input type="password" value={passkey} onChange={(e) => setPasskey(e.target.value)} placeholder={hasCreds ? "•••••• (replace)" : ""} />
+              <Input
+                type="password"
+                value={passkey}
+                onChange={(e) => setPasskey(e.target.value)}
+                placeholder={hasCreds ? "•••••• (replace)" : ""}
+              />
             </div>
           </div>
 
@@ -271,7 +351,9 @@ export function PaymentGatewaysTab() {
                 {removing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
                 Remove Credentials
               </Button>
-            ) : <span />}
+            ) : (
+              <span />
+            )}
             <div className="flex gap-2 ml-auto">
               <Button variant="outline" onClick={testCredentials} disabled={testing}>
                 {testing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <PlugZap className="h-4 w-4 mr-2" />}
@@ -282,6 +364,57 @@ export function PaymentGatewaysTab() {
                 {hasCreds ? "Replace Credentials" : "Save Credentials"}
               </Button>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <PlugZap className="h-5 w-5" /> Incoming SMS Modem
+          </CardTitle>
+          <CardDescription>
+            Send M-Pesa confirmation SMS messages from your GSM modem to the secure tenant-specific ingestion endpoint.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-md border p-3 text-sm">
+            <div className="flex items-center justify-between gap-3">
+              <span>
+                {smsTokenConfigured ? `Token configured (${smsTokenPrefix}••••)` : "No modem token configured"}
+              </span>
+              <Badge variant={smsTokenConfigured ? "default" : "secondary"}>
+                {smsTokenConfigured ? "Ready" : "Not configured"}
+              </Badge>
+            </div>
+          </div>
+          {smsToken && (
+            <div className="space-y-2">
+              <Label>New modem token — copy it now</Label>
+              <Input readOnly value={smsToken} onFocus={(e) => e.currentTarget.select()} />
+              <p className="text-xs text-muted-foreground">
+                This token is shown only once. Generate a new token to rotate the modem credential.
+              </p>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={generateSmsToken} disabled={smsTokenBusy}>
+              {smsTokenBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
+              {smsTokenConfigured ? "Rotate Token" : "Generate Token"}
+            </Button>
+            {smsTokenConfigured && (
+              <Button variant="destructive" onClick={revokeSmsToken} disabled={smsTokenBusy}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Revoke
+              </Button>
+            )}
+          </div>
+          <div className="rounded-md bg-muted/40 p-3 text-xs font-mono break-all">
+            POST /functions/v1/mpesa-sms-ingest
+            <br />
+            Header: x-mpesa-ingest-token: YOUR_TOKEN
+            <br />
+            JSON: &#123; business_id, message, sender, received_at &#125;
           </div>
         </CardContent>
       </Card>
