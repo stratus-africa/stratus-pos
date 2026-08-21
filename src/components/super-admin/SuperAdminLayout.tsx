@@ -269,7 +269,7 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
             className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2"
             aria-label="Super admin navigation"
           >
-            <div className="mx-auto grid max-w-md grid-cols-5 items-end rounded-[1.75rem] border border-border/60 bg-card/95 px-2 py-2 shadow-[0_10px_30px_-10px_hsl(var(--foreground)/0.25)] backdrop-blur">
+            <div className="mx-auto grid max-w-md grid-cols-5 items-end rounded-[1.75rem] border border-border/60 bg-card/95 px-2 py-2 shadow-lg backdrop-blur">
               {mobileNavGroups.slice(0, 4).map((group) => {
                 const active = group.label === mobileSection;
                 const Icon = group.items[0].icon;

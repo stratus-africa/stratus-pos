@@ -304,7 +304,7 @@ export function MobileBottomNav() {
     >
       <Sheet open={open} onOpenChange={setOpen}>
         <div
-          className="mx-auto flex max-w-md touch-pan-y items-stretch justify-around rounded-[1.75rem] border border-border/60 bg-card px-2 py-2 shadow-[0_10px_30px_-10px_hsl(var(--foreground)/0.25)] "
+          className="mx-auto flex max-w-md touch-pan-y items-stretch justify-around rounded-[1.75rem] border border-border/60 bg-card px-2 py-2 shadow-lg "
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
         >

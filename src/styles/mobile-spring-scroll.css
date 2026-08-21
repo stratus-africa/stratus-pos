@@ -54,8 +54,8 @@
     z-index: 50;
     min-height: var(--mobile-bottom-nav-height, 72px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
-    background: hsl(var(--background));
-    border-top: 1px solid hsl(var(--border));
+    background: var(--background);
+    border-top: 1px solid var(--border);
     opacity: 1;
     isolation: isolate;
   }

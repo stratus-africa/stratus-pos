@@ -177,7 +177,7 @@ export default function SuperAdminDashboard() {
       label: "Total Tenants",
       value: stats.totalTenants,
       icon: Building2,
-      iconBg: "bg-indigo-50",
+      iconBg: "bg-indigo-500/10 dark:bg-indigo-400/15",
       iconColor: "text-indigo-500",
       link: "/super-admin/businesses",
       linkLabel: "View all tenants",
@@ -186,7 +186,7 @@ export default function SuperAdminDashboard() {
       label: "Revenue collected",
       value: `KES ${stats.subscriptionRevenue.toLocaleString()}`,
       icon: CreditCard,
-      iconBg: "bg-emerald-50",
+      iconBg: "bg-emerald-500/10 dark:bg-emerald-400/15",
       iconColor: "text-emerald-500",
       link: "/super-admin/subscriptions",
       linkLabel: "Approved payments",
@@ -195,7 +195,7 @@ export default function SuperAdminDashboard() {
       label: "Active Plans",
       value: stats.activePlans,
       icon: Tag,
-      iconBg: "bg-blue-50",
+      iconBg: "bg-blue-500/10 dark:bg-blue-400/15",
       iconColor: "text-blue-500",
       link: "/super-admin/packages",
       linkLabel: "Manage plans",
@@ -204,7 +204,7 @@ export default function SuperAdminDashboard() {
       label: "Total Subscriptions",
       value: stats.totalSubscriptions,
       icon: PieChartIcon,
-      iconBg: "bg-amber-50",
+      iconBg: "bg-amber-500/10 dark:bg-amber-400/15",
       iconColor: "text-amber-500",
       link: "/super-admin/subscriptions",
       linkLabel: `${stats.activeSubs} active, ${stats.trialSubs} trial`,
@@ -223,7 +223,7 @@ export default function SuperAdminDashboard() {
       title: "Manage tenants",
       description: "View and manage all tenants",
       icon: Building2,
-      iconBg: "bg-emerald-50",
+      iconBg: "bg-emerald-500/10 dark:bg-emerald-400/15",
       iconColor: "text-emerald-500",
       link: "/super-admin/businesses",
     },
@@ -231,7 +231,7 @@ export default function SuperAdminDashboard() {
       title: "Create new plan",
       description: "Add a new billing plan",
       icon: Plus,
-      iconBg: "bg-emerald-50",
+      iconBg: "bg-emerald-500/10 dark:bg-emerald-400/15",
       iconColor: "text-emerald-500",
       link: "/super-admin/packages",
     },
@@ -239,7 +239,7 @@ export default function SuperAdminDashboard() {
       title: "Subscriptions",
       description: "Monitor all subscriptions",
       icon: CreditCard,
-      iconBg: "bg-blue-50",
+      iconBg: "bg-blue-500/10 dark:bg-blue-400/15",
       iconColor: "text-blue-500",
       link: "/super-admin/subscriptions",
     },
@@ -247,7 +247,7 @@ export default function SuperAdminDashboard() {
       title: "Visit landing page",
       description: "Preview your public site",
       icon: ExternalLink,
-      iconBg: "bg-amber-50",
+      iconBg: "bg-amber-500/10 dark:bg-amber-400/15",
       iconColor: "text-amber-500",
       link: "/landing",
     },
@@ -263,7 +263,7 @@ export default function SuperAdminDashboard() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Welcome back! Here's an overview of your SaaS platform.</p>
         </div>
-        <div className="inline-flex items-center gap-2 h-8 px-3 rounded-full bg-white border border-border text-xs font-medium text-foreground/70">
+        <div className="inline-flex items-center gap-2 h-8 px-3 rounded-full bg-card border border-border text-xs font-medium text-foreground/70">
           <CalendarDays className="h-3.5 w-3.5 text-emerald-500" />
           {format(new Date(), "EEEE, MMM d, yyyy")}
         </div>
@@ -274,7 +274,7 @@ export default function SuperAdminDashboard() {
         {statCards.map((card) => (
           <Card
             key={card.label}
-            className="min-w-0 min-h-[152px] bg-white border-border p-4 shadow-none transition-all hover:border-emerald-200 hover:bg-emerald-50/30"
+            className="min-w-0 min-h-[152px] bg-card border-border p-4 shadow-none transition-all hover:border-emerald-400/50 hover:bg-emerald-500/10 dark:hover:bg-emerald-400/10"
           >
             <div className="flex h-full flex-col items-center justify-center text-center">
               <div className={`h-10 w-10 rounded-lg ${card.iconBg} flex items-center justify-center mb-2`}>
@@ -301,7 +301,7 @@ export default function SuperAdminDashboard() {
       {/* Charts row */}
       <div className="hidden gap-4 lg:grid lg:grid-cols-3">
         {/* Tenants trend */}
-        <Card className="lg:col-span-2 p-5 bg-white border-border shadow-none">
+        <Card className="lg:col-span-2 p-5 bg-card border-border shadow-none">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-emerald-500" />
@@ -320,10 +320,10 @@ export default function SuperAdminDashboard() {
                     <stop offset="100%" stopColor="hsl(160 84% 39%)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
-                <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
-                <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, border: "1px solid hsl(var(--border))" }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="month" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} />
+                <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} allowDecimals={false} />
+                <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, border: "1px solid var(--border)" }} />
                 <Area
                   type="monotone"
                   dataKey="tenants"
@@ -339,7 +339,7 @@ export default function SuperAdminDashboard() {
         </Card>
 
         {/* Subscription status donut */}
-        <Card className="hidden p-5 bg-white border-border shadow-none lg:block">
+        <Card className="hidden p-5 bg-card border-border shadow-none lg:block">
           <div className="flex items-center gap-2 mb-4">
             <PieChartIcon className="h-4 w-4 text-emerald-500" />
             <h3 className="text-sm font-semibold">Subscription status</h3>
@@ -356,11 +356,11 @@ export default function SuperAdminDashboard() {
                   stroke="none"
                 >
                   {(totalDonut > 0 ? donutData : [{ name: "Empty", value: 1 }]).map((_, i) => (
-                    <Cell key={i} fill={totalDonut > 0 ? COLORS[i % COLORS.length] : "hsl(var(--muted))"} />
+                    <Cell key={i} fill={totalDonut > 0 ? COLORS[i % COLORS.length] : "var(--muted)"} />
                   ))}
                 </Pie>
                 {totalDonut > 0 && (
-                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, border: "1px solid hsl(var(--border))" }} />
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, border: "1px solid var(--border)" }} />
                 )}
               </PieChart>
             </ResponsiveContainer>
@@ -371,11 +371,11 @@ export default function SuperAdminDashboard() {
           </div>
           <div className="flex items-center justify-center gap-4 text-xs mt-2">
             <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <span className="h-2 w-2 rounded-full bg-emerald-500/10 dark:bg-emerald-400/150" />
               <span>Active</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-blue-500" />
+              <span className="h-2 w-2 rounded-full bg-blue-500/10 dark:bg-blue-400/150" />
               <span>Trial</span>
             </div>
           </div>
@@ -385,7 +385,7 @@ export default function SuperAdminDashboard() {
       {/* Bottom row */}
       <div className="grid min-w-0 gap-4 lg:grid-cols-2">
         {/* Quick actions */}
-        <Card className="min-w-0 p-4 sm:p-5 bg-white border-border shadow-none">
+        <Card className="min-w-0 p-4 sm:p-5 bg-card border-border shadow-none">
           <div className="flex items-center gap-2 mb-4">
             <Zap className="h-4 w-4 text-emerald-500" />
             <h3 className="text-sm font-semibold">Quick actions</h3>
@@ -395,20 +395,22 @@ export default function SuperAdminDashboard() {
               <Link
                 key={qa.title}
                 to={qa.link}
-                className="group min-w-0 p-3 sm:p-4 rounded-lg border border-border hover:border-emerald-200 hover:bg-emerald-50/30 transition-all flex flex-col items-center text-center"
+                className="group min-w-0 p-3 sm:p-4 rounded-lg border border-border hover:border-emerald-400/50 hover:bg-emerald-500/10 dark:hover:bg-emerald-400/10 transition-all flex flex-col items-center text-center"
               >
                 <div className={`h-10 w-10 rounded-lg ${qa.iconBg} flex items-center justify-center mb-2`}>
                   <qa.icon className={`h-5 w-5 ${qa.iconColor}`} />
                 </div>
                 <div className="w-full break-words text-xs sm:text-sm font-semibold">{qa.title}</div>
-                <div className="w-full break-words text-[10px] sm:text-[11px] text-muted-foreground mt-0.5">{qa.description}</div>
+                <div className="w-full break-words text-[10px] sm:text-[11px] text-muted-foreground mt-0.5">
+                  {qa.description}
+                </div>
               </Link>
             ))}
           </div>
         </Card>
 
         {/* Recent tenant activity */}
-        <Card className="min-w-0 p-4 sm:p-5 bg-white border-border shadow-none">
+        <Card className="min-w-0 p-4 sm:p-5 bg-card border-border shadow-none">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Activity className="h-4 w-4 text-emerald-500" />
@@ -439,7 +441,7 @@ export default function SuperAdminDashboard() {
                   tenants.find((tenant) => tenant.id === activity.business_id)?.name || "Unknown tenant";
                 return (
                   <div key={activity.id} className="flex gap-3 border-b border-border pb-3 last:border-0 last:pb-0">
-                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50">
+                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 dark:bg-emerald-400/15">
                       <Activity className="h-4 w-4 text-emerald-500" />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -449,7 +451,10 @@ export default function SuperAdminDashboard() {
                         {activity.user_name ? ` · ${activity.user_name}` : ""}
                       </p>
                     </div>
-                    <time className="shrink-0 whitespace-nowrap text-[10px] text-muted-foreground sm:text-[11px]" dateTime={activity.created_at}>
+                    <time
+                      className="shrink-0 whitespace-nowrap text-[10px] text-muted-foreground sm:text-[11px]"
+                      dateTime={activity.created_at}
+                    >
                       {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })}
                     </time>
                   </div>
