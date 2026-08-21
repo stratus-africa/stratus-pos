@@ -361,6 +361,56 @@ export const FEATURE_CATALOG: FeatureDefinition[] = [
   f("reports", "export", "Export Reports", "Export reports and datasets.", "export", "medium"),
   f("reports", "schedule", "Schedule Reports", "Schedule recurring report delivery.", "automation", "medium"),
 
+  // M-Pesa
+  f("mpesa", "view", "View M-Pesa", "Access M-Pesa transactions and payment status.", "payments"),
+  f(
+    "mpesa",
+    "stk_push",
+    "Send STK Push",
+    "Request an M-Pesa payment prompt on a customer's phone.",
+    "payments",
+    "medium",
+  ),
+  f(
+    "mpesa",
+    "view_transactions",
+    "View M-Pesa Transactions",
+    "View M-Pesa payment attempts, receipts and statuses.",
+    "payments",
+  ),
+  f(
+    "mpesa",
+    "reconcile",
+    "Reconcile M-Pesa",
+    "Match M-Pesa receipts and transactions to sales.",
+    "reconciliation",
+    "high",
+  ),
+  f(
+    "mpesa",
+    "manual_match",
+    "Manually Match Payment",
+    "Manually link an M-Pesa transaction to a sale or invoice.",
+    "reconciliation",
+    "high",
+  ),
+  f(
+    "mpesa",
+    "refund",
+    "Request M-Pesa Refund",
+    "Request a reversal/refund for an eligible M-Pesa payment.",
+    "refunds",
+    "critical",
+  ),
+  f(
+    "mpesa",
+    "settings",
+    "Configure M-Pesa",
+    "Configure tenant M-Pesa account and payment settings.",
+    "configuration",
+    "critical",
+  ),
+
   // Multi-location
   f(
     "multi_location",
