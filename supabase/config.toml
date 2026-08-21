@@ -11,3 +11,7 @@ verify_jwt = false
 [functions.mpesa-callback]
 verify_jwt = false
 
+
+# Local GSM modem/SMS gateway posts M-Pesa confirmation messages here.
+[functions.mpesa-sms-ingest]
+verify_jwt = false
