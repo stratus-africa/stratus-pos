@@ -1,9 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const supabase = createClient(
-  Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-);
+const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -96,7 +93,9 @@ Deno.serve(async (req) => {
 
     const tokenBytes = new TextEncoder().encode(suppliedToken);
     const tokenDigest = await crypto.subtle.digest("SHA-256", tokenBytes);
-    const tokenHash = Array.from(new Uint8Array(tokenDigest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+    const tokenHash = Array.from(new Uint8Array(tokenDigest))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
     const { data: tokenRow } = await supabase
       .from("mpesa_sms_ingest_tokens")
       .select("token_hash")
