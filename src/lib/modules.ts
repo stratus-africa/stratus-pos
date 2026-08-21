@@ -21,6 +21,7 @@ import {
   Truck,
   Settings,
   UserCircle,
+  Smartphone,
 } from "lucide-react";
 
 export type ModuleState = "available" | "enabled" | "disabled" | "locked" | "coming_soon" | "setup_required";
@@ -451,6 +452,25 @@ export const MODULE_REGISTRY: AppModule[] = [
     subscriptionFeature: "ai_reports",
     setupRequirements: [],
     roles: ["admin", "manager"],
+  },
+  {
+    key: "mpesa",
+    label: "M-Pesa",
+    description: "Safaricom M-Pesa payments, STK Push and transaction reconciliation",
+    category: "finance",
+    group: "premium",
+    Icon: Smartphone,
+    route: "/mpesa",
+    status: "available",
+    permissions: ["mpesa.view"],
+    navigation: [
+      { key: "transactions", label: "Transactions", route: "/mpesa", permission: "mpesa.view" },
+      { key: "reconciliation", label: "Reconciliation", route: "/mpesa", permission: "mpesa.reconcile" },
+    ],
+    dependencies: ["pos", "sales"],
+    subscriptionFeature: "mpesa",
+    setupRequirements: ["M-Pesa Daraja credentials", "Paybill or Till configuration"],
+    roles: ["admin", "manager", "cashier"],
   },
   {
     key: "multi_location",
