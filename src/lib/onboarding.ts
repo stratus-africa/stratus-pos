@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { ProductImportRow } from "@/lib/productImport";
 
 export type OnboardingDraft = {
   account: {
@@ -21,6 +22,7 @@ export type OnboardingDraft = {
   };
   products: {
     mode: "manual" | "import" | "empty";
+    importRows: ProductImportRow[];
   };
   payments: {
     currency: string;
@@ -58,7 +60,7 @@ export const emptyOnboardingDraft = (email = ""): OnboardingDraft => ({
     city: "",
     county: "",
   },
-  products: { mode: "empty" },
+  products: { mode: "empty", importRows: [] },
   payments: {
     currency: "KES",
     timezone: "Africa/Nairobi",
