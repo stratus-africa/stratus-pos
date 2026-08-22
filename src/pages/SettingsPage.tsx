@@ -110,7 +110,7 @@ const SettingsPage = () => {
       },
       {
         key: "gateways",
-        label: "Payment Gateways",
+        label: "M-Pesa & Payment Gateways",
         icon: <Smartphone className="h-4 w-4" />,
         permission: "settings.edit",
         render: () => <PaymentGatewaysTab />,
