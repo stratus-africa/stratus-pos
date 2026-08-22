@@ -1,12 +1,8 @@
-// Real DigiTax REST client shell. Not wired in until you provide sandbox docs.
-// Kept intentionally small so swap-in is a one-file change.
-
+// DigiTax Kenya API v2 client.
+// Authentication uses X-API-Key as documented by DigiTax.
 export interface DigitaxClientOptions {
   baseUrl: string;
   apiKey: string;
-  businessPin: string;
-  branchCode?: string | null;
-  deviceName?: string | null;
 }
 
 export class DigitaxClient {
@@ -18,10 +14,7 @@ export class DigitaxClient {
       ...init,
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${this.opts.apiKey}`,
-        "X-Business-PIN": this.opts.businessPin,
-        ...(this.opts.branchCode ? { "X-Branch": this.opts.branchCode } : {}),
-        ...(this.opts.deviceName ? { "X-Device": this.opts.deviceName } : {}),
+        "X-API-Key": this.opts.apiKey,
         ...(init.headers ?? {}),
       },
     });
