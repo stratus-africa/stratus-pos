@@ -26,14 +26,9 @@ Deno.serve(async (req) => {
     });
   }
 
-  const admin = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  );
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-  const env = (Deno.env.get("PAYSTACK_SECRET_KEY") || "").startsWith("sk_test_")
-    ? "sandbox"
-    : "live";
+  const env = (Deno.env.get("PAYSTACK_SECRET_KEY") || "").startsWith("sk_test_") ? "sandbox" : "live";
 
   try {
     const type = event.event as string;
@@ -49,36 +44,55 @@ Deno.serve(async (req) => {
       const planCode = data.plan?.plan_code as string | undefined;
 
       if (userId) {
-        // Compute period end for one-off renewal tracking
-        const now = new Date();
-        const periodEnd = new Date(now);
-        if (interval === "yearly") periodEnd.setFullYear(periodEnd.getFullYear() + 1);
-        else periodEnd.setMonth(periodEnd.getMonth() + 1);
-
-        const { data: existing } = await admin
-          .from("subscriptions")
-          .select("id")
-          .eq("user_id", userId)
-          .eq("environment", env)
-          .maybeSingle();
-
-        const payload: any = {
-          user_id: userId,
-          environment: env,
-          status: "active",
-          paystack_customer_code: customerCode,
-          plan_code: planCode,
-          product_id: packageId || "",
-          price_id: interval || "",
-          current_period_start: now.toISOString(),
-          current_period_end: periodEnd.toISOString(),
-          cancel_at_period_end: false,
-        };
-
-        if (existing) {
-          await admin.from("subscriptions").update(payload).eq("id", existing.id);
+        const { data: pkg } = packageId
+          ? await admin
+              .from("subscription_packages")
+              .select("id, monthly_price_kes, yearly_price_kes, paystack_plan_code_monthly, paystack_plan_code_yearly")
+              .eq("id", packageId)
+              .maybeSingle()
+          : { data: null };
+        const expected =
+          pkg && interval
+            ? Math.round(Number(interval === "yearly" ? pkg.yearly_price_kes : pkg.monthly_price_kes) * 100)
+            : 0;
+        const received = Number(data.amount || 0);
+        if (!pkg || !interval || !expected || received !== expected || String(data.currency || "") !== "KES") {
+          console.warn("Paystack webhook rejected charge: amount/currency/package mismatch", {
+            reference: data.reference,
+          });
         } else {
-          await admin.from("subscriptions").insert(payload);
+          const now = new Date();
+          const periodEnd = new Date(now);
+          if (interval === "yearly") periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+          else periodEnd.setMonth(periodEnd.getMonth() + 1);
+
+          const { data: existing } = await admin
+            .from("subscriptions")
+            .select("id")
+            .eq("user_id", userId)
+            .eq("environment", env)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          const payload: any = {
+            user_id: userId,
+            environment: env,
+            status: "active",
+            paystack_customer_code: customerCode,
+            plan_code: planCode,
+            product_id: packageId || "",
+            price_id: interval || "",
+            current_period_start: now.toISOString(),
+            current_period_end: periodEnd.toISOString(),
+            cancel_at_period_end: false,
+          };
+
+          if (existing) {
+            await admin.from("subscriptions").update(payload).eq("id", existing.id);
+          } else {
+            await admin.from("subscriptions").insert(payload);
+          }
         }
       }
     } else if (type === "subscription.create") {
