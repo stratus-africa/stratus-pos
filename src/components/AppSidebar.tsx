@@ -1,4 +1,19 @@
-import { AlertTriangle, Building2, LogOut, Shield, Store } from "lucide-react";
+import {
+  AlertTriangle,
+  Building2,
+  LogOut,
+  Shield,
+  Store,
+  Users,
+  CreditCard,
+  LayoutDashboard,
+  Settings,
+  Megaphone,
+  Package,
+  FileText,
+  CheckCircle2,
+  ChevronRight,
+} from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useEntitlement } from "@/hooks/useEntitlement";
 import { NavLink } from "@/components/NavLink";
@@ -25,7 +40,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronRight } from "lucide-react";
 import { APP_MODULES, moduleCategoryLabels } from "@/lib/modules";
 
 const categoryOrder = ["dashboard", "operations", "finance", "people", "tools", "settings"] as const;
@@ -173,6 +187,41 @@ export function AppSidebar() {
       modules: visibleModules.filter((module) => (module?.category ?? "operations") === category),
     }))
     .filter((group) => group.modules.length > 0);
+
+  const superAdminGroups = [
+    {
+      label: "Platform",
+      items: [
+        { label: "Dashboard", to: "/super-admin", icon: LayoutDashboard },
+        { label: "Tenants", to: "/super-admin/businesses", icon: Building2 },
+        { label: "Approvals", to: "/super-admin/tenant-approvals", icon: CheckCircle2 },
+        { label: "Users", to: "/super-admin/users", icon: Users },
+        { label: "Modules", to: "/super-admin/modules", icon: Package },
+      ],
+    },
+    {
+      label: "Billing",
+      items: [
+        { label: "Subscriptions", to: "/super-admin/subscriptions", icon: CreditCard },
+        { label: "Payments", to: "/super-admin/payments", icon: CreditCard },
+        { label: "Plans", to: "/super-admin/packages", icon: Package },
+      ],
+    },
+    {
+      label: "Monitoring",
+      items: [
+        { label: "Audit Log", to: "/super-admin/activity", icon: FileText },
+        { label: "Notifications", to: "/super-admin/notifications", icon: Megaphone },
+      ],
+    },
+    {
+      label: "System",
+      items: [
+        { label: "Settings", to: "/super-admin/settings", icon: Settings },
+        { label: "Landing CMS", to: "/super-admin/landing", icon: FileText },
+      ],
+    },
+  ];
 
   // Sidebar content — one branch per entitlement state
   const renderSidebarContent = () => {
@@ -332,19 +381,57 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent>{renderSidebarContent()}</SidebarContent>
+      <SidebarContent>
+        {isSuperAdmin ? (
+          <div className="space-y-1 py-2">
+            <div className="px-3 pb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
+              <Shield className="h-3.5 w-3.5" />
+              {!collapsed && "Super Admin"}
+            </div>
+            {superAdminGroups.map((group) => (
+              <Collapsible
+                key={group.label}
+                defaultOpen={group.items.some((item) => currentPath === item.to)}
+                className="group/sa"
+              >
+                <SidebarGroup className="py-1">
+                  {!collapsed && (
+                    <CollapsibleTrigger className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+                      {group.label}
+                      <ChevronRight className="h-3 w-3 transition-transform group-data-[state=open]/sa:rotate-90" />
+                    </CollapsibleTrigger>
+                  )}
+                  <CollapsibleContent>
+                    <SidebarGroupContent>
+                      <SidebarMenu>
+                        {group.items.map((item) => (
+                          <SidebarMenuItem key={item.to}>
+                            <SidebarMenuButton asChild isActive={currentPath === item.to}>
+                              <NavLink
+                                to={item.to}
+                                end
+                                className="hover:bg-sidebar-accent/50"
+                                activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                              >
+                                <item.icon className="mr-2 h-4 w-4" />
+                                {!collapsed && <span>{item.label}</span>}
+                              </NavLink>
+                            </SidebarMenuButton>
+                          </SidebarMenuItem>
+                        ))}
+                      </SidebarMenu>
+                    </SidebarGroupContent>
+                  </CollapsibleContent>
+                </SidebarGroup>
+              </Collapsible>
+            ))}
+          </div>
+        ) : (
+          renderSidebarContent()
+        )}
+      </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-2">
-        {!collapsed && isSuperAdmin && (
-          <Link
-            to="/super-admin"
-            className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-primary hover:bg-accent transition-colors"
-          >
-            <Shield className="h-3.5 w-3.5" />
-            Super Admin Panel
-          </Link>
-        )}
-
         {!collapsed && userRole && (
           <div className="px-2 pb-1">
             <Badge
