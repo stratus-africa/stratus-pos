@@ -14,12 +14,16 @@ function RouteComponent() {
   if (isLoading) return <PageLoader />;
 
   const canAnyReport =
-    hasPermission("report.sales") ||
-    hasPermission("report.purchases") ||
-    hasPermission("report.expenses") ||
-    hasPermission("report.inventory") ||
-    hasPermission("report.pnl") ||
-    hasPermission("report.audit");
+    hasPermission("reports.sales") ||
+    hasPermission("reports.purchases") ||
+    hasPermission("reports.expenses") ||
+    hasPermission("reports.stock") ||
+    hasPermission("reports.profit_loss") ||
+    hasPermission("reports.general_ledger") ||
+    hasPermission("reports.trial_balance") ||
+    hasPermission("reports.balance_sheet") ||
+    hasPermission("reports.cash_flow") ||
+    hasPermission("reports.audit");
 
   if (!canAnyReport) return <AccessDenied />;
 
