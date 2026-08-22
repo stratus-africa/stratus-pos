@@ -214,6 +214,27 @@ export function useEntitlement(options: UseEntitlementOptions = {}) {
     return permissions.has("*") || permissions.has(permissionKey);
   };
 
+  /**
+   * Plan-only feature check for legacy/UI visibility callers.
+   *
+   * This deliberately does NOT check role permissions. Role permissions are
+   * handled by hasFeature()/PermissionGuard. This prevents a role denial from
+   * being misreported as a missing plan feature.
+   */
+  const hasFeatureKey = (featureKey: string): boolean => {
+    const raw = featureKey.trim().toLowerCase();
+    if (!raw) return false;
+
+    const definition = getFeature(raw) || getFeature(raw.includes(".") ? raw : `${raw}.view`);
+    if (definition) {
+      return hasPlanFeature(definition.moduleKey, definition.key);
+    }
+
+    // Legacy module-level keys such as "digitax", "batch_tracking" or
+    // "chart_of_accounts" are normalized through hasModule().
+    return hasModule(raw);
+  };
+
   const getEntitledModules = (): string[] => entitlement.enabledModules || [];
 
   const checkModuleAccess = (moduleKey: string) => checkModuleEntitlement(packageId || undefined, moduleKey);
@@ -232,6 +253,7 @@ export function useEntitlement(options: UseEntitlementOptions = {}) {
     hasModule,
     hasPlanFeature,
     hasFeature,
+    hasFeatureKey,
     checkModuleAccess,
     checkFeatureAccess: checkFeatureAccessFn,
     getEntitledModules,
