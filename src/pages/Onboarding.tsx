@@ -13,6 +13,8 @@ import {
   type OnboardingDraft,
 } from "@/lib/onboarding";
 import { Button } from "@/components/ui/button";
+import ImportMappingDialog from "@/components/products/ImportMappingDialog";
+import { mapProductImportRows, parseProductImportFile } from "@/lib/productImport";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -40,6 +42,8 @@ import {
   User,
   Users,
   Wallet,
+  Upload,
+  FileSpreadsheet,
   Eye,
   EyeOff,
 } from "lucide-react";
@@ -549,42 +553,107 @@ const LocationStep = ({ draft, update }: StepProps) => (
   </Step>
 );
 
-const ProductsStep = ({ draft, update }: StepProps) => (
-  <Step
-    title="How will you start your products?"
-    description="You can import your catalogue now or start with an empty product list."
-  >
-    <div className="grid sm:grid-cols-3 gap-4">
-      {[
-        ["empty", "Start empty", "Add products later from Products."],
-        ["import", "Import catalogue", "Prepare an Excel/CSV file and import it after setup."],
-        ["manual", "Add manually", "Create your first products from the dashboard."],
-      ].map(([mode, title, description]) => (
-        <button
-          key={mode}
-          type="button"
-          onClick={() => update("products", { mode: mode as OnboardingDraft["products"]["mode"] })}
-          className={`rounded-2xl border p-5 text-left transition ${draft.products.mode === mode ? "border-emerald-500 ring-2 ring-emerald-100 bg-emerald-50/50" : "hover:border-muted-foreground/30"}`}
-        >
-          <Package
-            className={`h-6 w-6 mb-4 ${draft.products.mode === mode ? "text-emerald-600" : "text-muted-foreground"}`}
-          />
-          <h3 className="font-semibold">{title}</h3>
-          <p className="text-sm text-muted-foreground mt-1">{description}</p>
-          {draft.products.mode === mode && (
-            <span className="inline-flex mt-4 text-xs font-semibold text-emerald-600">
-              <Check className="h-3.5 w-3.5 mr-1" /> Selected
-            </span>
-          )}
-        </button>
-      ))}
-    </div>
-    <p className="mt-5 text-xs text-muted-foreground">
-      No products are created by this step. It records your preferred starting workflow so the dashboard can guide you
-      next.
-    </p>
-  </Step>
-);
+const ProductsStep = ({ draft, update }: StepProps) => {
+  const [mappingOpen, setMappingOpen] = useState(false);
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [rows, setRows] = useState<Record<string, any>[]>([]);
+  const [reading, setReading] = useState(false);
+
+  const chooseMode = (mode: OnboardingDraft["products"]["mode"]) => update("products", { ...draft.products, mode });
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setReading(true);
+    try {
+      const parsed = await parseProductImportFile(file);
+      setRows(parsed.rows);
+      setHeaders(parsed.headers);
+      setMappingOpen(true);
+      chooseMode("import");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to read the product file");
+    } finally {
+      setReading(false);
+      e.target.value = "";
+    }
+  };
+
+  const confirmMapping = (mapping: Record<string, string | null>) => {
+    const importRows = mapProductImportRows(rows, mapping);
+    if (!importRows.length) {
+      toast.error("No product rows with a Name column were found");
+      return;
+    }
+    update("products", { mode: "import", importRows });
+    setMappingOpen(false);
+    toast.success(`${importRows.length} products ready to import when you finish setup`);
+  };
+
+  return (
+    <Step
+      title="Set up your products"
+      description="Use the same CSV/Excel importer available in Products. Your catalogue is staged now and created only when your workspace is created."
+    >
+      <div className="grid sm:grid-cols-3 gap-4">
+        {[
+          ["empty", "Start empty", "Add products later from Products."],
+          ["import", "Import catalogue", "Upload CSV or Excel and map the columns now."],
+          ["manual", "Add manually", "Create your first products from the dashboard."],
+        ].map(([mode, title, description]) => (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => chooseMode(mode as OnboardingDraft["products"]["mode"])}
+            className={`rounded-2xl border p-5 text-left transition ${draft.products.mode === mode ? "border-emerald-500 ring-2 ring-emerald-100 bg-emerald-50/50" : "hover:border-muted-foreground/30"}`}
+          >
+            <Package
+              className={`h-6 w-6 mb-4 ${draft.products.mode === mode ? "text-emerald-600" : "text-muted-foreground"}`}
+            />
+            <h3 className="font-semibold">{title}</h3>
+            <p className="text-sm text-muted-foreground mt-1">{description}</p>
+            {draft.products.mode === mode && (
+              <span className="inline-flex mt-4 text-xs font-semibold text-emerald-600">
+                <Check className="h-3.5 w-3.5 mr-1" /> Selected
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+      {draft.products.mode === "import" && (
+        <div className="mt-6 rounded-2xl border bg-white p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <p className="font-semibold">Product catalogue</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {draft.products.importRows.length
+                  ? `${draft.products.importRows.length} products mapped and ready.`
+                  : "Upload your CSV, XLSX or XLS file to start."}
+              </p>
+            </div>
+            <label className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium cursor-pointer">
+              <Upload className="mr-2 h-4 w-4" />{" "}
+              {reading ? "Reading…" : draft.products.importRows.length ? "Replace file" : "Choose file"}
+              <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFile} disabled={reading} />
+            </label>
+          </div>
+          <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+            <FileSpreadsheet className="h-4 w-4" /> Uses the same column mapping and import fields as Products → Data →
+            Import file.
+          </div>
+        </div>
+      )}
+      <ImportMappingDialog
+        open={mappingOpen}
+        onOpenChange={setMappingOpen}
+        headers={headers}
+        sampleRow={rows[0]}
+        importing={reading}
+        onConfirm={confirmMapping}
+      />
+    </Step>
+  );
+};
 
 const PaymentsStep = ({ draft, update }: StepProps) => (
   <Step
@@ -763,7 +832,7 @@ const FinishStep = ({ draft, update }: StepProps) => {
               draft.products.mode === "empty"
                 ? "Start empty"
                 : draft.products.mode === "import"
-                  ? "Import catalogue"
+                  ? `${draft.products.importRows.length || 0} products to import`
                   : "Add manually"
             }
           />
@@ -855,6 +924,10 @@ function validateStep(step: number, draft: OnboardingDraft) {
   }
   if (step === 3 && !draft.location.name.trim()) {
     toast.error("Enter a location name");
+    return false;
+  }
+  if (step === 4 && draft.products.mode === "import" && draft.products.importRows.length === 0) {
+    toast.error("Choose a product file and map its columns, or select another option");
     return false;
   }
   if (
