@@ -37,7 +37,8 @@ import ZReportTab from "@/components/reports/ZReportTab";
 import StockAgingReportTab from "@/components/reports/StockAgingReportTab";
 import StockLedgerTab from "@/components/inventory/StockLedgerTab";
 import { DateRangeFilter } from "@/components/reports/DateRangeFilter";
-import { useFeatureLimit, RequireFeature } from "@/components/FeatureGate";
+import { RequireFeature } from "@/components/FeatureGate";
+import { useEntitlement } from "@/hooks/useEntitlement";
 import FeatureReportTab from "@/components/reports/FeatureReportTab";
 import { useAccountingSettings, financialYearLabel } from "@/hooks/useAccountingSettings";
 
@@ -46,7 +47,7 @@ const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split("
 
 const Reports = () => {
   const { business, currentLocation } = useBusiness();
-  const { hasFeatureKey } = useFeatureLimit();
+  const { hasModule, hasFeatureKey } = useEntitlement();
   const { hasPermission } = usePermissions();
 
   // Tab visibility: combine plan feature flag (where applicable) with role permission
@@ -55,9 +56,20 @@ const Reports = () => {
   const canPurchases = can("purchases");
   const canExpenses = can("expenses");
   const canInventory = can("stock");
-  const canPnL = can("profit_loss") && hasFeatureKey("accounting");
+  const canPnL = can("profit_loss") && hasModule("accounting");
   const canAudit = can("audit") || hasPermission("report.audit");
   const canMovement = can("stock_movement");
+  const reportModule = (key: string) => {
+    if (key === "pnl") return "accounting";
+    if (key === "tax") return "digitax";
+    if (key === "stock" || key.startsWith("stock_") || key === "low_stock" || key === "expiry") return "inventory";
+    if (key === "purchases" || key.startsWith("purchases_") || key === "purchase_returns") return "purchases";
+    if (key === "expenses") return "expenses";
+    if (key === "sales" || key.startsWith("sales_") || key === "eod" || key === "zreport") return "sales";
+    return "reports";
+  };
+
+  const canReport = (key: string) => can(key) && hasModule(reportModule(key));
   const reportKeys = [
     "sales",
     "sales_by_product",
@@ -83,29 +95,33 @@ const Reports = () => {
   const canEOD = canSales;
   const canZ = canSales;
 
-  const firstTab = canSales
+  const firstTab = canReport("sales")
     ? "sales"
-    : canPurchases
+    : canReport("purchases")
       ? "purchases"
-      : canExpenses
+      : canReport("expenses")
         ? "expenses"
-        : canInventory
-          ? "inventory"
-          : canPnL
+        : canReport("stock")
+          ? "stock"
+          : canReport("profit_loss")
             ? "pnl"
-            : canEOD
+            : canReport("eod")
               ? "eod"
-              : canZ
+              : canReport("zreport")
                 ? "zreport"
-                : canAudit
+                : canReport("audit")
                   ? "audit"
                   : "sales";
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const urlTab = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState<string>(urlTab || firstTab);
   useEffect(() => {
-    if (urlTab) setActiveTab(urlTab);
-  }, [urlTab]);
+    const requested = urlTab || firstTab;
+    const moduleAllowed = hasModule(reportModule(requested));
+    const permissionAllowed =
+      requested === "audit" ? canAudit : requested === "eod" || requested === "zreport" ? canSales : can(requested);
+    setActiveTab(moduleAllowed && permissionAllowed ? requested : firstTab);
+  }, [urlTab, firstTab, hasModule, canAudit, canSales]);
   const [from, setFrom] = useState(thirtyDaysAgo);
   const [to, setTo] = useState(today);
   const [exporter, setExporter] = useState<(() => void) | null>(null);
@@ -169,7 +185,9 @@ const Reports = () => {
       for (let offset = 0; ; offset += pageSize) {
         const { data, error } = await supabase
           .from("inventory")
-          .select("*, products(name, sku, purchase_price, selling_price, categories(name), brands(name))")
+          .select(
+            "*, products(name, sku, purchase_price, selling_price, categories(name), brands(name)), locations(name)",
+          )
           .eq("location_id", currentLocation.id)
           .range(offset, offset + pageSize - 1);
         if (error) throw error;
@@ -376,9 +394,9 @@ const Reports = () => {
       if (k === "stock" || k === "stock_valuation" || k === "low_stock") {
         return (inventoryReport.data || []).map((r: any) => ({
           product_name: r.products?.name || "-",
-          location_name: currentLocation?.name || "-",
+          location_name: r.locations?.name || "-",
           quantity: Number(r.quantity || 0),
-          reorder_level: Number(r.products?.reorder_level ?? r.reorder_level ?? 0),
+          low_stock_threshold: Number(r.low_stock_threshold || 0),
           purchase_price: Number(r.products?.purchase_price || 0),
           selling_price: Number(r.products?.selling_price || 0),
           stock_value: Number(r.quantity || 0) * Number(r.products?.purchase_price || 0),
@@ -517,77 +535,77 @@ const Reports = () => {
               key: "operational",
               label: "Operational",
               items: [
-                { value: "sales", label: "Sales · Overview", icon: BarChart3, show: can("sales") },
+                { value: "sales", label: "Sales · Overview", icon: BarChart3, show: canReport("sales") },
                 {
                   value: "sales_by_product",
                   label: "Sales · By Product",
                   icon: BarChart3,
-                  show: can("sales_by_product"),
+                  show: canReport("sales_by_product"),
                 },
                 {
                   value: "sales_by_customer",
                   label: "Sales · By Customer",
                   icon: BarChart3,
-                  show: can("sales_by_customer"),
+                  show: canReport("sales_by_customer"),
                 },
                 {
                   value: "sales_by_cashier",
                   label: "Sales · By Cashier",
                   icon: BarChart3,
-                  show: can("sales_by_cashier"),
+                  show: canReport("sales_by_cashier"),
                 },
                 {
                   value: "sales_by_location",
                   label: "Sales · By Location",
                   icon: BarChart3,
-                  show: can("sales_by_location"),
+                  show: canReport("sales_by_location"),
                 },
                 {
                   value: "sales_by_payment",
                   label: "Payments Received",
                   icon: BarChart3,
-                  show: can("sales_by_payment"),
+                  show: canReport("sales_by_payment"),
                 },
-                { value: "eod", label: "End of Day", icon: Sun, show: can("sales") },
-                { value: "zreport", label: "Z Report", icon: FileText, show: can("sales") },
-                { value: "audit", label: "Audit Trail", icon: ClipboardList, show: canAudit },
-                { value: "schedule", label: "Scheduled Reports", icon: Clock, show: can("schedule") },
+                { value: "eod", label: "End of Day", icon: Sun, show: canReport("sales") },
+                { value: "zreport", label: "Z Report", icon: FileText, show: canReport("sales") },
+                { value: "audit", label: "Audit Trail", icon: ClipboardList, show: canReport("audit") },
+                { value: "schedule", label: "Scheduled Reports", icon: Clock, show: canReport("schedule") },
               ],
             },
             {
               key: "inventory",
               label: "Inventory",
               items: [
-                { value: "stock", label: "Stock", icon: Package, show: can("stock") },
-                { value: "stock_movement", label: "Movement", icon: ScrollText, show: can("stock_movement") },
-                { value: "stock_valuation", label: "Valuation", icon: Package, show: can("stock_valuation") },
+                { value: "stock", label: "Stock", icon: Package, show: canReport("stock") },
+                { value: "stock_movement", label: "Movement", icon: ScrollText, show: canReport("stock_movement") },
+                { value: "stock_valuation", label: "Valuation", icon: Package, show: canReport("stock_valuation") },
                 {
                   value: "stock_adjustments",
                   label: "Adjustments",
                   icon: Package,
-                  show: can("stock_adjustments"),
+                  show: canReport("stock_adjustments"),
                 },
-                { value: "stock_transfers", label: "Transfers", icon: Package, show: can("stock_transfers") },
-                { value: "low_stock", label: "Low Stock", icon: Package, show: can("low_stock") },
-                { value: "expiry", label: "Expiry", icon: Clock, show: can("expiry") },
+                { value: "stock_transfers", label: "Transfers", icon: Package, show: canReport("stock_transfers") },
+                { value: "low_stock", label: "Low Stock", icon: Package, show: canReport("low_stock") },
+                { value: "expiry", label: "Expiry", icon: Clock, show: canReport("expiry") },
               ],
             },
             {
               key: "purchasing",
               label: "Purchasing",
               items: [
-                { value: "purchases", label: "Overview", icon: ShoppingCart, show: can("purchases") },
+                { value: "purchases", label: "Overview", icon: ShoppingCart, show: canReport("purchases") },
                 {
                   value: "purchases_by_supplier",
                   label: "By Supplier",
                   icon: ShoppingCart,
-                  show: can("purchases_by_supplier"),
+                  show: canReport("purchases_by_supplier"),
                 },
                 {
                   value: "purchase_returns",
                   label: "Returns",
                   icon: ShoppingCart,
-                  show: can("purchase_returns"),
+                  show: canReport("purchase_returns"),
                 },
               ],
             },
@@ -595,9 +613,9 @@ const Reports = () => {
               key: "financial",
               label: "Financial",
               items: [
-                { value: "expenses", label: "Expenses", icon: Receipt, show: can("expenses") },
-                { value: "tax", label: "Tax", icon: Receipt, show: can("tax") },
-                { value: "pnl", label: "Profit & Loss", icon: TrendingUp, show: can("profit_loss") },
+                { value: "expenses", label: "Expenses", icon: Receipt, show: canReport("expenses") },
+                { value: "tax", label: "Tax", icon: Receipt, show: canReport("tax") },
+                { value: "pnl", label: "Profit & Loss", icon: TrendingUp, show: canReport("profit_loss") },
               ],
             },
           ];
@@ -631,43 +649,43 @@ const Reports = () => {
                 </Select>
               </div>
               <TabsList className="hidden md:flex text-muted-foreground md:flex-col md:w-56 bg-muted rounded-lg p-1.5 shrink-0 md:items-stretch md:justify-start h-auto">
-                {visibleGroups.map((group) => {
-                  const collapsed = !!collapsedGroups[group.key];
-                  return (
-                    <div key={group.key} className="w-full">
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-1 px-3 pt-2 pb-1 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
-                        onClick={() => setCollapsedGroups((prev) => ({ ...prev, [group.key]: !prev[group.key] }))}
-                        aria-expanded={!collapsed}
-                        aria-controls={`report-group-${group.key}`}
-                      >
-                        {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                        <span>{group.label}</span>
-                      </button>
-                      {!collapsed && (
-                        <div id={`report-group-${group.key}`} className="space-y-0.5">
-                          {group.items.map((i) => (
-                            <TabsTrigger
-                              key={i.value}
-                              value={i.value}
-                              className="md:w-full md:justify-start gap-2 text-sm px-3 py-2 shrink-0"
-                            >
-                              <i.icon className="h-4 w-4" /> {i.label}
-                            </TabsTrigger>
-                          ))}
-                        </div>
+                {visibleGroups.map((group) => (
+                  <div key={group.key} className="w-full">
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-1 px-3 pt-2 pb-1 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
+                      onClick={() => setCollapsedGroups((prev) => ({ ...prev, [group.key]: !prev[group.key] }))}
+                      aria-expanded={!collapsedGroups[group.key]}
+                    >
+                      {collapsedGroups[group.key] ? (
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      ) : (
+                        <ChevronDown className="h-3.5 w-3.5" />
                       )}
-                    </div>
-                  );
-                })}
+                      {group.label}
+                    </button>
+                    {!collapsedGroups[group.key] && (
+                      <div className="space-y-0.5">
+                        {group.items.map((i) => (
+                          <TabsTrigger
+                            key={i.value}
+                            value={i.value}
+                            className="md:w-full md:justify-start gap-2 text-sm px-3 py-2 shrink-0"
+                          >
+                            <i.icon className="h-4 w-4" /> {i.label}
+                          </TabsTrigger>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </TabsList>
             </>
           );
         })()}
 
         <div className="flex-1 min-w-0">
-          {canSales && (
+          {canReport("sales") && (
             <TabsContent value="sales" className="mt-0">
               <DailySalesReportTab from={from} to={to} onRegisterExport={registerExport} />
             </TabsContent>
@@ -676,17 +694,17 @@ const Reports = () => {
             .filter((k) => k.startsWith("sales_"))
             .map(
               (k) =>
-                can(k) && (
+                canReport(k) && (
                   <TabsContent key={k} value={k} className="mt-0">
                     <FeatureReportTab
-                      title={k === "sales_by_payment" ? "Payments Received" : k.replaceAll("_", " ")}
+                      title={k.replaceAll("_", " ")}
                       rows={featureReport.data || []}
                       loading={featureReport.isLoading}
                     />
                   </TabsContent>
                 ),
             )}
-          {can("stock_valuation") && (
+          {canReport("stock_valuation") && (
             <TabsContent value="stock_valuation" className="mt-0">
               <FeatureReportTab
                 title="Stock Valuation"
@@ -695,7 +713,7 @@ const Reports = () => {
               />
             </TabsContent>
           )}
-          {can("stock_adjustments") && (
+          {canReport("stock_adjustments") && (
             <TabsContent value="stock_adjustments" className="mt-0">
               <FeatureReportTab
                 title="Stock Adjustments"
@@ -704,7 +722,7 @@ const Reports = () => {
               />
             </TabsContent>
           )}
-          {can("stock_transfers") && (
+          {canReport("stock_transfers") && (
             <TabsContent value="stock_transfers" className="mt-0">
               <FeatureReportTab
                 title="Stock Transfers"
@@ -713,7 +731,7 @@ const Reports = () => {
               />
             </TabsContent>
           )}
-          {can("low_stock") && (
+          {canReport("low_stock") && (
             <TabsContent value="low_stock" className="mt-0">
               <FeatureReportTab
                 title="Low Stock"
@@ -725,12 +743,12 @@ const Reports = () => {
               />
             </TabsContent>
           )}
-          {can("expiry") && (
+          {canReport("expiry") && (
             <TabsContent value="expiry" className="mt-0">
               <FeatureReportTab title="Expiry" rows={featureReport.data || []} loading={featureReport.isLoading} />
             </TabsContent>
           )}
-          {can("purchases_by_supplier") && (
+          {canReport("purchases_by_supplier") && (
             <TabsContent value="purchases_by_supplier" className="mt-0">
               <FeatureReportTab
                 title="Purchases by Supplier"
@@ -739,7 +757,7 @@ const Reports = () => {
               />
             </TabsContent>
           )}
-          {can("purchase_returns") && (
+          {canReport("purchase_returns") && (
             <TabsContent value="purchase_returns" className="mt-0">
               <FeatureReportTab
                 title="Purchase Returns"
@@ -748,12 +766,12 @@ const Reports = () => {
               />
             </TabsContent>
           )}
-          {can("tax") && (
+          {canReport("tax") && (
             <TabsContent value="tax" className="mt-0">
               <FeatureReportTab title="Tax Report" rows={featureReport.data || []} loading={featureReport.isLoading} />
             </TabsContent>
           )}
-          {can("schedule") && (
+          {canReport("schedule") && (
             <TabsContent value="schedule" className="mt-0">
               <FeatureReportTab title="Scheduled Reports" rows={[]} />
               <div className="mt-3 text-sm text-muted-foreground">
@@ -770,7 +788,7 @@ const Reports = () => {
               />
             </TabsContent>
           )}
-          {can("stock_movement") && (
+          {canReport("stock_movement") && (
             <TabsContent value="stock_movement" className="mt-0">
               <StockLedgerTab
                 locationId={currentLocation?.id}
@@ -783,17 +801,17 @@ const Reports = () => {
               />
             </TabsContent>
           )}
-          {canPurchases && (
+          {canReport("purchases") && (
             <TabsContent value="purchases" className="mt-0">
               <PurchasesReportTab purchases={purchases} from={from} to={to} loading={loading || pnlLedger.isLoading} />
             </TabsContent>
           )}
-          {canExpenses && (
+          {canReport("expenses") && (
             <TabsContent value="expenses" className="mt-0">
               <ExpensesReportTab expenses={expenses} from={from} to={to} loading={loading} />
             </TabsContent>
           )}
-          {canInventory && (
+          {canReport("stock") && (
             <TabsContent value="inventory" className="mt-0">
               <InventoryReportTab
                 inventory={inventory}
@@ -802,7 +820,7 @@ const Reports = () => {
               />
             </TabsContent>
           )}
-          {canInventory && (
+          {canReport("stock") && (
             <TabsContent value="aging" className="mt-0">
               <StockAgingReportTab />
             </TabsContent>
@@ -820,7 +838,7 @@ const Reports = () => {
               />
             </TabsContent>
           )}
-          {canPnL && (
+          {canReport("pnl") && (
             <TabsContent value="pnl" className="mt-0">
               <RequireFeature moduleKey="accounting">
                 <PnLReportTab
@@ -837,17 +855,17 @@ const Reports = () => {
               </RequireFeature>
             </TabsContent>
           )}
-          {canEOD && (
+          {canReport("eod") && (
             <TabsContent value="eod" className="mt-0">
               <EndOfDayReportTab />
             </TabsContent>
           )}
-          {canZ && (
+          {canReport("zreport") && (
             <TabsContent value="zreport" className="mt-0">
               <ZReportTab from={from} to={to} onRegisterExport={registerExport} />
             </TabsContent>
           )}
-          {canAudit && (
+          {canReport("audit") && (
             <TabsContent value="audit" className="mt-0">
               <AuditLogReportTab logs={auditLogs} loading={auditReport.isLoading} from={from} to={to} />
             </TabsContent>
