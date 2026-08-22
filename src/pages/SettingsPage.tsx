@@ -2,7 +2,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Building2,
   MapPin,
-  Users,
   Receipt,
   CreditCard,
   ShieldCheck,
@@ -12,7 +11,6 @@ import {
   Hash,
   Plug,
   FileCheck2,
-  Printer,
   MonitorSmartphone,
   Calculator,
   DatabaseBackup,
@@ -21,7 +19,6 @@ import CustomerDisplayTab from "@/components/settings/CustomerDisplayTab";
 import { BusinessProfileTab } from "@/components/settings/BusinessProfileTab";
 import { BrandingTab } from "@/components/settings/BrandingTab";
 import { LocationsTab } from "@/components/settings/LocationsTab";
-import { UserManagementTab } from "@/components/settings/UserManagementTab";
 import { ReceiptSettingsTab } from "@/components/settings/ReceiptSettingsTab";
 import { PriceTagSettingsTab } from "@/components/settings/PriceTagSettingsTab";
 import { SubscriptionTab } from "@/components/settings/SubscriptionTab";
@@ -88,15 +85,8 @@ const SettingsPage = () => {
         render: () => <LocationsTab />,
       },
       {
-        key: "users",
-        label: "Users",
-        icon: <Users className="h-4 w-4" />,
-        permission: "users.view",
-        render: () => <UserManagementTab />,
-      },
-      {
         key: "roles",
-        label: "Roles",
+        label: "Users and roles",
         icon: <ShieldCheck className="h-4 w-4" />,
         permission: "roles.view",
         render: () => <RolesPermissionsTab />,
