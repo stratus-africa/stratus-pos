@@ -469,15 +469,32 @@ export default function SuperAdminSubscriptions() {
               return (
                 <TableRow key={r.id} className="border-border">
                   <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600 text-sm font-bold shrink-0">
-                        {initial}
+                    {r.tenantId ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/super-admin/businesses/${r.tenantId}`)}
+                        className="flex w-full items-center gap-3 text-left rounded-md -m-1 p-1 hover:bg-muted/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        title={`Open ${r.tenantName}`}
+                      >
+                        <div className="h-9 w-9 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600 text-sm font-bold shrink-0">
+                          {initial}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm truncate text-primary hover:underline">{r.tenantName}</p>
+                          {r.ownerEmail && <p className="text-xs text-muted-foreground truncate">{r.ownerEmail}</p>}
+                        </div>
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600 text-sm font-bold shrink-0">
+                          {initial}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm truncate">{r.tenantName}</p>
+                          {r.ownerEmail && <p className="text-xs text-muted-foreground truncate">{r.ownerEmail}</p>}
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-sm truncate">{r.tenantName}</p>
-                        {r.ownerEmail && <p className="text-xs text-muted-foreground truncate">{r.ownerEmail}</p>}
-                      </div>
-                    </div>
+                    )}
                   </TableCell>
                   <TableCell>
                     <p className="text-sm font-medium">{r.planName}</p>
