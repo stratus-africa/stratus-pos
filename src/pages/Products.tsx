@@ -66,6 +66,7 @@ import { toast } from "sonner";
 import { useFeatureLimit } from "@/components/FeatureGate";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ModuleHeader } from "@/components/modules/ModulePageShell";
+import { mapProductImportRows, parseProductImportFile } from "@/lib/productImport";
 
 const Products = () => {
   const [onlyMissingBarcode, setOnlyMissingBarcode] = useState(false);
@@ -377,17 +378,9 @@ const Products = () => {
     const file = e.target.files?.[0];
     if (!file || !business) return;
     try {
-      const XLSX = await import("xlsx");
-      const data = await file.arrayBuffer();
-      const wb = XLSX.read(data);
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json<Record<string, any>>(ws);
-      if (rows.length === 0) {
-        toast.error("File is empty");
-        return;
-      }
+      const { rows, headers } = await parseProductImportFile(file);
       setImportRows(rows);
-      setImportHeaders(Object.keys(rows[0]));
+      setImportHeaders(headers);
       setMappingOpen(true);
     } catch (err: any) {
       toast.error(`Failed to read file: ${err.message}`);
@@ -403,19 +396,19 @@ const Products = () => {
       const catMap = new Map((categoriesQuery.data || []).map((c) => [c.name.toLowerCase(), c.id]));
       const brandMap = new Map((brandsQuery.data || []).map((b) => [b.name.toLowerCase(), b.id]));
       const unitMap = new Map((unitsQuery.data || []).map((u) => [u.name.toLowerCase(), u.id]));
-      const get = (row: Record<string, any>, k: string) => (mapping[k] ? row[mapping[k] as string] : undefined);
-      const toInsert = importRows.map((row) => ({
+      const mappedRows = mapProductImportRows(importRows, mapping);
+      const toInsert = mappedRows.map((row) => ({
         business_id: business.id,
-        name: String(get(row, "name") ?? "Unnamed"),
-        sku: get(row, "sku") || null,
-        barcode: get(row, "barcode") || null,
-        category_id: catMap.get(String(get(row, "category") ?? "").toLowerCase()) || null,
-        brand_id: brandMap.get(String(get(row, "brand") ?? "").toLowerCase()) || null,
-        unit_id: unitMap.get(String(get(row, "unit") ?? "").toLowerCase()) || null,
-        purchase_price: Number(get(row, "purchase_price") ?? 0),
-        selling_price: Number(get(row, "selling_price") ?? 0),
-        tax_rate: get(row, "tax_rate") != null && get(row, "tax_rate") !== "" ? Number(get(row, "tax_rate")) : 16,
-        is_active: String(get(row, "active") ?? "Yes").toLowerCase() !== "no",
+        name: row.name,
+        sku: row.sku,
+        barcode: row.barcode,
+        category_id: catMap.get(String(row.category ?? "").toLowerCase()) || null,
+        brand_id: brandMap.get(String(row.brand ?? "").toLowerCase()) || null,
+        unit_id: unitMap.get(String(row.unit ?? "").toLowerCase()) || null,
+        purchase_price: row.purchase_price,
+        selling_price: row.selling_price,
+        tax_rate: row.tax_rate,
+        is_active: row.is_active,
       }));
       const { error } = await supabase.from("products").insert(toInsert);
       if (error) throw error;

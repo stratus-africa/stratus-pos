@@ -7,6 +7,7 @@ import { DashboardStatCards } from "@/components/dashboard/DashboardStatCards";
 import { DashboardCharts } from "@/components/dashboard/DashboardCharts";
 import { DashboardBottomRow } from "@/components/dashboard/DashboardBottomRow";
 import { ReminderBanner } from "@/components/dashboard/ReminderBanner";
+import { SetupWizardReminder } from "@/components/dashboard/SetupWizardReminder";
 import { SubscriptionReminderDialog } from "@/components/subscription/SubscriptionReminderDialog";
 import { CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -92,6 +93,8 @@ const Dashboard = () => {
       </div>
 
       <SubscriptionReminderDialog />
+
+      <SetupWizardReminder />
 
       <ReminderBanner />
 
