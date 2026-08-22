@@ -31,12 +31,17 @@ import {
   ArrowLeftRight,
   History,
   Calculator,
+  Package,
+  CalendarClock,
 } from "lucide-react";
 import { StockCountsTab } from "@/components/inventory/StockCountsTab";
 import { StockReconciliationTab } from "@/components/inventory/StockReconciliationTab";
 import { StockTransfersTab } from "@/components/inventory/StockTransfersTab";
 import { StockMovementsTab } from "@/components/inventory/StockMovementsTab";
 import { StockValuationTab } from "@/components/inventory/StockValuationTab";
+import { StockControlTab } from "@/components/inventory/StockControlTab";
+import { BatchManagementTab } from "@/components/inventory/BatchManagementTab";
+import { ExpiryManagementTab } from "@/components/inventory/ExpiryManagementTab";
 
 import { useInventory, type SortKey, type AdjustmentDocument } from "@/hooks/useInventory";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -55,6 +60,9 @@ const INVENTORY_TABS = [
   { key: "stock", label: "Stock Levels", icon: <Warehouse className="h-4 w-4" /> },
   { key: "movements", label: "Stock Movements", icon: <History className="h-4 w-4" /> },
   { key: "valuation", label: "Stock Valuation", icon: <Calculator className="h-4 w-4" /> },
+  { key: "controls", label: "Issues & Write-offs", icon: <AlertTriangle className="h-4 w-4" /> },
+  { key: "batches", label: "Batches", icon: <Package className="h-4 w-4" /> },
+  { key: "expiry", label: "Expiry", icon: <CalendarClock className="h-4 w-4" /> },
   { key: "adjustments", label: "Adjustments", icon: <ClipboardList className="h-4 w-4" /> },
   { key: "transfers", label: "Stock Transfers", icon: <ArrowLeftRight className="h-4 w-4" /> },
   { key: "counts", label: "Stock Take", icon: <ClipboardCheck className="h-4 w-4" /> },
@@ -118,12 +126,24 @@ const Inventory = () => {
   const [activeTab, setActiveTab] = useState<string>(initialStr("tab", "stock"));
   const canViewMovements = hasPermission("inventory.view_movements");
   const canViewValuation = hasPermission("inventory.view_valuation");
-  const canViewTransfers = hasPermission("inventory.transfer") || hasPermission("inventory.approve_transfer") || hasPermission("inventory.receive");
+  const canViewTransfers =
+    hasPermission("inventory.transfer") ||
+    hasPermission("inventory.approve_transfer") ||
+    hasPermission("inventory.receive");
+  const canViewControls =
+    hasPermission("inventory.issue") ||
+    hasPermission("inventory.writeoff") ||
+    hasPermission("inventory.approve_adjustment");
+  const canViewBatches = hasPermission("inventory.view_batches");
+  const canViewExpiry = hasPermission("inventory.view_expiry");
   const visibleInventoryTabs = INVENTORY_TABS.filter((tab) => {
     if (tab.key === "movements") return canViewMovements;
     if (tab.key === "valuation") return canViewValuation;
     if (tab.key === "adjustments") return canViewAdjustments;
     if (tab.key === "transfers") return canViewTransfers;
+    if (tab.key === "controls") return canViewControls;
+    if (tab.key === "batches") return canViewBatches;
+    if (tab.key === "expiry") return canViewExpiry;
     if (tab.key === "counts") return canStockCount;
     if (tab.key === "reconciliation") return canReconcileStock;
     return canViewInventory;
@@ -463,11 +483,11 @@ const Inventory = () => {
         title="Inventory"
         description="Stock levels, adjustments, and inventory health across your locations."
         primaryAction={
-          {canAdjustStock && (
+          canAdjustStock && (
             <Button onClick={() => setAdjDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" /> Adjust Stock
             </Button>
-          )}
+          )
         }
         statusBadge={<Badge variant="secondary">Operational</Badge>}
       />
@@ -572,6 +592,18 @@ const Inventory = () => {
 
         <TabsContent value="valuation">
           <StockValuationTab />
+        </TabsContent>
+
+        <TabsContent value="controls">
+          <StockControlTab />
+        </TabsContent>
+
+        <TabsContent value="batches">
+          <BatchManagementTab />
+        </TabsContent>
+
+        <TabsContent value="expiry">
+          <ExpiryManagementTab />
         </TabsContent>
 
         <TabsContent value="transfers">
