@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import {
   BarChart3,
@@ -19,8 +19,6 @@ import {
   FileText,
   Clock,
   ScrollText,
-  ChevronDown,
-  ChevronRight,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -125,7 +123,6 @@ const Reports = () => {
   const [from, setFrom] = useState(thirtyDaysAgo);
   const [to, setTo] = useState(today);
   const [exporter, setExporter] = useState<(() => void) | null>(null);
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
   const registerExport = useCallback((fn: (() => void) | null) => {
     setExporter(() => fn);
@@ -623,64 +620,59 @@ const Reports = () => {
           const visibleGroups = groups
             .map((group) => ({ ...group, items: group.items.filter((item) => item.show) }))
             .filter((group) => group.items.length > 0);
-          const items = visibleGroups.flatMap((group) => group.items);
 
           return (
-            <>
-              <div className="md:hidden">
-                <Select value={activeTab} onValueChange={setActiveTab}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select report" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {visibleGroups.map((group) => (
-                      <React.Fragment key={group.key}>
-                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{group.label}</div>
-                        {group.items.map((i) => (
-                          <SelectItem key={i.value} value={i.value}>
-                            <span className="flex items-center gap-2">
-                              <i.icon className="h-4 w-4" /> {i.label}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </React.Fragment>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <TabsList className="hidden md:flex text-muted-foreground md:flex-col md:w-56 bg-muted rounded-lg p-1.5 shrink-0 md:items-stretch md:justify-start h-auto">
-                {visibleGroups.map((group) => (
-                  <div key={group.key} className="w-full">
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-1 px-3 pt-2 pb-1 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
-                      onClick={() => setCollapsedGroups((prev) => ({ ...prev, [group.key]: !prev[group.key] }))}
-                      aria-expanded={!collapsedGroups[group.key]}
-                    >
-                      {collapsedGroups[group.key] ? (
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      ) : (
-                        <ChevronDown className="h-3.5 w-3.5" />
-                      )}
-                      {group.label}
-                    </button>
-                    {!collapsedGroups[group.key] && (
-                      <div className="space-y-0.5">
-                        {group.items.map((i) => (
-                          <TabsTrigger
-                            key={i.value}
-                            value={i.value}
-                            className="md:w-full md:justify-start gap-2 text-sm px-3 py-2 shrink-0"
-                          >
-                            <i.icon className="h-4 w-4" /> {i.label}
-                          </TabsTrigger>
-                        ))}
-                      </div>
-                    )}
+            <div className="w-full md:w-64 shrink-0">
+              <Card className="overflow-hidden border shadow-sm">
+                <CardContent className="p-2">
+                  <div className="px-2 pt-1 pb-2">
+                    <p className="text-sm font-semibold">Report Selection</p>
+                    <p className="text-xs text-muted-foreground">Choose a report category</p>
                   </div>
-                ))}
-              </TabsList>
-            </>
+                  <Accordion type="multiple" defaultValue={visibleGroups.map((group) => group.key)} className="w-full">
+                    {visibleGroups.map((group) => {
+                      const selected = group.items.find((item) => item.value === activeTab);
+                      return (
+                        <AccordionItem key={group.key} value={group.key} className="border-b last:border-b-0">
+                          <AccordionTrigger className="px-2.5 py-3 hover:no-underline hover:bg-muted/50 rounded-md">
+                            <span className="flex min-w-0 items-center gap-2 text-left">
+                              <span className="font-semibold text-sm">{group.label}</span>
+                              <Badge variant="secondary" className="ml-auto mr-1 h-5 px-1.5 text-[10px]">
+                                {group.items.length}
+                              </Badge>
+                            </span>
+                          </AccordionTrigger>
+                          <AccordionContent className="pb-1">
+                            <div className="space-y-1 px-1">
+                              {group.items.map((item) => {
+                                const Icon = item.icon;
+                                const isActive = activeTab === item.value;
+                                return (
+                                  <button
+                                    key={item.value}
+                                    type="button"
+                                    onClick={() => setActiveTab(item.value)}
+                                    aria-current={isActive ? "page" : undefined}
+                                    className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm transition-colors ${
+                                      isActive
+                                        ? "bg-primary text-primary-foreground shadow-sm"
+                                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                    }`}
+                                  >
+                                    <Icon className="h-4 w-4 shrink-0" />
+                                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      );
+                    })}
+                  </Accordion>
+                </CardContent>
+              </Card>
+            </div>
           );
         })()}
 
