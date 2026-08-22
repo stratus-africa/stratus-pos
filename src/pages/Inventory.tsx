@@ -32,7 +32,6 @@ import {
 } from "lucide-react";
 import { StockCountsTab } from "@/components/inventory/StockCountsTab";
 import { StockReconciliationTab } from "@/components/inventory/StockReconciliationTab";
-import { StockTransfersTab } from "@/components/inventory/StockTransfersTab";
 
 import { useInventory, type SortKey, type AdjustmentDocument } from "@/hooks/useInventory";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -52,7 +51,6 @@ const INVENTORY_TABS = [
   { key: "adjustments", label: "Adjustments", icon: <ClipboardList className="h-4 w-4" /> },
   { key: "counts", label: "Stock Take", icon: <ClipboardCheck className="h-4 w-4" /> },
   { key: "reconciliation", label: "Reconciliation", icon: <Scale className="h-4 w-4" /> },
-  { key: "transfers", label: "Stock Transfers", icon: <ArrowLeftRight className="h-4 w-4" /> },
 ] as const;
 type StockSort = "name_asc" | "name_desc" | "barcode_asc" | "barcode_desc" | "qty_asc" | "qty_desc";
 
@@ -118,7 +116,6 @@ const Inventory = () => {
     if (tab.key === "adjustments") return canViewAdjustments;
     if (tab.key === "counts") return canStockCount;
     if (tab.key === "reconciliation") return canReconcileStock;
-    if (tab.key === "transfers") return canViewTransfers;
     return canViewInventory;
   });
 
@@ -557,10 +554,6 @@ const Inventory = () => {
 
         <TabsContent value="reconciliation">
           <StockReconciliationTab />
-        </TabsContent>
-
-        <TabsContent value="transfers">
-          <StockTransfersTab />
         </TabsContent>
 
         <TabsContent value="stock" className="space-y-4">
