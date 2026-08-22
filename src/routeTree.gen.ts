@@ -48,11 +48,15 @@ import { Route as AppPurchasesNewRouteImport } from './routes/_app.purchases.new
 import { Route as SuperSuperAdminIndexRouteImport } from './routes/_super.super-admin.index'
 import { Route as SuperSuperAdminActivityRouteImport } from './routes/_super.super-admin.activity'
 import { Route as SuperSuperAdminAnnouncementsRouteImport } from './routes/_super.super-admin.announcements'
+import { Route as SuperSuperAdminFeatureFlagsRouteImport } from './routes/_super.super-admin.feature-flags'
+import { Route as SuperSuperAdminHealthRouteImport } from './routes/_super.super-admin.health'
 import { Route as SuperSuperAdminLandingRouteImport } from './routes/_super.super-admin.landing'
 import { Route as SuperSuperAdminModulesRouteImport } from './routes/_super.super-admin.modules'
 import { Route as SuperSuperAdminNotificationsRouteImport } from './routes/_super.super-admin.notifications'
 import { Route as SuperSuperAdminPaymentsRouteImport } from './routes/_super.super-admin.payments'
+import { Route as SuperSuperAdminRevenueRouteImport } from './routes/_super.super-admin.revenue'
 import { Route as SuperSuperAdminSubscriptionsRouteImport } from './routes/_super.super-admin.subscriptions'
+import { Route as SuperSuperAdminSupportRouteImport } from './routes/_super.super-admin.support'
 import { Route as SuperSuperAdminTenantApprovalsRouteImport } from './routes/_super.super-admin.tenant-approvals'
 import { Route as SuperSuperAdminUsersRouteImport } from './routes/_super.super-admin.users'
 import { Route as AppPurchasesIdEditRouteImport } from './routes/_app.purchases.$id.edit'
@@ -268,6 +272,17 @@ const SuperSuperAdminAnnouncementsRoute =
     path: '/super-admin/announcements',
     getParentRoute: () => SuperRoute,
   } as any)
+const SuperSuperAdminFeatureFlagsRoute =
+  SuperSuperAdminFeatureFlagsRouteImport.update({
+    id: '/super-admin/feature-flags',
+    path: '/super-admin/feature-flags',
+    getParentRoute: () => SuperRoute,
+  } as any)
+const SuperSuperAdminHealthRoute = SuperSuperAdminHealthRouteImport.update({
+  id: '/super-admin/health',
+  path: '/super-admin/health',
+  getParentRoute: () => SuperRoute,
+} as any)
 const SuperSuperAdminLandingRoute = SuperSuperAdminLandingRouteImport.update({
   id: '/super-admin/landing',
   path: '/super-admin/landing',
@@ -289,12 +304,22 @@ const SuperSuperAdminPaymentsRoute = SuperSuperAdminPaymentsRouteImport.update({
   path: '/super-admin/payments',
   getParentRoute: () => SuperRoute,
 } as any)
+const SuperSuperAdminRevenueRoute = SuperSuperAdminRevenueRouteImport.update({
+  id: '/super-admin/revenue',
+  path: '/super-admin/revenue',
+  getParentRoute: () => SuperRoute,
+} as any)
 const SuperSuperAdminSubscriptionsRoute =
   SuperSuperAdminSubscriptionsRouteImport.update({
     id: '/super-admin/subscriptions',
     path: '/super-admin/subscriptions',
     getParentRoute: () => SuperRoute,
   } as any)
+const SuperSuperAdminSupportRoute = SuperSuperAdminSupportRouteImport.update({
+  id: '/super-admin/support',
+  path: '/super-admin/support',
+  getParentRoute: () => SuperRoute,
+} as any)
 const SuperSuperAdminTenantApprovalsRoute =
   SuperSuperAdminTenantApprovalsRouteImport.update({
     id: '/super-admin/tenant-approvals',
@@ -446,11 +471,15 @@ export interface FileRoutesByFullPath {
   '/purchases/new': typeof AppPurchasesNewRoute
   '/super-admin/activity': typeof SuperSuperAdminActivityRoute
   '/super-admin/announcements': typeof SuperSuperAdminAnnouncementsRoute
+  '/super-admin/feature-flags': typeof SuperSuperAdminFeatureFlagsRoute
+  '/super-admin/health': typeof SuperSuperAdminHealthRoute
   '/super-admin/landing': typeof SuperSuperAdminLandingRoute
   '/super-admin/modules': typeof SuperSuperAdminModulesRoute
   '/super-admin/notifications': typeof SuperSuperAdminNotificationsRoute
   '/super-admin/payments': typeof SuperSuperAdminPaymentsRoute
+  '/super-admin/revenue': typeof SuperSuperAdminRevenueRoute
   '/super-admin/subscriptions': typeof SuperSuperAdminSubscriptionsRoute
+  '/super-admin/support': typeof SuperSuperAdminSupportRoute
   '/super-admin/tenant-approvals': typeof SuperSuperAdminTenantApprovalsRoute
   '/super-admin/users': typeof SuperSuperAdminUsersRoute
   '/purchases/': typeof AppPurchasesIndexRoute
@@ -510,11 +539,15 @@ export interface FileRoutesByTo {
   '/purchases/new': typeof AppPurchasesNewRoute
   '/super-admin/activity': typeof SuperSuperAdminActivityRoute
   '/super-admin/announcements': typeof SuperSuperAdminAnnouncementsRoute
+  '/super-admin/feature-flags': typeof SuperSuperAdminFeatureFlagsRoute
+  '/super-admin/health': typeof SuperSuperAdminHealthRoute
   '/super-admin/landing': typeof SuperSuperAdminLandingRoute
   '/super-admin/modules': typeof SuperSuperAdminModulesRoute
   '/super-admin/notifications': typeof SuperSuperAdminNotificationsRoute
   '/super-admin/payments': typeof SuperSuperAdminPaymentsRoute
+  '/super-admin/revenue': typeof SuperSuperAdminRevenueRoute
   '/super-admin/subscriptions': typeof SuperSuperAdminSubscriptionsRoute
+  '/super-admin/support': typeof SuperSuperAdminSupportRoute
   '/super-admin/tenant-approvals': typeof SuperSuperAdminTenantApprovalsRoute
   '/super-admin/users': typeof SuperSuperAdminUsersRoute
   '/purchases': typeof AppPurchasesIndexRoute
@@ -577,11 +610,15 @@ export interface FileRoutesById {
   '/_app/purchases/new': typeof AppPurchasesNewRoute
   '/_super/super-admin/activity': typeof SuperSuperAdminActivityRoute
   '/_super/super-admin/announcements': typeof SuperSuperAdminAnnouncementsRoute
+  '/_super/super-admin/feature-flags': typeof SuperSuperAdminFeatureFlagsRoute
+  '/_super/super-admin/health': typeof SuperSuperAdminHealthRoute
   '/_super/super-admin/landing': typeof SuperSuperAdminLandingRoute
   '/_super/super-admin/modules': typeof SuperSuperAdminModulesRoute
   '/_super/super-admin/notifications': typeof SuperSuperAdminNotificationsRoute
   '/_super/super-admin/payments': typeof SuperSuperAdminPaymentsRoute
+  '/_super/super-admin/revenue': typeof SuperSuperAdminRevenueRoute
   '/_super/super-admin/subscriptions': typeof SuperSuperAdminSubscriptionsRoute
+  '/_super/super-admin/support': typeof SuperSuperAdminSupportRoute
   '/_super/super-admin/tenant-approvals': typeof SuperSuperAdminTenantApprovalsRoute
   '/_super/super-admin/users': typeof SuperSuperAdminUsersRoute
   '/_app/purchases/': typeof AppPurchasesIndexRoute
@@ -643,11 +680,15 @@ export interface FileRouteTypes {
     | '/purchases/new'
     | '/super-admin/activity'
     | '/super-admin/announcements'
+    | '/super-admin/feature-flags'
+    | '/super-admin/health'
     | '/super-admin/landing'
     | '/super-admin/modules'
     | '/super-admin/notifications'
     | '/super-admin/payments'
+    | '/super-admin/revenue'
     | '/super-admin/subscriptions'
+    | '/super-admin/support'
     | '/super-admin/tenant-approvals'
     | '/super-admin/users'
     | '/purchases/'
@@ -707,11 +748,15 @@ export interface FileRouteTypes {
     | '/purchases/new'
     | '/super-admin/activity'
     | '/super-admin/announcements'
+    | '/super-admin/feature-flags'
+    | '/super-admin/health'
     | '/super-admin/landing'
     | '/super-admin/modules'
     | '/super-admin/notifications'
     | '/super-admin/payments'
+    | '/super-admin/revenue'
     | '/super-admin/subscriptions'
+    | '/super-admin/support'
     | '/super-admin/tenant-approvals'
     | '/super-admin/users'
     | '/purchases'
@@ -773,11 +818,15 @@ export interface FileRouteTypes {
     | '/_app/purchases/new'
     | '/_super/super-admin/activity'
     | '/_super/super-admin/announcements'
+    | '/_super/super-admin/feature-flags'
+    | '/_super/super-admin/health'
     | '/_super/super-admin/landing'
     | '/_super/super-admin/modules'
     | '/_super/super-admin/notifications'
     | '/_super/super-admin/payments'
+    | '/_super/super-admin/revenue'
     | '/_super/super-admin/subscriptions'
+    | '/_super/super-admin/support'
     | '/_super/super-admin/tenant-approvals'
     | '/_super/super-admin/users'
     | '/_app/purchases/'
@@ -1093,6 +1142,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SuperSuperAdminAnnouncementsRouteImport
       parentRoute: typeof SuperRoute
     }
+    '/_super/super-admin/feature-flags': {
+      id: '/_super/super-admin/feature-flags'
+      path: '/super-admin/feature-flags'
+      fullPath: '/super-admin/feature-flags'
+      preLoaderRoute: typeof SuperSuperAdminFeatureFlagsRouteImport
+      parentRoute: typeof SuperRoute
+    }
+    '/_super/super-admin/health': {
+      id: '/_super/super-admin/health'
+      path: '/super-admin/health'
+      fullPath: '/super-admin/health'
+      preLoaderRoute: typeof SuperSuperAdminHealthRouteImport
+      parentRoute: typeof SuperRoute
+    }
     '/_super/super-admin/landing': {
       id: '/_super/super-admin/landing'
       path: '/super-admin/landing'
@@ -1121,11 +1184,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SuperSuperAdminPaymentsRouteImport
       parentRoute: typeof SuperRoute
     }
+    '/_super/super-admin/revenue': {
+      id: '/_super/super-admin/revenue'
+      path: '/super-admin/revenue'
+      fullPath: '/super-admin/revenue'
+      preLoaderRoute: typeof SuperSuperAdminRevenueRouteImport
+      parentRoute: typeof SuperRoute
+    }
     '/_super/super-admin/subscriptions': {
       id: '/_super/super-admin/subscriptions'
       path: '/super-admin/subscriptions'
       fullPath: '/super-admin/subscriptions'
       preLoaderRoute: typeof SuperSuperAdminSubscriptionsRouteImport
+      parentRoute: typeof SuperRoute
+    }
+    '/_super/super-admin/support': {
+      id: '/_super/super-admin/support'
+      path: '/super-admin/support'
+      fullPath: '/super-admin/support'
+      preLoaderRoute: typeof SuperSuperAdminSupportRouteImport
       parentRoute: typeof SuperRoute
     }
     '/_super/super-admin/tenant-approvals': {
@@ -1330,11 +1407,15 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 interface SuperRouteChildren {
   SuperSuperAdminActivityRoute: typeof SuperSuperAdminActivityRoute
   SuperSuperAdminAnnouncementsRoute: typeof SuperSuperAdminAnnouncementsRoute
+  SuperSuperAdminFeatureFlagsRoute: typeof SuperSuperAdminFeatureFlagsRoute
+  SuperSuperAdminHealthRoute: typeof SuperSuperAdminHealthRoute
   SuperSuperAdminLandingRoute: typeof SuperSuperAdminLandingRoute
   SuperSuperAdminModulesRoute: typeof SuperSuperAdminModulesRoute
   SuperSuperAdminNotificationsRoute: typeof SuperSuperAdminNotificationsRoute
   SuperSuperAdminPaymentsRoute: typeof SuperSuperAdminPaymentsRoute
+  SuperSuperAdminRevenueRoute: typeof SuperSuperAdminRevenueRoute
   SuperSuperAdminSubscriptionsRoute: typeof SuperSuperAdminSubscriptionsRoute
+  SuperSuperAdminSupportRoute: typeof SuperSuperAdminSupportRoute
   SuperSuperAdminTenantApprovalsRoute: typeof SuperSuperAdminTenantApprovalsRoute
   SuperSuperAdminUsersRoute: typeof SuperSuperAdminUsersRoute
   SuperSuperAdminIndexRoute: typeof SuperSuperAdminIndexRoute
@@ -1360,11 +1441,15 @@ interface SuperRouteChildren {
 const SuperRouteChildren: SuperRouteChildren = {
   SuperSuperAdminActivityRoute: SuperSuperAdminActivityRoute,
   SuperSuperAdminAnnouncementsRoute: SuperSuperAdminAnnouncementsRoute,
+  SuperSuperAdminFeatureFlagsRoute: SuperSuperAdminFeatureFlagsRoute,
+  SuperSuperAdminHealthRoute: SuperSuperAdminHealthRoute,
   SuperSuperAdminLandingRoute: SuperSuperAdminLandingRoute,
   SuperSuperAdminModulesRoute: SuperSuperAdminModulesRoute,
   SuperSuperAdminNotificationsRoute: SuperSuperAdminNotificationsRoute,
   SuperSuperAdminPaymentsRoute: SuperSuperAdminPaymentsRoute,
+  SuperSuperAdminRevenueRoute: SuperSuperAdminRevenueRoute,
   SuperSuperAdminSubscriptionsRoute: SuperSuperAdminSubscriptionsRoute,
+  SuperSuperAdminSupportRoute: SuperSuperAdminSupportRoute,
   SuperSuperAdminTenantApprovalsRoute: SuperSuperAdminTenantApprovalsRoute,
   SuperSuperAdminUsersRoute: SuperSuperAdminUsersRoute,
   SuperSuperAdminIndexRoute: SuperSuperAdminIndexRoute,

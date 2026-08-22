@@ -93,6 +93,7 @@ const navGroups: NavGroup[] = [
       { title: "Platform Health", url: "/super-admin/health", icon: HeartPulse },
       { title: "Feature Flags", url: "/super-admin/feature-flags", icon: Flag },
       { title: "Support & Impersonation", url: "/super-admin/support", icon: Headset },
+      { title: "Security Center", url: "/super-admin/security", icon: Shield },
     ],
   },
   {
