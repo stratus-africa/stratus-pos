@@ -15,7 +15,7 @@ interface FeatureGateProps {
   fallback?: React.ReactNode;
 }
 
-export function FeatureGate({ requiredTier, moduleKey, children, fallback }: FeatureGateProps) {
+export function FeatureGate({ requiredTier, moduleKey, featureKey, children, fallback }: FeatureGateProps) {
   const { hasModule, hasFeatureKey, hasPlan, isLoading, resolutionStatus, entitlementError } = useEntitlement();
   const navigate = useNavigate();
 
