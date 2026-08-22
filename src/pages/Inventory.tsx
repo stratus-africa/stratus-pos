@@ -28,7 +28,6 @@ import {
   Printer,
   Upload,
   Scale,
-  ArrowLeftRight,
 } from "lucide-react";
 import { StockCountsTab } from "@/components/inventory/StockCountsTab";
 import { StockReconciliationTab } from "@/components/inventory/StockReconciliationTab";
@@ -92,10 +91,6 @@ const Inventory = () => {
   const canViewAdjustments = canViewInventory || hasPermission("inventory.view_movements");
   const canStockCount = hasPermission("inventory.count_create") || hasPermission("inventory.count_perform");
   const canReconcileStock = hasPermission("inventory.count_approve");
-  const canViewTransfers =
-    hasPermission("inventory.transfer") ||
-    hasPermission("inventory.approve_transfer") ||
-    hasPermission("inventory.receive");
   const canEditAdjustments = canAdjustStock;
   const { createPurchase } = usePurchases();
   const [searchParams, setSearchParams] = useSearchParams();
