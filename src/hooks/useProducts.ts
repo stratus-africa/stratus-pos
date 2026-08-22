@@ -40,6 +40,9 @@ export interface Product {
   tax_rate: number | null;
   image_url: string | null;
   is_active: boolean;
+  archived_at?: string | null;
+  archived_by?: string | null;
+  track_serials?: boolean;
   allow_decimal_quantity?: boolean;
   created_at: string;
   kra_item_code?: string | null;
@@ -93,6 +96,9 @@ export interface ProductFormData {
   selling_price: number;
   tax_rate?: number;
   is_active?: boolean;
+  archived_at?: string | null;
+  archived_by?: string | null;
+  track_serials?: boolean;
   allow_decimal_quantity?: boolean;
   image_url?: string | null;
   kra_item_code?: string | null;
@@ -293,6 +299,33 @@ export function useProducts() {
     onError: (e) => toast.error(e.message),
   });
 
+  const archiveProduct = useMutation({
+    mutationFn: async (id: string) => {
+      const { data: user } = await supabase.auth.getUser();
+      const { error } = await supabase.from("products").update({ is_active: false, archived_at: new Date().toISOString(), archived_by: user.user?.id ?? null }).eq("id", id);
+      if (error) throw error;
+      if (business) {
+        const { logAudit } = await import("@/lib/audit");
+        await logAudit({ business_id: business.id, action: "product_archived", entity_type: "product", entity_id: id, description: `Archived item ${id}` });
+      }
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); toast.success("Product archived"); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const restoreProduct = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("products").update({ is_active: true, archived_at: null, archived_by: null }).eq("id", id);
+      if (error) throw error;
+      if (business) {
+        const { logAudit } = await import("@/lib/audit");
+        await logAudit({ business_id: business.id, action: "product_restored", entity_type: "product", entity_id: id, description: `Restored item ${id}` });
+      }
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); toast.success("Product restored"); },
+    onError: (e) => toast.error(e.message),
+  });
+
   const deleteProduct = useMutation({
     mutationFn: async (id: string) => {
       const { data: before } = await supabase.from("products").select("name").eq("id", id).maybeSingle();
@@ -317,7 +350,7 @@ export function useProducts() {
   });
 
 
-  return { productsQuery, createProduct, updateProduct, deleteProduct };
+  return { productsQuery, createProduct, updateProduct, deleteProduct, archiveProduct, restoreProduct };
 }
 
 export function useCategories() {
