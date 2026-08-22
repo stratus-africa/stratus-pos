@@ -18,6 +18,7 @@ interface LocationForm {
   type: string;
   address: string;
   is_active: boolean;
+
   /** null = inherit business default, true/false = override */
   pos_require_manager_to_remove_item: boolean | null;
 }
@@ -32,6 +33,7 @@ const emptyForm: LocationForm = {
 
 export function LocationsTab() {
   const { business, locations, refreshBusiness } = useBusiness();
+
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<LocationForm>(emptyForm);
@@ -45,6 +47,7 @@ export function LocationsTab() {
 
   const openEdit = (loc: any) => {
     setEditId(loc.id);
+
     setForm({
       name: loc.name,
       type: loc.type,
@@ -52,11 +55,15 @@ export function LocationsTab() {
       is_active: loc.is_active,
       pos_require_manager_to_remove_item: loc.pos_require_manager_to_remove_item ?? null,
     });
+
     setOpen(true);
   };
 
   const handleSave = async () => {
-    if (!business || !form.name.trim()) return;
+    if (!business || !form.name.trim()) {
+      return;
+    }
+
     setSaving(true);
 
     if (editId) {
@@ -70,23 +77,30 @@ export function LocationsTab() {
           pos_require_manager_to_remove_item: form.pos_require_manager_to_remove_item,
         } as never)
         .eq("id", editId);
-      if (error) toast.error(error.message);
-      else toast.success("Location updated");
+
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success("Location updated");
+      }
     } else {
-      const { error } = await supabase
-        .from("locations")
-        .insert({
-          business_id: business.id,
-          name: form.name.trim(),
-          type: form.type,
-          address: form.address || null,
-          pos_require_manager_to_remove_item: form.pos_require_manager_to_remove_item,
-        } as never);
-      if (error) toast.error(error.message);
-      else toast.success("Location added");
+      const { error } = await supabase.from("locations").insert({
+        business_id: business.id,
+        name: form.name.trim(),
+        type: form.type,
+        address: form.address || null,
+        pos_require_manager_to_remove_item: form.pos_require_manager_to_remove_item,
+      } as never);
+
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success("Location added");
+      }
     }
 
     await refreshBusiness();
+
     setSaving(false);
     setOpen(false);
   };
@@ -95,13 +109,19 @@ export function LocationsTab() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <CardTitle>Locations</CardTitle>
-          <CardDescription>Manage stores, warehouses, and other locations.</CardDescription>
+          <CardTitle>Locations &amp; Multi-Location</CardTitle>
+
+          <CardDescription>
+            Manage stores, warehouses, branches, and multi-location operations for your business.
+          </CardDescription>
         </div>
+
         <Button size="sm" onClick={openNew}>
-          <Plus className="mr-1 h-4 w-4" /> Add Location
+          <Plus className="mr-1 h-4 w-4" />
+          Add Location
         </Button>
       </CardHeader>
+
       <CardContent>
         <Table>
           <TableHeader>
@@ -113,6 +133,7 @@ export function LocationsTab() {
               <TableHead className="w-[60px]" />
             </TableRow>
           </TableHeader>
+
           <TableBody>
             {locations.length === 0 && (
               <TableRow>
@@ -121,19 +142,24 @@ export function LocationsTab() {
                 </TableCell>
               </TableRow>
             )}
+
             {locations.map((loc) => (
               <TableRow key={loc.id}>
                 <TableCell className="font-medium flex items-center gap-1.5">
                   <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
                   {loc.name}
                 </TableCell>
+
                 <TableCell className="capitalize">{loc.type}</TableCell>
+
                 <TableCell className="text-muted-foreground text-sm">{loc.address || "—"}</TableCell>
+
                 <TableCell>
                   <Badge variant={loc.is_active ? "default" : "secondary"}>
                     {loc.is_active ? "Active" : "Inactive"}
                   </Badge>
                 </TableCell>
+
                 <TableCell>
                   <Button variant="ghost" size="icon" onClick={() => openEdit(loc)}>
                     <Pencil className="h-4 w-4" />
@@ -150,37 +176,91 @@ export function LocationsTab() {
           <DialogHeader>
             <DialogTitle>{editId ? "Edit Location" : "Add Location"}</DialogTitle>
           </DialogHeader>
+
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Name</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Main Store" />
+
+              <Input
+                value={form.name}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    name: e.target.value,
+                  })
+                }
+                placeholder="Main Store"
+              />
             </div>
+
             <div className="space-y-2">
               <Label>Type</Label>
-              <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+
+              <Select
+                value={form.type}
+                onValueChange={(v) =>
+                  setForm({
+                    ...form,
+                    type: v,
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+
                 <SelectContent>
                   <SelectItem value="store">Store</SelectItem>
+
                   <SelectItem value="warehouse">Warehouse</SelectItem>
+
                   <SelectItem value="office">Office</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
             <div className="space-y-2">
               <Label>Address</Label>
-              <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Optional" />
+
+              <Input
+                value={form.address}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    address: e.target.value,
+                  })
+                }
+                placeholder="Optional"
+              />
             </div>
+
             {editId && (
               <div className="flex items-center gap-2">
-                <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
+                <Switch
+                  checked={form.is_active}
+                  onCheckedChange={(v) =>
+                    setForm({
+                      ...form,
+                      is_active: v,
+                    })
+                  }
+                />
+
                 <Label>Active</Label>
               </div>
             )}
 
             <div className="space-y-2 pt-2 border-t">
               <Label>Manager approval to remove POS items</Label>
+
               <Select
-                value={form.pos_require_manager_to_remove_item === null ? "inherit" : form.pos_require_manager_to_remove_item ? "required" : "not_required"}
+                value={
+                  form.pos_require_manager_to_remove_item === null
+                    ? "inherit"
+                    : form.pos_require_manager_to_remove_item
+                      ? "required"
+                      : "not_required"
+                }
                 onValueChange={(v) =>
                   setForm({
                     ...form,
@@ -188,18 +268,30 @@ export function LocationsTab() {
                   })
                 }
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+
                 <SelectContent>
                   <SelectItem value="inherit">Inherit from business default</SelectItem>
+
                   <SelectItem value="required">Required at this location</SelectItem>
+
                   <SelectItem value="not_required">Not required at this location</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">Overrides the business-wide setting only for this location.</p>
+
+              <p className="text-xs text-muted-foreground">
+                Overrides the business-wide setting only for this location.
+              </p>
             </div>
           </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+
             <Button onClick={handleSave} disabled={saving || !form.name.trim()}>
               {editId ? "Update" : "Create"}
             </Button>
