@@ -24,9 +24,10 @@ export function usePostSaleToLedger() {
       if (saleError) throw saleError;
       if (!sale?.business_id) throw new Error("Sale business could not be determined.");
 
-      const { error: ensureError } = await (supabase as any).rpc("finance_ensure_sale_accounting_rules", {
-        _business_id: sale.business_id,
-      });
+      const { error: ensureError } = await (supabase as any).rpc(
+        "finance_ensure_sale_accounting_rules",
+        { _business_id: sale.business_id },
+      );
 
       if (ensureError) throw ensureError;
 
