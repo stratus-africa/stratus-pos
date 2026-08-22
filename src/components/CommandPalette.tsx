@@ -14,8 +14,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { APP_MODULES, resolveModuleAccess } from "@/lib/modules";
-import { useSubscription } from "@/hooks/useSubscription";
+import { APP_MODULES } from "@/lib/modules";
+import { useEntitlement } from "@/hooks/useEntitlement";
 
 type NavEntry = {
   label: string;
@@ -42,7 +42,7 @@ export function CommandPalette() {
   const { permissions, hasPermission } = usePermissions();
   const { isSuperAdmin } = useSuperAdmin();
   const { userRole } = useBusiness();
-  const { hasFeatureKey } = useSubscription();
+  const { hasModule, isLoading: entitlementLoading } = useEntitlement();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -57,26 +57,20 @@ export function CommandPalette() {
 
   if (!user) return null;
 
-  const nav = APP_MODULES.filter((module) => {
-    if (!module.route) return false;
-    const access = resolveModuleAccess(module.key, {
-      role: userRole,
-      permissions,
-      featureKey: hasFeatureKey,
-      moduleEnabled: () => true,
-      dependenciesReady: () => true,
-      setupComplete: () => true,
-      subscriptions: new Set(),
-    });
-    return access.allowed;
-  }).map((module) => ({
-    label: module.label,
-    url: module.route!,
-    icon: module.Icon,
-    group: "Navigate" as const,
-    keywords: `${module.label} ${module.description}`,
-    permission: module.permissions[0],
-  }));
+  const nav = entitlementLoading
+    ? []
+    : APP_MODULES.filter((module) => {
+        if (!module.route || !hasModule(module.key)) return false;
+        if (module.roles?.length && (!userRole || !module.roles.includes(userRole as any))) return false;
+        return module.permissions.length === 0 || module.permissions.some((permission) => hasPermission(permission));
+      }).map((module) => ({
+        label: module.label,
+        url: module.route!,
+        icon: module.Icon,
+        group: "Navigate" as const,
+        keywords: `${module.label} ${module.description}`,
+        permission: module.permissions[0],
+      }));
 
   const admin = isSuperAdmin ? SUPER_ADMIN_ENTRIES : [];
 
