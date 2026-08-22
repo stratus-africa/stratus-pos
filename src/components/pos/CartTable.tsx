@@ -21,12 +21,24 @@ interface CartTableProps {
   onBeforeRemove?: (item: CartItem) => Promise<boolean> | boolean;
   /** Live stock at the selected location; used for over-quantity warnings. */
   stockOf?: (productId: string) => number;
+  canEditCart?: boolean;
+  canChangePrice?: boolean;
+  canApplyLineDiscount?: boolean;
 }
 
 const fmt = (n: number) =>
   n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export const CartTable = memo(function CartTable({ items, onUpdate, onRemove, onBeforeRemove, stockOf }: CartTableProps) {
+export const CartTable = memo(function CartTable({
+  items,
+  onUpdate,
+  onRemove,
+  onBeforeRemove,
+  stockOf,
+  canEditCart = true,
+  canChangePrice = true,
+  canApplyLineDiscount = true,
+}: CartTableProps) {
 
   const [pending, setPending] = useState<CartItem | null>(null);
 
@@ -49,9 +61,10 @@ export const CartTable = memo(function CartTable({ items, onUpdate, onRemove, on
             <tr className="bg-muted text-muted-foreground">
               <th className="text-left font-medium px-1 sm:px-2 py-2 sm:py-3 w-[10%]">S.N.</th>
               <th className="text-left font-medium px-1 sm:px-2 py-2 sm:py-3 w-[35%]">Item</th>
-              <th className="text-right font-medium px-1 py-2 sm:py-3 w-[18%]">Rate</th>
-              <th className="text-center font-medium px-1 py-2 sm:py-3 w-[14%]">Qty</th>
-              <th className="text-right font-medium px-1 sm:px-2 py-2 sm:py-3 w-[18%]">Net</th>
+              <th className="text-right font-medium px-1 py-2 sm:py-3 w-[17%]">Rate</th>
+              <th className="text-right font-medium px-1 py-2 sm:py-3 w-[14%]">Discount</th>
+              <th className="text-center font-medium px-1 py-2 sm:py-3 w-[13%]">Qty</th>
+              <th className="text-right font-medium px-1 sm:px-2 py-2 sm:py-3 w-[16%]">Net</th>
               <th className="w-[5%]" />
             </tr>
           </thead>
@@ -84,12 +97,33 @@ export const CartTable = memo(function CartTable({ items, onUpdate, onRemove, on
                       min={0}
                       step="0.01"
                       value={item.unit_price}
+                      readOnly={!canChangePrice}
+                      disabled={!canChangePrice}
                       onChange={(e) => {
                         const v = parseFloat(e.target.value);
                         onUpdate(item.product.id, { unit_price: Number.isNaN(v) ? 0 : Math.max(0, v) });
                       }}
                       className="h-8 sm:h-10 w-full text-right px-1 text-sm sm:text-base"
                       aria-label={`Rate for ${item.product.name}`}
+                      title={canChangePrice ? "Selling price" : "Price override permission required"}
+                    />
+                  </td>
+                  <td className="px-1 py-2 sm:py-3 align-middle">
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={item.discount}
+                      readOnly={!canApplyLineDiscount}
+                      disabled={!canApplyLineDiscount}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value);
+                        const gross = item.unit_price * item.quantity;
+                        onUpdate(item.product.id, { discount: Number.isNaN(v) ? 0 : Math.min(gross, Math.max(0, v)) });
+                      }}
+                      className="h-8 sm:h-10 w-full text-right px-1 text-sm sm:text-base"
+                      aria-label={`Discount for ${item.product.name}`}
+                      title={canApplyLineDiscount ? "Line discount" : "Discount permission required"}
                     />
                   </td>
                   <td className="px-1 py-2 sm:py-3 align-middle">
@@ -98,6 +132,7 @@ export const CartTable = memo(function CartTable({ items, onUpdate, onRemove, on
                       min={allowDecimal ? 0.01 : 1}
                       step={allowDecimal ? 0.01 : 1}
                       value={item.quantity}
+                      disabled={!canEditCart}
                       onChange={(e) => {
                         const v = parseFloat(e.target.value);
                         if (Number.isNaN(v)) return;
@@ -116,6 +151,7 @@ export const CartTable = memo(function CartTable({ items, onUpdate, onRemove, on
                       variant="ghost"
                       className="h-8 w-8 sm:h-9 sm:w-9 text-destructive hover:bg-destructive/10"
                       onClick={() => setPending(item)}
+                      disabled={!canEditCart}
                       aria-label={`Remove ${item.product.name}`}
                     >
                       <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
