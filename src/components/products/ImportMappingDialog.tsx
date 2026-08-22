@@ -7,7 +7,8 @@ import { Loader2, ArrowRight } from "lucide-react";
 
 export type FieldKey =
   | "name" | "sku" | "barcode" | "category" | "brand" | "unit"
-  | "purchase_price" | "selling_price" | "tax_rate" | "active";
+  | "purchase_price" | "selling_price" | "tax_rate" | "active"
+  | "opening_stock_quantity" | "opening_stock_value" | "opening_stock_date";
 
 export interface FieldDef { key: FieldKey; label: string; required?: boolean; }
 
@@ -24,6 +25,12 @@ export const PRODUCT_FIELDS: FieldDef[] = [
   { key: "active", label: "Active" },
 ];
 
+export const OPENING_STOCK_FIELDS: FieldDef[] = [
+  { key: "opening_stock_quantity", label: "Opening Stock Quantity" },
+  { key: "opening_stock_value", label: "Opening Stock Value" },
+  { key: "opening_stock_date", label: "Opening Stock Date" },
+];
+
 interface Props {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -31,24 +38,27 @@ interface Props {
   sampleRow?: Record<string, any>;
   importing?: boolean;
   onConfirm: (mapping: Record<FieldKey, string | null>) => void;
+  includeOpeningStock?: boolean;
 }
 
 const norm = (s: string) => s.toLowerCase().replace(/[\s_-]+/g, "");
 
-export default function ImportMappingDialog({ open, onOpenChange, headers, sampleRow, importing, onConfirm }: Props) {
+export default function ImportMappingDialog({ open, onOpenChange, headers, sampleRow, importing, onConfirm, includeOpeningStock = false }: Props) {
   const [mapping, setMapping] = useState<Record<FieldKey, string | null>>({} as Record<FieldKey, string | null>);
+
+  const fields = includeOpeningStock ? [...PRODUCT_FIELDS, ...OPENING_STOCK_FIELDS] : PRODUCT_FIELDS;
 
   useEffect(() => {
     if (!open) return;
     const m: Record<FieldKey, string | null> = {} as any;
-    PRODUCT_FIELDS.forEach((f) => {
+    fields.forEach((f) => {
       const target = norm(f.label);
       const match = headers.find((h) => norm(h) === target) ||
         headers.find((h) => norm(h).includes(target) || target.includes(norm(h)));
       m[f.key] = match || null;
     });
     setMapping(m);
-  }, [open, headers]);
+  }, [open, headers, includeOpeningStock]);
 
   const ready = useMemo(() => PRODUCT_FIELDS.every((f) => !f.required || mapping[f.key]), [mapping]);
 
@@ -61,7 +71,7 @@ export default function ImportMappingDialog({ open, onOpenChange, headers, sampl
         </DialogHeader>
 
         <div className="space-y-3 py-2">
-          {PRODUCT_FIELDS.map((f) => (
+          {fields.map((f) => (
             <div key={f.key} className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
               <Label className="text-sm">
                 {f.label}{f.required && <span className="text-destructive ml-0.5">*</span>}
