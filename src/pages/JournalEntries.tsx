@@ -25,7 +25,7 @@ import { Link } from "@/lib/router-compat";
 export default function JournalEntries() {
   const { business } = useBusiness();
   const { hasPermission } = usePermissions();
-  const { query, getLines, remove } = useJournalEntries();
+  const { query, getLines, remove, submit, approve, reject, post, reverse } = useJournalEntries();
 
   const canCreate = hasPermission("manual_journals.create");
   const canDelete = hasPermission("manual_journals.delete");
@@ -63,7 +63,7 @@ export default function JournalEntries() {
     setExpanded(id);
   };
 
-  const entries = query.data || [];
+  const entries = (query.data || []).filter((e) => canViewPosted || !["posted", "reversed"].includes(e.status));
   const fmt = (n: number) => `KES ${Number(n).toLocaleString()}`;
 
   return (
@@ -154,32 +154,91 @@ export default function JournalEntries() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {canDelete && e.status === "draft" && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button size="icon" variant="ghost">
-                                <Trash2 className="h-4 w-4 text-destructive" />
+                        <div className="flex items-center justify-end gap-1">
+                          {e.status === "draft" && canSubmit && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={submit.isPending}
+                              onClick={() => submit.mutate(e.id)}
+                            >
+                              Submit
+                            </Button>
+                          )}
+                          {e.status === "submitted" && canApprove && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={approve.isPending}
+                                onClick={() => approve.mutate(e.id)}
+                              >
+                                Approve
                               </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete journal entry?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This will remove the entry and all its lines. This cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => remove.mutate(e.id)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={reject.isPending}
+                                onClick={() => reject.mutate({ id: e.id })}
+                              >
+                                Reject
+                              </Button>
+                            </>
+                          )}
+                          {e.status === "approved" && canPost && (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              disabled={post.isPending}
+                              onClick={() => post.mutate(e.id)}
+                            >
+                              Post
+                            </Button>
+                          )}
+                          {e.status === "posted" && canReverse && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={reverse.isPending}
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    "Reverse this posted journal? A new reversing journal will be created.",
+                                  )
+                                )
+                                  reverse.mutate(e.id);
+                              }}
+                            >
+                              Reverse
+                            </Button>
+                          )}
+                          {canDelete && e.status === "draft" && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="icon" variant="ghost" disabled={remove.isPending}>
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete journal draft?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will permanently remove the draft and its lines.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => remove.mutate(e.id)}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                     {expanded === e.id && (
