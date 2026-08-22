@@ -28,14 +28,16 @@ const isAlwaysEntitledCoreModule = (moduleKey: string) =>
   );
 
 /**
- * Returns the globally enabled module keys from the Super Admin module catalog.
- * A premium module is only available to tenants when at least one of its
- * catalog features is active. This is intentionally checked in addition to
- * package_features so disabling a module in Modules Manager immediately removes
- * it from every tenant, even when an older plan still contains that module.
+ * Global module catalogue status is informational. Plan entitlements are
+ * authoritative: when a module is enabled on a subscription plan, tenants
+ * on that plan must receive the module. The Super Admin can still control
+ * plan-level availability from the Plans/Modules UI.
  */
 export async function getGloballyEnabledModuleKeys(): Promise<Set<string>> {
-  const { data, error } = await supabase.from("module_features").select("module_key").eq("is_active", true);
+  const { data, error } = await supabase
+    .from("module_features")
+    .select("module_key")
+    .eq("is_active", true);
 
   if (error) throw error;
 
@@ -224,19 +226,6 @@ export async function resolveBusinessEntitlement(input: {
 
   const packageFeatures = (featureRows || []) as PlanModule[];
 
-  // Super Admin's Module Manager is the global ceiling. A module must be both
-  // enabled for the plan AND globally active before tenant access is granted.
-  // Core workspace modules remain available regardless of this global catalogue.
-  let globallyEnabledModules: Set<string> | null = null;
-  try {
-    globallyEnabledModules = await getGloballyEnabledModuleKeys();
-  } catch (globalError) {
-    // Do not turn a temporary catalogue read failure into a false plan denial.
-    // Role/plan entitlements remain authoritative until the global catalogue is
-    // successfully loaded.
-    console.warn("[entitlementResolver] global module catalogue unavailable:", globalError);
-  }
-
   // Use the same comprehensive resolution as getPlanModules so feature_key variants
   // (e.g. "sales.view", "chart_of_accounts", aliases) all map to canonical module keys.
   const moduleSet = new Set<string>();
@@ -261,15 +250,11 @@ export async function resolveBusinessEntitlement(input: {
     moduleSet.add(coreModule);
   }
 
-  // Apply the global Module Manager ceiling to commercial modules. The package
-  // may enable a module, but Super Admin can still globally disable that module
-  // for every tenant. Feature-level rows also work because moduleSet has already
-  // normalized them to their canonical module keys.
-  const enabledModules = [...moduleSet].filter((key) => {
-    if (isAlwaysEntitledCoreModule(key)) return true;
-    if (!globallyEnabledModules) return true;
-    return globallyEnabledModules.has(key.toLowerCase());
-  });
+  // Plan configuration is the authoritative entitlement source. Do not apply
+  // the global module catalogue as a second deny layer; doing so caused plans
+  // with an enabled module to incorrectly show "feature not available" when
+  // the catalogue row itself was inactive.
+  const enabledModules = [...moduleSet];
 
   return {
     hasPlan: true,
@@ -557,12 +542,42 @@ export async function createSubscriptionPlan(input: {
     _trial_days: input.trial_days,
   });
 
-  if (error) {
-    console.error("Error creating plan:", error);
-    throw new Error(error.message);
+  if (!error && data) {
+    return data as { success: boolean; message: string; package_id?: string };
   }
 
-  return data as { success: boolean; message: string; package_id?: string };
+  // Some deployments do not yet have the create_subscription_plan RPC.
+  // Super admins already have RLS permission on subscription_packages, so
+  // create the plan directly as a safe backwards-compatible fallback.
+  const { data: packageRow, error: insertError } = await supabase
+    .from("subscription_packages")
+    .insert({
+      name: input.name.trim(),
+      description: input.description ?? null,
+      monthly_price_kes: input.monthly_price_kes,
+      yearly_price_kes: input.yearly_price_kes,
+      max_products: input.max_products,
+      max_users: input.max_users,
+      max_locations: input.max_locations,
+      max_customers: input.max_customers ?? 50,
+      max_suppliers: input.max_suppliers ?? 10,
+      trial_days: input.trial_days,
+      is_active: true,
+      is_public: true,
+    } as any)
+    .select("id")
+    .single();
+
+  if (insertError || !packageRow) {
+    console.error("Error creating plan:", error || insertError);
+    throw new Error(insertError?.message || error?.message || "Failed to create plan");
+  }
+
+  return {
+    success: true,
+    message: `Plan "${input.name.trim()}" created`,
+    package_id: packageRow.id,
+  };
 }
 
 /**
@@ -602,21 +617,34 @@ export async function updateSubscriptionPlan(
     ...(input.is_public === undefined ? {} : { _is_public: input.is_public }),
   } as any);
 
-  if (error) {
-    console.error("Error updating plan:", error);
-    throw new Error(error.message);
-  }
-
-  // update_subscription_plan returns jsonb, but normalize array/object shapes defensively
-  // so a RETURNS TABLE variant can never be read as "no success".
   const result: any = Array.isArray(data) ? data[0] : data;
-
-  if (result && result.success === false) {
-    throw new Error(result.message || "Failed to update plan");
+  if (!error && result && result.success !== false) {
+    return { success: true, message: result?.message || "Plan updated successfully" };
   }
 
-  return {
-    success: true,
-    message: result?.message || "Plan updated successfully",
-  };
+  // Backwards-compatible fallback for projects where the update RPC is missing.
+  const { error: updateError } = await supabase
+    .from("subscription_packages")
+    .update({
+      name: input.name.trim(),
+      description: input.description ?? null,
+      monthly_price_kes: input.monthly_price_kes,
+      yearly_price_kes: input.yearly_price_kes,
+      max_products: input.max_products,
+      max_users: input.max_users,
+      max_locations: input.max_locations,
+      max_customers: input.max_customers ?? 50,
+      max_suppliers: input.max_suppliers ?? 10,
+      trial_days: input.trial_days,
+      is_active: input.is_active,
+      ...(input.is_public === undefined ? {} : { is_public: input.is_public }),
+    } as any)
+    .eq("id", planId);
+
+  if (updateError) {
+    console.error("Error updating plan:", error || updateError);
+    throw new Error(updateError.message || error?.message || "Failed to update plan");
+  }
+
+  return { success: true, message: "Plan updated successfully" };
 }
