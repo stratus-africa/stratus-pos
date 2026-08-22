@@ -1,303 +1,720 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowRightLeft,
+  Building2,
+  CheckCircle2,
+  Edit,
+  MapPin,
+  Plus,
+  RefreshCw,
+  Store,
+  Warehouse,
+  XCircle,
+} from "lucide-react";
+import { toast } from "sonner";
+
+import { supabase } from "@/integrations/supabase/client";
+import { useBusiness } from "@/contexts/BusinessContext";
+import { usePermissions } from "@/hooks/usePermissions";
+
+import StockTransfersTab from "@/components/settings/StockTransfersTab";
+
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Switch } from "@/components/ui/switch";
-import { useBusiness } from "@/contexts/BusinessContext";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { Plus, Pencil, MapPin } from "lucide-react";
+
+type LocationType = "store" | "warehouse" | "branch";
+
+interface Location {
+  id: string;
+  business_id: string;
+  name: string;
+  type: string;
+  address: string | null;
+  is_active: boolean;
+}
 
 interface LocationForm {
   name: string;
-  type: string;
+  type: LocationType;
   address: string;
-  is_active: boolean;
-
-  /** null = inherit business default, true/false = override */
-  pos_require_manager_to_remove_item: boolean | null;
 }
 
-const emptyForm: LocationForm = {
-  name: "",
-  type: "store",
-  address: "",
-  is_active: true,
-  pos_require_manager_to_remove_item: null,
-};
+const LOCATION_TYPES: Array<{
+  value: LocationType;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "store",
+    label: "Store",
+    description: "Retail store or sales outlet",
+  },
+  {
+    value: "warehouse",
+    label: "Warehouse",
+    description: "Warehouse or stock holding facility",
+  },
+  {
+    value: "branch",
+    label: "Branch",
+    description: "Business branch or office",
+  },
+];
+
+function normalizeLocationType(value: string): LocationType {
+  if (value === "warehouse") return "warehouse";
+  if (value === "branch") return "branch";
+  return "store";
+}
+
+function LocationIcon({ type, className = "h-5 w-5" }: { type: string; className?: string }) {
+  if (type === "warehouse") {
+    return <Warehouse className={className} />;
+  }
+
+  if (type === "branch") {
+    return <Building2 className={className} />;
+  }
+
+  return <Store className={className} />;
+}
 
 export function LocationsTab() {
-  const { business, locations, refreshBusiness } = useBusiness();
+  const { business, locations: contextLocations, currentLocation, setCurrentLocation, refreshBusiness } = useBusiness();
 
-  const [open, setOpen] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState<LocationForm>(emptyForm);
+  const { hasPermission } = usePermissions();
+
+  const canViewLocations =
+    hasPermission("multi_location.view") || hasPermission("settings.locations_view") || hasPermission("settings.view");
+
+  const canManageLocations =
+    hasPermission("multi_location.manage_locations") ||
+    hasPermission("settings.locations_create") ||
+    hasPermission("settings.locations_edit") ||
+    hasPermission("settings.locations_disable") ||
+    hasPermission("settings.edit");
+
+  const canTransfer = hasPermission("multi_location.transfer_stock");
+
+  const canApproveTransfers = hasPermission("multi_location.approve_transfers");
+
+  const [locations, setLocations] = useState<Location[]>(contextLocations as Location[]);
+
+  const [loading, setLoading] = useState(false);
+
+  const [activeTab, setActiveTab] = useState("locations");
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const [editingLocation, setEditingLocation] = useState<Location | null>(null);
+
   const [saving, setSaving] = useState(false);
 
-  const openNew = () => {
-    setEditId(null);
-    setForm(emptyForm);
-    setOpen(true);
+  const [form, setForm] = useState<LocationForm>({
+    name: "",
+    type: "store",
+    address: "",
+  });
+
+  const activeLocations = useMemo(() => locations.filter((location) => location.is_active), [locations]);
+
+  const inactiveLocations = useMemo(() => locations.filter((location) => !location.is_active), [locations]);
+
+  const locationLimitReached = false;
+
+  useEffect(() => {
+    setLocations(contextLocations as Location[]);
+  }, [contextLocations]);
+
+  const loadLocations = async () => {
+    if (!business) return;
+
+    setLoading(true);
+
+    try {
+      const { data, error } = await supabase
+        .from("locations")
+        .select("id, business_id, name, type, address, is_active")
+        .eq("business_id", business.id)
+        .order("name", {
+          ascending: true,
+        });
+
+      if (error) throw error;
+
+      setLocations((data || []) as Location[]);
+    } catch (error: any) {
+      toast.error(error?.message || "Unable to load locations");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const openEdit = (loc: any) => {
-    setEditId(loc.id);
+  useEffect(() => {
+    void loadLocations();
+  }, [business?.id]);
+
+  const resetForm = () => {
+    setEditingLocation(null);
 
     setForm({
-      name: loc.name,
-      type: loc.type,
-      address: loc.address || "",
-      is_active: loc.is_active,
-      pos_require_manager_to_remove_item: loc.pos_require_manager_to_remove_item ?? null,
+      name: "",
+      type: "store",
+      address: "",
     });
-
-    setOpen(true);
   };
 
-  const handleSave = async () => {
-    if (!business || !form.name.trim()) {
+  const openCreate = () => {
+    resetForm();
+    setDialogOpen(true);
+  };
+
+  const openEdit = (location: Location) => {
+    setEditingLocation(location);
+
+    setForm({
+      name: location.name,
+      type: normalizeLocationType(location.type),
+      address: location.address || "",
+    });
+
+    setDialogOpen(true);
+  };
+
+  const saveLocation = async () => {
+    if (!business) return;
+
+    if (!canManageLocations) {
+      toast.error("You do not have permission to manage locations.");
+      return;
+    }
+
+    const name = form.name.trim();
+
+    if (!name) {
+      toast.error("Enter a location name.");
+      return;
+    }
+
+    if (name.length < 2) {
+      toast.error("Location name must contain at least 2 characters.");
       return;
     }
 
     setSaving(true);
 
-    if (editId) {
+    try {
+      if (editingLocation) {
+        const { error } = await supabase
+          .from("locations")
+          .update({
+            name,
+            type: form.type,
+            address: form.address.trim() || null,
+          })
+          .eq("id", editingLocation.id)
+          .eq("business_id", business.id);
+
+        if (error) throw error;
+
+        toast.success("Location updated successfully.");
+      } else {
+        if (locationLimitReached) {
+          toast.error("Your subscription has reached its location limit.");
+          return;
+        }
+
+        const { error } = await supabase.from("locations").insert({
+          business_id: business.id,
+          name,
+          type: form.type,
+          address: form.address.trim() || null,
+          is_active: true,
+        });
+
+        if (error) throw error;
+
+        toast.success("Location created successfully.");
+      }
+
+      setDialogOpen(false);
+      resetForm();
+
+      await loadLocations();
+
+      if (refreshBusiness) {
+        await refreshBusiness();
+      }
+    } catch (error: any) {
+      toast.error(error?.message || "Unable to save location.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleLocation = async (location: Location) => {
+    if (!business) return;
+
+    if (!canManageLocations) {
+      toast.error("You do not have permission to change location status.");
+      return;
+    }
+
+    if (location.is_active && activeLocations.length <= 1) {
+      toast.error("The business must have at least one active location.");
+      return;
+    }
+
+    const nextActive = !location.is_active;
+
+    try {
       const { error } = await supabase
         .from("locations")
         .update({
-          name: form.name.trim(),
-          type: form.type,
-          address: form.address || null,
-          is_active: form.is_active,
-          pos_require_manager_to_remove_item: form.pos_require_manager_to_remove_item,
-        } as never)
-        .eq("id", editId);
+          is_active: nextActive,
+        })
+        .eq("id", location.id)
+        .eq("business_id", business.id);
 
-      if (error) {
-        toast.error(error.message);
-      } else {
-        toast.success("Location updated");
-      }
-    } else {
-      const { error } = await supabase.from("locations").insert({
-        business_id: business.id,
-        name: form.name.trim(),
-        type: form.type,
-        address: form.address || null,
-        pos_require_manager_to_remove_item: form.pos_require_manager_to_remove_item,
-      } as never);
+      if (error) throw error;
 
-      if (error) {
-        toast.error(error.message);
-      } else {
-        toast.success("Location added");
+      toast.success(nextActive ? `${location.name} activated.` : `${location.name} disabled.`);
+
+      if (!nextActive && currentLocation?.id === location.id) {
+        const replacement = activeLocations.find((candidate) => candidate.id !== location.id);
+
+        if (replacement) {
+          setCurrentLocation(replacement);
+        }
       }
+
+      await loadLocations();
+
+      if (refreshBusiness) {
+        await refreshBusiness();
+      }
+    } catch (error: any) {
+      toast.error(error?.message || "Unable to change location status.");
     }
-
-    await refreshBusiness();
-
-    setSaving(false);
-    setOpen(false);
   };
 
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Locations &amp; Multi-Location</CardTitle>
+  const selectCurrentLocation = (location: Location) => {
+    if (!location.is_active) {
+      toast.error("Inactive locations cannot be selected.");
+      return;
+    }
 
-          <CardDescription>
-            Manage stores, warehouses, branches, and multi-location operations for your business.
-          </CardDescription>
+    setCurrentLocation(location);
+
+    toast.success(`${location.name} is now your current location.`);
+  };
+
+  if (!canViewLocations) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <MapPin className="mx-auto h-10 w-10 text-muted-foreground" />
+
+          <h3 className="mt-4 font-semibold">Locations</h3>
+
+          <p className="mt-1 text-sm text-muted-foreground">You don't have permission to view business locations.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="flex items-center gap-2">
+          <MapPin className="h-5 w-5" />
+
+          <h2 className="text-xl font-semibold">Locations</h2>
         </div>
 
-        <Button size="sm" onClick={openNew}>
-          <Plus className="mr-1 h-4 w-4" />
-          Add Location
-        </Button>
-      </CardHeader>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Manage stores, warehouses, branches and inter-location inventory transfers.
+        </p>
+      </div>
 
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Address</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="w-[60px]" />
-            </TableRow>
-          </TableHeader>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
+        <TabsList className="grid w-full grid-cols-2 sm:w-fit sm:grid-cols-2">
+          <TabsTrigger value="locations" className="gap-2">
+            <MapPin className="h-4 w-4" />
+            Locations
+          </TabsTrigger>
 
-          <TableBody>
-            {locations.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                  No locations yet.
-                </TableCell>
-              </TableRow>
-            )}
+          <TabsTrigger value="transfers" className="gap-2">
+            <ArrowRightLeft className="h-4 w-4" />
+            Transfers
+          </TabsTrigger>
+        </TabsList>
 
-            {locations.map((loc) => (
-              <TableRow key={loc.id}>
-                <TableCell className="font-medium flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                  {loc.name}
-                </TableCell>
+        <TabsContent value="locations" className="space-y-5">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">Total Locations</p>
 
-                <TableCell className="capitalize">{loc.type}</TableCell>
+                <p className="mt-1 text-2xl font-semibold">{locations.length}</p>
+              </CardContent>
+            </Card>
 
-                <TableCell className="text-muted-foreground text-sm">{loc.address || "—"}</TableCell>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">Active</p>
 
-                <TableCell>
-                  <Badge variant={loc.is_active ? "default" : "secondary"}>
-                    {loc.is_active ? "Active" : "Inactive"}
-                  </Badge>
-                </TableCell>
+                <p className="mt-1 text-2xl font-semibold">{activeLocations.length}</p>
+              </CardContent>
+            </Card>
 
-                <TableCell>
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(loc)}>
-                    <Pencil className="h-4 w-4" />
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">Inactive</p>
+
+                <p className="mt-1 text-2xl font-semibold">{inactiveLocations.length}</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">Current Location</p>
+
+                <p className="mt-1 truncate text-lg font-semibold">{currentLocation?.name || "Not selected"}</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle>Business Locations</CardTitle>
+
+                  <CardDescription>
+                    Each location maintains its own stock balance and operational context.
+                  </CardDescription>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => void loadLocations()} disabled={loading}>
+                    <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                    Refresh
                   </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+                  {canManageLocations && (
+                    <Button size="sm" onClick={openCreate}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Location
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent>
+              {locations.length === 0 ? (
+                <div className="rounded-lg border border-dashed py-12 text-center">
+                  <MapPin className="mx-auto h-10 w-10 text-muted-foreground" />
+
+                  <h3 className="mt-4 font-medium">No locations</h3>
+
+                  <p className="mt-1 text-sm text-muted-foreground">Add your first store, warehouse or branch.</p>
+
+                  {canManageLocations && (
+                    <Button className="mt-4" onClick={openCreate}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Location
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Location</TableHead>
+
+                        <TableHead>Type</TableHead>
+
+                        <TableHead>Address</TableHead>
+
+                        <TableHead>Status</TableHead>
+
+                        <TableHead>Current</TableHead>
+
+                        <TableHead className="w-[180px]" />
+                      </TableRow>
+                    </TableHeader>
+
+                    <TableBody>
+                      {locations.map((location) => {
+                        const isCurrent = currentLocation?.id === location.id;
+
+                        return (
+                          <TableRow key={location.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-9 w-9 items-center justify-center rounded-lg border bg-muted/40">
+                                  <LocationIcon type={location.type} className="h-4 w-4" />
+                                </div>
+
+                                <div>
+                                  <p className="font-medium">{location.name}</p>
+
+                                  <p className="text-xs text-muted-foreground">{location.id}</p>
+                                </div>
+                              </div>
+                            </TableCell>
+
+                            <TableCell>
+                              <Badge variant="outline">
+                                {LOCATION_TYPES.find((type) => type.value === normalizeLocationType(location.type))
+                                  ?.label || location.type}
+                              </Badge>
+                            </TableCell>
+
+                            <TableCell className="max-w-[280px] truncate text-muted-foreground">
+                              {location.address || "—"}
+                            </TableCell>
+
+                            <TableCell>
+                              {location.is_active ? (
+                                <Badge>
+                                  <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                                  Active
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary">
+                                  <XCircle className="mr-1 h-3.5 w-3.5" />
+                                  Inactive
+                                </Badge>
+                              )}
+                            </TableCell>
+
+                            <TableCell>
+                              {isCurrent ? (
+                                <Badge variant="outline">Current</Badge>
+                              ) : (
+                                location.is_active && (
+                                  <Button size="sm" variant="ghost" onClick={() => selectCurrentLocation(location)}>
+                                    Select
+                                  </Button>
+                                )
+                              )}
+                            </TableCell>
+
+                            <TableCell>
+                              <div className="flex justify-end gap-1">
+                                {canManageLocations && (
+                                  <>
+                                    <Button size="sm" variant="ghost" onClick={() => openEdit(location)}>
+                                      <Edit className="mr-1.5 h-4 w-4" />
+                                      Edit
+                                    </Button>
+
+                                    <Button size="sm" variant="ghost" onClick={() => void toggleLocation(location)}>
+                                      {location.is_active ? "Disable" : "Activate"}
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Location Operations</CardTitle>
+
+              <CardDescription>Multi-location features available in this business.</CardDescription>
+            </CardHeader>
+
+            <CardContent>
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                <div className="rounded-lg border p-4">
+                  <div className="flex items-center gap-2">
+                    <Warehouse className="h-4 w-4" />
+
+                    <p className="font-medium">Stock by Location</p>
+                  </div>
+
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Inventory balances are maintained independently for each location.
+                  </p>
+                </div>
+
+                <div className="rounded-lg border p-4">
+                  <div className="flex items-center gap-2">
+                    <ArrowRightLeft className="h-4 w-4" />
+
+                    <p className="font-medium">Stock Transfers</p>
+                  </div>
+
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Move inventory between locations with an approval workflow.
+                  </p>
+
+                  {!canTransfer && (
+                    <Badge variant="secondary" className="mt-3">
+                      No transfer permission
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="rounded-lg border p-4">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4" />
+
+                    <p className="font-medium">Transfer Approval</p>
+                  </div>
+
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Approved users can review and approve stock movement requests.
+                  </p>
+
+                  {!canApproveTransfers && (
+                    <Badge variant="secondary" className="mt-3">
+                      No approval permission
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="transfers" className="space-y-5">
+          <StockTransfersTab />
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editId ? "Edit Location" : "Add Location"}</DialogTitle>
+            <DialogTitle>{editingLocation ? "Edit Location" : "Add Location"}</DialogTitle>
+
+            <DialogDescription>
+              {editingLocation
+                ? "Update the location details."
+                : "Create a store, warehouse or branch for this business."}
+            </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div className="space-y-2">
-              <Label>Name</Label>
+              <Label htmlFor="location-name">Location Name</Label>
 
               <Input
+                id="location-name"
                 value={form.name}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    name: e.target.value,
-                  })
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    name: event.target.value,
+                  }))
                 }
-                placeholder="Main Store"
+                placeholder="e.g. Main Store"
+                disabled={saving}
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Type</Label>
+              <Label>Location Type</Label>
 
               <Select
                 value={form.type}
-                onValueChange={(v) =>
-                  setForm({
-                    ...form,
-                    type: v,
-                  })
+                onValueChange={(value) =>
+                  setForm((current) => ({
+                    ...current,
+                    type: value as LocationType,
+                  }))
                 }
+                disabled={saving}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
 
                 <SelectContent>
-                  <SelectItem value="store">Store</SelectItem>
-
-                  <SelectItem value="warehouse">Warehouse</SelectItem>
-
-                  <SelectItem value="office">Office</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Address</Label>
-
-              <Input
-                value={form.address}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    address: e.target.value,
-                  })
-                }
-                placeholder="Optional"
-              />
-            </div>
-
-            {editId && (
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={form.is_active}
-                  onCheckedChange={(v) =>
-                    setForm({
-                      ...form,
-                      is_active: v,
-                    })
-                  }
-                />
-
-                <Label>Active</Label>
-              </div>
-            )}
-
-            <div className="space-y-2 pt-2 border-t">
-              <Label>Manager approval to remove POS items</Label>
-
-              <Select
-                value={
-                  form.pos_require_manager_to_remove_item === null
-                    ? "inherit"
-                    : form.pos_require_manager_to_remove_item
-                      ? "required"
-                      : "not_required"
-                }
-                onValueChange={(v) =>
-                  setForm({
-                    ...form,
-                    pos_require_manager_to_remove_item: v === "inherit" ? null : v === "required",
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-
-                <SelectContent>
-                  <SelectItem value="inherit">Inherit from business default</SelectItem>
-
-                  <SelectItem value="required">Required at this location</SelectItem>
-
-                  <SelectItem value="not_required">Not required at this location</SelectItem>
+                  {LOCATION_TYPES.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      <div className="flex flex-col">
+                        <span>{type.label}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
               <p className="text-xs text-muted-foreground">
-                Overrides the business-wide setting only for this location.
+                {LOCATION_TYPES.find((type) => type.value === form.type)?.description}
               </p>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="location-address">Address</Label>
+
+              <Textarea
+                id="location-address"
+                value={form.address}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    address: event.target.value,
+                  }))
+                }
+                placeholder="Physical address or location description"
+                disabled={saving}
+              />
+            </div>
+
+            {editingLocation && (
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <p className="text-sm font-medium">Location status</p>
+
+                <p className="mt-1 text-sm text-muted-foreground">
+                  This location is currently {editingLocation.is_active ? "active" : "inactive"}.
+                </p>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
               Cancel
             </Button>
 
-            <Button onClick={handleSave} disabled={saving || !form.name.trim()}>
-              {editId ? "Update" : "Create"}
+            <Button onClick={() => void saveLocation()} disabled={saving || !form.name.trim()}>
+              {saving ? "Saving..." : editingLocation ? "Save Changes" : "Create Location"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </div>
   );
 }
+
+export default LocationsTab;
