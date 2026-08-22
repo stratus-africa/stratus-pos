@@ -34,6 +34,8 @@ Deno.serve(async (req) => {
 
     if (type === "stk") {
       await handleSTKCallback(body);
+    } else if (type === "stk-test") {
+      await handleSTKTestCallback(body);
     } else if (type === "b2c") {
       await handleB2CCallback(body);
     } else if (type === "b2c-timeout") {
@@ -107,6 +109,20 @@ async function handleSTKCallback(body: any) {
   }
 
   console.log(`STK ${CheckoutRequestID} processed:`, JSON.stringify(data));
+}
+
+async function handleSTKTestCallback(body: any) {
+  const stkCallback = body?.Body?.stkCallback;
+  if (!stkCallback?.CheckoutRequestID) return;
+  const meta = readMetadata(stkCallback.CallbackMetadata);
+  const resultCode = Number(stkCallback.ResultCode);
+  await supabase.from("mpesa_transactions").update({
+    status: resultCode === 0 ? "completed" : "failed",
+    result_code: Number.isFinite(resultCode) ? resultCode : -1,
+    result_description: stkCallback.ResultDesc ? String(stkCallback.ResultDesc) : null,
+    mpesa_receipt_number: meta.receipt,
+    updated_at: new Date().toISOString(),
+  }).eq("checkout_request_id", String(stkCallback.CheckoutRequestID)).eq("type", "stk_test");
 }
 
 async function handleB2CCallback(body: any) {
