@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
   BarChart3,
@@ -35,17 +35,18 @@ import ZReportTab from "@/components/reports/ZReportTab";
 import StockAgingReportTab from "@/components/reports/StockAgingReportTab";
 import StockLedgerTab from "@/components/inventory/StockLedgerTab";
 import { DateRangeFilter } from "@/components/reports/DateRangeFilter";
-import { RequireFeature } from "@/components/FeatureGate";
-import { useEntitlement } from "@/hooks/useEntitlement";
+import { useFeatureLimit, RequireFeature } from "@/components/FeatureGate";
 import FeatureReportTab from "@/components/reports/FeatureReportTab";
 import { useAccountingSettings, financialYearLabel } from "@/hooks/useAccountingSettings";
+import { useFinanceReports, type TrialRow, type LedgerRow } from "@/hooks/useFinanceReports";
+import { RefreshCw } from "lucide-react";
 
 const today = new Date().toISOString().split("T")[0];
 const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
 
 const Reports = () => {
   const { business, currentLocation } = useBusiness();
-  const { hasModule, hasFeatureKey } = useEntitlement();
+  const { hasFeatureKey } = useFeatureLimit();
   const { hasPermission } = usePermissions();
 
   // Tab visibility: combine plan feature flag (where applicable) with role permission
@@ -54,20 +55,16 @@ const Reports = () => {
   const canPurchases = can("purchases");
   const canExpenses = can("expenses");
   const canInventory = can("stock");
-  const canPnL = can("profit_loss") && hasModule("accounting");
+  const canPnL = can("profit_loss") && hasFeatureKey("accounting");
+  const canLedger = hasPermission("reports.general_ledger") || hasPermission("accounting.general_ledger");
+  const canTrial = hasPermission("reports.trial_balance") || hasPermission("accounting.trial_balance");
+  const canFinancialPL = hasPermission("reports.profit_loss") || hasPermission("accounting.profit_loss");
+  const canBS = hasPermission("reports.balance_sheet") || hasPermission("accounting.balance_sheet");
+  const canCash = hasPermission("reports.cash_flow") || hasPermission("accounting.cash_flow");
+  const canFinancialExport = hasPermission("reports.export") || hasPermission("manual_journals.export");
+  const canFinancial = canLedger || canTrial || canFinancialPL || canBS || canCash;
   const canAudit = can("audit") || hasPermission("report.audit");
   const canMovement = can("stock_movement");
-  const reportModule = (key: string) => {
-    if (key === "pnl") return "accounting";
-    if (key === "tax") return "digitax";
-    if (key === "stock" || key.startsWith("stock_") || key === "low_stock" || key === "expiry") return "inventory";
-    if (key === "purchases" || key.startsWith("purchases_") || key === "purchase_returns") return "purchases";
-    if (key === "expenses") return "expenses";
-    if (key === "sales" || key.startsWith("sales_") || key === "eod" || key === "zreport") return "sales";
-    return "reports";
-  };
-
-  const canReport = (key: string) => can(key) && hasModule(reportModule(key));
   const reportKeys = [
     "sales",
     "sales_by_product",
@@ -88,41 +85,72 @@ const Reports = () => {
     "expenses",
     "tax",
     "schedule",
+    "general_ledger",
+    "trial_balance",
+    "financial_pnl",
+    "balance_sheet",
+    "cash_flow",
   ] as const;
   // EOD & Z report ride on sales report permission
   const canEOD = canSales;
   const canZ = canSales;
 
-  const firstTab = canReport("sales")
+  const firstTab = canSales
     ? "sales"
-    : canReport("purchases")
+    : canPurchases
       ? "purchases"
-      : canReport("expenses")
+      : canExpenses
         ? "expenses"
-        : canReport("stock")
-          ? "stock"
-          : canReport("profit_loss")
+        : canInventory
+          ? "inventory"
+          : canPnL
             ? "pnl"
-            : canReport("eod")
+            : canEOD
               ? "eod"
-              : canReport("zreport")
+              : canZ
                 ? "zreport"
-                : canReport("audit")
+                : canAudit
                   ? "audit"
-                  : "sales";
-  const [searchParams] = useSearchParams();
+                  : canFinancial
+                    ? "general_ledger"
+                    : "sales";
+  const [searchParams, setSearchParams] = useSearchParams();
   const urlTab = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState<string>(urlTab || firstTab);
   useEffect(() => {
-    const requested = urlTab || firstTab;
-    const moduleAllowed = hasModule(reportModule(requested));
-    const permissionAllowed =
-      requested === "audit" ? canAudit : requested === "eod" || requested === "zreport" ? canSales : can(requested);
-    setActiveTab(moduleAllowed && permissionAllowed ? requested : firstTab);
-  }, [urlTab, firstTab, hasModule, canAudit, canSales]);
+    if (urlTab) setActiveTab(urlTab);
+  }, [urlTab]);
   const [from, setFrom] = useState(thirtyDaysAgo);
   const [to, setTo] = useState(today);
   const [exporter, setExporter] = useState<(() => void) | null>(null);
+
+  // Financial reporting is loaded only when a financial report is actually selected.
+  // This prevents the heavy ledger RPC from blocking the normal Reports page.
+  const isFinancialTab = ["general_ledger", "trial_balance", "financial_pnl", "balance_sheet", "cash_flow"].includes(
+    activeTab,
+  );
+  const financeQuery = useFinanceReports(from, to, isFinancialTab && canFinancial);
+  const financeData = financeQuery.data;
+
+  const financeMoney = (n: number) =>
+    new Intl.NumberFormat("en-KE", {
+      style: "currency",
+      currency: "KES",
+      maximumFractionDigits: 2,
+    }).format(Number(n || 0));
+
+  const financeSum = (rows: TrialRow[] = [], predicate: (r: TrialRow) => boolean) =>
+    rows.filter(predicate).reduce((total, r) => total + Number(r.balance || 0), 0);
+
+  const financeNetProfit =
+    financeSum(financeData?.profit_loss, (r) => r.type === "revenue") -
+    financeSum(financeData?.profit_loss, (r) => r.type === "expense");
+
+  const financeBalanceTotals = {
+    assets: financeSum(financeData?.balance_sheet, (r) => r.type === "asset"),
+    liabilities: financeSum(financeData?.balance_sheet, (r) => r.type === "liability"),
+    equity: financeSum(financeData?.balance_sheet, (r) => r.type === "equity"),
+  };
 
   const registerExport = useCallback((fn: (() => void) | null) => {
     setExporter(() => fn);
@@ -182,9 +210,7 @@ const Reports = () => {
       for (let offset = 0; ; offset += pageSize) {
         const { data, error } = await supabase
           .from("inventory")
-          .select(
-            "*, products(name, sku, purchase_price, selling_price, categories(name), brands(name)), locations(name)",
-          )
+          .select("*, products(name, sku, purchase_price, selling_price, categories(name), brands(name))")
           .eq("location_id", currentLocation.id)
           .range(offset, offset + pageSize - 1);
         if (error) throw error;
@@ -388,17 +414,7 @@ const Reports = () => {
       if (k === "purchases" || k === "purchases_by_supplier" || k === "purchase_returns")
         return purchasesReport.data || [];
       if (k === "expenses") return expensesReport.data || [];
-      if (k === "stock" || k === "stock_valuation" || k === "low_stock") {
-        return (inventoryReport.data || []).map((r: any) => ({
-          product_name: r.products?.name || "-",
-          location_name: r.locations?.name || "-",
-          quantity: Number(r.quantity || 0),
-          low_stock_threshold: Number(r.low_stock_threshold || 0),
-          purchase_price: Number(r.products?.purchase_price || 0),
-          selling_price: Number(r.products?.selling_price || 0),
-          stock_value: Number(r.quantity || 0) * Number(r.products?.purchase_price || 0),
-        }));
-      }
+      if (k === "stock" || k === "stock_valuation" || k === "low_stock") return inventoryReport.data || [];
       if (k === "expiry") {
         const { data, error } = await supabase
           .from("product_batches" as any)
@@ -532,77 +548,77 @@ const Reports = () => {
               key: "operational",
               label: "Operational",
               items: [
-                { value: "sales", label: "Sales · Overview", icon: BarChart3, show: canReport("sales") },
+                { value: "sales", label: "Sales · Overview", icon: BarChart3, show: can("sales") },
                 {
                   value: "sales_by_product",
                   label: "Sales · By Product",
                   icon: BarChart3,
-                  show: canReport("sales_by_product"),
+                  show: can("sales_by_product"),
                 },
                 {
                   value: "sales_by_customer",
                   label: "Sales · By Customer",
                   icon: BarChart3,
-                  show: canReport("sales_by_customer"),
+                  show: can("sales_by_customer"),
                 },
                 {
                   value: "sales_by_cashier",
                   label: "Sales · By Cashier",
                   icon: BarChart3,
-                  show: canReport("sales_by_cashier"),
+                  show: can("sales_by_cashier"),
                 },
                 {
                   value: "sales_by_location",
                   label: "Sales · By Location",
                   icon: BarChart3,
-                  show: canReport("sales_by_location"),
+                  show: can("sales_by_location"),
                 },
                 {
                   value: "sales_by_payment",
-                  label: "Payments Received",
+                  label: "Sales · By Payment",
                   icon: BarChart3,
-                  show: canReport("sales_by_payment"),
+                  show: can("sales_by_payment"),
                 },
-                { value: "eod", label: "End of Day", icon: Sun, show: canReport("sales") },
-                { value: "zreport", label: "Z Report", icon: FileText, show: canReport("sales") },
-                { value: "audit", label: "Audit Trail", icon: ClipboardList, show: canReport("audit") },
-                { value: "schedule", label: "Scheduled Reports", icon: Clock, show: canReport("schedule") },
+                { value: "eod", label: "End of Day", icon: Sun, show: can("sales") },
+                { value: "zreport", label: "Z Report", icon: FileText, show: can("sales") },
+                { value: "audit", label: "Audit Trail", icon: ClipboardList, show: canAudit },
+                { value: "schedule", label: "Scheduled Reports", icon: Clock, show: can("schedule") },
               ],
             },
             {
               key: "inventory",
               label: "Inventory",
               items: [
-                { value: "stock", label: "Stock", icon: Package, show: canReport("stock") },
-                { value: "stock_movement", label: "Movement", icon: ScrollText, show: canReport("stock_movement") },
-                { value: "stock_valuation", label: "Valuation", icon: Package, show: canReport("stock_valuation") },
+                { value: "stock", label: "Stock", icon: Package, show: can("stock") },
+                { value: "stock_movement", label: "Movement", icon: ScrollText, show: can("stock_movement") },
+                { value: "stock_valuation", label: "Valuation", icon: Package, show: can("stock_valuation") },
                 {
                   value: "stock_adjustments",
                   label: "Adjustments",
                   icon: Package,
-                  show: canReport("stock_adjustments"),
+                  show: can("stock_adjustments"),
                 },
-                { value: "stock_transfers", label: "Transfers", icon: Package, show: canReport("stock_transfers") },
-                { value: "low_stock", label: "Low Stock", icon: Package, show: canReport("low_stock") },
-                { value: "expiry", label: "Expiry", icon: Clock, show: canReport("expiry") },
+                { value: "stock_transfers", label: "Transfers", icon: Package, show: can("stock_transfers") },
+                { value: "low_stock", label: "Low Stock", icon: Package, show: can("low_stock") },
+                { value: "expiry", label: "Expiry", icon: Clock, show: can("expiry") },
               ],
             },
             {
               key: "purchasing",
               label: "Purchasing",
               items: [
-                { value: "purchases", label: "Overview", icon: ShoppingCart, show: canReport("purchases") },
+                { value: "purchases", label: "Overview", icon: ShoppingCart, show: can("purchases") },
                 {
                   value: "purchases_by_supplier",
                   label: "By Supplier",
                   icon: ShoppingCart,
-                  show: canReport("purchases_by_supplier"),
+                  show: can("purchases_by_supplier"),
                 },
                 {
                   value: "purchase_returns",
                   label: "Returns",
                   icon: ShoppingCart,
-                  show: canReport("purchase_returns"),
+                  show: can("purchase_returns"),
                 },
               ],
             },
@@ -610,9 +626,14 @@ const Reports = () => {
               key: "financial",
               label: "Financial",
               items: [
-                { value: "expenses", label: "Expenses", icon: Receipt, show: canReport("expenses") },
-                { value: "tax", label: "Tax", icon: Receipt, show: canReport("tax") },
-                { value: "pnl", label: "Profit & Loss", icon: TrendingUp, show: canReport("profit_loss") },
+                { value: "expenses", label: "Expenses", icon: Receipt, show: can("expenses") },
+                { value: "tax", label: "Tax", icon: Receipt, show: can("tax") },
+                { value: "pnl", label: "Profit & Loss", icon: TrendingUp, show: can("profit_loss") },
+                { value: "general_ledger", label: "General Ledger", icon: FileText, show: canLedger },
+                { value: "trial_balance", label: "Trial Balance", icon: FileText, show: canTrial },
+                { value: "financial_pnl", label: "Financial P&L", icon: TrendingUp, show: canFinancialPL },
+                { value: "balance_sheet", label: "Balance Sheet", icon: FileText, show: canBS },
+                { value: "cash_flow", label: "Cash Flow", icon: Receipt, show: canCash },
               ],
             },
           ];
@@ -620,64 +641,57 @@ const Reports = () => {
           const visibleGroups = groups
             .map((group) => ({ ...group, items: group.items.filter((item) => item.show) }))
             .filter((group) => group.items.length > 0);
+          const items = visibleGroups.flatMap((group) => group.items);
 
           return (
-            <div className="w-full md:w-64 shrink-0">
-              <Card className="overflow-hidden border shadow-sm">
-                <CardContent className="p-2">
-                  <div className="px-2 pt-1 pb-2">
-                    <p className="text-sm font-semibold">Report Selection</p>
-                    <p className="text-xs text-muted-foreground">Choose a report category</p>
-                  </div>
-                  <Accordion type="multiple" defaultValue={visibleGroups.map((group) => group.key)} className="w-full">
-                    {visibleGroups.map((group) => {
-                      const selected = group.items.find((item) => item.value === activeTab);
-                      return (
-                        <AccordionItem key={group.key} value={group.key} className="border-b last:border-b-0">
-                          <AccordionTrigger className="px-2.5 py-3 hover:no-underline hover:bg-muted/50 rounded-md">
-                            <span className="flex min-w-0 items-center gap-2 text-left">
-                              <span className="font-semibold text-sm">{group.label}</span>
-                              <Badge variant="secondary" className="ml-auto mr-1 h-5 px-1.5 text-[10px]">
-                                {group.items.length}
-                              </Badge>
+            <>
+              <div className="md:hidden">
+                <Select value={activeTab} onValueChange={setActiveTab}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select report" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {visibleGroups.map((group) => (
+                      <React.Fragment key={group.key}>
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{group.label}</div>
+                        {group.items.map((i) => (
+                          <SelectItem key={i.value} value={i.value}>
+                            <span className="flex items-center gap-2">
+                              <i.icon className="h-4 w-4" /> {i.label}
                             </span>
-                          </AccordionTrigger>
-                          <AccordionContent className="pb-1">
-                            <div className="space-y-1 px-1">
-                              {group.items.map((item) => {
-                                const Icon = item.icon;
-                                const isActive = activeTab === item.value;
-                                return (
-                                  <button
-                                    key={item.value}
-                                    type="button"
-                                    onClick={() => setActiveTab(item.value)}
-                                    aria-current={isActive ? "page" : undefined}
-                                    className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm transition-colors ${
-                                      isActive
-                                        ? "bg-primary text-primary-foreground shadow-sm"
-                                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                                    }`}
-                                  >
-                                    <Icon className="h-4 w-4 shrink-0" />
-                                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      );
-                    })}
-                  </Accordion>
-                </CardContent>
-              </Card>
-            </div>
+                          </SelectItem>
+                        ))}
+                      </React.Fragment>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <TabsList className="hidden md:flex text-muted-foreground md:flex-col md:w-56 bg-muted rounded-lg p-1.5 shrink-0 md:items-stretch md:justify-start h-auto">
+                {visibleGroups.map((group) => (
+                  <div key={group.key} className="w-full">
+                    <div className="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {group.label}
+                    </div>
+                    <div className="space-y-0.5">
+                      {group.items.map((i) => (
+                        <TabsTrigger
+                          key={i.value}
+                          value={i.value}
+                          className="md:w-full md:justify-start gap-2 text-sm px-3 py-2 shrink-0"
+                        >
+                          <i.icon className="h-4 w-4" /> {i.label}
+                        </TabsTrigger>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </TabsList>
+            </>
           );
         })()}
 
         <div className="flex-1 min-w-0">
-          {canReport("sales") && (
+          {canSales && (
             <TabsContent value="sales" className="mt-0">
               <DailySalesReportTab from={from} to={to} onRegisterExport={registerExport} />
             </TabsContent>
@@ -686,7 +700,7 @@ const Reports = () => {
             .filter((k) => k.startsWith("sales_"))
             .map(
               (k) =>
-                canReport(k) && (
+                can(k) && (
                   <TabsContent key={k} value={k} className="mt-0">
                     <FeatureReportTab
                       title={k.replaceAll("_", " ")}
@@ -696,7 +710,7 @@ const Reports = () => {
                   </TabsContent>
                 ),
             )}
-          {canReport("stock_valuation") && (
+          {can("stock_valuation") && (
             <TabsContent value="stock_valuation" className="mt-0">
               <FeatureReportTab
                 title="Stock Valuation"
@@ -705,7 +719,7 @@ const Reports = () => {
               />
             </TabsContent>
           )}
-          {canReport("stock_adjustments") && (
+          {can("stock_adjustments") && (
             <TabsContent value="stock_adjustments" className="mt-0">
               <FeatureReportTab
                 title="Stock Adjustments"
@@ -714,7 +728,7 @@ const Reports = () => {
               />
             </TabsContent>
           )}
-          {canReport("stock_transfers") && (
+          {can("stock_transfers") && (
             <TabsContent value="stock_transfers" className="mt-0">
               <FeatureReportTab
                 title="Stock Transfers"
@@ -723,7 +737,7 @@ const Reports = () => {
               />
             </TabsContent>
           )}
-          {canReport("low_stock") && (
+          {can("low_stock") && (
             <TabsContent value="low_stock" className="mt-0">
               <FeatureReportTab
                 title="Low Stock"
@@ -735,12 +749,12 @@ const Reports = () => {
               />
             </TabsContent>
           )}
-          {canReport("expiry") && (
+          {can("expiry") && (
             <TabsContent value="expiry" className="mt-0">
               <FeatureReportTab title="Expiry" rows={featureReport.data || []} loading={featureReport.isLoading} />
             </TabsContent>
           )}
-          {canReport("purchases_by_supplier") && (
+          {can("purchases_by_supplier") && (
             <TabsContent value="purchases_by_supplier" className="mt-0">
               <FeatureReportTab
                 title="Purchases by Supplier"
@@ -749,7 +763,7 @@ const Reports = () => {
               />
             </TabsContent>
           )}
-          {canReport("purchase_returns") && (
+          {can("purchase_returns") && (
             <TabsContent value="purchase_returns" className="mt-0">
               <FeatureReportTab
                 title="Purchase Returns"
@@ -758,12 +772,12 @@ const Reports = () => {
               />
             </TabsContent>
           )}
-          {canReport("tax") && (
+          {can("tax") && (
             <TabsContent value="tax" className="mt-0">
               <FeatureReportTab title="Tax Report" rows={featureReport.data || []} loading={featureReport.isLoading} />
             </TabsContent>
           )}
-          {canReport("schedule") && (
+          {can("schedule") && (
             <TabsContent value="schedule" className="mt-0">
               <FeatureReportTab title="Scheduled Reports" rows={[]} />
               <div className="mt-3 text-sm text-muted-foreground">
@@ -780,7 +794,7 @@ const Reports = () => {
               />
             </TabsContent>
           )}
-          {canReport("stock_movement") && (
+          {can("stock_movement") && (
             <TabsContent value="stock_movement" className="mt-0">
               <StockLedgerTab
                 locationId={currentLocation?.id}
@@ -793,17 +807,17 @@ const Reports = () => {
               />
             </TabsContent>
           )}
-          {canReport("purchases") && (
+          {canPurchases && (
             <TabsContent value="purchases" className="mt-0">
               <PurchasesReportTab purchases={purchases} from={from} to={to} loading={loading || pnlLedger.isLoading} />
             </TabsContent>
           )}
-          {canReport("expenses") && (
+          {canExpenses && (
             <TabsContent value="expenses" className="mt-0">
               <ExpensesReportTab expenses={expenses} from={from} to={to} loading={loading} />
             </TabsContent>
           )}
-          {canReport("stock") && (
+          {canInventory && (
             <TabsContent value="inventory" className="mt-0">
               <InventoryReportTab
                 inventory={inventory}
@@ -812,7 +826,7 @@ const Reports = () => {
               />
             </TabsContent>
           )}
-          {canReport("stock") && (
+          {canInventory && (
             <TabsContent value="aging" className="mt-0">
               <StockAgingReportTab />
             </TabsContent>
@@ -830,7 +844,7 @@ const Reports = () => {
               />
             </TabsContent>
           )}
-          {canReport("pnl") && (
+          {canPnL && (
             <TabsContent value="pnl" className="mt-0">
               <RequireFeature moduleKey="accounting">
                 <PnLReportTab
@@ -847,19 +861,268 @@ const Reports = () => {
               </RequireFeature>
             </TabsContent>
           )}
-          {canReport("eod") && (
+          {canEOD && (
             <TabsContent value="eod" className="mt-0">
               <EndOfDayReportTab />
             </TabsContent>
           )}
-          {canReport("zreport") && (
+          {canZ && (
             <TabsContent value="zreport" className="mt-0">
               <ZReportTab from={from} to={to} onRegisterExport={registerExport} />
             </TabsContent>
           )}
-          {canReport("audit") && (
+          {canAudit && (
             <TabsContent value="audit" className="mt-0">
               <AuditLogReportTab logs={auditLogs} loading={auditReport.isLoading} from={from} to={to} />
+            </TabsContent>
+          )}
+          {canLedger && (
+            <TabsContent value="general_ledger" className="mt-0">
+              <Card>
+                <CardContent className="p-0">
+                  <div className="flex items-center justify-between border-b p-4">
+                    <div>
+                      <h2 className="font-semibold">General Ledger</h2>
+                      <p className="text-sm text-muted-foreground">Posted double-entry ledger activity.</p>
+                    </div>
+                    {canFinancialExport && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (!financeData) return;
+                          const rows = [
+                            ["Date", "Reference", "Account Code", "Account", "Type", "Description", "Debit", "Credit"],
+                            ...financeData.general_ledger.map((r: LedgerRow) => [
+                              r.date,
+                              r.reference || "",
+                              r.account_code,
+                              r.account_name,
+                              r.account_type,
+                              r.line_description || r.description || "",
+                              r.debit,
+                              r.credit,
+                            ]),
+                          ];
+                          const csv = rows
+                            .map((row) => row.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))
+                            .join("\n");
+                          const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = "general-ledger.csv";
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }}
+                      >
+                        <Download className="mr-2 h-4 w-4" /> Export CSV
+                      </Button>
+                    )}
+                  </div>
+                  {financeQuery.isFetching ? (
+                    <div className="p-8 text-center text-muted-foreground">Loading financial report…</div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="p-3 text-left">Date</th>
+                            <th className="p-3 text-left">Reference</th>
+                            <th className="p-3 text-left">Account</th>
+                            <th className="p-3 text-left">Description</th>
+                            <th className="p-3 text-right">Debit</th>
+                            <th className="p-3 text-right">Credit</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(financeData?.general_ledger || []).map((r) => (
+                            <tr
+                              key={`${r.journal_id}-${r.account_code}-${r.line_description}-${r.debit}-${r.credit}`}
+                              className="border-b"
+                            >
+                              <td className="p-3">{r.date}</td>
+                              <td className="p-3 font-mono">{r.reference || "—"}</td>
+                              <td className="p-3">
+                                {r.account_code} {r.account_name}
+                              </td>
+                              <td className="p-3">{r.line_description || r.description || "—"}</td>
+                              <td className="p-3 text-right">{r.debit ? financeMoney(r.debit) : "—"}</td>
+                              <td className="p-3 text-right">{r.credit ? financeMoney(r.credit) : "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+          {canTrial && (
+            <TabsContent value="trial_balance" className="mt-0">
+              <Card>
+                <CardContent className="p-0">
+                  <div className="flex items-center justify-between border-b p-4">
+                    <h2 className="font-semibold">Trial Balance</h2>
+                    {canFinancialExport && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (!financeData) return;
+                          const rows = [
+                            ["Code", "Account", "Type", "Opening Balance", "Debits", "Credits", "Balance"],
+                            ...financeData.trial_balance.map((r) => [
+                              r.code,
+                              r.name,
+                              r.type,
+                              r.opening_balance,
+                              r.debits,
+                              r.credits,
+                              r.balance,
+                            ]),
+                          ];
+                          const csv = rows
+                            .map((row) => row.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))
+                            .join("\n");
+                          const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = "trial-balance.csv";
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }}
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Export CSV
+                      </Button>
+                    )}
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="p-3 text-left">Code</th>
+                          <th className="p-3 text-left">Account</th>
+                          <th className="p-3 text-left">Type</th>
+                          <th className="p-3 text-right">Debits</th>
+                          <th className="p-3 text-right">Credits</th>
+                          <th className="p-3 text-right">Balance</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(financeData?.trial_balance || []).map((r) => (
+                          <tr key={r.id} className="border-b">
+                            <td className="p-3 font-mono">{r.code}</td>
+                            <td className="p-3">{r.name}</td>
+                            <td className="p-3 capitalize">{r.type}</td>
+                            <td className="p-3 text-right">{financeMoney(r.debits)}</td>
+                            <td className="p-3 text-right">{financeMoney(r.credits)}</td>
+                            <td className="p-3 text-right font-medium">{financeMoney(r.balance)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+          {canFinancialPL && (
+            <TabsContent value="financial_pnl" className="mt-0">
+              <Card>
+                <CardContent className="p-0">
+                  <div className="border-b p-4">
+                    <h2 className="font-semibold">Financial Profit & Loss</h2>
+                    <p className="text-sm text-muted-foreground">Based on posted double-entry ledger activity.</p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="p-3 text-left">Account</th>
+                          <th className="p-3 text-left">Type</th>
+                          <th className="p-3 text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(financeData?.profit_loss || []).map((r) => (
+                          <tr key={r.id} className="border-b">
+                            <td className="p-3">
+                              {r.code} {r.name}
+                            </td>
+                            <td className="p-3 capitalize">{r.type}</td>
+                            <td className="p-3 text-right">{financeMoney(r.balance)}</td>
+                          </tr>
+                        ))}
+                        <tr className="font-bold">
+                          <td className="p-3" colSpan={2}>
+                            Net Profit
+                          </td>
+                          <td className="p-3 text-right">{financeMoney(financeNetProfit)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+          {canBS && (
+            <TabsContent value="balance_sheet" className="mt-0">
+              <Card>
+                <CardContent className="p-0">
+                  <div className="border-b p-4">
+                    <h2 className="font-semibold">Balance Sheet</h2>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="p-3 text-left">Account</th>
+                          <th className="p-3 text-left">Type</th>
+                          <th className="p-3 text-right">Balance</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(financeData?.balance_sheet || []).map((r) => (
+                          <tr key={r.id} className="border-b">
+                            <td className="p-3">
+                              {r.code} {r.name}
+                            </td>
+                            <td className="p-3 capitalize">{r.type}</td>
+                            <td className="p-3 text-right">{financeMoney(r.balance)}</td>
+                          </tr>
+                        ))}
+                        <tr className="font-bold">
+                          <td className="p-3" colSpan={2}>
+                            Assets
+                          </td>
+                          <td className="p-3 text-right">{financeMoney(financeBalanceTotals.assets)}</td>
+                        </tr>
+                        <tr className="font-bold">
+                          <td className="p-3" colSpan={2}>
+                            Liabilities + Equity
+                          </td>
+                          <td className="p-3 text-right">
+                            {financeMoney(financeBalanceTotals.liabilities + financeBalanceTotals.equity)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+          {canCash && (
+            <TabsContent value="cash_flow" className="mt-0">
+              <Card>
+                <CardContent className="py-10 text-center text-muted-foreground">
+                  Cash Flow classification requires transaction-level cash-flow mappings. Use the Banking reconciliation
+                  workflow for cash/bank activity.
+                </CardContent>
+              </Card>
             </TabsContent>
           )}
         </div>
