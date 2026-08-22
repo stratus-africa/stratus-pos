@@ -4,6 +4,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { assertCanPost } from "@/lib/postingGuard";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export interface SupplierPayment {
   id: string;
@@ -25,6 +26,7 @@ export function useSupplierPayments() {
   const { business } = useBusiness();
   const { user } = useAuth();
   const qc = useQueryClient();
+  const { hasPermission } = usePermissions();
 
   const query = useQuery({
     queryKey: ["supplier_payments", business?.id],
@@ -55,7 +57,20 @@ export function useSupplierPayments() {
       description?: string;
     }) => {
       assertCanPost();
+      if (!hasPermission("purchases.record_payment")) throw new Error("Missing permission: purchases.record_payment");
       if (!business || !user) throw new Error("Not authenticated");
+      if (input.purchase_id && !(input.allocations && input.allocations.length > 0)) {
+        const { data, error } = await supabase.rpc("record_supplier_payment_for_purchase", {
+          _purchase_id: input.purchase_id,
+          _bank_account_id: input.bank_account_id,
+          _amount: input.amount,
+          _date: input.date,
+          _reference: input.reference || null,
+          _description: input.description || null,
+        });
+        if (error) throw error;
+        return data;
+      }
       const { data: sup } = await supabase
         .from("suppliers")
         .select("id, name, balance")
