@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -234,7 +235,9 @@ export default function SuperAdminPackageEdit() {
       const result = await savePlanModules({ data: { packageId: id, moduleKeys: selectedModuleKeys } });
       const savedKeys = new Set(result.moduleKeys);
       setFeatureToggles(
-        Object.fromEntries(ALL_FEATURES.map((feature) => [feature.key, feature.group === "core" || savedKeys.has(feature.key)])),
+        Object.fromEntries(
+          ALL_FEATURES.map((feature) => [feature.key, feature.group === "core" || savedKeys.has(feature.key)]),
+        ),
       );
 
       toast.success(`Modules updated - ${result.moduleKeys.length} enabled for ${form.name}`);
@@ -381,26 +384,42 @@ export default function SuperAdminPackageEdit() {
 
   const moduleCard = (feature: (typeof ALL_FEATURES)[number]) => {
     const isCore = feature.group === "core";
-
     const enabled = isCore || Boolean(featureToggles[feature.key]);
+    const canEdit = !saving && !isCore;
 
     const accountingDependency = feature.key === "banking" || feature.key === "manual_journals";
 
     const accountingForced =
       feature.key === "accounting" && (Boolean(featureToggles.banking) || Boolean(featureToggles.manual_journals));
 
+    const toggle = () => {
+      if (!canEdit) return;
+      handleModuleToggle(feature.key);
+    };
+
     return (
-      <button
+      <div
         key={feature.key}
-        type="button"
-        role="switch"
-        aria-checked={enabled}
-        aria-label={`${enabled ? "Disable" : "Enable"} ${feature.label}`}
-        disabled={saving || isCore}
-        onClick={() => handleModuleToggle(feature.key)}
+        role={isCore ? undefined : "button"}
+        tabIndex={canEdit ? 0 : -1}
+        aria-disabled={!canEdit}
+        onClick={toggle}
+        onKeyDown={(event) => {
+          if (!canEdit) return;
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            toggle();
+          }
+        }}
         className={`text-left rounded-lg p-3 border transition-all flex items-start justify-between gap-3 w-full ${
-          enabled ? "border-primary bg-primary/5" : "border-border bg-background hover:border-primary/40"
-        } ${saving ? "cursor-not-allowed opacity-60" : isCore ? "cursor-default" : "cursor-pointer"}`}
+          enabled
+            ? "border-primary/50 bg-primary/5"
+            : "border-border bg-background hover:border-primary/50 hover:bg-primary/[0.03]"
+        } ${
+          canEdit
+            ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            : "cursor-default"
+        } ${saving ? "opacity-60" : ""}`}
       >
         <div className="flex items-start gap-2.5 min-w-0">
           <div
@@ -413,7 +432,6 @@ export default function SuperAdminPackageEdit() {
 
           <div className="min-w-0">
             <p className="font-semibold text-sm leading-tight">{feature.label}</p>
-
             <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{feature.description}</p>
 
             {isCore && <p className="text-[10px] text-emerald-700 mt-1 font-medium">Included in every plan</p>}
@@ -428,15 +446,15 @@ export default function SuperAdminPackageEdit() {
           </div>
         </div>
 
-        <span
-          aria-hidden="true"
-          className={`h-5 w-5 rounded-full shrink-0 flex items-center justify-center ${
-            enabled ? "bg-primary text-primary-foreground" : "border border-border bg-background"
-          }`}
-        >
-          {enabled && <Check className="h-3 w-3" strokeWidth={3} />}
-        </span>
-      </button>
+        <Switch
+          checked={enabled}
+          disabled={!canEdit}
+          onCheckedChange={() => toggle()}
+          onClick={(event) => event.stopPropagation()}
+          aria-label={`${enabled ? "Disable" : "Enable"} ${feature.label}`}
+          className="shrink-0 mt-0.5"
+        />
+      </div>
     );
   };
 
