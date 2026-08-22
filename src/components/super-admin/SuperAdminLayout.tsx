@@ -37,6 +37,9 @@ import {
   Zap,
   Megaphone,
   Settings2,
+  HeartPulse,
+  Flag,
+  Headset,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -55,6 +58,7 @@ const GROUP_ICONS: Record<string, React.ElementType> = {
   Management: Building2,
   Payments: CreditCard,
   Reports: PieChart,
+  Monitoring: HeartPulse,
   CMS: Globe,
   System: Settings2,
 };
@@ -79,7 +83,16 @@ const navGroups: NavGroup[] = [
     label: "Payments",
     items: [
       { title: "Overview", url: "/super-admin/payments", icon: BarChart2 },
+      { title: "Revenue", url: "/super-admin/revenue", icon: TrendingUp },
       { title: "Transactions", url: "/super-admin/transactions", icon: Receipt },
+    ],
+  },
+  {
+    label: "Monitoring",
+    items: [
+      { title: "Platform Health", url: "/super-admin/health", icon: HeartPulse },
+      { title: "Feature Flags", url: "/super-admin/feature-flags", icon: Flag },
+      { title: "Support & Impersonation", url: "/super-admin/support", icon: Headset },
     ],
   },
   {
