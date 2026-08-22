@@ -208,25 +208,6 @@ export function useSubscription() {
     refetchOnWindowFocus: true,
   });
 
-  // Global module catalog state is an additional entitlement boundary.
-  // This keeps legacy consumers aligned with the canonical resolver when a
-  // Super Admin disables a premium module for the entire platform.
-  const { data: globallyEnabledModuleRows } = useQuery({
-    queryKey: ["entitlement:global_modules"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("module_features").select("module_key").eq("is_active", true);
-      if (error) throw error;
-      return (data || []) as Array<{ module_key: string }>;
-    },
-    enabled: !!user,
-    staleTime: 30_000,
-    refetchOnWindowFocus: true,
-  });
-
-  const globallyEnabledModuleKeys = new Set(
-    (globallyEnabledModuleRows || []).map((row) => row.module_key.toLowerCase()),
-  );
-
   // ── Realtime invalidation ────────────────────────────────────────────────────
   useEffect(() => {
     if (!planUserId) return;
@@ -289,8 +270,7 @@ export function useSubscription() {
   const enabledModules = new Set(
     features
       .filter((f) => f.package_id === currentPackage?.id && f.enabled)
-      .map((f) => (findModule(f.feature_key)?.key ?? f.feature_key).toLowerCase())
-      .filter((moduleKey) => globallyEnabledModuleKeys.has(moduleKey)),
+      .map((f) => (findModule(f.feature_key)?.key ?? f.feature_key).toLowerCase()),
   );
 
   if (typeof window !== "undefined" && (window as any).__DEBUG_SUBSCRIPTION) {
