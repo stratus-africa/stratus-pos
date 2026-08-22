@@ -49,7 +49,7 @@ const PAGE_SIZE_OPTIONS = [25, 100, 200] as const;
 
 const INVENTORY_TABS = [
   { key: "stock", label: "Stock Levels", icon: <Warehouse className="h-4 w-4" /> },
-  { key: "transfers", label: "Transfers", icon: <ArrowLeftRight className="h-4 w-4" /> },
+  { key: "transfers", label: "Stock Transfers", icon: <ArrowLeftRight className="h-4 w-4" /> },
   { key: "adjustments", label: "Adjustments", icon: <ClipboardList className="h-4 w-4" /> },
   { key: "counts", label: "Stock Take", icon: <ClipboardCheck className="h-4 w-4" /> },
   { key: "reconciliation", label: "Reconciliation", icon: <Scale className="h-4 w-4" /> },
@@ -97,10 +97,7 @@ const Inventory = () => {
   const canViewTransfers =
     hasPermission("inventory.transfer") ||
     hasPermission("inventory.approve_transfer") ||
-    hasPermission("inventory.receive") ||
-    hasPermission("multi_location.transfer_stock") ||
-    hasPermission("multi_location.approve_transfers") ||
-    canViewInventory;
+    hasPermission("inventory.receive");
   const canEditAdjustments = canAdjustStock;
   const { createPurchase } = usePurchases();
   const [searchParams, setSearchParams] = useSearchParams();

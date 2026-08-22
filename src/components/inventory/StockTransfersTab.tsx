@@ -110,8 +110,8 @@ export function StockTransfersTab() {
   const { business, locations } = useBusiness();
   const { hasPermission } = usePermissions();
 
-  const canCreate = hasPermission("inventory.transfer") || hasPermission("multi_location.transfer_stock");
-  const canApprove = hasPermission("inventory.approve_transfer") || hasPermission("multi_location.approve_transfers");
+  const canCreate = hasPermission("inventory.transfer");
+  const canApprove = hasPermission("inventory.approve_transfer");
   const canReceive = hasPermission("inventory.receive");
 
   const activeLocations = useMemo(() => (locations || []).filter((location) => location.is_active), [locations]);
@@ -336,7 +336,7 @@ export function StockTransfersTab() {
       toast.error("You do not have permission to approve transfers");
       return;
     }
-    if ((action === "dispatch" || action === "receive" || action === "cancel") && !canCreate && !canReceive) {
+    if ((action === "dispatch" || action === "cancel") && !canCreate) {
       toast.error("You do not have permission to perform this transfer action");
       return;
     }

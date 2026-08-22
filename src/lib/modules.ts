@@ -123,6 +123,8 @@ export const MODULE_REGISTRY: AppModule[] = [
       "inventory.create",
       "inventory.adjust",
       "inventory.transfer",
+      "inventory.approve_transfer",
+      "inventory.receive",
       "inventory.cost.view",
     ],
     navigation: [

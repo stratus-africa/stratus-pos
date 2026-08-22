@@ -1,16 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  ArrowRightLeft,
-  Building2,
-  CheckCircle2,
-  Edit,
-  MapPin,
-  Plus,
-  RefreshCw,
-  Store,
-  Warehouse,
-  XCircle,
-} from "lucide-react";
+import { Building2, CheckCircle2, Edit, MapPin, Plus, RefreshCw, Store, Warehouse, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -534,30 +523,6 @@ export function LocationsTab() {
 
               <p className="mt-1 text-sm text-muted-foreground">
                 Inventory balances are maintained independently for each location.
-              </p>
-            </div>
-
-            <div className="rounded-lg border p-4">
-              <div className="flex items-center gap-2">
-                <ArrowRightLeft className="h-4 w-4" />
-
-                <p className="font-medium">Stock Transfers</p>
-              </div>
-
-              <p className="mt-1 text-sm text-muted-foreground">
-                Move inventory between locations with an approval workflow.
-              </p>
-            </div>
-
-            <div className="rounded-lg border p-4">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4" />
-
-                <p className="font-medium">Transfer Approval</p>
-              </div>
-
-              <p className="mt-1 text-sm text-muted-foreground">
-                Approved users can review and approve stock movement requests.
               </p>
             </div>
           </div>
