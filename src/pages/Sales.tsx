@@ -36,7 +36,7 @@ const Sales = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const isCashier = userRole === "cashier";
   const canDelete = hasPermission("sales.delete") && !isCashier;
-  const canCancel = !isCashier;
+  const canCancel = hasPermission("sales.cancel") && hasPermission("sales.approve_cancellation");
   const canRetry = !isCashier;
   const canEdit = hasPermission("sales.edit") || hasPermission("sales.create");
 
