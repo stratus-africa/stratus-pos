@@ -267,7 +267,7 @@ export default function MpesaModule() {
           </Button>
           {canConfigure && (
             <Button asChild>
-              <Link to="/settings">
+              <Link to="/settings?tab=gateways">
                 <Settings2 className="mr-2 h-4 w-4" />
                 M-Pesa Settings
               </Link>
