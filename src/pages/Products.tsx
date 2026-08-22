@@ -67,14 +67,24 @@ import { useFeatureLimit } from "@/components/FeatureGate";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ModuleHeader } from "@/components/modules/ModulePageShell";
 import { mapProductImportRows, parseProductImportFile } from "@/lib/productImport";
+import { useExpiringBatches } from "@/hooks/useProductBatches";
 import { downloadProductOpeningStockTemplate } from "@/lib/productImportTemplate";
 
 const Products = () => {
   const [onlyMissingBarcode, setOnlyMissingBarcode] = useState(false);
-  const { productsQuery, createProduct, updateProduct, deleteProduct } = useProducts();
+  const { productsQuery, createProduct, updateProduct, deleteProduct, archiveProduct, restoreProduct } = useProducts();
   const { hasPermission } = usePermissions();
   const canEdit = hasPermission("products.edit");
   const canDelete = hasPermission("products.delete");
+  const canArchive = hasPermission("products.archive");
+  const canRestore = hasPermission("products.restore");
+  const canViewDetails = hasPermission("products.view_details");
+  const canManageVariants = hasPermission("products.manage_variants");
+  const canManageImages = hasPermission("products.manage_images");
+  const canManageBatches = hasPermission("products.manage_batches");
+  const canManageExpiry = hasPermission("products.manage_expiry");
+  const canManageSerials = hasPermission("products.manage_serials");
+  const canManageCost = hasPermission("products.manage_cost");
   const {
     query: categoriesQuery,
     create: createCategory,
@@ -129,6 +139,7 @@ const Products = () => {
   const [printTagItems, setPrintTagItems] = useState<PrintTagItem[]>([]);
 
   const { accounts: chartAccounts } = useAccountMappings();
+  const { data: expiringBatches = [], isLoading: expiringLoading } = useExpiringBatches(60);
   const accountsOfType = (type: string) =>
     (chartAccounts.data || []).filter((a) => a.type === type && a.is_active !== false);
   const [bulkPurchaseAccountId, setBulkPurchaseAccountId] = useState("");
@@ -498,6 +509,7 @@ const Products = () => {
           <TabsTrigger value="units">
             <Ruler className="mr-1 h-4 w-4" /> Units
           </TabsTrigger>
+          {canManageExpiry && <TabsTrigger value="expiry"><AlertTriangle className="mr-1 h-4 w-4" /> Expiry</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="products" className="space-y-4">
@@ -641,9 +653,9 @@ const Products = () => {
                           tabIndex={0}
                           aria-label={`View details for ${p.name}`}
                           className={`cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring ${selectedIds.has(p.id) ? "bg-muted/50" : ""}`}
-                          onClick={() => openProductDetail(p)}
+                          onClick={() => canViewDetails && openProductDetail(p)}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
+                            if ((e.key === "Enter" || e.key === " ") && canViewDetails) {
                               e.preventDefault();
                               openProductDetail(p);
                             }
@@ -697,6 +709,16 @@ const Products = () => {
                                 >
                                   <Printer className="mr-2 h-4 w-4" /> Print label
                                 </DropdownMenuItem>
+                                {p.is_active && canArchive && (
+                                  <DropdownMenuItem onClick={() => archiveProduct.mutate(p.id)}>
+                                    <Lock className="mr-2 h-4 w-4" /> Archive
+                                  </DropdownMenuItem>
+                                )}
+                                {!p.is_active && canRestore && (
+                                  <DropdownMenuItem onClick={() => restoreProduct.mutate(p.id)}>
+                                    <Package className="mr-2 h-4 w-4" /> Restore
+                                  </DropdownMenuItem>
+                                )}
                                 {canDelete && (
                                   <>
                                     <DropdownMenuSeparator />
@@ -891,6 +913,13 @@ const Products = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {canManageExpiry && <TabsContent value="expiry">
+          <Card>
+            <CardHeader><CardTitle className="text-lg">Expiry Management</CardTitle><p className="text-sm text-muted-foreground">Active batches with stock expiring within the next 60 days, including already expired stock.</p></CardHeader>
+            <CardContent className="p-0"><Table><TableHeader><TableRow><TableHead>Product</TableHead><TableHead>Batch</TableHead><TableHead>Location</TableHead><TableHead>Expiry</TableHead><TableHead className="text-right">Qty</TableHead><TableHead>Status</TableHead></TableRow></TableHeader><TableBody>{expiringLoading ? <TableRow><TableCell colSpan={6} className="text-center py-8">Loading…</TableCell></TableRow> : expiringBatches.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No batches expiring within 60 days.</TableCell></TableRow> : expiringBatches.map((b: any) => { const days = b.expiry_date ? Math.ceil((new Date(b.expiry_date).getTime() - Date.now()) / 86400000) : null; return <TableRow key={b.id}><TableCell className="font-medium">{b.products?.name || "—"}</TableCell><TableCell className="font-mono text-sm">{b.batch_number}</TableCell><TableCell>{b.locations?.name || "—"}</TableCell><TableCell>{b.expiry_date ? new Date(b.expiry_date).toLocaleDateString("en-KE") : "—"}</TableCell><TableCell className="text-right">{b.quantity}</TableCell><TableCell>{days !== null && days < 0 ? <Badge variant="destructive">Expired</Badge> : <Badge variant={days !== null && days <= 30 ? "secondary" : "outline"}>{days}d left</Badge>}</TableCell></TableRow>; })}</TableBody></Table></CardContent>
+          </Card>
+        </TabsContent>}
 
         <TabsContent value="units">
           <Card>
