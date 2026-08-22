@@ -1,10 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { assertCanPost } from "@/lib/postingGuard";
-
 
 export interface JournalEntry {
   id: string;
@@ -17,6 +14,16 @@ export interface JournalEntry {
   status: string;
   created_by: string;
   created_at: string;
+  submitted_by?: string | null;
+  submitted_at?: string | null;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  posted_by?: string | null;
+  posted_at?: string | null;
+  reversed_by?: string | null;
+  reversed_at?: string | null;
+  reversal_of_id?: string | null;
+  rejection_reason?: string | null;
 }
 
 export interface JournalEntryLine {
@@ -34,12 +41,14 @@ export interface JournalEntryInput {
   reference?: string;
   description?: string;
   lines: { account_id: string; debit: number; credit: number; description?: string }[];
+  submit?: boolean;
 }
 
 export function useJournalEntries() {
   const { business } = useBusiness();
-  const { user } = useAuth();
   const qc = useQueryClient();
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["journal_entries"] });
 
   const query = useQuery({
     queryKey: ["journal_entries", business?.id],
@@ -69,69 +78,115 @@ export function useJournalEntries() {
 
   const create = useMutation({
     mutationFn: async (input: JournalEntryInput) => {
-      assertCanPost();
-      if (!business || !user) throw new Error("Not authenticated");
-
-      const totalDebit = input.lines.reduce((s, l) => s + Number(l.debit || 0), 0);
-      const totalCredit = input.lines.reduce((s, l) => s + Number(l.credit || 0), 0);
-      if (Math.abs(totalDebit - totalCredit) > 0.01) {
-        throw new Error(`Debits (${totalDebit}) must equal credits (${totalCredit})`);
-      }
-      if (totalDebit === 0) throw new Error("Entry total cannot be zero");
-      if (input.lines.length < 2) throw new Error("A journal entry needs at least two lines");
-
-      const entryId = crypto.randomUUID();
-      const { error: hErr } = await supabase.from("journal_entries").insert({
-        id: entryId,
-        business_id: business.id,
-        date: input.date,
-        reference: input.reference || null,
-        description: input.description || null,
-        total: totalDebit,
-        created_by: user.id,
+      const { data, error } = await supabase.rpc("create_manual_journal" as any, {
+        _date: input.date,
+        _reference: input.reference || null,
+        _description: input.description || null,
+        _lines: input.lines,
+        _submit: Boolean(input.submit),
       });
-      if (hErr) throw hErr;
-
-      const { error: lErr } = await supabase.from("journal_entry_lines").insert(
-        input.lines.map((l) => ({
-          journal_entry_id: entryId,
-          account_id: l.account_id,
-          debit: Number(l.debit || 0),
-          credit: Number(l.credit || 0),
-          description: l.description || null,
-        }))
-      );
-      if (lErr) {
-        await supabase.from("journal_entries").delete().eq("id", entryId);
-        throw lErr;
-      }
+      if (error) throw error;
+      return data as string;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["journal_entries"] });
-      toast.success("Journal entry posted");
+    onSuccess: (_id, input) => {
+      invalidate();
+      toast.success(input.submit ? "Journal submitted for approval" : "Journal draft saved");
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("journal_entries").delete().eq("id", id);
+      const { data, error } = await supabase.rpc("delete_manual_journal" as any, { _journal_id: id });
       if (error) throw error;
+      return data;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["journal_entries"] });
-      toast.success("Journal entry deleted");
+      invalidate();
+      toast.success("Journal draft deleted");
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  return { query, getLines, create, remove };
+  const submit = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.rpc("submit_manual_journal" as any, { _journal_id: id });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidate();
+      toast.success("Journal submitted for approval");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const approve = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.rpc("approve_manual_journal" as any, { _journal_id: id });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidate();
+      toast.success("Journal approved");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const reject = useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason?: string }) => {
+      const { error } = await supabase.rpc("reject_manual_journal" as any, {
+        _journal_id: id,
+        _reason: reason || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidate();
+      toast.success("Journal rejected");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const post = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.rpc("post_manual_journal" as any, { _journal_id: id });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidate();
+      toast.success("Journal posted to the ledger");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const reverse = useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabase.rpc("reverse_manual_journal" as any, { _journal_id: id });
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: () => {
+      invalidate();
+      toast.success("Journal reversed with a new posted reversal entry");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return { query, getLines, create, remove, submit, approve, reject, post, reverse };
 }
 
 export function useUpdateOpeningBalance() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, opening_balance, opening_balance_date }: { id: string; opening_balance: number; opening_balance_date: string | null }) => {
+    mutationFn: async ({
+      id,
+      opening_balance,
+      opening_balance_date,
+    }: {
+      id: string;
+      opening_balance: number;
+      opening_balance_date: string | null;
+    }) => {
       const { error } = await supabase
         .from("chart_of_accounts")
         .update({ opening_balance, opening_balance_date })
