@@ -113,7 +113,7 @@ export default function SuperAdminHealth() {
             }))
           : checks
         ).map((c, i) => {
-          const CheckIcon = c.icon;
+          const CheckIcon = c.icon ?? Activity;
           return (
             <Card key={i} className="p-5 border-border/70">
               <div className="flex items-center justify-between">
