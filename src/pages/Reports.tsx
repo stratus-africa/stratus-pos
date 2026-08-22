@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useSearchParams } from "@/lib/router-compat";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -496,56 +496,104 @@ const Reports = () => {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col md:flex-row gap-4 md:gap-6">
         {(() => {
-          const items: Array<{ value: string; label: string; icon: any; show: boolean }> = [
-            { value: "sales", label: "Sales · Overview", icon: BarChart3, show: can("sales") },
-            { value: "sales_by_product", label: "Sales · By Product", icon: BarChart3, show: can("sales_by_product") },
+          type ReportItem = { value: string; label: string; icon: any; show: boolean };
+          type ReportGroup = { key: string; label: string; items: ReportItem[] };
+
+          const groups: ReportGroup[] = [
             {
-              value: "sales_by_customer",
-              label: "Sales · By Customer",
-              icon: BarChart3,
-              show: can("sales_by_customer"),
+              key: "operational",
+              label: "Operational",
+              items: [
+                { value: "sales", label: "Sales · Overview", icon: BarChart3, show: can("sales") },
+                {
+                  value: "sales_by_product",
+                  label: "Sales · By Product",
+                  icon: BarChart3,
+                  show: can("sales_by_product"),
+                },
+                {
+                  value: "sales_by_customer",
+                  label: "Sales · By Customer",
+                  icon: BarChart3,
+                  show: can("sales_by_customer"),
+                },
+                {
+                  value: "sales_by_cashier",
+                  label: "Sales · By Cashier",
+                  icon: BarChart3,
+                  show: can("sales_by_cashier"),
+                },
+                {
+                  value: "sales_by_location",
+                  label: "Sales · By Location",
+                  icon: BarChart3,
+                  show: can("sales_by_location"),
+                },
+                {
+                  value: "sales_by_payment",
+                  label: "Sales · By Payment",
+                  icon: BarChart3,
+                  show: can("sales_by_payment"),
+                },
+                { value: "eod", label: "End of Day", icon: Sun, show: can("sales") },
+                { value: "zreport", label: "Z Report", icon: FileText, show: can("sales") },
+                { value: "audit", label: "Audit Trail", icon: ClipboardList, show: canAudit },
+                { value: "schedule", label: "Scheduled Reports", icon: Clock, show: can("schedule") },
+              ],
             },
-            { value: "sales_by_cashier", label: "Sales · By Cashier", icon: BarChart3, show: can("sales_by_cashier") },
             {
-              value: "sales_by_location",
-              label: "Sales · By Location",
-              icon: BarChart3,
-              show: can("sales_by_location"),
-            },
-            { value: "sales_by_payment", label: "Sales · By Payment", icon: BarChart3, show: can("sales_by_payment") },
-            { value: "stock", label: "Inventory · Stock", icon: Package, show: can("stock") },
-            { value: "stock_movement", label: "Inventory · Movement", icon: ScrollText, show: can("stock_movement") },
-            { value: "stock_valuation", label: "Inventory · Valuation", icon: Package, show: can("stock_valuation") },
-            {
-              value: "stock_adjustments",
-              label: "Inventory · Adjustments",
-              icon: Package,
-              show: can("stock_adjustments"),
-            },
-            { value: "stock_transfers", label: "Inventory · Transfers", icon: Package, show: can("stock_transfers") },
-            { value: "low_stock", label: "Inventory · Low Stock", icon: Package, show: can("low_stock") },
-            { value: "expiry", label: "Inventory · Expiry", icon: Clock, show: can("expiry") },
-            { value: "purchases", label: "Purchases · Overview", icon: ShoppingCart, show: can("purchases") },
-            {
-              value: "purchases_by_supplier",
-              label: "Purchases · Supplier",
-              icon: ShoppingCart,
-              show: can("purchases_by_supplier"),
+              key: "inventory",
+              label: "Inventory",
+              items: [
+                { value: "stock", label: "Stock", icon: Package, show: can("stock") },
+                { value: "stock_movement", label: "Movement", icon: ScrollText, show: can("stock_movement") },
+                { value: "stock_valuation", label: "Valuation", icon: Package, show: can("stock_valuation") },
+                {
+                  value: "stock_adjustments",
+                  label: "Adjustments",
+                  icon: Package,
+                  show: can("stock_adjustments"),
+                },
+                { value: "stock_transfers", label: "Transfers", icon: Package, show: can("stock_transfers") },
+                { value: "low_stock", label: "Low Stock", icon: Package, show: can("low_stock") },
+                { value: "expiry", label: "Expiry", icon: Clock, show: can("expiry") },
+              ],
             },
             {
-              value: "purchase_returns",
-              label: "Purchases · Returns",
-              icon: ShoppingCart,
-              show: can("purchase_returns"),
+              key: "purchasing",
+              label: "Purchasing",
+              items: [
+                { value: "purchases", label: "Overview", icon: ShoppingCart, show: can("purchases") },
+                {
+                  value: "purchases_by_supplier",
+                  label: "By Supplier",
+                  icon: ShoppingCart,
+                  show: can("purchases_by_supplier"),
+                },
+                {
+                  value: "purchase_returns",
+                  label: "Returns",
+                  icon: ShoppingCart,
+                  show: can("purchase_returns"),
+                },
+              ],
             },
-            { value: "expenses", label: "Expenses", icon: Receipt, show: can("expenses") },
-            { value: "tax", label: "Tax", icon: Receipt, show: can("tax") },
-            { value: "pnl", label: "Financial · P&L", icon: TrendingUp, show: can("profit_loss") },
-            { value: "eod", label: "End of Day", icon: Sun, show: can("sales") },
-            { value: "zreport", label: "Z Report", icon: FileText, show: can("sales") },
-            { value: "audit", label: "Audit Trail", icon: ClipboardList, show: canAudit },
-            { value: "schedule", label: "Scheduled Reports", icon: Clock, show: can("schedule") },
-          ].filter((i) => i.show);
+            {
+              key: "financial",
+              label: "Financial",
+              items: [
+                { value: "expenses", label: "Expenses", icon: Receipt, show: can("expenses") },
+                { value: "tax", label: "Tax", icon: Receipt, show: can("tax") },
+                { value: "pnl", label: "Profit & Loss", icon: TrendingUp, show: can("profit_loss") },
+              ],
+            },
+          ];
+
+          const visibleGroups = groups
+            .map((group) => ({ ...group, items: group.items.filter((item) => item.show) }))
+            .filter((group) => group.items.length > 0);
+          const items = visibleGroups.flatMap((group) => group.items);
+
           return (
             <>
               <div className="md:hidden">
@@ -554,25 +602,39 @@ const Reports = () => {
                     <SelectValue placeholder="Select report" />
                   </SelectTrigger>
                   <SelectContent>
-                    {items.map((i) => (
-                      <SelectItem key={i.value} value={i.value}>
-                        <span className="flex items-center gap-2">
-                          <i.icon className="h-4 w-4" /> {i.label}
-                        </span>
-                      </SelectItem>
+                    {visibleGroups.map((group) => (
+                      <React.Fragment key={group.key}>
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{group.label}</div>
+                        {group.items.map((i) => (
+                          <SelectItem key={i.value} value={i.value}>
+                            <span className="flex items-center gap-2">
+                              <i.icon className="h-4 w-4" /> {i.label}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </React.Fragment>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <TabsList className="hidden md:flex text-muted-foreground md:flex-col h-auto md:w-52 bg-muted rounded-lg p-1.5 shrink-0 md:items-start md:justify-start">
-                {items.map((i) => (
-                  <TabsTrigger
-                    key={i.value}
-                    value={i.value}
-                    className="md:w-full md:justify-start gap-2 text-sm px-3 py-2.5 shrink-0"
-                  >
-                    <i.icon className="h-4 w-4" /> {i.label}
-                  </TabsTrigger>
+              <TabsList className="hidden md:flex text-muted-foreground md:flex-col md:w-56 bg-muted rounded-lg p-1.5 shrink-0 md:items-stretch md:justify-start h-auto">
+                {visibleGroups.map((group) => (
+                  <div key={group.key} className="w-full">
+                    <div className="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {group.label}
+                    </div>
+                    <div className="space-y-0.5">
+                      {group.items.map((i) => (
+                        <TabsTrigger
+                          key={i.value}
+                          value={i.value}
+                          className="md:w-full md:justify-start gap-2 text-sm px-3 py-2 shrink-0"
+                        >
+                          <i.icon className="h-4 w-4" /> {i.label}
+                        </TabsTrigger>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </TabsList>
             </>
