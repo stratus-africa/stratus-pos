@@ -40,6 +40,7 @@ import {
   HeartPulse,
   Flag,
   Headset,
+  DatabaseBackup,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -61,6 +62,7 @@ const GROUP_ICONS: Record<string, React.ElementType> = {
   Monitoring: HeartPulse,
   CMS: Globe,
   System: Settings2,
+  Enterprise: DatabaseBackup,
 };
 
 const navGroups: NavGroup[] = [
@@ -112,6 +114,10 @@ const navGroups: NavGroup[] = [
       { title: "FAQ", url: "/super-admin/cms/faq", icon: HelpCircle },
       { title: "Call To Action", url: "/super-admin/cms/cta", icon: Zap },
     ],
+  },
+  {
+    label: "Enterprise",
+    items: [{ title: "Enterprise Controls", url: "/super-admin/enterprise", icon: DatabaseBackup }],
   },
   {
     label: "System",

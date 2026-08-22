@@ -55,6 +55,7 @@ import { Route as SuperSuperAdminModulesRouteImport } from './routes/_super.supe
 import { Route as SuperSuperAdminNotificationsRouteImport } from './routes/_super.super-admin.notifications'
 import { Route as SuperSuperAdminPaymentsRouteImport } from './routes/_super.super-admin.payments'
 import { Route as SuperSuperAdminRevenueRouteImport } from './routes/_super.super-admin.revenue'
+import { Route as SuperSuperAdminSecurityRouteImport } from './routes/_super.super-admin.security'
 import { Route as SuperSuperAdminSubscriptionsRouteImport } from './routes/_super.super-admin.subscriptions'
 import { Route as SuperSuperAdminSupportRouteImport } from './routes/_super.super-admin.support'
 import { Route as SuperSuperAdminTenantApprovalsRouteImport } from './routes/_super.super-admin.tenant-approvals'
@@ -309,6 +310,11 @@ const SuperSuperAdminRevenueRoute = SuperSuperAdminRevenueRouteImport.update({
   path: '/super-admin/revenue',
   getParentRoute: () => SuperRoute,
 } as any)
+const SuperSuperAdminSecurityRoute = SuperSuperAdminSecurityRouteImport.update({
+  id: '/super-admin/security',
+  path: '/super-admin/security',
+  getParentRoute: () => SuperRoute,
+} as any)
 const SuperSuperAdminSubscriptionsRoute =
   SuperSuperAdminSubscriptionsRouteImport.update({
     id: '/super-admin/subscriptions',
@@ -478,6 +484,7 @@ export interface FileRoutesByFullPath {
   '/super-admin/notifications': typeof SuperSuperAdminNotificationsRoute
   '/super-admin/payments': typeof SuperSuperAdminPaymentsRoute
   '/super-admin/revenue': typeof SuperSuperAdminRevenueRoute
+  '/super-admin/security': typeof SuperSuperAdminSecurityRoute
   '/super-admin/subscriptions': typeof SuperSuperAdminSubscriptionsRoute
   '/super-admin/support': typeof SuperSuperAdminSupportRoute
   '/super-admin/tenant-approvals': typeof SuperSuperAdminTenantApprovalsRoute
@@ -546,6 +553,7 @@ export interface FileRoutesByTo {
   '/super-admin/notifications': typeof SuperSuperAdminNotificationsRoute
   '/super-admin/payments': typeof SuperSuperAdminPaymentsRoute
   '/super-admin/revenue': typeof SuperSuperAdminRevenueRoute
+  '/super-admin/security': typeof SuperSuperAdminSecurityRoute
   '/super-admin/subscriptions': typeof SuperSuperAdminSubscriptionsRoute
   '/super-admin/support': typeof SuperSuperAdminSupportRoute
   '/super-admin/tenant-approvals': typeof SuperSuperAdminTenantApprovalsRoute
@@ -617,6 +625,7 @@ export interface FileRoutesById {
   '/_super/super-admin/notifications': typeof SuperSuperAdminNotificationsRoute
   '/_super/super-admin/payments': typeof SuperSuperAdminPaymentsRoute
   '/_super/super-admin/revenue': typeof SuperSuperAdminRevenueRoute
+  '/_super/super-admin/security': typeof SuperSuperAdminSecurityRoute
   '/_super/super-admin/subscriptions': typeof SuperSuperAdminSubscriptionsRoute
   '/_super/super-admin/support': typeof SuperSuperAdminSupportRoute
   '/_super/super-admin/tenant-approvals': typeof SuperSuperAdminTenantApprovalsRoute
@@ -687,6 +696,7 @@ export interface FileRouteTypes {
     | '/super-admin/notifications'
     | '/super-admin/payments'
     | '/super-admin/revenue'
+    | '/super-admin/security'
     | '/super-admin/subscriptions'
     | '/super-admin/support'
     | '/super-admin/tenant-approvals'
@@ -755,6 +765,7 @@ export interface FileRouteTypes {
     | '/super-admin/notifications'
     | '/super-admin/payments'
     | '/super-admin/revenue'
+    | '/super-admin/security'
     | '/super-admin/subscriptions'
     | '/super-admin/support'
     | '/super-admin/tenant-approvals'
@@ -825,6 +836,7 @@ export interface FileRouteTypes {
     | '/_super/super-admin/notifications'
     | '/_super/super-admin/payments'
     | '/_super/super-admin/revenue'
+    | '/_super/super-admin/security'
     | '/_super/super-admin/subscriptions'
     | '/_super/super-admin/support'
     | '/_super/super-admin/tenant-approvals'
@@ -1191,6 +1203,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SuperSuperAdminRevenueRouteImport
       parentRoute: typeof SuperRoute
     }
+    '/_super/super-admin/security': {
+      id: '/_super/super-admin/security'
+      path: '/super-admin/security'
+      fullPath: '/super-admin/security'
+      preLoaderRoute: typeof SuperSuperAdminSecurityRouteImport
+      parentRoute: typeof SuperRoute
+    }
     '/_super/super-admin/subscriptions': {
       id: '/_super/super-admin/subscriptions'
       path: '/super-admin/subscriptions'
@@ -1414,6 +1433,7 @@ interface SuperRouteChildren {
   SuperSuperAdminNotificationsRoute: typeof SuperSuperAdminNotificationsRoute
   SuperSuperAdminPaymentsRoute: typeof SuperSuperAdminPaymentsRoute
   SuperSuperAdminRevenueRoute: typeof SuperSuperAdminRevenueRoute
+  SuperSuperAdminSecurityRoute: typeof SuperSuperAdminSecurityRoute
   SuperSuperAdminSubscriptionsRoute: typeof SuperSuperAdminSubscriptionsRoute
   SuperSuperAdminSupportRoute: typeof SuperSuperAdminSupportRoute
   SuperSuperAdminTenantApprovalsRoute: typeof SuperSuperAdminTenantApprovalsRoute
@@ -1448,6 +1468,7 @@ const SuperRouteChildren: SuperRouteChildren = {
   SuperSuperAdminNotificationsRoute: SuperSuperAdminNotificationsRoute,
   SuperSuperAdminPaymentsRoute: SuperSuperAdminPaymentsRoute,
   SuperSuperAdminRevenueRoute: SuperSuperAdminRevenueRoute,
+  SuperSuperAdminSecurityRoute: SuperSuperAdminSecurityRoute,
   SuperSuperAdminSubscriptionsRoute: SuperSuperAdminSubscriptionsRoute,
   SuperSuperAdminSupportRoute: SuperSuperAdminSupportRoute,
   SuperSuperAdminTenantApprovalsRoute: SuperSuperAdminTenantApprovalsRoute,
