@@ -224,6 +224,19 @@ export async function resolveBusinessEntitlement(input: {
 
   const packageFeatures = (featureRows || []) as PlanModule[];
 
+  // Super Admin's Module Manager is the global ceiling. A module must be both
+  // enabled for the plan AND globally active before tenant access is granted.
+  // Core workspace modules remain available regardless of this global catalogue.
+  let globallyEnabledModules: Set<string> | null = null;
+  try {
+    globallyEnabledModules = await getGloballyEnabledModuleKeys();
+  } catch (globalError) {
+    // Do not turn a temporary catalogue read failure into a false plan denial.
+    // Role/plan entitlements remain authoritative until the global catalogue is
+    // successfully loaded.
+    console.warn("[entitlementResolver] global module catalogue unavailable:", globalError);
+  }
+
   // Use the same comprehensive resolution as getPlanModules so feature_key variants
   // (e.g. "sales.view", "chart_of_accounts", aliases) all map to canonical module keys.
   const moduleSet = new Set<string>();
@@ -247,7 +260,16 @@ export async function resolveBusinessEntitlement(input: {
   for (const coreModule of ALWAYS_ENTITLED_CORE_MODULES) {
     moduleSet.add(coreModule);
   }
-  const enabledModules = [...moduleSet].filter(Boolean);
+
+  // Apply the global Module Manager ceiling to commercial modules. The package
+  // may enable a module, but Super Admin can still globally disable that module
+  // for every tenant. Feature-level rows also work because moduleSet has already
+  // normalized them to their canonical module keys.
+  const enabledModules = [...moduleSet].filter((key) => {
+    if (isAlwaysEntitledCoreModule(key)) return true;
+    if (!globallyEnabledModules) return true;
+    return globallyEnabledModules.has(key.toLowerCase());
+  });
 
   return {
     hasPlan: true,
