@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Smartphone, Save, Loader2, KeyRound, Trash2, ShieldCheck, PlugZap } from "lucide-react";
+import { Smartphone, Save, Loader2, KeyRound, Trash2, ShieldCheck, PlugZap, WandSparkles } from "lucide-react";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ import {
   testMpesaCredentials,
 } from "@/lib/mpesaCredentials.functions";
 import { getMpesaSmsTokenStatus, generateMpesaSmsToken, revokeMpesaSmsToken } from "@/lib/mpesaSmsToken.functions";
+import { MpesaSetupWizard } from "./MpesaSetupWizard";
 
 export function PaymentGatewaysTab() {
   const { business, refreshBusiness } = useBusiness();
@@ -52,6 +53,7 @@ export function PaymentGatewaysTab() {
   const [smsTokenPrefix, setSmsTokenPrefix] = useState<string | null>(null);
   const [smsToken, setSmsToken] = useState<string | null>(null);
   const [smsTokenBusy, setSmsTokenBusy] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
 
   useEffect(() => {
     if (!business) return;
@@ -167,11 +169,11 @@ export function PaymentGatewaysTab() {
     }
   };
 
-  const testCredentials = async () => {
+  const testCredentials = async (): Promise<boolean> => {
     if (!business) return;
     if (!hasCreds && (!consumerKey || !consumerSecret)) {
       toast.error("Enter consumer key and secret first");
-      return;
+      return false;
     }
     setTesting(true);
     let data: Awaited<ReturnType<typeof testMpesaCredentialsFn>> | undefined;
@@ -187,17 +189,70 @@ export function PaymentGatewaysTab() {
     } catch (e: any) {
       setTesting(false);
       toast.error("Test failed: " + (e?.message || "Unknown error"));
-      return;
+      return false;
     }
     setTesting(false);
     if (data?.ok) {
       toast.success(`Daraja ${data.environment} OK`, {
         description: `Access token received in ${data.took_ms}ms${data.expires_in ? ` (expires in ${data.expires_in}s)` : ""}`,
       });
+      return true;
     } else {
       toast.error(`Daraja ${data?.environment ?? environment} rejected credentials`, {
         description: data?.error || `HTTP ${data?.status ?? "?"}`,
       });
+      return false;
+    }
+  };
+
+  const savePublicForWizard = async (): Promise<boolean> => {
+    if (!business) return false;
+    setSavingPublic(true);
+    const { error } = await supabase
+      .from("businesses")
+      .update({
+        mpesa_enabled: enabled,
+        mpesa_environment: environment,
+        mpesa_shortcode: shortcode.trim() || null,
+        mpesa_paybill_or_till: paybillOrTill,
+        mpesa_callback_url: callbackUrl.trim() || null,
+        mpesa_account_reference: accountReference.trim() || null,
+      } as never)
+      .eq("id", business.id);
+    setSavingPublic(false);
+    if (error) {
+      toast.error(error.message);
+      return false;
+    }
+    await refreshBusiness();
+    toast.success("M-Pesa business configuration saved");
+    return true;
+  };
+
+  const saveSecretsForWizard = async (): Promise<boolean> => {
+    if (!business) return false;
+    if (!consumerKey || !consumerSecret || !passkey) {
+      if (hasCreds && !consumerKey && !consumerSecret && !passkey) return true;
+      toast.error("All credential fields are required");
+      return false;
+    }
+    setSavingSecrets(true);
+    try {
+      await setMpesaCredentialsFn({
+        data: { business_id: business.id, consumer_key: consumerKey, consumer_secret: consumerSecret, passkey },
+      });
+      setHasCreds(true);
+      setCredsUpdatedAt(new Date().toISOString());
+      setConsumerKey("");
+      setConsumerSecret("");
+      setPasskey("");
+      toast.success("Daraja credentials encrypted and stored");
+      return true;
+    } catch (e: any) {
+      toast.error("Failed to save credentials: " + (e?.message || "Unknown error"));
+      return false;
+    } finally {
+      setSavingSecrets(false);
     }
   };
 
@@ -205,6 +260,54 @@ export function PaymentGatewaysTab() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">M-Pesa payment gateway</h2>
+          <p className="text-sm text-muted-foreground">Use the guided setup or manage individual settings below.</p>
+        </div>
+        <Button variant={showWizard ? "outline" : "default"} onClick={() => setShowWizard((value) => !value)}>
+          <WandSparkles className="mr-2 h-4 w-4" />
+          {showWizard ? "Hide setup wizard" : "Open setup wizard"}
+        </Button>
+      </div>
+
+      {showWizard && (
+        <MpesaSetupWizard
+          enabled={enabled}
+          setEnabled={setEnabled}
+          environment={environment}
+          setEnvironment={setEnvironment}
+          shortcode={shortcode}
+          setShortcode={setShortcode}
+          paybillOrTill={paybillOrTill}
+          setPaybillOrTill={setPaybillOrTill}
+          callbackUrl={callbackUrl}
+          setCallbackUrl={setCallbackUrl}
+          accountReference={accountReference}
+          setAccountReference={setAccountReference}
+          consumerKey={consumerKey}
+          setConsumerKey={setConsumerKey}
+          consumerSecret={consumerSecret}
+          setConsumerSecret={setConsumerSecret}
+          passkey={passkey}
+          setPasskey={setPasskey}
+          hasCreds={hasCreds}
+          smsTokenConfigured={smsTokenConfigured}
+          smsTokenPrefix={smsTokenPrefix}
+          smsToken={smsToken}
+          savingPublic={savingPublic}
+          savingSecrets={savingSecrets}
+          testing={testing}
+          smsTokenBusy={smsTokenBusy}
+          onSavePublic={savePublicForWizard}
+          onSaveSecrets={saveSecretsForWizard}
+          onTestCredentials={testCredentials}
+          onGenerateSmsToken={generateSmsToken}
+          onRevokeSmsToken={revokeSmsToken}
+          onFinish={() => setShowWizard(false)}
+        />
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
