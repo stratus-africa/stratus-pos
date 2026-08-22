@@ -3,16 +3,29 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Printer, Pencil, FileSpreadsheet } from "lucide-react";
+import {
+  Printer,
+  Pencil,
+  FileSpreadsheet,
+  CheckCircle2,
+  PackageCheck,
+  RotateCcw,
+  CreditCard,
+  History,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { exportPurchaseDocumentToExcel } from "@/lib/purchaseExport";
 import type { Purchase } from "@/hooks/usePurchases";
+import { usePermissions } from "@/hooks/usePermissions";
+import { usePurchaseLifecycle } from "@/hooks/usePurchaseLifecycle";
 
 interface Line {
   quantity: number;
   unit_cost: number;
   total: number;
+  id: string;
+  quantity_received?: number;
   products?: { name: string | null; sku: string | null; barcode: string | null } | null;
 }
 
@@ -34,10 +47,13 @@ export function PurchaseDetailDialog({
   open: boolean;
   onOpenChange: (o: boolean) => void;
   onEdit?: (p: Purchase) => void;
+  onPayment?: (p: Purchase) => void;
 }) {
   const { business } = useBusiness();
   const [items, setItems] = useState<Line[]>([]);
   const [loading, setLoading] = useState(false);
+  const { hasPermission } = usePermissions();
+  const { approve, receive, returnAll, timeline } = usePurchaseLifecycle(purchase?.id);
 
   useEffect(() => {
     if (!open || !purchase) return;
@@ -45,7 +61,7 @@ export function PurchaseDetailDialog({
     setLoading(true);
     supabase
       .from("purchase_items")
-      .select("quantity, unit_cost, total, products(name, sku, barcode)")
+      .select("id, quantity, quantity_received, unit_cost, total, products(name, sku, barcode)")
       .eq("purchase_id", purchase.id)
       .then(({ data }) => {
         if (!cancelled) {
@@ -131,6 +147,18 @@ export function PurchaseDetailDialog({
     w.document.close();
     w.focus();
     setTimeout(() => w.print(), 300);
+  };
+
+  const handleReceive = async () => {
+    const receipts = items
+      .map((i) => ({
+        purchase_item_id: i.id,
+        quantity: Math.max(0, Number(i.quantity || 0) - Number(i.quantity_received || 0)),
+      }))
+      .filter((r) => r.quantity > 0);
+    if (!receipts.length) return;
+    await receive(receipts);
+    onOpenChange(false);
   };
 
   if (!purchase) return null;
@@ -253,7 +281,52 @@ export function PurchaseDetailDialog({
           </p>
         )}
 
+        {hasPermission("purchases.history") && timeline.data && timeline.data.length > 0 && (
+          <div className="rounded-md border p-3 space-y-2">
+            <div className="text-sm font-semibold">Lifecycle History</div>
+            {timeline.data.slice(0, 8).map((event: any) => (
+              <div key={event.id} className="flex items-start justify-between gap-3 text-xs">
+                <div>
+                  <span className="font-medium">{String(event.event_type).replaceAll("_", " ")}</span>
+                  {event.note ? ` — ${event.note}` : ""}
+                </div>
+                <span className="text-muted-foreground whitespace-nowrap">
+                  {new Date(event.created_at).toLocaleString("en-KE")}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="flex flex-wrap justify-end gap-2">
+          {hasPermission("purchases.approve") && purchase.status === "draft" && (
+            <Button onClick={() => approve.mutate()} disabled={approve.isPending}>
+              <CheckCircle2 className="h-4 w-4 mr-2" /> {approve.isPending ? "Approving…" : "Approve"}
+            </Button>
+          )}
+          {hasPermission("purchases.receive") && ["approved", "partially_received"].includes(purchase.status) && (
+            <Button onClick={handleReceive} disabled={receive === undefined || items.length === 0}>
+              <PackageCheck className="h-4 w-4 mr-2" /> Receive
+            </Button>
+          )}
+          {hasPermission("purchases.return") && ["partially_received", "received"].includes(purchase.status) && (
+            <Button variant="destructive" onClick={() => returnAll.mutate()} disabled={returnAll.isPending}>
+              <RotateCcw className="h-4 w-4 mr-2" /> {returnAll.isPending ? "Returning…" : "Return Goods"}
+            </Button>
+          )}
+          {hasPermission("purchases.record_payment") &&
+            purchase.status !== "cancelled" &&
+            purchase.payment_status !== "paid" &&
+            onPayment && (
+              <Button variant="outline" onClick={() => onPayment(purchase)}>
+                <CreditCard className="h-4 w-4 mr-2" /> Record Payment
+              </Button>
+            )}
+          {hasPermission("purchases.history") && (
+            <Button variant="ghost" onClick={() => timeline.refetch()} title="Refresh lifecycle history">
+              <History className="h-4 w-4 mr-2" /> History{timeline.isFetching ? "…" : ""}
+            </Button>
+          )}
           {onEdit && (
             <Button variant="outline" onClick={() => onEdit(purchase)}>
               <Pencil className="h-4 w-4 mr-2" /> Edit
