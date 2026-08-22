@@ -117,7 +117,11 @@ export default function SuperAdminDashboard() {
         supabase.from("subscription_packages").select("id", { count: "exact", head: true }).eq("is_active", true),
         supabase.from("subscriptions").select("status, plan_code, current_period_end"),
         supabase.from("businesses").select("id, name, created_at, is_active").order("name"),
-        supabase.from("offline_payment_requests").select("amount_kes").eq("status", "approved"),
+        supabase
+          .from("offline_payment_requests")
+          .select("id, amount_kes, status, created_at")
+          .eq("status", "approved")
+          .gt("amount_kes", 0),
         (supabase as any).rpc("list_tenant_approvals", { _status: "pending", _search: null }),
       ]);
 
@@ -198,6 +202,8 @@ export default function SuperAdminDashboard() {
       icon: Building2,
       iconBg: "bg-indigo-500/10 dark:bg-indigo-400/15",
       iconColor: "text-indigo-500",
+      link: "/super-admin/subscriptions",
+      linkLabel: "View subscriptions",
     },
     {
       label: "Revenue collected",
@@ -205,8 +211,8 @@ export default function SuperAdminDashboard() {
       icon: CreditCard,
       iconBg: "bg-emerald-500/10 dark:bg-emerald-400/15",
       iconColor: "text-emerald-500",
-      link: "/super-admin/subscriptions",
-      linkLabel: "Approved payments",
+      link: "/super-admin/transactions",
+      linkLabel: "View transactions",
     },
     {
       label: "Active Plans",
@@ -285,11 +291,8 @@ export default function SuperAdminDashboard() {
 
       {/* Stat Cards */}
       <div className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-4">
-        {statCards.map((card) => (
-          <Card
-            key={card.label}
-            className="min-w-0 min-h-[152px] bg-card border-border p-4 shadow-none transition-all hover:border-emerald-400/50 hover:bg-emerald-500/10 dark:hover:bg-emerald-400/10"
-          >
+        {statCards.map((card) => {
+          const cardContent = (
             <div className="flex h-full flex-col items-center justify-center text-center">
               <div className={`h-10 w-10 rounded-lg ${card.iconBg} flex items-center justify-center mb-2`}>
                 <card.icon className={`h-5 w-5 ${card.iconColor}`} />
@@ -298,18 +301,41 @@ export default function SuperAdminDashboard() {
               <div className="mt-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 {card.label}
               </div>
-              <div className="mt-2">
-                <Link
-                  to={card.link}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700"
-                >
-                  {card.linkLabel}
-                  <ArrowRight className="h-3 w-3" />
-                </Link>
-              </div>
+              {card.link && (
+                <div className="mt-2">
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700">
+                    {card.linkLabel}
+                    <ArrowRight className="h-3 w-3" />
+                  </span>
+                </div>
+              )}
             </div>
-          </Card>
-        ))}
+          );
+
+          const cardNode = (
+            <Card
+              key={card.label}
+              className="min-w-0 min-h-[152px] bg-card border-border p-4 shadow-none transition-all hover:border-emerald-400/50 hover:bg-emerald-500/10 dark:hover:bg-emerald-400/10"
+            >
+              {cardContent}
+            </Card>
+          );
+
+          return card.label === "Total Tenants" && card.link ? (
+            <Link
+              key={card.label}
+              to={card.link}
+              className="block min-w-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              aria-label="Open subscriptions"
+            >
+              {cardNode}
+            </Link>
+          ) : (
+            <div key={card.label} className="min-w-0">
+              {cardNode}
+            </div>
+          );
+        })}
       </div>
 
       {/* Needs attention */}
