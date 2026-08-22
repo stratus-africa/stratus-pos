@@ -13,7 +13,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useEffect as useEffectR } from "react";
 import {
   LayoutDashboard,
-  Building2,
   Tag,
   CreditCard,
   Shield,
@@ -37,33 +36,17 @@ import {
   Zap,
   Megaphone,
   Settings2,
-  HeartPulse,
-  Flag,
-  Headset,
-  DatabaseBackup,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-import { ChevronDown, Command } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { format } from "date-fns";
 import { NotificationBell } from "@/components/NotificationBell";
 
 type NavItem = { title: string; url: string; icon: React.ElementType };
 type NavGroup = { label: string; items: NavItem[] };
-
-const GROUP_ICONS: Record<string, React.ElementType> = {
-  Main: LayoutDashboard,
-  Management: Building2,
-  Payments: CreditCard,
-  Reports: PieChart,
-  Monitoring: HeartPulse,
-  CMS: Globe,
-  System: Settings2,
-  Enterprise: DatabaseBackup,
-};
 
 const navGroups: NavGroup[] = [
   {
@@ -73,11 +56,10 @@ const navGroups: NavGroup[] = [
   {
     label: "Management",
     items: [
-      { title: "Tenants", url: "/super-admin/businesses", icon: Building2 },
+      { title: "Subscriptions", url: "/super-admin/subscriptions", icon: CreditCard },
       { title: "Tenant Approvals", url: "/super-admin/tenant-approvals", icon: UserCheck },
       { title: "Plans", url: "/super-admin/packages", icon: Tag },
       { title: "Modules", url: "/super-admin/modules", icon: LayoutGrid },
-      { title: "Subscriptions", url: "/super-admin/subscriptions", icon: CreditCard },
       { title: "Super Admins", url: "/super-admin/users", icon: Shield },
     ],
   },
@@ -85,17 +67,7 @@ const navGroups: NavGroup[] = [
     label: "Payments",
     items: [
       { title: "Overview", url: "/super-admin/payments", icon: BarChart2 },
-      { title: "Revenue", url: "/super-admin/revenue", icon: TrendingUp },
       { title: "Transactions", url: "/super-admin/transactions", icon: Receipt },
-    ],
-  },
-  {
-    label: "Monitoring",
-    items: [
-      { title: "Platform Health", url: "/super-admin/health", icon: HeartPulse },
-      { title: "Feature Flags", url: "/super-admin/feature-flags", icon: Flag },
-      { title: "Support & Impersonation", url: "/super-admin/support", icon: Headset },
-      { title: "Security Center", url: "/super-admin/security", icon: Shield },
     ],
   },
   {
@@ -114,10 +86,6 @@ const navGroups: NavGroup[] = [
       { title: "FAQ", url: "/super-admin/cms/faq", icon: HelpCircle },
       { title: "Call To Action", url: "/super-admin/cms/cta", icon: Zap },
     ],
-  },
-  {
-    label: "Enterprise",
-    items: [{ title: "Enterprise Controls", url: "/super-admin/enterprise", icon: DatabaseBackup }],
   },
   {
     label: "System",
@@ -142,9 +110,6 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showAllMobileMenus, setShowAllMobileMenus] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(navGroups.map((g) => [g.label, !["CMS"].includes(g.label)])),
-  );
 
   useEffectR(() => {
     const load = async () => {
@@ -186,100 +151,59 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
       {sidebarVisible && (
         <aside
           className={cn(
-            "bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col transition-[width] duration-200 shadow-[1px_0_0_hsl(var(--border))]",
-            isMobile ? "fixed inset-y-0 left-0 z-40 w-72" : collapsed ? "w-[72px]" : "w-64",
+            "bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col transition-[width] duration-200",
+            isMobile ? "fixed inset-y-0 left-0 z-40 w-64" : "w-64",
           )}
         >
           {/* Brand */}
-          <div className={cn("px-4 py-5 flex items-center", collapsed && !isMobile ? "justify-center" : "gap-2.5")}>
+          <div className="px-5 py-5 flex items-center gap-2.5">
             <div className="h-9 w-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-xs">
               <Zap className="h-4 w-4" />
             </div>
-            {(!collapsed || isMobile) && (
-              <div className="min-w-0">
-                <span className="block text-sm font-bold tracking-tight text-sidebar-foreground">StratusPOS</span>
-                <span className="block text-[10px] font-medium uppercase tracking-[0.16em] text-sidebar-foreground/45">
-                  Super Admin
-                </span>
-              </div>
-            )}
+            <span className="text-base font-bold tracking-tight text-sidebar-foreground">StratusPOS</span>
           </div>
 
           {/* Nav groups */}
           <nav className="flex-1 overflow-y-auto px-3 pb-4 space-y-5">
-            {navGroups.map((group) => {
-              const GroupIcon = GROUP_ICONS[group.label] || LayoutGrid;
-              const isOpen = openGroups[group.label];
-              const hasActive = group.items.some((item) => isActive(item.url));
-              return (
-                <div key={group.label}>
-                  {group.label === "Main" ? null : (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        !collapsed && setOpenGroups((prev) => ({ ...prev, [group.label]: !prev[group.label] }))
-                      }
-                      className={cn(
-                        "w-full flex items-center gap-2 rounded-md px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground hover:text-sidebar-foreground transition-colors",
-                        hasActive && "text-primary",
-                        collapsed && !isMobile && "justify-center px-0",
-                      )}
-                      title={collapsed && !isMobile ? group.label : undefined}
-                    >
-                      <GroupIcon className="h-3.5 w-3.5 shrink-0" />
-                      {(!collapsed || isMobile) && (
-                        <>
-                          <span className="flex-1 text-left">{group.label}</span>
-                          <ChevronDown className={cn("h-3 w-3 transition-transform", isOpen && "rotate-180")} />
-                        </>
-                      )}
-                    </button>
-                  )}
-                  {(group.label === "Main" || isOpen || (collapsed && !isMobile)) && (
-                    <div className={cn("space-y-0.5", group.label !== "Main" && "mt-1")}>
-                      {group.items.map((item) => {
-                        const active = isActive(item.url);
-                        return (
-                          <Link
-                            key={item.url}
-                            to={item.url}
-                            className={cn(
-                              "group flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all",
-                              collapsed && !isMobile && "justify-center px-0",
-                              active
-                                ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                                : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground",
-                            )}
-                          >
-                            <item.icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
-                            {(!collapsed || isMobile) && <span className="truncate flex-1">{item.title}</span>}
-                            {(!collapsed || isMobile) &&
-                              item.url === "/super-admin/tenant-approvals" &&
-                              pendingCount > 0 && (
-                                <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold">
-                                  {pendingCount}
-                                </span>
-                              )}
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  )}
+            {navGroups.map((group) => (
+              <div key={group.label}>
+                <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {group.label}
                 </div>
-              );
-            })}
+                <div className="space-y-0.5">
+                  {group.items.map((item) => {
+                    const active = isActive(item.url);
+                    return (
+                      <Link
+                        key={item.url}
+                        to={item.url}
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                          active
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                            : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                        )}
+                      >
+                        <item.icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
+                        <span className="truncate flex-1">{item.title}</span>
+                        {item.url === "/super-admin/tenant-approvals" && pendingCount > 0 && (
+                          <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold">
+                            {pendingCount}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </nav>
 
           {/* Logout */}
-          <div className="p-3 border-t border-border/60">
-            <Button
-              variant="outline"
-              className={cn("w-full justify-center gap-2 text-sm bg-background/40", collapsed && !isMobile && "px-0")}
-              onClick={signOut}
-              title={collapsed && !isMobile ? "Log out" : undefined}
-            >
+          <div className="p-3 border-t border-border">
+            <Button variant="outline" className="w-full justify-center gap-2 text-sm" onClick={signOut}>
               <LogOut className="h-4 w-4" />
-              {(!collapsed || isMobile) && "Log out"}
+              Log out
             </Button>
           </div>
         </aside>
@@ -293,16 +217,11 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
             <Button
               size="icon"
               variant="ghost"
-              className="hidden h-8 w-8 sm:inline-flex hover:bg-muted"
+              className="hidden h-8 w-8 sm:inline-flex"
               onClick={() => setCollapsed((c) => !c)}
             >
-              <PanelLeft className={cn("h-4 w-4 transition-transform", collapsed && "rotate-180")} />
+              <PanelLeft className="h-4 w-4" />
             </Button>
-            <div className="hidden md:flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground">
-              <Command className="h-3.5 w-3.5" />
-              <span>Quick search</span>
-              <kbd className="rounded border bg-background px-1.5 py-0.5 text-[10px] font-medium">Ctrl K</kbd>
-            </div>
           </div>
 
           <div className="flex items-center gap-1.5">
@@ -317,9 +236,6 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
                   Quick Actions
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate("/super-admin/businesses")}>
-                  <Building2 className="h-4 w-4 mr-2 text-primary" /> Tenants
-                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/super-admin/packages/new")}>
                   <Plus className="h-4 w-4 mr-2 text-primary" /> New plan
                 </DropdownMenuItem>
