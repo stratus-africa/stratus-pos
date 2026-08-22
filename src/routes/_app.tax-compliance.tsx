@@ -9,6 +9,10 @@ export const Route = createFileRoute("/_app/tax-compliance")({
 
 function RouteComponent() {
   return (
-    <PermissionGuard permission="settings.view"><FeatureGate moduleKey="digitax"><Digitax /></FeatureGate></PermissionGuard>
+    <PermissionGuard permission="digitax.view">
+      <FeatureGate moduleKey="digitax">
+        <Digitax />
+      </FeatureGate>
+    </PermissionGuard>
   );
 }
