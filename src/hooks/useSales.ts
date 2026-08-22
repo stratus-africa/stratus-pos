@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { toast } from "sonner";
 import { handlePlanLimitError } from "@/lib/planLimits";
 import { assertCanPost } from "@/lib/postingGuard";
@@ -144,6 +145,10 @@ export function useSales({ subscribeToFiscalUpdates = true }: { subscribeToFisca
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const cashierOnly = userRole === "cashier";
+  const { hasPermission } = usePermissions();
+  const assertSalesPermission = (key: string) => {
+    if (!hasPermission(key)) throw new Error(`Missing permission: ${key}`);
+  };
 
   const salesQuery = useQuery({
     queryKey: ["sales", business?.id, cashierOnly ? user?.id : "all"],
@@ -245,56 +250,125 @@ export function useSales({ subscribeToFiscalUpdates = true }: { subscribeToFisca
   });
 
   const cancelSale = useMutation({
-    mutationFn: async ({ id, cancel = true }: { id: string; cancel?: boolean }) => {
-      assertCanPost();
-      if (cashierOnly) throw new Error("Cashiers cannot cancel sales.");
-      const { data: saleSnap } = await supabase
-        .from("sales")
-        .select("invoice_number, total, business_id, status")
-        .eq("id", id)
-        .maybeSingle();
-
-      const nextStatus = cancel ? "cancelled" : "final";
-      const { error } = await supabase.from("sales").update({ status: nextStatus }).eq("id", id);
+    mutationFn: async ({ id, cancel = true, reason = "" }: { id: string; cancel?: boolean; reason?: string }) => {
+      assertSalesPermission("sales.cancel");
+      if (!cancel) throw new Error("Sale reactivation is not part of the sales cancellation workflow.");
+      const { error } = await supabase.rpc("request_sale_cancellation", {
+        _sale_id: id,
+        _reason: reason || "Cancellation requested",
+      });
       if (error) throw error;
-
-      // Remove linked bank transactions when voiding (mirrors delete behaviour)
-      if (cancel) {
-        await supabase.from("bank_transactions").delete().eq("sale_id", id);
-        // Fire credit-note fiscalisation (fire-and-forget)
-        try {
-          const { submitSaleToDigitax } = await import("@/hooks/useDigitax");
-          await submitSaleToDigitax(id, { invoice_type: "credit_note", original_sale_id: id });
-        } catch {
-          /* digitax not enabled or offline — ignored */
-        }
-      }
-
-      if (saleSnap?.business_id) {
-        const { logAudit } = await import("@/lib/audit");
-        await logAudit({
-          business_id: saleSnap.business_id,
-          action: cancel ? "sale_cancelled" : "sale_reactivated",
-          entity_type: "sale",
-          entity_id: id,
-          description: `${cancel ? "Cancelled" : "Reactivated"} sale ${saleSnap.invoice_number || id} (KES ${Number(saleSnap.total || 0).toLocaleString()})`,
-          metadata: {
-            invoice_number: saleSnap.invoice_number,
-            total: saleSnap.total,
-            previous_status: saleSnap.status,
-            new_status: nextStatus,
-          },
-        });
-      }
+      return id;
     },
-    onSuccess: (_d, vars) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["stock_movements"] });
-      toast.success(vars.cancel ? "Sale cancelled — inventory restored" : "Sale reactivated");
+      toast.success("Cancellation recorded or submitted for approval");
     },
     onError: (e) => toast.error(e.message),
   });
+
+  const requestRefund = useMutation({
+    mutationFn: async (input: {
+      saleId: string;
+      amount: number;
+      reason: string;
+      method?: string;
+      reference?: string;
+    }) => {
+      assertSalesPermission("sales.refund");
+      const { data, error } = await supabase.rpc("request_sale_refund", {
+        _sale_id: input.saleId,
+        _amount: input.amount,
+        _reason: input.reason,
+        _method: input.method || "cash",
+        _reference: input.reference || null,
+      });
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
+      toast.success("Refund request submitted");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const approveRefund = useMutation({
+    mutationFn: async ({ refundId, approve, reason }: { refundId: string; approve: boolean; reason?: string }) => {
+      assertSalesPermission("sales.approve_refund");
+      const { error } = await supabase.rpc("approve_sale_refund", {
+        _refund_id: refundId,
+        _approve: approve,
+        _reason: reason || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
+      toast.success("Refund decision recorded");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const completeRefund = useMutation({
+    mutationFn: async (refundId: string) => {
+      assertSalesPermission("sales.refund");
+      const { error } = await supabase.rpc("complete_sale_refund", { _refund_id: refundId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      toast.success("Refund completed");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const recordPayment = useMutation({
+    mutationFn: async (input: { saleId: string; amount: number; method: string; reference?: string }) => {
+      assertSalesPermission("sales.record_payment");
+      const { data, error } = await supabase.rpc("record_sale_payment", {
+        _sale_id: input.saleId,
+        _amount: input.amount,
+        _method: input.method,
+        _reference: input.reference || null,
+      });
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
+      toast.success("Payment recorded");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const allocatePayment = useMutation({
+    mutationFn: async (input: { paymentId: string; saleId: string; amount: number }) => {
+      assertSalesPermission("sales.allocate_payment");
+      const { data, error } = await supabase.rpc("allocate_sale_payment", {
+        _payment_id: input.paymentId,
+        _sale_id: input.saleId,
+        _amount: input.amount,
+      });
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
+      toast.success("Payment allocated");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const getSaleTimeline = async (saleId: string) => {
+    assertSalesPermission("sales.timeline");
+    const { data, error } = await supabase.rpc("get_sale_timeline", { _sale_id: saleId });
+    if (error) throw error;
+    return data ?? [];
+  };
 
   const retryFiscalisation = useMutation({
     mutationFn: async (saleId: string) => {
@@ -330,5 +404,17 @@ export function useSales({ subscribeToFiscalUpdates = true }: { subscribeToFisca
     };
   }, [business?.id, queryClient, subscribeToFiscalUpdates]);
 
-  return { salesQuery, getSaleDetails, deleteSale, cancelSale, retryFiscalisation };
+  return {
+    salesQuery,
+    getSaleDetails,
+    deleteSale,
+    cancelSale,
+    requestRefund,
+    approveRefund,
+    completeRefund,
+    recordPayment,
+    allocatePayment,
+    getSaleTimeline,
+    retryFiscalisation,
+  };
 }
