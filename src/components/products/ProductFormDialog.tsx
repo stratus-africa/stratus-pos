@@ -16,6 +16,7 @@ import { Plus, Trash2, FlaskConical, Shirt, ImageIcon, Loader2, Lock, Boxes } fr
 import { supabase } from "@/integrations/supabase/client";
 import { useAccountMappings } from "@/hooks/useAccountMappings";
 import { toast } from "sonner";
+import { usePermissions } from "@/hooks/usePermissions";
 
 
 interface Props {
@@ -36,6 +37,12 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
   const { query: taxRatesQuery } = useTaxRates();
   const { business, locations, currentLocation } = useBusiness();
   const { hasFeatureKey } = useFeatureLimit();
+  const { hasPermission } = usePermissions();
+  const canManageVariants = hasPermission("products.manage_variants");
+  const canManageImages = hasPermission("products.manage_images");
+  const canManageBatches = hasPermission("products.manage_batches");
+  const canManageSerials = hasPermission("products.manage_serials");
+  const canManageCost = hasPermission("products.manage_cost");
   const { query: digitaxQ } = useDigitaxSettings();
   const digitaxEnabled = !!digitaxQ.data?.enabled;
   const vatEnabled = business?.vat_enabled !== false;
@@ -57,10 +64,8 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
   const businessType = (business as any)?.business_type;
   const isClothing = businessType === "clothing";
   const batchesEnabled =
-    !product &&
-    hasFeatureKey("batch_tracking") &&
-    businessType === "pharmacy" &&
-    (business as any)?.track_batches === true;
+    !product && canManageBatches && hasFeatureKey("batch_tracking") &&
+    ((businessType === "pharmacy" && (business as any)?.track_batches === true) || businessType !== "pharmacy");
 
   const [form, setForm] = useState<ProductFormData>({
     name: "",
@@ -73,6 +78,7 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
     selling_price: 0,
     tax_rate: 16,
     is_active: true,
+    track_serials: false,
     allow_decimal_quantity: false,
     image_url: null,
     kra_item_code: null,
@@ -110,6 +116,7 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
         selling_price: product.selling_price,
         tax_rate: product.tax_rate ?? 16,
         is_active: product.is_active,
+        track_serials: product.track_serials ?? false,
         allow_decimal_quantity: product.allow_decimal_quantity ?? false,
         image_url: product.image_url ?? null,
         kra_item_code: product.kra_item_code ?? null,
@@ -483,7 +490,7 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
             </div>
           </div>
 
-          {isClothing && (
+          {canManageImages && (
             <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <ImageIcon className="h-4 w-4 text-primary" />
@@ -514,7 +521,7 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
             </div>
           )}
 
-          {isClothing && (
+          {canManageVariants && (
             <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

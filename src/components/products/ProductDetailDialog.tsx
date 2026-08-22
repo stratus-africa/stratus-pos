@@ -8,12 +8,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, ShoppingCart, Truck, ClipboardList, Layers, History, Check } from "lucide-react";
+import { Package, ShoppingCart, Truck, ClipboardList, Layers, History, Check, ImageIcon, Plus, Trash2, Save } from "lucide-react";
 import type { Product } from "@/hooks/useProducts";
 import { useBusiness } from "@/contexts/BusinessContext";
 import BatchesTab from "@/components/products/BatchesTab";
+import SerialsTab from "@/components/products/SerialsTab";
 import QuickStockActions from "@/components/products/QuickStockActions";
 import { useFeatureLimit } from "@/components/FeatureGate";
 import { ledgerView } from "@/hooks/useInventory";
@@ -47,13 +49,34 @@ export default function ProductDetailDialog({
   const canViewPurchases = hasPermission("purchases.view");
   const canViewSales = hasPermission("sales.view");
   const canViewTimeline = canViewInventory || canViewPurchases || canViewSales;
-  const showBatches =
-    hasFeatureKey("batch_tracking") &&
-    (business as any)?.business_type === "pharmacy" &&
-    (business as any)?.track_batches === true;
+  const canManageBatches = hasPermission("products.manage_batches");
+  const canManageExpiry = hasPermission("products.manage_expiry");
+  const canManageSerials = hasPermission("products.manage_serials");
+  const canManageImages = hasPermission("products.manage_images");
+  const canManageCost = hasPermission("products.manage_cost");
+  const canManageVariants = hasPermission("products.manage_variants");
+  const showBatches = canViewInventory && canManageBatches;
   const productId = productProp?.id ?? productIdProp ?? undefined;
 
   const queryClient = useQueryClient();
+  const { data: productImages = [] } = useQuery({
+    queryKey: ["product_images", productId],
+    queryFn: async () => {
+      if (!productId) return [] as any[];
+      const { data, error } = await (supabase as any).from("product_images").select("*").eq("product_id", productId).order("sort_order");
+      if (error) throw error; return data ?? [];
+    }, enabled: !!productId && open,
+  });
+  const { data: costHistory = [] } = useQuery({
+    queryKey: ["product_cost_history", productId],
+    queryFn: async () => {
+      if (!productId) return [] as any[];
+      const { data, error } = await (supabase as any).from("product_cost_history").select("*").eq("product_id", productId).order("effective_at", { ascending: false });
+      if (error) throw error; return data ?? [];
+    }, enabled: !!productId && open && canManageCost,
+  });
+  const [costDraft, setCostDraft] = useState("");
+  const [imageUploading, setImageUploading] = useState(false);
 
   const [selectedLocation, setSelectedLocation] = useState<string>(locationId || "all");
   useEffect(() => {
@@ -117,6 +140,7 @@ export default function ProductDetailDialog({
   });
 
   const product = productProp ?? fetchedProduct.data ?? null;
+  const showSerials = canManageSerials && !!(product as any)?.track_serials;
 
   const inventoryQuery = useQuery({
     queryKey: ["product-inventory", productId],
@@ -365,15 +389,20 @@ export default function ProductDetailDialog({
         <QuickStockActions productId={product.id} productName={product.name} locationId={selectedLocation} />
 
         <Tabs defaultValue="details" className="space-y-3">
-          <TabsList className={`grid w-full ${showBatches ? "grid-cols-6" : "grid-cols-5"}`}>
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
             <TabsTrigger value="details">
               <Package className="mr-1 h-4 w-4" /> Details
             </TabsTrigger>
             {showBatches && (
-              <TabsTrigger value="batches" disabled={!canViewInventory}>
+              <TabsTrigger value="batches">
                 <Layers className="mr-1 h-4 w-4" /> Batches
               </TabsTrigger>
             )}
+            {showSerials && (
+              <TabsTrigger value="serials"><Package className="mr-1 h-4 w-4" /> Serials</TabsTrigger>
+            )}
+            {canManageImages && <TabsTrigger value="images"><ImageIcon className="mr-1 h-4 w-4" /> Images</TabsTrigger>}
+            {canManageCost && <TabsTrigger value="cost"><Save className="mr-1 h-4 w-4" /> Cost</TabsTrigger>}
             <TabsTrigger value="timeline" disabled={!canViewTimeline}>
               <History className="mr-1 h-4 w-4" /> Timeline
             </TabsTrigger>
@@ -592,6 +621,25 @@ export default function ProductDetailDialog({
               <BatchesTab productId={product.id} productName={product.name} />
             </TabsContent>
           )}
+
+          {showSerials && <TabsContent value="serials"><SerialsTab productId={product.id} productName={product.name} /></TabsContent>}
+
+          {canManageImages && <TabsContent value="images">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div><h4 className="text-sm font-semibold">Product image gallery</h4><p className="text-xs text-muted-foreground">Upload, reorder later, and choose the primary image used by the catalogue.</p></div>
+                <Input type="file" accept="image/*" className="max-w-xs" disabled={imageUploading} onChange={async (e) => { const file = e.target.files?.[0]; if (!file || !business?.id) return; setImageUploading(true); try { const path = `${business.id}/${product.id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`; const { error: upErr } = await supabase.storage.from("product-images").upload(path, file, { upsert: false, contentType: file.type }); if (upErr) throw upErr; const { data: pub } = supabase.storage.from("product-images").getPublicUrl(path); const { error } = await (supabase as any).from("product_images").insert({ business_id: business.id, product_id: product.id, image_url: pub.publicUrl, is_primary: productImages.length === 0, sort_order: productImages.length }); if (error) throw error; queryClient.invalidateQueries({ queryKey: ["product_images", product.id] }); queryClient.invalidateQueries({ queryKey: ["products"] }); toast.success("Image uploaded"); } catch (err: any) { toast.error(err.message); } finally { setImageUploading(false); e.target.value = ""; } }} />
+              </div>
+              {productImages.length === 0 ? <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">No images uploaded.</div> : <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{productImages.map((img: any) => <div key={img.id} className="rounded-lg border p-2 space-y-2"><img src={img.image_url} alt={img.alt_text || product.name} className="w-full aspect-square object-cover rounded-md" /><div className="flex items-center justify-between gap-2"><Badge variant={img.is_primary ? "default" : "secondary"}>{img.is_primary ? "Primary" : "Gallery"}</Badge><Button size="icon" variant="ghost" onClick={async () => { const { error } = await (supabase as any).from("product_images").delete().eq("id", img.id); if (error) toast.error(error.message); else { queryClient.invalidateQueries({ queryKey: ["product_images", product.id] }); toast.success("Image removed"); } }}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>{!img.is_primary && <Button size="sm" variant="outline" className="w-full" onClick={async () => { const { error } = await (supabase as any).from("product_images").update({ is_primary: true }).eq("id", img.id); if (error) toast.error(error.message); else { queryClient.invalidateQueries({ queryKey: ["product_images", product.id] }); queryClient.invalidateQueries({ queryKey: ["products"] }); } }}>Make Primary</Button>}</div>)}</div>}
+            </div>
+          </TabsContent>}
+
+          {canManageCost && <TabsContent value="cost">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 rounded-lg border p-4"><div><p className="text-xs text-muted-foreground">Current product cost</p><p className="text-xl font-semibold">{fmt(product.purchase_price)}</p></div><div><p className="text-xs text-muted-foreground">Latest history point</p><p className="text-xl font-semibold">{costHistory[0] ? fmt(Number(costHistory[0].unit_cost)) : "—"}</p></div><div className="space-y-2"><Label>Record new unit cost</Label><div className="flex gap-2"><Input type="number" min="0" step="0.01" value={costDraft} onChange={e => setCostDraft(e.target.value)} placeholder="0.00" /><Button disabled={!costDraft || Number(costDraft) < 0} onClick={async () => { const value = Number(costDraft); const { data: user } = await supabase.auth.getUser(); const { error: hErr } = await (supabase as any).from("product_cost_history").insert({ business_id: business?.id, product_id: product.id, unit_cost: value, source: "manual", created_by: user.user?.id ?? null }); if (hErr) { toast.error(hErr.message); return; } const { error: pErr } = await supabase.from("products").update({ purchase_price: value }).eq("id", product.id); if (pErr) { toast.error(pErr.message); return; } setCostDraft(""); queryClient.invalidateQueries({ queryKey: ["product_cost_history", product.id] }); queryClient.invalidateQueries({ queryKey: ["products"] }); toast.success("Product cost updated"); }}>Save</Button></div></div></div>
+              <Table><TableHeader><TableRow><TableHead>Effective</TableHead><TableHead>Unit Cost</TableHead><TableHead>Source</TableHead><TableHead>Notes</TableHead></TableRow></TableHeader><TableBody>{costHistory.length === 0 ? <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">No cost history.</TableCell></TableRow> : costHistory.map((c: any) => <TableRow key={c.id}><TableCell>{fmtDate(c.effective_at)}</TableCell><TableCell className="font-medium">{fmt(Number(c.unit_cost))}</TableCell><TableCell>{c.source}</TableCell><TableCell>{c.notes || "—"}</TableCell></TableRow>)}</TableBody></Table>
+            </div>
+          </TabsContent>}
 
           {/* PURCHASES */}
           <TabsContent value="purchases">
