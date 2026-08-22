@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { adminManageUser } from "@/lib/adminUsers.functions";
 import { superAdminDeleteTenant, superAdminResetTenant } from "@/lib/superAdmin.functions";
-import { createSupportSession } from "@/lib/superAdminPhase2.functions";
 import { resolvePreferredSubscription, resolveSubscriptionPlan } from "@/lib/subscriptionPlan";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -21,6 +20,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -44,8 +51,6 @@ import {
   Key,
   RotateCcw,
   AlertTriangle,
-  Activity,
-  Headset,
 } from "lucide-react";
 import ManageUserDialog, { SetPasswordDialog } from "@/components/users/ManageUserDialog";
 
@@ -97,7 +102,6 @@ export default function SuperAdminTenantDetail() {
   const callDeleteTenant = useServerFn(superAdminDeleteTenant);
   const callResetTenant = useServerFn(superAdminResetTenant);
   const callAdminManageUser = useServerFn(adminManageUser);
-  const callSupportSession = useServerFn(createSupportSession);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -119,7 +123,6 @@ export default function SuperAdminTenantDetail() {
     }>
   >([]);
   const [tenantLocations, setTenantLocations] = useState<Array<{ id: string; name: string }>>([]);
-  const [tenantAudit, setTenantAudit] = useState<Array<{ id: string; action: string; description: string | null; user_name: string | null; created_at: string }>>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<(typeof tenantUsers)[number] | null>(null);
   const [pwUser, setPwUser] = useState<(typeof tenantUsers)[number] | null>(null);
@@ -221,9 +224,6 @@ export default function SuperAdminTenantDetail() {
       }),
     );
     setTenantLocations((locs || []) as Array<{ id: string; name: string }>);
-
-    const { data: audit } = await supabase.from("audit_logs").select("id,action,description,user_name,created_at").eq("business_id", id).order("created_at", { ascending: false }).limit(8);
-    setTenantAudit((audit || []) as any);
 
     setLoading(false);
   };
@@ -403,96 +403,70 @@ export default function SuperAdminTenantDetail() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-9"
-            onClick={async () => {
-              try {
-                const result = await callSupportSession({ data: { business_id: biz.id } });
-                window.open((result as any).actionLink, "_blank", "noopener,noreferrer");
-                toast.success("Support session opened in a new tab");
-              } catch (error: any) {
-                toast.error(error?.message || "Could not start support session");
-              }
-            }}
-            disabled={!biz.is_active}
-          >
-            <Headset className="h-3.5 w-3.5 mr-1.5" /> Support Session
-          </Button>
-          <Button
-            size="sm"
-            className="bg-emerald-600 hover:bg-emerald-700 text-white h-9"
-            onClick={() => navigate(`/super-admin/businesses/${biz.id}/edit`)}
-          >
-            <Pencil className="h-3.5 w-3.5 mr-1.5" /> Edit
-          </Button>
-          {biz.is_active ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <Button
               size="sm"
-              className="bg-amber-500 hover:bg-amber-600 text-white h-9"
-              onClick={() => setActive(false)}
+              className="h-9 bg-primary text-primary-foreground hover:bg-primary/90"
               disabled={!!acting}
             >
-              <PauseCircle className="h-3.5 w-3.5 mr-1.5" /> Suspend
+              Actions
             </Button>
-          ) : (
-            <Button
-              size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white h-9"
-              onClick={() => setActive(true)}
-              disabled={!!acting}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuLabel>Tenant Actions</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => navigate(`/super-admin/businesses/${biz.id}/edit`)}
+              className="text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50"
             >
-              <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Reactivate
-            </Button>
-          )}
-          <Button
-            size="sm"
-            className="bg-red-500 hover:bg-red-600 text-white h-9"
-            onClick={cancelSub}
-            disabled={!sub || !!acting}
-          >
-            <XCircle className="h-3.5 w-3.5 mr-1.5" /> Cancel
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-9 border-orange-300 text-orange-700 hover:bg-orange-50"
-            onClick={() => {
-              setResetMode("transactional");
-              setResetConfirm("");
-              setResetOpen(true);
-            }}
-            disabled={!!acting}
-          >
-            <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Reset DB
-          </Button>
-          <Button
-            size="sm"
-            className="bg-red-600 hover:bg-red-700 text-white h-9"
-            onClick={deleteTenant}
-            disabled={!!acting}
-          >
-            <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
-          </Button>
-        </div>
-      </div>
-
-      {/* Tenant 360 navigation + snapshot */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border -mx-1 px-1 py-2">
-        <div className="flex flex-wrap items-center gap-1">
-          {[
-            ["overview", "Overview"], ["users", "Users"], ["plan", "Plan & usage"], ["activity", "Activity"],
-          ].map(([anchor, label]) => <a key={anchor} href={`#tenant-${anchor}`} className="px-3 py-1.5 rounded-md text-xs font-medium hover:bg-muted text-muted-foreground hover:text-foreground">{label}</a>)}
-        </div>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3" id="tenant-overview">
-        <Snapshot label="Users" value={counts.users} />
-        <Snapshot label="Locations" value={counts.locations} />
-        <Snapshot label="Products" value={counts.products} />
-        <Snapshot label="Customers" value={counts.customers} />
-        <Snapshot label="Suppliers" value={counts.suppliers} />
+              <Pencil className="mr-2 h-4 w-4" /> Edit
+            </DropdownMenuItem>
+            {biz.is_active ? (
+              <DropdownMenuItem
+                onClick={() => setActive(false)}
+                disabled={!!acting}
+                className="text-amber-600 focus:text-amber-700 focus:bg-amber-50"
+              >
+                <PauseCircle className="mr-2 h-4 w-4" /> Suspend
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                onClick={() => setActive(true)}
+                disabled={!!acting}
+                className="text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50"
+              >
+                <CheckCircle2 className="mr-2 h-4 w-4" /> Reactivate
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              onClick={cancelSub}
+              disabled={!sub || !!acting}
+              className="text-red-500 focus:text-red-600 focus:bg-red-50"
+            >
+              <XCircle className="mr-2 h-4 w-4" /> Cancel
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                setResetMode("transactional");
+                setResetConfirm("");
+                setResetOpen(true);
+              }}
+              disabled={!!acting}
+              className="text-orange-700 focus:text-orange-800 focus:bg-orange-50"
+            >
+              <RotateCcw className="mr-2 h-4 w-4" /> Reset DB
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={deleteTenant}
+              disabled={!!acting}
+              className="text-red-600 focus:text-red-700 focus:bg-red-50"
+            >
+              <Trash2 className="mr-2 h-4 w-4" /> Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Body grid */}
@@ -500,7 +474,7 @@ export default function SuperAdminTenantDetail() {
         {/* Left column - 2/3 */}
         <div className="lg:col-span-2 space-y-5">
           {/* Tenant details */}
-          <section id="tenant-plan" className="bg-white border border-border rounded-xl p-5">
+          <section className="bg-white border border-border rounded-xl p-5">
             <div className="flex items-center gap-2 pb-3 border-b border-border">
               <Info className="h-4 w-4 text-muted-foreground" />
               <h3 className="font-semibold text-sm">Tenant details</h3>
@@ -546,7 +520,7 @@ export default function SuperAdminTenantDetail() {
           </section>
 
           {/* Plan limits & features */}
-          <section id="tenant-users" className="bg-white border border-border rounded-xl p-5">
+          <section className="bg-white border border-border rounded-xl p-5">
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <div className="flex items-center gap-2">
                 <Package className="h-4 w-4 text-muted-foreground" />
@@ -696,17 +670,6 @@ export default function SuperAdminTenantDetail() {
           </section>
         </div>
       </div>
-
-      {/* Tenant activity */}
-      <section id="tenant-activity" className="bg-white border border-border rounded-xl p-5">
-        <div className="flex items-center justify-between pb-3 border-b border-border">
-          <div className="flex items-center gap-2"><Activity className="h-4 w-4 text-muted-foreground" /><h3 className="font-semibold text-sm">Recent tenant activity</h3></div>
-          <Link to="/super-admin/activity" className="text-xs text-primary hover:underline">Open full audit log</Link>
-        </div>
-        <div className="divide-y">
-          {tenantAudit.length === 0 ? <p className="text-xs text-muted-foreground py-4">No audit events recorded for this tenant.</p> : tenantAudit.map((event) => <div key={event.id} className="py-3 flex items-center justify-between gap-4"><div className="min-w-0"><div className="text-sm font-medium truncate">{event.description || event.action}</div><div className="text-xs text-muted-foreground">{event.user_name || "System"} · {event.action}</div></div><div className="text-xs text-muted-foreground whitespace-nowrap">{format(new Date(event.created_at), "MMM d, HH:mm")}</div></div>)}
-        </div>
-      </section>
 
       {/* Create user dialog */}
       <ManageUserDialog
@@ -949,5 +912,3 @@ function UsageRow({
     </div>
   );
 }
-
-function Snapshot({ label, value }: { label: string; value: number }) { return <div className="rounded-lg border bg-card p-3"><div className="text-xl font-bold">{value.toLocaleString()}</div><div className="text-[11px] uppercase tracking-wide text-muted-foreground mt-1">{label}</div></div>; }
