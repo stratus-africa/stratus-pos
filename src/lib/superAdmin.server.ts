@@ -7,6 +7,53 @@ export async function assertSuperAdmin(admin: SupabaseClient, callerId: string) 
   if (!isSA) throw new Error("Forbidden");
 }
 
+// ---------------- update-plan-modules ----------------
+
+export const updatePlanModulesInputSchema = z.object({
+  packageId: z.string().uuid(),
+  moduleKeys: z.array(z.string().min(1)).max(100),
+});
+export type UpdatePlanModulesInput = z.infer<typeof updatePlanModulesInputSchema>;
+
+export async function handleUpdatePlanModules(admin: SupabaseClient, body: UpdatePlanModulesInput) {
+  const moduleKeys = [...new Set(body.moduleKeys.map((key) => key.trim().toLowerCase()).filter(Boolean))];
+
+  const { data: plan, error: planError } = await admin
+    .from("subscription_packages")
+    .select("id")
+    .eq("id", body.packageId)
+    .maybeSingle();
+
+  if (planError) throw new Error(planError.message);
+  if (!plan) throw new Error("Subscription plan not found");
+
+  const { error: deleteError } = await admin.from("package_features").delete().eq("package_id", body.packageId);
+  if (deleteError) throw new Error(deleteError.message);
+
+  if (moduleKeys.length > 0) {
+    const rows = moduleKeys.map((moduleKey) => ({
+      package_id: body.packageId,
+      feature_key: moduleKey,
+      feature_label: moduleKey.replace(/_/g, " ").replace(/\b\w/g, (character) => character.toUpperCase()),
+      enabled: true,
+    }));
+    const { error: insertError } = await admin.from("package_features").insert(rows);
+    if (insertError) throw new Error(insertError.message);
+  }
+
+  const { data: savedRows, error: verifyError } = await admin
+    .from("package_features")
+    .select("feature_key")
+    .eq("package_id", body.packageId)
+    .eq("enabled", true);
+  if (verifyError) throw new Error(verifyError.message);
+
+  return {
+    success: true,
+    moduleKeys: (savedRows ?? []).map((row: { feature_key: string }) => row.feature_key),
+  };
+}
+
 // ---------------- create-business ----------------
 
 export const createBusinessInputSchema = z.object({

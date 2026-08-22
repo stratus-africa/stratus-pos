@@ -58,7 +58,6 @@ export async function getPlanModules(
   }
 
   let features: PlanModule[] = [];
-  const globallyEnabledModules = await getGloballyEnabledModuleKeys();
 
   try {
     const { data, error } = await supabase.rpc("get_package_features_safe", {
@@ -88,14 +87,7 @@ export async function getPlanModules(
     const canonical = directModule ? directModule.key : getCanonicalFeatureKey(rawKey);
     const canonicalKey = canonical?.toLowerCase();
 
-    // Core modules are always available. Commercial/premium modules must also
-    // be globally enabled in Modules Manager before a plan can expose them.
-    const moduleKeyForCatalog = canonicalKey || rawKey.split(".")[0]?.toLowerCase();
-    const globallyEnabled =
-      !!moduleKeyForCatalog &&
-      (isAlwaysEntitledCoreModule(moduleKeyForCatalog) || globallyEnabledModules.has(moduleKeyForCatalog));
-
-    if (canonicalKey && globallyEnabled) moduleSet.add(canonicalKey);
+    if (canonicalKey) moduleSet.add(canonicalKey);
 
     const candidateKeys = new Set<string>();
     candidateKeys.add(rawKey.toLowerCase());
@@ -107,19 +99,11 @@ export async function getPlanModules(
     }
 
     const directPrefix = rawKey.split(".")[0]?.toLowerCase();
-    if (directPrefix && (isAlwaysEntitledCoreModule(directPrefix) || globallyEnabledModules.has(directPrefix))) {
-      moduleSet.add(directPrefix);
-    }
+    if (directPrefix) moduleSet.add(directPrefix);
 
     for (const key of candidateKeys) {
       if (!key) continue;
-      const candidateModule = findModule(key)?.key?.toLowerCase() || key.split(".")[0]?.toLowerCase();
-      if (
-        isAlwaysEntitledCoreModule(candidateModule || "") ||
-        (candidateModule ? globallyEnabledModules.has(candidateModule) : false)
-      ) {
-        moduleSet.add(key);
-      }
+      moduleSet.add(key);
     }
   }
 
@@ -218,12 +202,11 @@ export async function resolveBusinessEntitlement(input: {
     };
   }
 
-  const [featureResult, globallyEnabledModules] = await Promise.all([
-    supabase.from("package_features").select("*").eq("package_id", pkg.id).eq("enabled", true),
-    getGloballyEnabledModuleKeys(),
-  ]);
-
-  const { data: featureRows, error: featureError } = featureResult;
+  const { data: featureRows, error: featureError } = await supabase
+    .from("package_features")
+    .select("*")
+    .eq("package_id", pkg.id)
+    .eq("enabled", true);
 
   if (featureError) {
     return {
@@ -251,21 +234,11 @@ export async function resolveBusinessEntitlement(input: {
     const canonical = directModule ? directModule.key : getCanonicalFeatureKey(rawKey);
     const canonicalKey = canonical?.toLowerCase();
     const directPrefix = rawKey.split(".")[0]?.toLowerCase();
-    const moduleKeyForCatalog = canonicalKey || directPrefix;
-    const globallyEnabled =
-      !!moduleKeyForCatalog &&
-      (isAlwaysEntitledCoreModule(moduleKeyForCatalog) || globallyEnabledModules.has(moduleKeyForCatalog));
-
-    if (canonicalKey && globallyEnabled) moduleSet.add(canonicalKey);
-    if (directPrefix && (isAlwaysEntitledCoreModule(directPrefix) || globallyEnabledModules.has(directPrefix))) {
-      moduleSet.add(directPrefix);
-    }
+    if (canonicalKey) moduleSet.add(canonicalKey);
+    if (directPrefix) moduleSet.add(directPrefix);
     for (const key of moduleKeys(rawKey)) {
       if (!key) continue;
-      const candidateModule = findModule(key)?.key?.toLowerCase() || key.toLowerCase().split(".")[0];
-      if (isAlwaysEntitledCoreModule(candidateModule) || globallyEnabledModules.has(candidateModule)) {
-        moduleSet.add(key.toLowerCase());
-      }
+      moduleSet.add(key.toLowerCase());
     }
   }
   // Core workspace modules are always entitled, independent of package_features.

@@ -6,7 +6,19 @@ import {
   deleteTenantInputSchema,
   resetTenantInputSchema,
   assignTenantSubscriptionInputSchema,
+  updatePlanModulesInputSchema,
 } from "@/lib/superAdmin.server";
+
+export const superAdminUpdatePlanModules = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(updatePlanModulesInputSchema)
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { assertSuperAdmin, handleUpdatePlanModules } = await import("@/lib/superAdmin.server");
+
+    await assertSuperAdmin(supabaseAdmin, context.userId);
+    return handleUpdatePlanModules(supabaseAdmin, data);
+  });
 
 export const superAdminCreateBusiness = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
-import { createSubscriptionPlan, updateSubscriptionPlan, updatePlanModules } from "@/lib/entitlementResolver";
+import { createSubscriptionPlan, updateSubscriptionPlan } from "@/lib/entitlementResolver";
+import { superAdminUpdatePlanModules } from "@/lib/superAdmin.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -89,6 +91,7 @@ export default function SuperAdminPackageEdit() {
   const { id } = useParams<{ id: string }>();
   const isNew = !id || id === "new";
   const navigate = useNavigate();
+  const savePlanModules = useServerFn(superAdminUpdatePlanModules);
 
   const [form, setForm] = useState<Form>(emptyForm);
 
@@ -228,9 +231,13 @@ export default function SuperAdminPackageEdit() {
     setSaving(true);
 
     try {
-      await updatePlanModules(id, selectedModuleKeys);
+      const result = await savePlanModules({ data: { packageId: id, moduleKeys: selectedModuleKeys } });
+      const savedKeys = new Set(result.moduleKeys);
+      setFeatureToggles(
+        Object.fromEntries(ALL_FEATURES.map((feature) => [feature.key, feature.group === "core" || savedKeys.has(feature.key)])),
+      );
 
-      toast.success(`Modules updated - ${selectedModuleKeys.length} enabled for ${form.name}`);
+      toast.success(`Modules updated - ${result.moduleKeys.length} enabled for ${form.name}`);
     } catch (error: any) {
       toast.error(error?.message || "Failed to update plan modules");
     } finally {
@@ -279,7 +286,7 @@ export default function SuperAdminPackageEdit() {
 
       // Save module entitlements FIRST so a failure while saving pricing/limits
       // can never silently discard the module changes.
-      await updatePlanModules(pkgId, selectedModuleKeys);
+      await savePlanModules({ data: { packageId: pkgId, moduleKeys: selectedModuleKeys } });
 
       if (!isNew) {
         await updateSubscriptionPlan(id!, {
