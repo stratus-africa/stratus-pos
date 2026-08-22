@@ -29,10 +29,14 @@ import {
   Upload,
   Scale,
   ArrowLeftRight,
+  History,
+  Calculator,
 } from "lucide-react";
 import { StockCountsTab } from "@/components/inventory/StockCountsTab";
 import { StockReconciliationTab } from "@/components/inventory/StockReconciliationTab";
 import { StockTransfersTab } from "@/components/inventory/StockTransfersTab";
+import { StockMovementsTab } from "@/components/inventory/StockMovementsTab";
+import { StockValuationTab } from "@/components/inventory/StockValuationTab";
 
 import { useInventory, type SortKey, type AdjustmentDocument } from "@/hooks/useInventory";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -49,8 +53,10 @@ const PAGE_SIZE_OPTIONS = [25, 100, 200] as const;
 
 const INVENTORY_TABS = [
   { key: "stock", label: "Stock Levels", icon: <Warehouse className="h-4 w-4" /> },
-  { key: "transfers", label: "Stock Transfers", icon: <ArrowLeftRight className="h-4 w-4" /> },
+  { key: "movements", label: "Stock Movements", icon: <History className="h-4 w-4" /> },
+  { key: "valuation", label: "Stock Valuation", icon: <Calculator className="h-4 w-4" /> },
   { key: "adjustments", label: "Adjustments", icon: <ClipboardList className="h-4 w-4" /> },
+  { key: "transfers", label: "Stock Transfers", icon: <ArrowLeftRight className="h-4 w-4" /> },
   { key: "counts", label: "Stock Take", icon: <ClipboardCheck className="h-4 w-4" /> },
   { key: "reconciliation", label: "Reconciliation", icon: <Scale className="h-4 w-4" /> },
 ] as const;
@@ -94,10 +100,6 @@ const Inventory = () => {
   const canViewAdjustments = canViewInventory || hasPermission("inventory.view_movements");
   const canStockCount = hasPermission("inventory.count_create") || hasPermission("inventory.count_perform");
   const canReconcileStock = hasPermission("inventory.count_approve");
-  const canViewTransfers =
-    hasPermission("inventory.transfer") ||
-    hasPermission("inventory.approve_transfer") ||
-    hasPermission("inventory.receive");
   const canEditAdjustments = canAdjustStock;
   const { createPurchase } = usePurchases();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -114,9 +116,14 @@ const Inventory = () => {
   };
 
   const [activeTab, setActiveTab] = useState<string>(initialStr("tab", "stock"));
+  const canViewMovements = hasPermission("inventory.view_movements");
+  const canViewValuation = hasPermission("inventory.view_valuation");
+  const canViewTransfers = hasPermission("inventory.transfer") || hasPermission("inventory.approve_transfer") || hasPermission("inventory.receive");
   const visibleInventoryTabs = INVENTORY_TABS.filter((tab) => {
-    if (tab.key === "transfers") return canViewTransfers;
+    if (tab.key === "movements") return canViewMovements;
+    if (tab.key === "valuation") return canViewValuation;
     if (tab.key === "adjustments") return canViewAdjustments;
+    if (tab.key === "transfers") return canViewTransfers;
     if (tab.key === "counts") return canStockCount;
     if (tab.key === "reconciliation") return canReconcileStock;
     return canViewInventory;
@@ -456,11 +463,11 @@ const Inventory = () => {
         title="Inventory"
         description="Stock levels, adjustments, and inventory health across your locations."
         primaryAction={
-          canAdjustStock && (
+          {canAdjustStock && (
             <Button onClick={() => setAdjDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" /> Adjust Stock
             </Button>
-          )
+          )}
         }
         statusBadge={<Badge variant="secondary">Operational</Badge>}
       />
@@ -551,16 +558,24 @@ const Inventory = () => {
           ))}
         </TabsList>
 
-        <TabsContent value="transfers">
-          <StockTransfersTab />
-        </TabsContent>
-
         <TabsContent value="counts">
           <StockCountsTab />
         </TabsContent>
 
         <TabsContent value="reconciliation">
           <StockReconciliationTab />
+        </TabsContent>
+
+        <TabsContent value="movements">
+          <StockMovementsTab />
+        </TabsContent>
+
+        <TabsContent value="valuation">
+          <StockValuationTab />
+        </TabsContent>
+
+        <TabsContent value="transfers">
+          <StockTransfersTab />
         </TabsContent>
 
         <TabsContent value="stock" className="space-y-4">
