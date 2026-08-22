@@ -1,55 +1,54 @@
 import { useBusiness } from "@/contexts/BusinessContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useSubscription } from "@/hooks/useSubscription";
-import { APP_MODULES, resolveModuleAccess, type ModuleAccessInput } from "@/lib/modules";
+import { useEntitlement } from "@/hooks/useEntitlement";
+import { APP_MODULES, findModule } from "@/lib/modules";
 
+/**
+ * Canonical module access facade.
+ *
+ * Plan/module entitlement comes exclusively from useEntitlement(). Role
+ * permissions remain a separate concern. This hook exists for legacy UI
+ * consumers but contains no independent subscription/feature-gate logic.
+ */
 export function useModuleAccess() {
   const { userRole } = useBusiness();
-  const { permissions, hasPermission } = usePermissions();
-  const { hasModule, enabledModules } = useSubscription();
-
-  const accessCache = new Map<string, ReturnType<typeof resolveModuleAccess>>();
-  const resolveAccess = (moduleKey: string): ReturnType<typeof resolveModuleAccess> => {
-    const cached = accessCache.get(moduleKey);
-    if (cached) return cached;
-
-    const input: ModuleAccessInput = {
-      role: userRole,
-      permissions,
-      featureKey: hasModule,
-      subscriptions: enabledModules,
-      moduleEnabled: () => true,
-      dependenciesReady: (dependencyKey) => {
-        const dependencyModule = APP_MODULES.find(
-          (module) => module.key === dependencyKey || (module.aliases ?? []).includes(dependencyKey),
-        );
-        if (!dependencyModule) return true;
-        return resolveAccess(dependencyModule.key).allowed;
-      },
-      setupComplete: (requirementKey) => {
-        const requirementModule = APP_MODULES.find(
-          (module) => module.key === requirementKey || (module.aliases ?? []).includes(requirementKey),
-        );
-        if (!requirementModule) return true;
-        return resolveAccess(requirementModule.key).allowed;
-      },
-    };
-
-    const access = resolveModuleAccess(moduleKey, input);
-    accessCache.set(moduleKey, access);
-    return access;
-  };
+  const { hasPermission } = usePermissions();
+  const { hasModule, hasFeatureKey, isLoading, resolutionStatus } = useEntitlement();
 
   const accessFor = (moduleKey: string, sectionKey?: string, permissionOverride?: string) => {
-    const access = resolveAccess(moduleKey);
+    const module = findModule(moduleKey);
+    if (!module) {
+      return {
+        allowed: false,
+        sectionVisible: false,
+        hasRequiredPermission: false,
+        module: null,
+        state: "disabled" as const,
+        reason: "module_not_found",
+      };
+    }
+
+    const roleAllowed = !module.roles?.length || (!!userRole && module.roles.includes(userRole as any));
     const sectionVisible =
-      !sectionKey || access.module?.navigation.some((item) => item.key === sectionKey || item.route === sectionKey);
+      !sectionKey || module.navigation.some((item) => item.key === sectionKey || item.route === sectionKey);
     const hasRequiredPermission = !permissionOverride || hasPermission(permissionOverride);
+    const modulePermission = module.permissions.length === 0 || module.permissions.some((p) => hasPermission(p));
+    const allowed =
+      !isLoading &&
+      resolutionStatus !== "db_error" &&
+      hasModule(module.key) &&
+      roleAllowed &&
+      !!sectionVisible &&
+      hasRequiredPermission &&
+      modulePermission;
+
     return {
-      ...access,
+      allowed,
       sectionVisible: !!sectionVisible,
       hasRequiredPermission,
-      allowed: access.allowed && sectionVisible && hasRequiredPermission,
+      module,
+      state: allowed ? ("enabled" as const) : ("locked" as const),
+      reason: allowed ? "ok" : !hasModule(module.key) ? "subscription_required" : "permission_missing",
     };
   };
 
@@ -58,13 +57,9 @@ export function useModuleAccess() {
     canViewModule: (moduleKey: string) => accessFor(moduleKey).allowed,
     canAccessSection: (moduleKey: string, sectionKey: string) => accessFor(moduleKey, sectionKey).allowed,
     hasPermission,
-    hasModuleSubscription: (moduleKey: string) => {
-      const access = resolveAccess(moduleKey);
-      return access.state !== "locked" && access.state !== "disabled" && access.state !== "coming_soon";
-    },
-    isModuleSetupComplete: (moduleKey: string) => {
-      const access = resolveAccess(moduleKey);
-      return access.state !== "setup_required";
-    },
+    hasModuleSubscription: (moduleKey: string) => hasModule(moduleKey),
+    isModuleSetupComplete: (_moduleKey: string) => true,
+    hasFeatureKey,
+    isLoading,
   };
 }
