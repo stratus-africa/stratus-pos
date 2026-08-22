@@ -36,6 +36,7 @@ import StockAgingReportTab from "@/components/reports/StockAgingReportTab";
 import StockLedgerTab from "@/components/inventory/StockLedgerTab";
 import { DateRangeFilter } from "@/components/reports/DateRangeFilter";
 import { useFeatureLimit, RequireFeature } from "@/components/FeatureGate";
+import FeatureReportTab from "@/components/reports/FeatureReportTab";
 import { useAccountingSettings, financialYearLabel } from "@/hooks/useAccountingSettings";
 
 const today = new Date().toISOString().split("T")[0];
@@ -47,13 +48,35 @@ const Reports = () => {
   const { hasPermission } = usePermissions();
 
   // Tab visibility: combine plan feature flag (where applicable) with role permission
-  const canSales = hasPermission("report.sales");
-  const canPurchases = hasPermission("report.purchases");
-  const canExpenses = hasPermission("report.expenses");
-  const canInventory = hasPermission("report.inventory");
-  const canPnL = hasPermission("report.pnl") && hasFeatureKey("accounting");
-  const canAudit = hasPermission("report.audit");
-  const canMovement = hasPermission("report.stock_movement");
+  const can = (key: string) => hasPermission(`reports.${key}`);
+  const canSales = can("sales");
+  const canPurchases = can("purchases");
+  const canExpenses = can("expenses");
+  const canInventory = can("stock");
+  const canPnL = can("profit_loss") && hasFeatureKey("accounting");
+  const canAudit = can("audit") || hasPermission("report.audit");
+  const canMovement = can("stock_movement");
+  const reportKeys = [
+    "sales",
+    "sales_by_product",
+    "sales_by_customer",
+    "sales_by_cashier",
+    "sales_by_location",
+    "sales_by_payment",
+    "stock",
+    "stock_movement",
+    "stock_valuation",
+    "stock_adjustments",
+    "stock_transfers",
+    "low_stock",
+    "expiry",
+    "purchases",
+    "purchases_by_supplier",
+    "purchase_returns",
+    "expenses",
+    "tax",
+    "schedule",
+  ] as const;
   // EOD & Z report ride on sales report permission
   const canEOD = canSales;
   const canZ = canSales;
@@ -118,7 +141,18 @@ const Reports = () => {
       return all;
     },
     // The P&L tab also uses detailed sales rows to calculate COGS.
-    enabled: !!business && canSales && (activeTab === "sales" || activeTab === "pnl"),
+    enabled:
+      !!business &&
+      canSales &&
+      [
+        "sales",
+        "sales_by_product",
+        "sales_by_customer",
+        "sales_by_cashier",
+        "sales_by_location",
+        "sales_by_payment",
+        "pnl",
+      ].includes(activeTab),
   });
 
   const inventoryReport = useQuery({
@@ -171,7 +205,11 @@ const Reports = () => {
         _batches: batchesByProduct.get(row.product_id) || [],
       }));
     },
-    enabled: !!business && !!currentLocation && canInventory && activeTab === "inventory",
+    enabled:
+      !!business &&
+      !!currentLocation &&
+      canInventory &&
+      ["inventory", "stock", "stock_valuation", "low_stock"].includes(activeTab),
   });
 
   const expensesReport = useQuery({
@@ -206,7 +244,8 @@ const Reports = () => {
       if (error) throw error;
       return data;
     },
-    enabled: !!business && canPurchases && activeTab === "purchases",
+    enabled:
+      !!business && canPurchases && ["purchases", "purchases_by_supplier", "purchase_returns"].includes(activeTab),
   });
 
   const pnlLedger = useQuery({
@@ -257,6 +296,137 @@ const Reports = () => {
       return data || [];
     },
     enabled: !!business && canAudit && activeTab === "audit",
+  });
+
+  const featureReport = useQuery({
+    queryKey: ["feature-report", activeTab, business?.id, currentLocation?.id, from, to],
+    queryFn: async () => {
+      if (!business) return [];
+      const k = activeTab;
+      if (k === "sales") return salesReport.data || [];
+      if (k === "sales_by_customer") {
+        const m = new Map<string, any>();
+        for (const r of salesReport.data || []) {
+          const key = r.customers?.name || "Walk-in / Unassigned";
+          const x = m.get(key) || { customer: key, sales: 0, revenue: 0, discount: 0, tax: 0 };
+          x.sales++;
+          x.revenue += Number(r.total || 0);
+          x.discount += Number(r.discount || 0);
+          x.tax += Number(r.tax || 0);
+          m.set(key, x);
+        }
+        return [...m.values()];
+      }
+      if (k === "sales_by_location") {
+        const m = new Map<string, any>();
+        for (const r of salesReport.data || []) {
+          const key = r.locations?.name || r.location_id;
+          const x = m.get(key) || { location: key, sales: 0, revenue: 0 };
+          x.sales++;
+          x.revenue += Number(r.total || 0);
+          m.set(key, x);
+        }
+        return [...m.values()];
+      }
+      if (k === "sales_by_cashier") {
+        const m = new Map<string, any>();
+        for (const r of salesReport.data || []) {
+          const key = r.created_by || "Unknown";
+          const x = m.get(key) || { cashier: key, sales: 0, revenue: 0 };
+          x.sales++;
+          x.revenue += Number(r.total || 0);
+          m.set(key, x);
+        }
+        return [...m.values()];
+      }
+      if (k === "sales_by_product") {
+        const m = new Map<string, any>();
+        for (const r of salesReport.data || [])
+          for (const i of r.sale_items || []) {
+            const key = i.products?.name || i.product_id;
+            const x = m.get(key) || { product: key, quantity: 0, revenue: 0, discount: 0 };
+            x.quantity += Number(i.quantity || 0);
+            x.revenue += Number(i.total || 0);
+            x.discount += Number(i.discount || 0);
+            m.set(key, x);
+          }
+        return [...m.values()];
+      }
+      if (k === "sales_by_payment") {
+        const ids = (salesReport.data || []).map((r: any) => r.id);
+        if (!ids.length) return [];
+        const { data, error } = await supabase.from("payments").select("method,amount,sale_id").in("sale_id", ids);
+        if (error) throw error;
+        const m = new Map<string, any>();
+        for (const r of data || []) {
+          const key = r.method || "unknown";
+          const x = m.get(key) || { payment_method: key, transactions: 0, amount: 0 };
+          x.transactions++;
+          x.amount += Number(r.amount || 0);
+          m.set(key, x);
+        }
+        return [...m.values()];
+      }
+      if (k === "purchases" || k === "purchases_by_supplier" || k === "purchase_returns")
+        return purchasesReport.data || [];
+      if (k === "expenses") return expensesReport.data || [];
+      if (k === "stock" || k === "stock_valuation" || k === "low_stock") return inventoryReport.data || [];
+      if (k === "expiry") {
+        const { data, error } = await supabase
+          .from("product_batches" as any)
+          .select("batch_number,expiry_date,quantity,products(name,sku),locations(name)")
+          .eq("business_id", business.id)
+          .gt("quantity", 0)
+          .order("expiry_date", { ascending: true });
+        if (error) throw error;
+        return data || [];
+      }
+      if (k === "stock_adjustments") {
+        const { data, error } = await supabase
+          .from("stock_adjustments" as any)
+          .select("*,products(name,sku),locations(name)")
+          .eq("business_id", business.id)
+          .gte("created_at", `${from}T00:00:00`)
+          .lte("created_at", `${to}T23:59:59`)
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        return data || [];
+      }
+      if (k === "stock_transfers") {
+        const { data, error } = await supabase
+          .from("stock_transfers" as any)
+          .select(
+            "*,from_location:locations!stock_transfers_from_location_id_fkey(name),to_location:locations!stock_transfers_to_location_id_fkey(name)",
+          )
+          .eq("business_id", business.id)
+          .gte("created_at", `${from}T00:00:00`)
+          .lte("created_at", `${to}T23:59:59`)
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        return data || [];
+      }
+      if (k === "tax") {
+        const { data, error } = await supabase
+          .from("digitax_invoice_queue" as any)
+          .select("*")
+          .eq("business_id", business.id)
+          .gte("created_at", `${from}T00:00:00`)
+          .lte("created_at", `${to}T23:59:59`)
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        return data || [];
+      }
+      return [];
+    },
+    enabled:
+      !!business &&
+      reportKeys.includes(activeTab as any) &&
+      activeTab !== "sales" &&
+      activeTab !== "purchases" &&
+      activeTab !== "expenses" &&
+      activeTab !== "inventory" &&
+      activeTab !== "movement" &&
+      activeTab !== "pnl",
   });
 
   const sales = salesReport.data || [];
@@ -327,16 +497,54 @@ const Reports = () => {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col md:flex-row gap-4 md:gap-6">
         {(() => {
           const items: Array<{ value: string; label: string; icon: any; show: boolean }> = [
-            { value: "sales", label: "Sales", icon: BarChart3, show: canSales },
-            { value: "purchases", label: "Purchases", icon: ShoppingCart, show: canPurchases },
-            { value: "expenses", label: "Expenses", icon: Receipt, show: canExpenses },
-            { value: "inventory", label: "Inventory", icon: Package, show: canInventory },
-            { value: "aging", label: "Stock Aging", icon: Clock, show: canInventory },
-            { value: "movement", label: "Inventory Movement", icon: ScrollText, show: canMovement },
-            { value: "pnl", label: "P&L", icon: TrendingUp, show: canPnL },
-            { value: "eod", label: "End of Day", icon: Sun, show: canEOD },
-            { value: "zreport", label: "Z Report", icon: FileText, show: canZ },
+            { value: "sales", label: "Sales · Overview", icon: BarChart3, show: can("sales") },
+            { value: "sales_by_product", label: "Sales · By Product", icon: BarChart3, show: can("sales_by_product") },
+            {
+              value: "sales_by_customer",
+              label: "Sales · By Customer",
+              icon: BarChart3,
+              show: can("sales_by_customer"),
+            },
+            { value: "sales_by_cashier", label: "Sales · By Cashier", icon: BarChart3, show: can("sales_by_cashier") },
+            {
+              value: "sales_by_location",
+              label: "Sales · By Location",
+              icon: BarChart3,
+              show: can("sales_by_location"),
+            },
+            { value: "sales_by_payment", label: "Sales · By Payment", icon: BarChart3, show: can("sales_by_payment") },
+            { value: "stock", label: "Inventory · Stock", icon: Package, show: can("stock") },
+            { value: "stock_movement", label: "Inventory · Movement", icon: ScrollText, show: can("stock_movement") },
+            { value: "stock_valuation", label: "Inventory · Valuation", icon: Package, show: can("stock_valuation") },
+            {
+              value: "stock_adjustments",
+              label: "Inventory · Adjustments",
+              icon: Package,
+              show: can("stock_adjustments"),
+            },
+            { value: "stock_transfers", label: "Inventory · Transfers", icon: Package, show: can("stock_transfers") },
+            { value: "low_stock", label: "Inventory · Low Stock", icon: Package, show: can("low_stock") },
+            { value: "expiry", label: "Inventory · Expiry", icon: Clock, show: can("expiry") },
+            { value: "purchases", label: "Purchases · Overview", icon: ShoppingCart, show: can("purchases") },
+            {
+              value: "purchases_by_supplier",
+              label: "Purchases · Supplier",
+              icon: ShoppingCart,
+              show: can("purchases_by_supplier"),
+            },
+            {
+              value: "purchase_returns",
+              label: "Purchases · Returns",
+              icon: ShoppingCart,
+              show: can("purchase_returns"),
+            },
+            { value: "expenses", label: "Expenses", icon: Receipt, show: can("expenses") },
+            { value: "tax", label: "Tax", icon: Receipt, show: can("tax") },
+            { value: "pnl", label: "Financial · P&L", icon: TrendingUp, show: can("profit_loss") },
+            { value: "eod", label: "End of Day", icon: Sun, show: can("sales") },
+            { value: "zreport", label: "Z Report", icon: FileText, show: can("sales") },
             { value: "audit", label: "Audit Trail", icon: ClipboardList, show: canAudit },
+            { value: "schedule", label: "Scheduled Reports", icon: Clock, show: can("schedule") },
           ].filter((i) => i.show);
           return (
             <>
@@ -375,6 +583,117 @@ const Reports = () => {
           {canSales && (
             <TabsContent value="sales" className="mt-0">
               <DailySalesReportTab from={from} to={to} onRegisterExport={registerExport} />
+            </TabsContent>
+          )}
+          {reportKeys
+            .filter((k) => k.startsWith("sales_"))
+            .map(
+              (k) =>
+                can(k) && (
+                  <TabsContent key={k} value={k} className="mt-0">
+                    <FeatureReportTab
+                      title={k.replaceAll("_", " ")}
+                      rows={featureReport.data || []}
+                      loading={featureReport.isLoading}
+                    />
+                  </TabsContent>
+                ),
+            )}
+          {can("stock_valuation") && (
+            <TabsContent value="stock_valuation" className="mt-0">
+              <FeatureReportTab
+                title="Stock Valuation"
+                rows={featureReport.data || []}
+                loading={featureReport.isLoading}
+              />
+            </TabsContent>
+          )}
+          {can("stock_adjustments") && (
+            <TabsContent value="stock_adjustments" className="mt-0">
+              <FeatureReportTab
+                title="Stock Adjustments"
+                rows={featureReport.data || []}
+                loading={featureReport.isLoading}
+              />
+            </TabsContent>
+          )}
+          {can("stock_transfers") && (
+            <TabsContent value="stock_transfers" className="mt-0">
+              <FeatureReportTab
+                title="Stock Transfers"
+                rows={featureReport.data || []}
+                loading={featureReport.isLoading}
+              />
+            </TabsContent>
+          )}
+          {can("low_stock") && (
+            <TabsContent value="low_stock" className="mt-0">
+              <FeatureReportTab
+                title="Low Stock"
+                rows={(featureReport.data || []).filter(
+                  (r: any) =>
+                    Number(r.quantity || r.stock || 0) <= Number(r.products?.reorder_level || r.reorder_level || 0),
+                )}
+                loading={featureReport.isLoading}
+              />
+            </TabsContent>
+          )}
+          {can("expiry") && (
+            <TabsContent value="expiry" className="mt-0">
+              <FeatureReportTab title="Expiry" rows={featureReport.data || []} loading={featureReport.isLoading} />
+            </TabsContent>
+          )}
+          {can("purchases_by_supplier") && (
+            <TabsContent value="purchases_by_supplier" className="mt-0">
+              <FeatureReportTab
+                title="Purchases by Supplier"
+                rows={featureReport.data || []}
+                loading={featureReport.isLoading}
+              />
+            </TabsContent>
+          )}
+          {can("purchase_returns") && (
+            <TabsContent value="purchase_returns" className="mt-0">
+              <FeatureReportTab
+                title="Purchase Returns"
+                rows={featureReport.data || []}
+                loading={featureReport.isLoading}
+              />
+            </TabsContent>
+          )}
+          {can("tax") && (
+            <TabsContent value="tax" className="mt-0">
+              <FeatureReportTab title="Tax Report" rows={featureReport.data || []} loading={featureReport.isLoading} />
+            </TabsContent>
+          )}
+          {can("schedule") && (
+            <TabsContent value="schedule" className="mt-0">
+              <FeatureReportTab title="Scheduled Reports" rows={[]} />
+              <div className="mt-3 text-sm text-muted-foreground">
+                Scheduling UI is permission-gated; delivery persistence is the next automation step.
+              </div>
+            </TabsContent>
+          )}
+          {can("stock") && (
+            <TabsContent value="stock" className="mt-0">
+              <FeatureReportTab
+                title="Stock Report"
+                rows={inventoryReport.data || []}
+                loading={inventoryReport.isLoading}
+              />
+            </TabsContent>
+          )}
+          {can("stock_movement") && (
+            <TabsContent value="stock_movement" className="mt-0">
+              <StockLedgerTab
+                locationId={currentLocation?.id}
+                from={from}
+                to={to}
+                onDateChange={({ from: f, to: t }) => {
+                  setFrom(f);
+                  setTo(t);
+                }}
+              />
             </TabsContent>
           )}
           {canPurchases && (
