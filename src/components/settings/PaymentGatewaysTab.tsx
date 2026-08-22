@@ -172,7 +172,8 @@ export function PaymentGatewaysTab() {
   const testStkPush = async (phoneNumber: string) => {
     if (!business) return { ok: false, status: "failed" as const, message: "Business is not loaded" };
     const session = (await supabase.auth.getSession()).data.session;
-    if (!session?.access_token) return { ok: false, status: "failed" as const, message: "Your session has expired. Sign in again." };
+    if (!session?.access_token)
+      return { ok: false, status: "failed" as const, message: "Your session has expired. Sign in again." };
     try {
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mpesa?action=stk-test`, {
         method: "POST",
@@ -196,22 +197,38 @@ export function PaymentGatewaysTab() {
         });
         const result = await poll.json();
         if (result?.status === "success") {
-          toast.success("STK Push test completed successfully", { description: result.receipt ? `Receipt: ${result.receipt}` : undefined });
-          return { ok: true, status: "success" as const, message: result.receipt ? `Payment confirmed. M-Pesa receipt: ${result.receipt}` : "Payment confirmed successfully." };
+          toast.success("STK Push test completed successfully", {
+            description: result.receipt ? `Receipt: ${result.receipt}` : undefined,
+          });
+          return {
+            ok: true,
+            status: "success" as const,
+            message: result.receipt
+              ? `Payment confirmed. M-Pesa receipt: ${result.receipt}`
+              : "Payment confirmed successfully.",
+          };
         }
         if (result?.status === "failed") {
-          return { ok: false, status: "failed" as const, message: result.message || "The customer cancelled or Daraja rejected the test payment." };
+          return {
+            ok: false,
+            status: "failed" as const,
+            message: result.message || "The customer cancelled or Daraja rejected the test payment.",
+          };
         }
       }
-      return { ok: true, status: "pending" as const, message: "Prompt sent. Complete it on the phone; the transaction will continue to update." };
+      return {
+        ok: true,
+        status: "pending" as const,
+        message: "Prompt sent. Complete it on the phone; the transaction will continue to update.",
+      };
     } catch (e: any) {
       toast.error("STK Push test failed", { description: e?.message || "Unknown error" });
       return { ok: false, status: "failed" as const, message: e?.message || "STK Push test failed" };
     }
   };
 
-  const testCredentials = async (): Promise<boolean> =>
-    if (!business) return;
+  const testCredentials = async (): Promise<boolean> => {
+    if (!business) return false;
     if (!hasCreds && (!consumerKey || !consumerSecret)) {
       toast.error("Enter consumer key and secret first");
       return false;
@@ -261,7 +278,10 @@ export function PaymentGatewaysTab() {
       } as never)
       .eq("id", business.id);
     setSavingPublic(false);
-    if (error) { toast.error(error.message); return false; }
+    if (error) {
+      toast.error(error.message);
+      return false;
+    }
     await refreshBusiness();
     toast.success("M-Pesa business configuration saved");
     return true;
@@ -276,7 +296,9 @@ export function PaymentGatewaysTab() {
     }
     setSavingSecrets(true);
     try {
-      await setMpesaCredentialsFn({ data: { business_id: business.id, consumer_key: consumerKey, consumer_secret: consumerSecret, passkey } });
+      await setMpesaCredentialsFn({
+        data: { business_id: business.id, consumer_key: consumerKey, consumer_secret: consumerSecret, passkey },
+      });
       setHasCreds(true);
       setCredsUpdatedAt(new Date().toISOString());
       setConsumerKey("");
