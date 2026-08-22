@@ -23,6 +23,8 @@ export type OnboardingDraft = {
   products: {
     mode: "manual" | "import" | "empty";
     importRows: ProductImportRow[];
+    openingStockEnabled: boolean;
+    openingStockDate: string;
   };
   payments: {
     currency: string;
@@ -60,7 +62,7 @@ export const emptyOnboardingDraft = (email = ""): OnboardingDraft => ({
     city: "",
     county: "",
   },
-  products: { mode: "empty", importRows: [] },
+  products: { mode: "empty", importRows: [], openingStockEnabled: false, openingStockDate: new Date().toISOString().slice(0, 10) },
   payments: {
     currency: "KES",
     timezone: "Africa/Nairobi",
@@ -88,7 +90,11 @@ export async function loadOnboardingDraft(userId: string, email = "") {
 
   return {
     step: Number(data.current_step || 1),
-    draft: { ...emptyOnboardingDraft(email), ...(data.data || {}) } as OnboardingDraft,
+    draft: {
+      ...emptyOnboardingDraft(email),
+      ...(data.data || {}),
+      products: { ...emptyOnboardingDraft(email).products, ...((data.data || {}).products || {}) },
+    } as OnboardingDraft,
     completed: Boolean(data.completed_at),
   };
 }

@@ -9,7 +9,23 @@ export type ProductImportRow = {
   selling_price: number;
   tax_rate: number;
   is_active: boolean;
+  opening_stock_quantity: number;
+  opening_stock_value: number;
+  opening_stock_date: string | null;
 };
+
+function normalizeImportDate(value: unknown): string | null {
+  if (value == null || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+    const date = new Date(excelEpoch.getTime() + value * 86400000);
+    return date.toISOString().slice(0, 10);
+  }
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
+}
 
 export function mapProductImportRows(
   rows: Record<string, any>[],
@@ -32,6 +48,9 @@ export function mapProductImportRows(
           ? Number(get(row, "tax_rate")) || 0
           : 16,
       is_active: String(get(row, "active") ?? "Yes").toLowerCase() !== "no",
+      opening_stock_quantity: Number(get(row, "opening_stock_quantity") ?? 0) || 0,
+      opening_stock_value: Number(get(row, "opening_stock_value") ?? 0) || 0,
+      opening_stock_date: normalizeImportDate(get(row, "opening_stock_date")),
     }));
 }
 
