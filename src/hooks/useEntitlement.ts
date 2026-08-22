@@ -26,6 +26,7 @@ import {
   type EntitlementResolutionStatus,
 } from "@/lib/entitlementResolver";
 import type { ModuleEntitlement, FeatureAccess, ModuleFeature } from "@/types/entitlement";
+import { getFeature } from "@/lib/featureCatalog";
 
 interface UseEntitlementOptions {
   enabled?: boolean;
@@ -154,9 +155,63 @@ export function useEntitlement(options: UseEntitlementOptions = {}) {
     );
   };
 
-  const hasFeature = (moduleKey: string, featureKey: string): boolean => {
+  /**
+   * Returns true when the selected plan includes the requested feature.
+   *
+   * package_features may contain either:
+   *   - the module row (e.g. "mpesa"), which grants the module's features
+   *     for backwards compatibility, or
+   *   - an explicit feature row (e.g. "mpesa.stk_push" / "stk_push").
+   *
+   * This is deliberately separate from role permissions. A feature being
+   * included in a plan must never be reported as "not in the plan" simply
+   * because the current role lacks permission to use it.
+   */
+  const hasPlanFeature = (moduleKey: string, featureKey: string): boolean => {
     if (!hasModule(moduleKey)) return false;
-    return permissions.has(featureKey);
+
+    const normalizedModule = moduleKey.trim().toLowerCase();
+    const normalizedFeature = featureKey.trim().toLowerCase();
+    if (!normalizedModule || !normalizedFeature) return false;
+
+    const rows = (entitlement.packageFeatures || []) as Array<{ feature_key?: string; enabled?: boolean }>;
+    const exactCandidates = new Set([normalizedFeature, `${normalizedModule}.${normalizedFeature}`]);
+
+    const explicit = rows.find((row) => {
+      const key = String(row.feature_key || "")
+        .trim()
+        .toLowerCase();
+      return exactCandidates.has(key);
+    });
+
+    if (explicit) return explicit.enabled === true;
+
+    // A module-level plan row grants its catalogue features unless the plan
+    // has an explicit feature row overriding that default.
+    const moduleRow = rows.find(
+      (row) =>
+        String(row.feature_key || "")
+          .trim()
+          .toLowerCase() === normalizedModule,
+    );
+    if (moduleRow) return moduleRow.enabled === true;
+
+    // If the module is resolved into enabledModules from a feature-level row,
+    // require that feature to be explicitly enabled rather than assuming it.
+    return false;
+  };
+
+  /**
+   * Full feature access = plan entitlement + role permission.
+   * FeatureGate/UI consumers should use this check for actionable features.
+   */
+  const hasFeature = (moduleKey: string, featureKey: string): boolean => {
+    if (!hasPlanFeature(moduleKey, featureKey)) return false;
+
+    const feature = getFeature(`${moduleKey}.${featureKey}`) || getFeature(featureKey);
+    const permissionKey = feature?.permissionKey || `${moduleKey}.${featureKey}`;
+
+    return permissions.has("*") || permissions.has(permissionKey);
   };
 
   const getEntitledModules = (): string[] => entitlement.enabledModules || [];
@@ -175,6 +230,7 @@ export function useEntitlement(options: UseEntitlementOptions = {}) {
   return {
     // ── Access checks ──────────────────────────────────────────────────────
     hasModule,
+    hasPlanFeature,
     hasFeature,
     checkModuleAccess,
     checkFeatureAccess: checkFeatureAccessFn,
