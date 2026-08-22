@@ -42,6 +42,8 @@ import { StockValuationTab } from "@/components/inventory/StockValuationTab";
 import { StockControlTab } from "@/components/inventory/StockControlTab";
 import { BatchManagementTab } from "@/components/inventory/BatchManagementTab";
 import { ExpiryManagementTab } from "@/components/inventory/ExpiryManagementTab";
+import { InventoryAuditTab } from "@/components/inventory/InventoryAuditTab";
+import { StockCountReviewTab } from "@/components/inventory/StockCountReviewTab";
 
 import { useInventory, type SortKey, type AdjustmentDocument } from "@/hooks/useInventory";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -53,6 +55,7 @@ import { ImportAdjustmentsDialog } from "@/components/inventory/ImportAdjustment
 import { EditAdjustmentDocumentDialog } from "@/components/inventory/EditAdjustmentDocumentDialog";
 import ProductDetailDialog from "@/components/products/ProductDetailDialog";
 import { ModuleHeader } from "@/components/modules/ModulePageShell";
+import { toast } from "sonner";
 
 const PAGE_SIZE_OPTIONS = [25, 100, 200] as const;
 
@@ -63,6 +66,8 @@ const INVENTORY_TABS = [
   { key: "controls", label: "Issues & Write-offs", icon: <AlertTriangle className="h-4 w-4" /> },
   { key: "batches", label: "Batches", icon: <Package className="h-4 w-4" /> },
   { key: "expiry", label: "Expiry", icon: <CalendarClock className="h-4 w-4" /> },
+  { key: "count-review", label: "Count Review", icon: <ClipboardCheck className="h-4 w-4" /> },
+  { key: "audit", label: "Audit Trail", icon: <History className="h-4 w-4" /> },
   { key: "adjustments", label: "Adjustments", icon: <ClipboardList className="h-4 w-4" /> },
   { key: "transfers", label: "Stock Transfers", icon: <ArrowLeftRight className="h-4 w-4" /> },
   { key: "counts", label: "Stock Take", icon: <ClipboardCheck className="h-4 w-4" /> },
@@ -136,6 +141,12 @@ const Inventory = () => {
     hasPermission("inventory.approve_adjustment");
   const canViewBatches = hasPermission("inventory.view_batches");
   const canViewExpiry = hasPermission("inventory.view_expiry");
+  const canViewCountReview =
+    hasPermission("inventory.count_create") ||
+    hasPermission("inventory.count_perform") ||
+    hasPermission("inventory.count_approve") ||
+    hasPermission("inventory.view_variance");
+  const canViewAudit = hasPermission("inventory.view_movements") || hasPermission("inventory.view");
   const visibleInventoryTabs = INVENTORY_TABS.filter((tab) => {
     if (tab.key === "movements") return canViewMovements;
     if (tab.key === "valuation") return canViewValuation;
@@ -144,6 +155,8 @@ const Inventory = () => {
     if (tab.key === "controls") return canViewControls;
     if (tab.key === "batches") return canViewBatches;
     if (tab.key === "expiry") return canViewExpiry;
+    if (tab.key === "count-review") return canViewCountReview;
+    if (tab.key === "audit") return canViewAudit;
     if (tab.key === "counts") return canStockCount;
     if (tab.key === "reconciliation") return canReconcileStock;
     return canViewInventory;
@@ -217,7 +230,6 @@ const Inventory = () => {
   const effectiveLocationId = locationFilter === "all" ? undefined : locationFilter;
   const {
     inventoryQuery,
-    adjustStock,
     deleteAdjustment,
     adjustmentsQuery,
     adjustmentDocumentsQuery,
@@ -377,7 +389,29 @@ const Inventory = () => {
       });
       return;
     }
-    adjustStock.mutate({ ...data, created_by: user.id });
+    // Manual stock changes now follow the Phase 3 approval workflow.
+    // Purchase receipts remain a purchase workflow because receiving has its own
+    // inventory transaction and supplier accounting.
+    const requestItems = data.items
+      .filter((item) => Number(item.quantity_change) !== 0)
+      .map((item) => ({
+        product_id: item.product_id,
+        quantity_change: Number(item.quantity_change),
+      }));
+    if (!requestItems.length) return;
+    supabase
+      .rpc("create_inventory_control_request" as any, {
+        _location_id: data.location_id,
+        _reason: "Adjustment",
+        _notes: data.notes || null,
+        _reference: null,
+        _items: requestItems,
+      })
+      .then(({ error }) => {
+        if (error) throw error;
+        toast.success("Stock adjustment submitted for approval");
+      })
+      .catch((error) => toast.error(error?.message || "Could not submit stock adjustment"));
   };
 
   const formatKES = (amount: number) =>
@@ -604,6 +638,14 @@ const Inventory = () => {
 
         <TabsContent value="expiry">
           <ExpiryManagementTab />
+        </TabsContent>
+
+        <TabsContent value="count-review">
+          <StockCountReviewTab />
+        </TabsContent>
+
+        <TabsContent value="audit">
+          <InventoryAuditTab />
         </TabsContent>
 
         <TabsContent value="transfers">
