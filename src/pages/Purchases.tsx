@@ -56,6 +56,10 @@ const Purchases = () => {
   const canEdit = hasPermission("purchases.edit");
   const canDelete = hasPermission("purchases.delete");
   const canCreate = hasPermission("purchases.create");
+  const canApprove = hasPermission("purchases.approve");
+  const canReceive = hasPermission("purchases.receive");
+  const canReturn = hasPermission("purchases.return");
+  const canRecordPayment = hasPermission("purchases.record_payment");
   const { query: purchasesQuery, deletePurchase } = usePurchases();
 
   const [search, setSearch] = useState("");
@@ -88,6 +92,10 @@ const Purchases = () => {
     switch (s) {
       case "received":
         return <Badge className="border-green-600 bg-green-600 text-white hover:bg-green-600">Received</Badge>;
+      case "partially_received":
+        return <Badge className="border-blue-600 bg-blue-600 text-white hover:bg-blue-600">Partially Received</Badge>;
+      case "approved":
+        return <Badge className="border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-600">Approved</Badge>;
       case "cancelled":
         return <Badge variant="destructive">Cancelled</Badge>;
       default:
@@ -97,6 +105,7 @@ const Purchases = () => {
 
   const { query: paymentsQuery, remove: removePayment, update: updatePayment } = useSupplierPayments();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentTarget, setPaymentTarget] = useState<Purchase | null>(null);
   const payments = paymentsQuery.data || [];
 
   const [viewing, setViewing] = useState<Purchase | null>(null);
@@ -479,9 +488,17 @@ const Purchases = () => {
 
         <TabsContent value="payments" className="space-y-3">
           <div className="flex justify-end">
-            <Button size="sm" onClick={() => setPaymentDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" /> Record Payment
-            </Button>
+            {canRecordPayment && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  setPaymentTarget(null);
+                  setPaymentDialogOpen(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" /> Record Payment
+              </Button>
+            )}
           </div>
           <Card>
             <CardContent className="p-0">
@@ -594,7 +611,12 @@ const Purchases = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <SupplierPaymentDialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen} />
+      <SupplierPaymentDialog
+        open={paymentDialogOpen}
+        onOpenChange={setPaymentDialogOpen}
+        defaultSupplierId={paymentTarget?.supplier_id || undefined}
+        defaultPurchaseId={paymentTarget?.id || undefined}
+      />
 
       <Dialog open={!!viewingPayment} onOpenChange={(open) => !open && setViewingPayment(null)}>
         <DialogContent>
@@ -663,6 +685,10 @@ const Purchases = () => {
         open={!!viewing}
         onOpenChange={(o) => {
           if (!o) setViewing(null);
+        }}
+        onPayment={(p) => {
+          setPaymentTarget(p);
+          setPaymentDialogOpen(true);
         }}
         onEdit={
           canEdit
