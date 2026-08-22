@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Product } from "@/hooks/useProducts";
@@ -80,6 +81,19 @@ export function usePOS() {
   const { business, currentLocation } = useBusiness();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { hasPermission } = usePermissions();
+  const canPos = useCallback(
+    (key: string, allowOverride = false) => {
+      if (hasPermission(key)) return true;
+      return allowOverride && hasPermission("pos.override");
+    },
+    [hasPermission],
+  );
+
+  const deny = useCallback((message: string) => {
+    toast.error(message);
+    return false;
+  }, []);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customerId, setCustomerId] = useState<string | null>(null);
@@ -145,6 +159,10 @@ export function usePOS() {
 
   const addToCart = useCallback(
     (product: Product) => {
+      if (!canPos("pos.create_sale")) {
+        deny("You do not have permission to create POS sales.");
+        return;
+      }
       setCart((prev) => {
         const existing = prev.find((i) => i.product.id === product.id);
         const newQty = existing ? existing.quantity + 1 : 1;
@@ -161,11 +179,27 @@ export function usePOS() {
         return [...prev, { product, quantity: 1, unit_price: product.selling_price, discount: 0 }];
       });
     },
-    [preventOverselling, inventoryRows],
+    [preventOverselling, inventoryRows, canPos, deny],
   );
 
   const updateCartItem = useCallback(
     (productId: string, updates: Partial<CartItem>) => {
+      if (!canPos("pos.edit_cart", true)) {
+        deny("You do not have permission to edit the POS cart.");
+        return;
+      }
+      if (updates.unit_price !== undefined && !canPos("pos.change_price", true)) {
+        deny("Selling-price changes require POS price-override permission.");
+        return;
+      }
+      if (
+        updates.discount !== undefined &&
+        !canPos("pos.apply_line_discount", true) &&
+        !canPos("pos.apply_discount", true)
+      ) {
+        deny("Line discounts require POS discount permission.");
+        return;
+      }
       setCart((prev) =>
         prev.map((i) => {
           if (i.product.id !== productId) return i;
@@ -184,12 +218,19 @@ export function usePOS() {
         }),
       );
     },
-    [preventOverselling, inventoryRows],
+    [preventOverselling, inventoryRows, canPos, deny],
   );
 
-  const removeFromCart = useCallback((productId: string) => {
-    setCart((prev) => prev.filter((i) => i.product.id !== productId));
-  }, []);
+  const removeFromCart = useCallback(
+    (productId: string) => {
+      if (!canPos("pos.edit_cart", true)) {
+        deny("You do not have permission to remove items from the POS cart.");
+        return;
+      }
+      setCart((prev) => prev.filter((i) => i.product.id !== productId));
+    },
+    [canPos, deny],
+  );
 
   const draftIds = {
     businessId: business?.id ?? null,
@@ -326,6 +367,10 @@ export function usePOS() {
   // Hold current sale — persist to suspended_sales table so it survives reload & syncs across devices
   const holdSale = useCallback(
     async (customLabel?: string) => {
+      if (!canPos("pos.hold_sale")) {
+        deny("You do not have permission to hold POS sales.");
+        return;
+      }
       if (!business || !currentLocation || !user || cart.length === 0) return;
       const label = (customLabel && customLabel.trim()) || customerName || `Sale ${new Date().toLocaleTimeString()}`;
       const { error } = await supabase.from("suspended_sales").insert({
@@ -345,12 +390,16 @@ export function usePOS() {
       clearCart();
       toast.info(`Sale parked: ${label}`);
     },
-    [cart, customerId, customerName, business, currentLocation, user, queryClient, clearCart],
+    [cart, customerId, customerName, business, currentLocation, user, queryClient, clearCart, canPos, deny],
   );
 
   // Resume a held sale
   const resumeSale = useCallback(
     async (id: string) => {
+      if (!canPos("pos.resume_sale")) {
+        deny("You do not have permission to resume held POS sales.");
+        return;
+      }
       const held = heldSales.find((h) => h.id === id);
       if (!held) return;
       if (cart.length > 0) await holdSale();
@@ -360,16 +409,20 @@ export function usePOS() {
       await supabase.from("suspended_sales").delete().eq("id", id);
       queryClient.invalidateQueries({ queryKey: ["suspended_sales"] });
     },
-    [heldSales, cart, holdSale, queryClient],
+    [heldSales, cart, holdSale, queryClient, canPos, deny],
   );
 
   const removeHeldSale = useCallback(
     async (id: string) => {
+      if (!canPos("pos.hold_sale", true)) {
+        deny("You do not have permission to remove held POS sales.");
+        return;
+      }
       const { error } = await supabase.from("suspended_sales").delete().eq("id", id);
       if (error) toast.error(error.message);
       queryClient.invalidateQueries({ queryKey: ["suspended_sales"] });
     },
-    [queryClient],
+    [queryClient, canPos, deny],
   );
 
   /**
@@ -381,6 +434,10 @@ export function usePOS() {
    */
   const createPendingSale = useCallback(
     async (opts: { loyaltyDiscount?: number; loyaltyNote?: string | null } = {}) => {
+      if (!canPos("pos.create_sale")) {
+        deny("You do not have permission to create POS sales.");
+        return null;
+      }
       if (!business || !currentLocation || !user || cart.length === 0) return null;
       if (!ensureCanPost()) return null;
 
@@ -442,6 +499,10 @@ export function usePOS() {
    * - A customer must be selected before calling this
    */
   const completeCreditSale = useCallback(async () => {
+    if (!canPos("pos.credit_sale") || !canPos("pos.payment_credit")) {
+      deny("You do not have permission to complete credit sales.");
+      return null;
+    }
     if (!business || !currentLocation || !user || cart.length === 0) return null;
     if (!customerId) {
       toast.error("A customer must be selected for a credit sale");
@@ -677,8 +738,26 @@ export function usePOS() {
     pushToEtims: boolean = true,
     opts: { loyaltyDiscount?: number; loyaltyNote?: string | null } = {},
   ) => {
+    if (!canPos("pos.create_sale")) {
+      deny("You do not have permission to create POS sales.");
+      return null;
+    }
     if (!business || !currentLocation || !user || cart.length === 0) return null;
     if (!ensureCanPost()) return null;
+    for (const payment of payments) {
+      const permission =
+        payment.method === "cash"
+          ? "pos.payment_cash"
+          : payment.method === "mpesa"
+            ? "pos.payment_mobile_money"
+            : "pos.payment_card";
+      if (!hasPermission(permission)) {
+        deny(
+          `You do not have permission to accept ${payment.method === "mpesa" ? "M-Pesa" : payment.method} payments.`,
+        );
+        return null;
+      }
+    }
     // Guard against double-submits (rapid clicks / Enter key repeats).
     if (completingRef.current) return null;
     completingRef.current = true;
