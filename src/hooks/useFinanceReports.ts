@@ -35,12 +35,12 @@ export type FinanceReportData = {
   balance_sheet: TrialRow[];
 };
 
-export function useFinanceReports(fromDate: string, toDate: string) {
+export function useFinanceReports(fromDate: string, toDate: string, enabled = true) {
   const { business } = useBusiness();
 
   return useQuery({
     queryKey: ["finance-report-data", business?.id, fromDate, toDate],
-    enabled: !!business?.id && !!fromDate && !!toDate,
+    enabled: enabled && !!business?.id && !!fromDate && !!toDate,
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc("finance_report_data", {
         _from_date: fromDate,
