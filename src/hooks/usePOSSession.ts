@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export interface POSSession {
   id: string;
@@ -31,6 +32,7 @@ export interface POSSession {
 export function usePOSSession() {
   const { business, currentLocation, userRole } = useBusiness();
   const { user } = useAuth();
+  const { hasPermission } = usePermissions();
   const [activeSession, setActiveSession] = useState<POSSession | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -61,6 +63,10 @@ export function usePOSSession() {
   }, [fetchActiveSession]);
 
   const startDay = async (openingFloat: number, locationIdOverride?: string, cashAccountId?: string) => {
+    if (!hasPermission("pos.open_till")) {
+      toast.error("You do not have permission to open a till.");
+      return null;
+    }
     const targetLocationId = locationIdOverride || currentLocation?.id;
     if (!business || !targetLocationId || !user) return null;
 
@@ -88,6 +94,10 @@ export function usePOSSession() {
   };
 
   const endDay = async (closingCash: number, notes?: string) => {
+    if (!hasPermission("pos.close_till") || !hasPermission("pos.reconcile_till")) {
+      toast.error("You do not have permission to close and reconcile this till.");
+      return null;
+    }
     if (!activeSession || !user || !business || !currentLocation) return null;
 
     // Calculate session totals from sales made during this session
@@ -131,7 +141,18 @@ export function usePOSSession() {
       });
     }
 
-    const expectedCash = activeSession.opening_float + paymentsCash;
+    const { data: cashMovements } = await supabase
+      .from("pos_cash_movements")
+      .select("movement_type, amount")
+      .eq("session_id", activeSession.id);
+    const cashIn = (cashMovements || [])
+      .filter((m) => m.movement_type === "cash_in")
+      .reduce((sum, m) => sum + Number(m.amount), 0);
+    const cashOut = (cashMovements || [])
+      .filter((m) => m.movement_type === "cash_out")
+      .reduce((sum, m) => sum + Number(m.amount), 0);
+
+    const expectedCash = activeSession.opening_float + paymentsCash + cashIn - cashOut;
     const cashDifference = closingCash - expectedCash;
 
     const { data, error } = await supabase
@@ -180,6 +201,30 @@ export function usePOSSession() {
     const { data } = await historyQuery;
 
     return (data || []) as POSSession[];
+  };
+
+  const recordCashMovement = async (type: "cash_in" | "cash_out", amount: number, reason: string) => {
+    const permission = type === "cash_in" ? "pos.cash_in" : "pos.cash_out";
+    if (!hasPermission(permission) && !hasPermission("pos.override")) {
+      toast.error(`You do not have permission to record ${type === "cash_in" ? "cash in" : "cash out"}.`);
+      return false;
+    }
+    if (!activeSession || !business || !currentLocation || !user || amount <= 0 || !reason.trim()) return false;
+    const { error } = await supabase.from("pos_cash_movements").insert({
+      business_id: business.id,
+      location_id: currentLocation.id,
+      session_id: activeSession.id,
+      movement_type: type,
+      amount,
+      reason: reason.trim(),
+      created_by: user.id,
+    });
+    if (error) {
+      toast.error(`Could not record cash movement: ${error.message}`);
+      return false;
+    }
+    toast.success(type === "cash_in" ? "Cash in recorded." : "Cash out recorded.");
+    return true;
   };
 
   return {
