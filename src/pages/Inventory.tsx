@@ -1062,14 +1062,14 @@ const Inventory = () => {
         open={adjDialogOpen}
         onOpenChange={setAdjDialogOpen}
         onSubmit={handleAdjust}
-        isLoading={adjustStock.isPending || createPurchase.isPending}
+        isLoading={createPurchase.isPending}
       />
 
       <ImportAdjustmentsDialog
         open={importDialogOpen}
         onOpenChange={setImportDialogOpen}
         onSubmit={handleAdjust}
-        isLoading={adjustStock.isPending}
+        isLoading={false}
       />
 
       <EditAdjustmentDocumentDialog
