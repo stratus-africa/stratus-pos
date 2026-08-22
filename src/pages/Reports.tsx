@@ -169,9 +169,7 @@ const Reports = () => {
       for (let offset = 0; ; offset += pageSize) {
         const { data, error } = await supabase
           .from("inventory")
-          .select(
-            "*, products(name, sku, purchase_price, selling_price, categories(name), brands(name)), locations(name)",
-          )
+          .select("*, products(name, sku, purchase_price, selling_price, categories(name), brands(name))")
           .eq("location_id", currentLocation.id)
           .range(offset, offset + pageSize - 1);
         if (error) throw error;
@@ -378,9 +376,9 @@ const Reports = () => {
       if (k === "stock" || k === "stock_valuation" || k === "low_stock") {
         return (inventoryReport.data || []).map((r: any) => ({
           product_name: r.products?.name || "-",
-          location_name: r.locations?.name || "-",
+          location_name: currentLocation?.name || "-",
           quantity: Number(r.quantity || 0),
-          low_stock_threshold: Number(r.low_stock_threshold || 0),
+          reorder_level: Number(r.products?.reorder_level ?? r.reorder_level ?? 0),
           purchase_price: Number(r.products?.purchase_price || 0),
           selling_price: Number(r.products?.selling_price || 0),
           stock_value: Number(r.quantity || 0) * Number(r.products?.purchase_price || 0),
@@ -633,36 +631,36 @@ const Reports = () => {
                 </Select>
               </div>
               <TabsList className="hidden md:flex text-muted-foreground md:flex-col md:w-56 bg-muted rounded-lg p-1.5 shrink-0 md:items-stretch md:justify-start h-auto">
-                {visibleGroups.map((group) => (
-                  <div key={group.key} className="w-full">
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-1 px-3 pt-2 pb-1 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
-                      onClick={() => setCollapsedGroups((prev) => ({ ...prev, [group.key]: !prev[group.key] }))}
-                      aria-expanded={!collapsedGroups[group.key]}
-                    >
-                      {collapsedGroups[group.key] ? (
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      ) : (
-                        <ChevronDown className="h-3.5 w-3.5" />
+                {visibleGroups.map((group) => {
+                  const collapsed = !!collapsedGroups[group.key];
+                  return (
+                    <div key={group.key} className="w-full">
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-1 px-3 pt-2 pb-1 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
+                        onClick={() => setCollapsedGroups((prev) => ({ ...prev, [group.key]: !prev[group.key] }))}
+                        aria-expanded={!collapsed}
+                        aria-controls={`report-group-${group.key}`}
+                      >
+                        {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        <span>{group.label}</span>
+                      </button>
+                      {!collapsed && (
+                        <div id={`report-group-${group.key}`} className="space-y-0.5">
+                          {group.items.map((i) => (
+                            <TabsTrigger
+                              key={i.value}
+                              value={i.value}
+                              className="md:w-full md:justify-start gap-2 text-sm px-3 py-2 shrink-0"
+                            >
+                              <i.icon className="h-4 w-4" /> {i.label}
+                            </TabsTrigger>
+                          ))}
+                        </div>
                       )}
-                      {group.label}
-                    </button>
-                    {!collapsedGroups[group.key] && (
-                      <div className="space-y-0.5">
-                        {group.items.map((i) => (
-                          <TabsTrigger
-                            key={i.value}
-                            value={i.value}
-                            className="md:w-full md:justify-start gap-2 text-sm px-3 py-2 shrink-0"
-                          >
-                            <i.icon className="h-4 w-4" /> {i.label}
-                          </TabsTrigger>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </TabsList>
             </>
           );
@@ -681,7 +679,7 @@ const Reports = () => {
                 can(k) && (
                   <TabsContent key={k} value={k} className="mt-0">
                     <FeatureReportTab
-                      title={k.replaceAll("_", " ")}
+                      title={k === "sales_by_payment" ? "Payments Received" : k.replaceAll("_", " ")}
                       rows={featureReport.data || []}
                       loading={featureReport.isLoading}
                     />
