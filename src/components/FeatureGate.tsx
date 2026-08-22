@@ -9,12 +9,14 @@ interface FeatureGateProps {
   requiredTier?: string;
   /** Preferred: gate by module key from APP_MODULES (e.g. "reports", "banking") */
   moduleKey?: string;
+  /** Plan-only feature key. Examples: "mpesa.stk_push", "digitax". */
+  featureKey?: string;
   children: React.ReactNode;
   fallback?: React.ReactNode;
 }
 
 export function FeatureGate({ requiredTier, moduleKey, children, fallback }: FeatureGateProps) {
-  const { hasModule, hasPlan, isLoading, resolutionStatus, entitlementError } = useEntitlement();
+  const { hasModule, hasFeatureKey, hasPlan, isLoading, resolutionStatus, entitlementError } = useEntitlement();
   const navigate = useNavigate();
 
   // ── State A+E: loading or db error ─────────────────────────────────────────
@@ -87,7 +89,13 @@ export function FeatureGate({ requiredTier, moduleKey, children, fallback }: Fea
 
   // ── Determine access ────────────────────────────────────────────────────────
   // At this point we have a resolved plan. Check module access.
-  const allowed = moduleKey ? hasModule(moduleKey) : requiredTier ? hasPlan : true;
+  const allowed = featureKey
+    ? hasFeatureKey(featureKey)
+    : moduleKey
+      ? hasModule(moduleKey)
+      : requiredTier
+        ? hasPlan
+        : true;
 
   if (!allowed) {
     // ── State C: plan has no modules enabled ──────────────────────────────────
@@ -150,7 +158,7 @@ export function RequireFeature({ moduleKey, children }: { moduleKey: string; chi
  * Derives everything from the canonical entitlement hook.
  */
 export function useFeatureLimit() {
-  const { hasModule, isLoading, resolvedPackageName } = useEntitlement();
+  const { hasModule, hasFeatureKey, isLoading, resolvedPackageName } = useEntitlement();
 
   return {
     isLoading,
@@ -163,6 +171,6 @@ export function useFeatureLimit() {
     canAccessChartOfAccounts: hasModule("accounting"),
     canUseMultiLocation: hasModule("inventory"),
     hasModule,
-    hasFeatureKey: hasModule,
+    hasFeatureKey,
   };
 }
