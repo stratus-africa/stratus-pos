@@ -1,13 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   ArrowRightLeft,
+  Check,
   CheckCircle2,
   Clock3,
-  PackageCheck,
+  Eye,
+  Loader2,
   Plus,
   RefreshCw,
   Send,
+  Truck,
+  X,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -16,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { usePermissions } from "@/hooks/usePermissions";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -24,7 +29,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -51,36 +55,68 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Separator } from "@/components/ui/separator";
+
+type TransferStatus =
+  | "draft"
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "dispatched"
+  | "received"
+  | "cancelled";
+
+interface Location {
+  id: string;
+  business_id: string;
+  name: string;
+  type?: string;
+  address?: string | null;
+  is_active: boolean;
+}
 
 interface Transfer {
   id: string;
-  transfer_number: string;
+  business_id: string;
+  transfer_number?: string | null;
+  reference?: string | null;
   source_location_id: string;
   destination_location_id: string;
-  status: string;
-  notes: string | null;
-  requested_by: string | null;
-  requested_at: string;
-  approved_by: string | null;
-  approved_at: string | null;
-  rejected_by: string | null;
-  rejected_at: string | null;
-  rejection_reason: string | null;
-  dispatched_by: string | null;
-  dispatched_at: string | null;
-  received_by: string | null;
-  received_at: string | null;
+  status: TransferStatus;
+  notes?: string | null;
   created_at: string;
+  updated_at?: string | null;
+  requested_at?: string | null;
+  approved_at?: string | null;
+  rejected_at?: string | null;
+  dispatched_at?: string | null;
+  received_at?: string | null;
+  cancelled_at?: string | null;
+  requested_by?: string | null;
+  approved_by?: string | null;
+  rejected_by?: string | null;
+  dispatched_by?: string | null;
+  received_by?: string | null;
+  cancelled_by?: string | null;
+  rejection_reason?: string | null;
+  source_location?: {
+    id: string;
+    name: string;
+  } | null;
+  destination_location?: {
+    id: string;
+    name: string;
+  } | null;
 }
 
-interface TransferItem {
-  id: string;
-  transfer_id: string;
+interface TransferLine {
+  id?: string;
+  transfer_id?: string;
   product_id: string;
   quantity: number;
-  products?: {
-    name?: string;
+  notes?: string | null;
+  product?: {
+    id: string;
+    name: string;
     sku?: string | null;
   } | null;
 }
@@ -88,324 +124,371 @@ interface TransferItem {
 interface Product {
   id: string;
   name: string;
-  sku: string | null;
-  is_active: boolean;
+  sku?: string | null;
+  is_active?: boolean;
 }
 
-interface TransferLineDraft {
+interface NewTransferLine {
   product_id: string;
   quantity: string;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  pending_approval: "Pending Approval",
+interface NewTransferForm {
+  source_location_id: string;
+  destination_location_id: string;
+  reference: string;
+  notes: string;
+}
+
+const STATUS_LABELS: Record<TransferStatus, string> = {
+  draft: "Draft",
+  pending: "Pending Approval",
   approved: "Approved",
   rejected: "Rejected",
-  in_transit: "In Transit",
-  completed: "Completed",
+  dispatched: "Dispatched",
+  received: "Received",
   cancelled: "Cancelled",
 };
 
-function statusVariant(status: string) {
-  switch (status) {
-    case "completed":
-      return "default" as const;
+const STATUS_VARIANTS: Record<
+  TransferStatus,
+  "default" | "secondary" | "outline" | "destructive"
+> = {
+  draft: "secondary",
+  pending: "outline",
+  approved: "default",
+  rejected: "destructive",
+  dispatched: "default",
+  received: "default",
+  cancelled: "destructive",
+};
 
-    case "rejected":
-    case "cancelled":
-      return "destructive" as const;
+function formatDate(value?: string | null) {
+  if (!value) return "—";
 
-    case "pending_approval":
-      return "secondary" as const;
+  const date = new Date(value);
 
-    default:
-      return "outline" as const;
+  if (Number.isNaN(date.getTime())) {
+    return "—";
   }
+
+  return date.toLocaleString("en-KE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 }
 
-function statusIcon(status: string) {
-  switch (status) {
-    case "completed":
-      return CheckCircle2;
+function shortId(id?: string | null) {
+  if (!id) return "—";
+  return id.slice(0, 8);
+}
 
-    case "pending_approval":
+function getStatusIcon(status: TransferStatus) {
+  switch (status) {
+    case "pending":
       return Clock3;
 
-    case "in_transit":
-      return Send;
+    case "approved":
+      return CheckCircle2;
 
     case "rejected":
+      return XCircle;
+
+    case "dispatched":
+      return Truck;
+
+    case "received":
+      return Check;
+
     case "cancelled":
       return XCircle;
 
     default:
-      return ArrowRightLeft;
+      return Clock3;
   }
 }
 
 export default function StockTransfersTab() {
-  const {
-    business,
-    locations,
-    currentLocation,
-  } = useBusiness();
+  const { business, locations, currentLocation } =
+    useBusiness();
 
   const { hasPermission } = usePermissions();
 
-  const canCreate =
-    hasPermission(
-      "multi_location.transfer_stock",
-    );
-
-  const canApprove =
-    hasPermission(
-      "multi_location.approve_transfers",
-    );
-
   const canView =
     hasPermission("multi_location.view") ||
-    canCreate ||
-    canApprove;
+    hasPermission("multi_location.transfer_stock") ||
+    hasPermission("multi_location.approve_transfers") ||
+    hasPermission("inventory.view");
 
-  const [transfers, setTransfers] =
-    useState<Transfer[]>([]);
+  const canCreate =
+    hasPermission("multi_location.transfer_stock") ||
+    hasPermission("inventory.transfer");
 
-  const [items, setItems] =
-    useState<Record<string, TransferItem[]>>({});
+  const canApprove =
+    hasPermission("multi_location.approve_transfers") ||
+    hasPermission("inventory.approve_transfer");
 
-  const [products, setProducts] =
-    useState<Product[]>([]);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [refreshing, setRefreshing] =
-    useState(false);
-
-  const [createOpen, setCreateOpen] =
-    useState(false);
-
-  const [detailsOpen, setDetailsOpen] =
-    useState(false);
-
-  const [selectedTransfer, setSelectedTransfer] =
-    useState<Transfer | null>(null);
-
-  const [sourceLocationId, setSourceLocationId] =
-    useState(currentLocation?.id || "");
-
-  const [destinationLocationId, setDestinationLocationId] =
-    useState("");
-
-  const [notes, setNotes] =
-    useState("");
-
-  const [lines, setLines] =
-    useState<TransferLineDraft[]>([
-      {
-        product_id: "",
-        quantity: "",
-      },
-    ]);
-
-  const [saving, setSaving] =
-    useState(false);
-
-  const [rejectOpen, setRejectOpen] =
-    useState(false);
-
-  const [rejectionReason, setRejectionReason] =
-    useState("");
-
-  const [processingId, setProcessingId] =
-    useState<string | null>(null);
+  const canReceive =
+    hasPermission("multi_location.transfer_stock") ||
+    hasPermission("inventory.receive");
 
   const activeLocations = useMemo(
     () =>
-      locations.filter(
-        (location) =>
-          location.is_active,
+      (locations as Location[]).filter(
+        (location) => location.is_active,
       ),
     [locations],
   );
 
-  const locationName = (
-    id: string,
-  ) =>
-    locations.find(
-      (location) => location.id === id,
-    )?.name || "Unknown location";
+  const [transfers, setTransfers] = useState<Transfer[]>(
+    [],
+  );
 
-  const loadProducts = async () => {
-    if (!business) return;
+  const [products, setProducts] = useState<Product[]>([]);
 
-    const { data, error } =
-      await supabase
-        .from("products")
-        .select("id, name, sku, is_active")
-        .eq("business_id", business.id)
-        .eq("is_active", true)
-        .order("name");
+  const [loading, setLoading] = useState(true);
 
-    if (error) {
-      toast.error(
-        error.message ||
-          "Unable to load products",
-      );
+  const [productsLoading, setProductsLoading] =
+    useState(false);
+
+  const [saving, setSaving] = useState(false);
+
+  const [selectedTransfer, setSelectedTransfer] =
+    useState<Transfer | null>(null);
+
+  const [selectedLines, setSelectedLines] = useState<
+    TransferLine[]
+  >([]);
+
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  const [createOpen, setCreateOpen] = useState(false);
+
+  const [rejectOpen, setRejectOpen] = useState(false);
+
+  const [rejectionReason, setRejectionReason] =
+    useState("");
+
+  const [statusFilter, setStatusFilter] =
+    useState<string>("all");
+
+  const [search, setSearch] = useState("");
+
+  const [form, setForm] = useState<NewTransferForm>({
+    source_location_id:
+      currentLocation?.id || "",
+    destination_location_id: "",
+    reference: "",
+    notes: "",
+  });
+
+  const [newLines, setNewLines] = useState<
+    NewTransferLine[]
+  >([
+    {
+      product_id: "",
+      quantity: "",
+    },
+  ]);
+
+  const loadTransfers = useCallback(async () => {
+    if (!business?.id) {
+      setTransfers([]);
+      setLoading(false);
       return;
     }
-
-    setProducts(
-      (data || []) as Product[],
-    );
-  };
-
-  const loadTransfers = async () => {
-    if (!business) return;
 
     setLoading(true);
 
     try {
-      const { data, error } =
-        await supabase
-          .from("stock_transfers")
-          .select("*")
-          .eq(
-            "business_id",
-            business.id,
-          )
-          .order(
-            "created_at",
-            {
-              ascending: false,
-            },
-          )
-          .limit(200);
+      /*
+       * Keep this query deliberately untyped. This prevents
+       * generated Supabase Database types from breaking the
+       * settings page when the migration has been added but
+       * generated types have not yet been regenerated.
+       */
+      const { data, error } = await (supabase as any)
+        .from("stock_transfers")
+        .select(
+          `
+            *,
+            source_location:locations!stock_transfers_source_location_id_fkey(
+              id,
+              name
+            ),
+            destination_location:locations!stock_transfers_destination_location_id_fkey(
+              id,
+              name
+            )
+          `,
+        )
+        .eq("business_id", business.id)
+        .order("created_at", {
+          ascending: false,
+        });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
-      setTransfers(
-        (data || []) as Transfer[],
+      setTransfers((data || []) as Transfer[]);
+    } catch (error: any) {
+      /*
+       * If the transfer migration has not been applied yet,
+       * don't crash the entire Settings page.
+       */
+      console.error(
+        "Unable to load stock transfers:",
+        error,
       );
 
-      const transferIds =
-        (data || []).map(
-          (row: any) => row.id,
-        );
-
-      if (transferIds.length > 0) {
-        const { data: itemRows, error: itemError } =
-          await supabase
-            .from("stock_transfer_items")
-            .select(
-              "id, transfer_id, product_id, quantity, products(name, sku)",
-            )
-            .in(
-              "transfer_id",
-              transferIds,
-            );
-
-        if (itemError) throw itemError;
-
-        const grouped: Record<
-          string,
-          TransferItem[]
-        > = {};
-
-        for (const item of
-          (itemRows || []) as any[]) {
-          if (!grouped[item.transfer_id]) {
-            grouped[item.transfer_id] = [];
-          }
-
-          grouped[item.transfer_id].push(
-            item as TransferItem,
-          );
-        }
-
-        setItems(grouped);
-      } else {
-        setItems({});
-      }
-    } catch (error: any) {
       toast.error(
         error?.message ||
-          "Unable to load stock transfers",
+          "Unable to load stock transfers.",
       );
+
+      setTransfers([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [business?.id]);
 
-  const refresh = async () => {
-    setRefreshing(true);
+  const loadProducts = useCallback(async () => {
+    if (!business?.id) {
+      setProducts([]);
+      return;
+    }
+
+    setProductsLoading(true);
 
     try {
-      await Promise.all([
-        loadTransfers(),
-        loadProducts(),
-      ]);
-    } finally {
-      setRefreshing(false);
-    }
-  };
+      const { data, error } = await (supabase as any)
+        .from("products")
+        .select("id, name, sku, is_active")
+        .eq("business_id", business.id)
+        .eq("is_active", true)
+        .order("name", {
+          ascending: true,
+        })
+        .limit(1000);
 
-  useEffect(() => {
-    if (!business) return;
+      if (error) {
+        throw error;
+      }
 
-    void refresh();
-
-    const channel = supabase
-      .channel(
-        `stock-transfers-${business.id}-${crypto.randomUUID()}`,
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "stock_transfers",
-          filter: `business_id=eq.${business.id}`,
-        },
-        () => {
-          void loadTransfers();
-        },
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(
-        channel,
+      setProducts((data || []) as Product[]);
+    } catch (error: any) {
+      console.error(
+        "Unable to load products:",
+        error,
       );
-    };
+
+      toast.error(
+        error?.message ||
+          "Unable to load products.",
+      );
+    } finally {
+      setProductsLoading(false);
+    }
   }, [business?.id]);
 
   useEffect(() => {
-    if (
-      currentLocation?.id &&
-      !sourceLocationId
-    ) {
-      setSourceLocationId(
-        currentLocation.id,
-      );
+    void loadTransfers();
+  }, [loadTransfers]);
+
+  useEffect(() => {
+    if (createOpen) {
+      void loadProducts();
     }
+  }, [createOpen, loadProducts]);
+
+  useEffect(() => {
+    if (!currentLocation?.id) return;
+
+    setForm((current) => {
+      if (current.source_location_id) {
+        return current;
+      }
+
+      return {
+        ...current,
+        source_location_id:
+          currentLocation.id,
+      };
+    });
+  }, [currentLocation?.id]);
+
+  const filteredTransfers = useMemo(() => {
+    const normalizedSearch =
+      search.trim().toLowerCase();
+
+    return transfers.filter((transfer) => {
+      if (
+        statusFilter !== "all" &&
+        transfer.status !== statusFilter
+      ) {
+        return false;
+      }
+
+      if (!normalizedSearch) {
+        return true;
+      }
+
+      const haystack = [
+        transfer.transfer_number,
+        transfer.reference,
+        transfer.source_location?.name,
+        transfer.destination_location?.name,
+        transfer.id,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(normalizedSearch);
+    });
   }, [
-    currentLocation?.id,
-    sourceLocationId,
+    transfers,
+    search,
+    statusFilter,
   ]);
 
+  const stats = useMemo(() => {
+    return {
+      total: transfers.length,
+
+      pending: transfers.filter(
+        (transfer) =>
+          transfer.status === "pending",
+      ).length,
+
+      approved: transfers.filter(
+        (transfer) =>
+          transfer.status === "approved",
+      ).length,
+
+      dispatched: transfers.filter(
+        (transfer) =>
+          transfer.status === "dispatched",
+      ).length,
+
+      received: transfers.filter(
+        (transfer) =>
+          transfer.status === "received",
+      ).length,
+    };
+  }, [transfers]);
+
   const resetCreateForm = () => {
-    setSourceLocationId(
-      currentLocation?.id ||
-        activeLocations[0]?.id ||
-        "",
-    );
+    setForm({
+      source_location_id:
+        currentLocation?.id || "",
+      destination_location_id: "",
+      reference: "",
+      notes: "",
+    });
 
-    setDestinationLocationId("");
-
-    setNotes("");
-
-    setLines([
+    setNewLines([
       {
         product_id: "",
         quantity: "",
@@ -413,8 +496,30 @@ export default function StockTransfersTab() {
     ]);
   };
 
+  const openCreate = () => {
+    resetCreateForm();
+    setCreateOpen(true);
+  };
+
+  const updateLine = (
+    index: number,
+    field: keyof NewTransferLine,
+    value: string,
+  ) => {
+    setNewLines((current) =>
+      current.map((line, lineIndex) =>
+        lineIndex === index
+          ? {
+              ...line,
+              [field]: value,
+            }
+          : line,
+      ),
+    );
+  };
+
   const addLine = () => {
-    setLines((current) => [
+    setNewLines((current) => [
       ...current,
       {
         product_id: "",
@@ -423,100 +528,67 @@ export default function StockTransfersTab() {
     ]);
   };
 
-  const removeLine = (
-    index: number,
-  ) => {
-    setLines((current) =>
-      current.length === 1
-        ? current
-        : current.filter(
-            (_, i) => i !== index,
-          ),
-    );
-  };
+  const removeLine = (index: number) => {
+    setNewLines((current) => {
+      if (current.length === 1) {
+        return current;
+      }
 
-  const updateLine = (
-    index: number,
-    patch: Partial<TransferLineDraft>,
-  ) => {
-    setLines((current) =>
-      current.map((line, i) =>
-        i === index
-          ? {
-              ...line,
-              ...patch,
-            }
-          : line,
-      ),
-    );
+      return current.filter(
+        (_, lineIndex) =>
+          lineIndex !== index,
+      );
+    });
   };
 
   const createTransfer = async () => {
-    if (!business) return;
+    if (!business?.id) {
+      toast.error("Business not found.");
+      return;
+    }
 
     if (!canCreate) {
       toast.error(
-        "You do not have permission to create stock transfers",
+        "You do not have permission to create stock transfers.",
       );
       return;
     }
 
     if (
-      !sourceLocationId ||
-      !destinationLocationId
+      !form.source_location_id ||
+      !form.destination_location_id
     ) {
       toast.error(
-        "Select both source and destination locations",
+        "Select both the source and destination locations.",
       );
       return;
     }
 
     if (
-      sourceLocationId ===
-      destinationLocationId
+      form.source_location_id ===
+      form.destination_location_id
     ) {
       toast.error(
-        "Source and destination must be different",
+        "Source and destination locations must be different.",
       );
       return;
     }
 
-    const normalizedItems = lines
+    const validLines = newLines
       .map((line) => ({
         product_id: line.product_id,
-        quantity: Number(
-          line.quantity,
-        ),
+        quantity: Number(line.quantity),
       }))
       .filter(
         (line) =>
           line.product_id &&
-          Number.isFinite(
-            line.quantity,
-          ) &&
+          Number.isFinite(line.quantity) &&
           line.quantity > 0,
       );
 
-    if (
-      normalizedItems.length === 0
-    ) {
+    if (validLines.length === 0) {
       toast.error(
-        "Add at least one product with a valid quantity",
-      );
-      return;
-    }
-
-    const productIds =
-      normalizedItems.map(
-        (item) => item.product_id,
-      );
-
-    if (
-      new Set(productIds).size !==
-      productIds.length
-    ) {
-      toast.error(
-        "Each product can only appear once in a transfer",
+        "Add at least one product with a quantity greater than zero.",
       );
       return;
     }
@@ -524,133 +596,262 @@ export default function StockTransfersTab() {
     setSaving(true);
 
     try {
-      const { data, error } =
-        await (supabase as any).rpc(
-          "create_stock_transfer",
-          {
-            _business_id:
-              business.id,
-            _source_location_id:
-              sourceLocationId,
-            _destination_location_id:
-              destinationLocationId,
-            _items: normalizedItems,
-            _notes:
-              notes.trim() || null,
-          },
-        );
-
-      if (error) throw error;
-
-      toast.success(
-        `Transfer ${data?.transfer_number || ""} submitted for approval`,
+      /*
+       * Creation is done through an RPC so the database can
+       * validate stock, permissions and transfer state
+       * atomically.
+       *
+       * The RPC is intentionally called through `any` so this
+       * file compiles even before Supabase generated types
+       * contain the new function.
+       */
+      const { data, error } = await (supabase as any).rpc(
+        "create_stock_transfer",
+        {
+          p_business_id: business.id,
+          p_source_location_id:
+            form.source_location_id,
+          p_destination_location_id:
+            form.destination_location_id,
+          p_reference:
+            form.reference.trim() || null,
+          p_notes:
+            form.notes.trim() || null,
+          p_lines: validLines,
+        },
       );
 
+      if (error) {
+        throw error;
+      }
+
+      const created =
+        Array.isArray(data) ? data[0] : data;
+
       setCreateOpen(false);
+
       resetCreateForm();
 
       await loadTransfers();
+
+      toast.success(
+        created?.transfer_number
+          ? `Transfer ${created.transfer_number} created.`
+          : "Stock transfer created.",
+      );
     } catch (error: any) {
+      console.error(
+        "Unable to create stock transfer:",
+        error,
+      );
+
       toast.error(
         error?.message ||
-          "Unable to create stock transfer",
+          "Unable to create stock transfer.",
       );
     } finally {
       setSaving(false);
     }
   };
 
-  const runAction = async (
-    action:
-      | "approve_stock_transfer"
-      | "dispatch_stock_transfer"
-      | "receive_stock_transfer"
-      | "cancel_stock_transfer",
-    transferId: string,
-    successMessage: string,
+  const loadTransferDetails = async (
+    transfer: Transfer,
   ) => {
-    setProcessingId(transferId);
+    setSelectedTransfer(transfer);
+    setDetailOpen(true);
+    setSelectedLines([]);
 
     try {
-      const { error } =
-        await (supabase as any).rpc(
-          action,
-          {
-            _transfer_id:
-              transferId,
-          },
-        );
+      const { data, error } = await (supabase as any)
+        .from("stock_transfer_items")
+        .select(
+          `
+            *,
+            product:products(
+              id,
+              name,
+              sku
+            )
+          `,
+        )
+        .eq("transfer_id", transfer.id)
+        .order("created_at", {
+          ascending: true,
+        });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
-      toast.success(successMessage);
-
-      await loadTransfers();
+      setSelectedLines(
+        (data || []) as TransferLine[],
+      );
     } catch (error: any) {
+      console.error(
+        "Unable to load transfer lines:",
+        error,
+      );
+
       toast.error(
         error?.message ||
-          "Unable to update transfer",
+          "Unable to load transfer details.",
       );
-    } finally {
-      setProcessingId(null);
     }
   };
 
-  const rejectTransfer = async () => {
-    if (!selectedTransfer) return;
+  const changeTransferStatus = async (
+    transfer: Transfer,
+    action:
+      | "approve"
+      | "reject"
+      | "dispatch"
+      | "receive"
+      | "cancel",
+    reason?: string,
+  ) => {
+    if (!business?.id) {
+      toast.error("Business not found.");
+      return;
+    }
 
     if (
-      rejectionReason.trim().length < 2
+      action === "approve" &&
+      !canApprove
     ) {
       toast.error(
-        "Enter a rejection reason",
+        "You do not have permission to approve transfers.",
       );
       return;
     }
 
-    setProcessingId(
-      selectedTransfer.id,
-    );
+    if (
+      (action === "dispatch" ||
+        action === "receive") &&
+      !canReceive
+    ) {
+      toast.error(
+        "You do not have permission to process this transfer.",
+      );
+      return;
+    }
+
+    setSaving(true);
 
     try {
-      const { error } =
-        await (supabase as any).rpc(
-          "reject_stock_transfer",
-          {
-            _transfer_id:
-              selectedTransfer.id,
-            _reason:
-              rejectionReason.trim(),
-          },
-        );
-
-      if (error) throw error;
-
-      toast.success(
-        "Stock transfer rejected",
+      const { error } = await (supabase as any).rpc(
+        "update_stock_transfer_status",
+        {
+          p_transfer_id: transfer.id,
+          p_action: action,
+          p_rejection_reason:
+            action === "reject"
+              ? reason?.trim() || null
+              : null,
+        },
       );
+
+      if (error) {
+        throw error;
+      }
+
+      if (selectedTransfer?.id === transfer.id) {
+        setDetailOpen(false);
+        setSelectedTransfer(null);
+      }
 
       setRejectOpen(false);
       setRejectionReason("");
 
       await loadTransfers();
+
+      const messages: Record<
+        typeof action,
+        string
+      > = {
+        approve: "Transfer approved.",
+        reject: "Transfer rejected.",
+        dispatch: "Transfer dispatched.",
+        receive: "Transfer received.",
+        cancel: "Transfer cancelled.",
+      };
+
+      toast.success(messages[action]);
     } catch (error: any) {
+      console.error(
+        `Unable to ${action} transfer:`,
+        error,
+      );
+
       toast.error(
         error?.message ||
-          "Unable to reject transfer",
+          `Unable to ${action} transfer.`,
       );
     } finally {
-      setProcessingId(null);
+      setSaving(false);
     }
   };
 
-  const openDetails = (
+  const openReject = (
     transfer: Transfer,
   ) => {
-    setSelectedTransfer(
-      transfer,
+    setSelectedTransfer(transfer);
+    setRejectionReason("");
+    setRejectOpen(true);
+  };
+
+  const canApproveTransfer = (
+    transfer: Transfer,
+  ) => {
+    return (
+      canApprove &&
+      transfer.status === "pending"
     );
-    setDetailsOpen(true);
+  };
+
+  const canDispatchTransfer = (
+    transfer: Transfer,
+  ) => {
+    return (
+      canReceive &&
+      transfer.status === "approved"
+    );
+  };
+
+  const canReceiveTransfer = (
+    transfer: Transfer,
+  ) => {
+    return (
+      canReceive &&
+      transfer.status === "dispatched"
+    );
+  };
+
+  const canCancelTransfer = (
+    transfer: Transfer,
+  ) => {
+    return (
+      canCreate &&
+      ["draft", "pending"].includes(
+        transfer.status,
+      )
+    );
+  };
+
+  const renderStatus = (
+    status: TransferStatus,
+  ) => {
+    const Icon = getStatusIcon(status);
+
+    return (
+      <Badge
+        variant={STATUS_VARIANTS[status]}
+        className="gap-1"
+      >
+        <Icon className="h-3.5 w-3.5" />
+
+        {STATUS_LABELS[status]}
+      </Badge>
+    );
   };
 
   if (!canView) {
@@ -664,465 +865,439 @@ export default function StockTransfersTab() {
           </h3>
 
           <p className="mt-1 text-sm text-muted-foreground">
-            Your role does not have access to
-            inter-location transfers.
+            You don't have permission to view stock
+            transfers.
           </p>
         </CardContent>
       </Card>
     );
   }
 
-  const pendingCount =
-    transfers.filter(
-      (t) =>
-        t.status ===
-        "pending_approval",
-    ).length;
-
-  const inTransitCount =
-    transfers.filter(
-      (t) =>
-        t.status ===
-        "in_transit",
-    ).length;
-
-  const completedCount =
-    transfers.filter(
-      (t) =>
-        t.status ===
-        "completed",
-    ).length;
-
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <ArrowRightLeft className="h-5 w-5" />
-
-            <h2 className="text-xl font-semibold">
-              Stock Transfers
-            </h2>
-          </div>
-
-          <p className="mt-1 text-sm text-muted-foreground">
-            Move inventory between stores and
-            warehouses using an approval-controlled
-            workflow.
-          </p>
-        </div>
-
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              void refresh()
-            }
-            disabled={refreshing}
-          >
-            <RefreshCw
-              className={`mr-1.5 h-4 w-4 ${
-                refreshing
-                  ? "animate-spin"
-                  : ""
-              }`}
-            />
-            Refresh
-          </Button>
-
-          {canCreate && (
-            <Button
-              size="sm"
-              onClick={() => {
-                resetCreateForm();
-                setCreateOpen(true);
-              }}
-              disabled={
-                activeLocations.length < 2
-              }
-            >
-              <Plus className="mr-1.5 h-4 w-4" />
-              New Transfer
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">
-              Pending Approval
-            </p>
-
-            <p className="mt-1 text-2xl font-semibold">
-              {pendingCount}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">
-              In Transit
-            </p>
-
-            <p className="mt-1 text-2xl font-semibold">
-              {inTransitCount}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">
-              Completed
-            </p>
-
-            <p className="mt-1 text-2xl font-semibold">
-              {completedCount}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">
-              Total Transfers
-            </p>
-
-            <p className="mt-1 text-2xl font-semibold">
-              {transfers.length}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {activeLocations.length < 2 && (
-        <Card>
-          <CardContent className="py-6 text-center text-sm text-muted-foreground">
-            Create at least two active locations before
-            creating an inter-location transfer.
-          </CardContent>
-        </Card>
-      )}
-
       <Card>
         <CardHeader>
-          <CardTitle>Transfer Queue</CardTitle>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <ArrowRightLeft className="h-5 w-5" />
+                Stock Transfers
+              </CardTitle>
 
-          <CardDescription>
-            All inter-location inventory movements for
-            this business.
-          </CardDescription>
+              <CardDescription>
+                Request, approve, dispatch and receive
+                inventory between business locations.
+              </CardDescription>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  void loadTransfers()
+                }
+                disabled={loading}
+              >
+                <RefreshCw
+                  className={`mr-2 h-4 w-4 ${
+                    loading
+                      ? "animate-spin"
+                      : ""
+                  }`}
+                />
+
+                Refresh
+              </Button>
+
+              {canCreate && (
+                <Button
+                  size="sm"
+                  onClick={openCreate}
+                  disabled={
+                    activeLocations.length < 2
+                  }
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Transfer
+                </Button>
+              )}
+            </div>
+          </div>
         </CardHeader>
 
         <CardContent>
-          {loading ? (
-            <div className="py-10 text-center text-sm text-muted-foreground">
-              Loading transfers...
-            </div>
-          ) : transfers.length === 0 ? (
-            <div className="py-10 text-center">
-              <ArrowRightLeft className="mx-auto h-9 w-9 text-muted-foreground" />
-
-              <p className="mt-3 font-medium">
-                No stock transfers yet
-              </p>
-
-              <p className="mt-1 text-sm text-muted-foreground">
-                Create a transfer when inventory needs to
-                move between locations.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>
-                      Transfer #
-                    </TableHead>
-
-                    <TableHead>
-                      Route
-                    </TableHead>
-
-                    <TableHead>
-                      Items
-                    </TableHead>
-
-                    <TableHead>
-                      Status
-                    </TableHead>
-
-                    <TableHead>
-                      Requested
-                    </TableHead>
-
-                    <TableHead className="w-[260px]" />
-                  </TableRow>
-                </TableHeader>
-
-                <TableBody>
-                  {transfers.map(
-                    (transfer) => {
-                      const Icon =
-                        statusIcon(
-                          transfer.status,
-                        );
-
-                      const transferItems =
-                        items[
-                          transfer.id
-                        ] || [];
-
-                      return (
-                        <TableRow
-                          key={
-                            transfer.id
-                          }
-                        >
-                          <TableCell>
-                            <button
-                              className="font-medium hover:underline"
-                              onClick={() =>
-                                openDetails(
-                                  transfer,
-                                )
-                              }
-                            >
-                              {
-                                transfer.transfer_number
-                              }
-                            </button>
-                          </TableCell>
-
-                          <TableCell>
-                            <div className="flex items-center gap-2 text-sm">
-                              <span>
-                                {locationName(
-                                  transfer.source_location_id,
-                                )}
-                              </span>
-
-                              <ArrowRight className="h-4 w-4 text-muted-foreground" />
-
-                              <span>
-                                {locationName(
-                                  transfer.destination_location_id,
-                                )}
-                              </span>
-                            </div>
-                          </TableCell>
-
-                          <TableCell>
-                            {transferItems.length}
-                          </TableCell>
-
-                          <TableCell>
-                            <Badge
-                              variant={statusVariant(
-                                transfer.status,
-                              )}
-                            >
-                              <Icon className="mr-1 h-3.5 w-3.5" />
-
-                              {
-                                STATUS_LABELS[
-                                  transfer.status
-                                ] ||
-                                transfer.status
-                              }
-                            </Badge>
-                          </TableCell>
-
-                          <TableCell className="text-sm text-muted-foreground">
-                            {new Date(
-                              transfer.requested_at,
-                            ).toLocaleDateString(
-                              "en-KE",
-                              {
-                                day: "2-digit",
-                                month:
-                                  "short",
-                                year:
-                                  "numeric",
-                              },
-                            )}
-                          </TableCell>
-
-                          <TableCell>
-                            <div className="flex flex-wrap justify-end gap-1.5">
-                              {transfer.status ===
-                                "pending_approval" &&
-                                canApprove && (
-                                  <>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      disabled={
-                                        processingId ===
-                                        transfer.id
-                                      }
-                                      onClick={() =>
-                                        void runAction(
-                                          "approve_stock_transfer",
-                                          transfer.id,
-                                          "Transfer approved",
-                                        )
-                                      }
-                                    >
-                                      <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-                                      Approve
-                                    </Button>
-
-                                    <Button
-                                      size="sm"
-                                      variant="destructive"
-                                      disabled={
-                                        processingId ===
-                                        transfer.id
-                                      }
-                                      onClick={() => {
-                                        setSelectedTransfer(
-                                          transfer,
-                                        );
-                                        setRejectOpen(
-                                          true,
-                                        );
-                                      }}
-                                    >
-                                      Reject
-                                    </Button>
-                                  </>
-                                )}
-
-                              {transfer.status ===
-                                "approved" &&
-                                canCreate && (
-                                  <Button
-                                    size="sm"
-                                    disabled={
-                                      processingId ===
-                                      transfer.id
-                                    }
-                                    onClick={() =>
-                                      void runAction(
-                                        "dispatch_stock_transfer",
-                                        transfer.id,
-                                        "Transfer dispatched",
-                                      )
-                                    }
-                                  >
-                                    <Send className="mr-1 h-3.5 w-3.5" />
-                                    Dispatch
-                                  </Button>
-                                )}
-
-                              {transfer.status ===
-                                "in_transit" &&
-                                canCreate && (
-                                  <Button
-                                    size="sm"
-                                    disabled={
-                                      processingId ===
-                                      transfer.id
-                                    }
-                                    onClick={() =>
-                                      void runAction(
-                                        "receive_stock_transfer",
-                                        transfer.id,
-                                        "Transfer received and completed",
-                                      )
-                                    }
-                                  >
-                                    <PackageCheck className="mr-1 h-3.5 w-3.5" />
-                                    Receive
-                                  </Button>
-                                )}
-
-                              {(
-                                transfer.status ===
-                                  "pending_approval" ||
-                                transfer.status ===
-                                  "approved"
-                              ) &&
-                                canCreate && (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    disabled={
-                                      processingId ===
-                                      transfer.id
-                                    }
-                                    onClick={() =>
-                                      void runAction(
-                                        "cancel_stock_transfer",
-                                        transfer.id,
-                                        "Transfer cancelled",
-                                      )
-                                    }
-                                  >
-                                    Cancel
-                                  </Button>
-                                )}
-
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() =>
-                                  openDetails(
-                                    transfer,
-                                  )
-                                }
-                              >
-                                View
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    },
-                  )}
-                </TableBody>
-              </Table>
+          {activeLocations.length < 2 && (
+            <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+              Add at least two active locations before
+              creating an inter-location transfer.
             </div>
           )}
         </CardContent>
       </Card>
 
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">
+              Total
+            </p>
+
+            <p className="mt-1 text-2xl font-semibold">
+              {stats.total}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">
+              Pending
+            </p>
+
+            <p className="mt-1 text-2xl font-semibold">
+              {stats.pending}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">
+              Approved
+            </p>
+
+            <p className="mt-1 text-2xl font-semibold">
+              {stats.approved}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">
+              Dispatched
+            </p>
+
+            <p className="mt-1 text-2xl font-semibold">
+              {stats.dispatched}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">
+              Received
+            </p>
+
+            <p className="mt-1 text-2xl font-semibold">
+              {stats.received}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-3 md:flex-row">
+            <Input
+              value={search}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
+              placeholder="Search transfer number, reference or location..."
+              className="md:max-w-md"
+            />
+
+            <Select
+              value={statusFilter}
+              onValueChange={setStatusFilter}
+            >
+              <SelectTrigger className="md:w-[220px]">
+                <SelectValue />
+              </SelectTrigger>
+
+              <SelectContent>
+                <SelectItem value="all">
+                  All statuses
+                </SelectItem>
+
+                {(
+                  Object.keys(
+                    STATUS_LABELS,
+                  ) as TransferStatus[]
+                ).map((status) => (
+                  <SelectItem
+                    key={status}
+                    value={status}
+                  >
+                    {STATUS_LABELS[status]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Transfer Requests</CardTitle>
+
+          <CardDescription>
+            Every transfer moves through a controlled
+            approval workflow.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>
+                    Transfer
+                  </TableHead>
+
+                  <TableHead>
+                    From
+                  </TableHead>
+
+                  <TableHead>
+                    To
+                  </TableHead>
+
+                  <TableHead>
+                    Status
+                  </TableHead>
+
+                  <TableHead>
+                    Created
+                  </TableHead>
+
+                  <TableHead className="w-[230px]" />
+                </TableRow>
+              </TableHeader>
+
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={6}
+                      className="py-12 text-center"
+                    >
+                      <Loader2 className="mx-auto h-6 w-6 animate-spin" />
+
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        Loading transfers...
+                      </p>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredTransfers.length ===
+                  0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={6}
+                      className="py-12 text-center text-muted-foreground"
+                    >
+                      No stock transfers found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredTransfers.map(
+                    (transfer) => (
+                      <TableRow
+                        key={transfer.id}
+                      >
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">
+                              {transfer.transfer_number ||
+                                `TR-${shortId(
+                                  transfer.id,
+                                )}`}
+                            </p>
+
+                            <p className="text-xs text-muted-foreground">
+                              {transfer.reference ||
+                                "No reference"}
+                            </p>
+                          </div>
+                        </TableCell>
+
+                        <TableCell>
+                          {transfer
+                            .source_location
+                            ?.name ||
+                            "—"}
+                        </TableCell>
+
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+
+                            {transfer
+                              .destination_location
+                              ?.name ||
+                              "—"}
+                          </div>
+                        </TableCell>
+
+                        <TableCell>
+                          {renderStatus(
+                            transfer.status,
+                          )}
+                        </TableCell>
+
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDate(
+                            transfer.created_at,
+                          )}
+                        </TableCell>
+
+                        <TableCell>
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() =>
+                                void loadTransferDetails(
+                                  transfer,
+                                )
+                              }
+                            >
+                              <Eye className="mr-1.5 h-4 w-4" />
+                              View
+                            </Button>
+
+                            {canApproveTransfer(
+                              transfer,
+                            ) && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() =>
+                                    void changeTransferStatus(
+                                      transfer,
+                                      "approve",
+                                    )
+                                  }
+                                  disabled={saving}
+                                >
+                                  <Check className="mr-1.5 h-4 w-4" />
+                                  Approve
+                                </Button>
+
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() =>
+                                    openReject(
+                                      transfer,
+                                    )
+                                  }
+                                  disabled={saving}
+                                >
+                                  <X className="mr-1.5 h-4 w-4" />
+                                  Reject
+                                </Button>
+                              </>
+                            )}
+
+                            {canDispatchTransfer(
+                              transfer,
+                            ) && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  void changeTransferStatus(
+                                    transfer,
+                                    "dispatch",
+                                  )
+                                }
+                                disabled={saving}
+                              >
+                                <Send className="mr-1.5 h-4 w-4" />
+                                Dispatch
+                              </Button>
+                            )}
+
+                            {canReceiveTransfer(
+                              transfer,
+                            ) && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  void changeTransferStatus(
+                                    transfer,
+                                    "receive",
+                                  )
+                                }
+                                disabled={saving}
+                              >
+                                <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                                Receive
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ),
+                  )
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
       <Dialog
         open={createOpen}
-        onOpenChange={setCreateOpen}
+        onOpenChange={(open) => {
+          if (!saving) {
+            setCreateOpen(open);
+
+            if (!open) {
+              resetCreateForm();
+            }
+          }
+        }}
       >
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>
-              New Stock Transfer
+              Create Stock Transfer
             </DialogTitle>
 
             <DialogDescription>
-              Create a transfer request. Inventory will
-              not change until the transfer is dispatched.
+              Request inventory to be moved from one
+              location to another.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-5">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label>
-                  Source Location
+                  From Location
                 </Label>
 
                 <Select
                   value={
-                    sourceLocationId
+                    form.source_location_id
                   }
-                  onValueChange={
-                    setSourceLocationId
+                  onValueChange={(value) =>
+                    setForm((current) => ({
+                      ...current,
+                      source_location_id:
+                        value,
+                    }))
                   }
+                  disabled={saving}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select source" />
@@ -1132,20 +1307,10 @@ export default function StockTransfersTab() {
                     {activeLocations.map(
                       (location) => (
                         <SelectItem
-                          key={
-                            location.id
-                          }
-                          value={
-                            location.id
-                          }
-                          disabled={
-                            location.id ===
-                            destinationLocationId
-                          }
+                          key={location.id}
+                          value={location.id}
                         >
-                          {
-                            location.name
-                          }
+                          {location.name}
                         </SelectItem>
                       ),
                     )}
@@ -1155,59 +1320,104 @@ export default function StockTransfersTab() {
 
               <div className="space-y-2">
                 <Label>
-                  Destination Location
+                  To Location
                 </Label>
 
                 <Select
                   value={
-                    destinationLocationId
+                    form.destination_location_id
                   }
-                  onValueChange={
-                    setDestinationLocationId
+                  onValueChange={(value) =>
+                    setForm((current) => ({
+                      ...current,
+                      destination_location_id:
+                        value,
+                    }))
                   }
+                  disabled={saving}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select destination" />
                   </SelectTrigger>
 
                   <SelectContent>
-                    {activeLocations.map(
-                      (location) => (
-                        <SelectItem
-                          key={
-                            location.id
-                          }
-                          value={
-                            location.id
-                          }
-                          disabled={
-                            location.id ===
-                            sourceLocationId
-                          }
-                        >
-                          {
-                            location.name
-                          }
-                        </SelectItem>
-                      ),
-                    )}
+                    {activeLocations
+                      .filter(
+                        (location) =>
+                          location.id !==
+                          form.source_location_id,
+                      )
+                      .map(
+                        (location) => (
+                          <SelectItem
+                            key={
+                              location.id
+                            }
+                            value={
+                              location.id
+                            }
+                          >
+                            {
+                              location.name
+                            }
+                          </SelectItem>
+                        ),
+                      )}
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            <Separator />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>
+                  Reference
+                </Label>
+
+                <Input
+                  value={form.reference}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      reference:
+                        event.target.value,
+                    }))
+                  }
+                  placeholder="Optional transfer reference"
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>
+                  Notes
+                </Label>
+
+                <Input
+                  value={form.notes}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      notes:
+                        event.target.value,
+                    }))
+                  }
+                  placeholder="Optional notes"
+                  disabled={saving}
+                />
+              </div>
+            </div>
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>
-                    Transfer Items
-                  </Label>
+                  <h3 className="font-medium">
+                    Products
+                  </h3>
 
                   <p className="text-xs text-muted-foreground">
-                    Select each product once and enter the
-                    quantity to move.
+                    Add the products and quantities to
+                    transfer.
                   </p>
                 </div>
 
@@ -1216,57 +1426,51 @@ export default function StockTransfersTab() {
                   size="sm"
                   variant="outline"
                   onClick={addLine}
+                  disabled={saving}
                 >
-                  <Plus className="mr-1 h-4 w-4" />
-                  Add Item
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Product
                 </Button>
               </div>
 
-              {lines.map(
-                (line, index) => (
-                  <div
-                    key={index}
-                    className="grid gap-2 sm:grid-cols-[1fr_140px_auto]"
-                  >
-                    <Select
-                      value={
-                        line.product_id
-                      }
-                      onValueChange={(
-                        value,
-                      ) =>
-                        updateLine(
-                          index,
-                          {
-                            product_id:
-                              value,
-                          },
-                        )
-                      }
+              <div className="space-y-2">
+                {newLines.map(
+                  (line, index) => (
+                    <div
+                      key={index}
+                      className="grid gap-2 md:grid-cols-[1fr_150px_auto]"
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select product" />
-                      </SelectTrigger>
-
-                      <SelectContent>
-                        {products
-                          .filter(
-                            (product) =>
-                              !lines.some(
-                                (
-                                  existing,
-                                  existingIndex,
-                                ) =>
-                                  existingIndex !==
-                                    index &&
-                                  existing.product_id ===
-                                    product.id,
-                              ),
+                      <Select
+                        value={
+                          line.product_id
+                        }
+                        onValueChange={(
+                          value,
+                        ) =>
+                          updateLine(
+                            index,
+                            "product_id",
+                            value,
                           )
-                          .map(
-                            (
-                              product,
-                            ) => (
+                        }
+                        disabled={
+                          saving ||
+                          productsLoading
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={
+                              productsLoading
+                                ? "Loading products..."
+                                : "Select product"
+                            }
+                          />
+                        </SelectTrigger>
+
+                        <SelectContent>
+                          {products.map(
+                            (product) => (
                               <SelectItem
                                 key={
                                   product.id
@@ -1275,87 +1479,80 @@ export default function StockTransfersTab() {
                                   product.id
                                 }
                               >
-                                {product.name}
-                                {product.sku
-                                  ? ` — ${product.sku}`
-                                  : ""}
+                                <span>
+                                  {
+                                    product.name
+                                  }
+
+                                  {product.sku
+                                    ? ` · ${product.sku}`
+                                    : ""}
+                                </span>
                               </SelectItem>
                             ),
                           )}
-                      </SelectContent>
-                    </Select>
+                        </SelectContent>
+                      </Select>
 
-                    <Input
-                      type="number"
-                      min="0.0001"
-                      step="any"
-                      value={
-                        line.quantity
-                      }
-                      onChange={(
-                        event,
-                      ) =>
-                        updateLine(
-                          index,
-                          {
-                            quantity:
-                              event
-                                .target
-                                .value,
-                          },
-                        )
-                      }
-                      placeholder="Quantity"
-                    />
+                      <Input
+                        type="number"
+                        min="0.001"
+                        step="0.001"
+                        value={
+                          line.quantity
+                        }
+                        onChange={(
+                          event,
+                        ) =>
+                          updateLine(
+                            index,
+                            "quantity",
+                            event.target
+                              .value,
+                          )
+                        }
+                        placeholder="Quantity"
+                        disabled={
+                          saving
+                        }
+                      />
 
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() =>
-                        removeLine(
-                          index,
-                        )
-                      }
-                      disabled={
-                        lines.length ===
-                        1
-                      }
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                ),
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label>
-                Notes
-              </Label>
-
-              <Textarea
-                value={notes}
-                onChange={(event) =>
-                  setNotes(
-                    event.target
-                      .value,
-                  )
-                }
-                placeholder="Optional transfer notes..."
-              />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() =>
+                          removeLine(
+                            index,
+                          )
+                        }
+                        disabled={
+                          saving ||
+                          newLines.length ===
+                            1
+                        }
+                        aria-label="Remove product"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ),
+                )}
+              </div>
             </div>
 
             <div className="rounded-lg border bg-muted/30 p-3 text-sm">
-              <strong>
-                Approval required
-              </strong>
+              <div className="flex items-center gap-2">
+                <ArrowRightLeft className="h-4 w-4" />
 
-              <p className="mt-1 text-muted-foreground">
-                The transfer will enter Pending Approval.
-                A user with the Approve Stock Transfers
-                permission must approve it before it can
-                be dispatched.
-              </p>
+                <span>
+                  The transfer will enter{" "}
+                  <strong>
+                    Pending Approval
+                  </strong>{" "}
+                  after creation.
+                </span>
+              </div>
             </div>
           </div>
 
@@ -1374,76 +1571,118 @@ export default function StockTransfersTab() {
               onClick={() =>
                 void createTransfer()
               }
-              disabled={saving}
+              disabled={
+                saving ||
+                activeLocations.length < 2
+              }
             >
-              {saving
-                ? "Submitting..."
-                : "Submit for Approval"}
+              {saving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Send className="mr-2 h-4 w-4" />
+                  Create Transfer
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog
-        open={detailsOpen}
-        onOpenChange={
-          setDetailsOpen
-        }
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
       >
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedTransfer?.transfer_number ||
+                `Transfer ${shortId(
+                  selectedTransfer?.id,
+                )}`}
+            </DialogTitle>
+
+            <DialogDescription>
+              {selectedTransfer
+                ? `${selectedTransfer.source_location?.name || "Unknown"} → ${selectedTransfer.destination_location?.name || "Unknown"}`
+                : "Transfer details"}
+            </DialogDescription>
+          </DialogHeader>
+
           {selectedTransfer && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <ArrowRightLeft className="h-5 w-5" />
+            <div className="space-y-5">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">
+                    Status
+                  </p>
 
-                  {
-                    selectedTransfer.transfer_number
-                  }
-                </DialogTitle>
-
-                <DialogDescription>
-                  {
-                    locationName(
-                      selectedTransfer.source_location_id,
-                    )
-                  }
-
-                  {" → "}
-
-                  {
-                    locationName(
-                      selectedTransfer.destination_location_id,
-                    )
-                  }
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-5">
-                <div className="flex items-center justify-between">
-                  <Badge
-                    variant={statusVariant(
+                  <div className="mt-2">
+                    {renderStatus(
                       selectedTransfer.status,
                     )}
-                  >
-                    {
-                      STATUS_LABELS[
-                        selectedTransfer
-                          .status
-                      ]
-                    }
-                  </Badge>
-
-                  <span className="text-sm text-muted-foreground">
-                    {new Date(
-                      selectedTransfer.requested_at,
-                    ).toLocaleString(
-                      "en-KE",
-                    )}
-                  </span>
+                  </div>
                 </div>
 
-                <div className="rounded-lg border">
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">
+                    Created
+                  </p>
+
+                  <p className="mt-2 text-sm font-medium">
+                    {formatDate(
+                      selectedTransfer.created_at,
+                    )}
+                  </p>
+                </div>
+
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs text-muted-foreground">
+                    Reference
+                  </p>
+
+                  <p className="mt-2 text-sm font-medium">
+                    {selectedTransfer.reference ||
+                      "—"}
+                  </p>
+                </div>
+              </div>
+
+              {selectedTransfer.notes && (
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs font-medium">
+                    Notes
+                  </p>
+
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {selectedTransfer.notes}
+                  </p>
+                </div>
+              )}
+
+              {selectedTransfer.rejection_reason && (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+                  <p className="text-xs font-medium text-destructive">
+                    Rejection Reason
+                  </p>
+
+                  <p className="mt-1 text-sm">
+                    {
+                      selectedTransfer.rejection_reason
+                    }
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <h3 className="mb-3 font-medium">
+                  Transfer Lines
+                </h3>
+
+                <div className="overflow-x-auto rounded-lg border">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -1462,157 +1701,175 @@ export default function StockTransfersTab() {
                     </TableHeader>
 
                     <TableBody>
-                      {(
-                        items[
-                          selectedTransfer
-                            .id
-                        ] || []
-                      ).map(
-                        (item) => (
-                          <TableRow
-                            key={
-                              item.id
-                            }
+                      {selectedLines.length ===
+                      0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={3}
+                            className="py-8 text-center text-muted-foreground"
                           >
-                            <TableCell className="font-medium">
-                              {
-                                item
-                                  .products
-                                  ?.name
+                            No transfer lines found.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        selectedLines.map(
+                          (line, index) => (
+                            <TableRow
+                              key={
+                                line.id ||
+                                `${line.product_id}-${index}`
                               }
-                            </TableCell>
+                            >
+                              <TableCell className="font-medium">
+                                {line.product
+                                  ?.name ||
+                                  line.product_id}
+                              </TableCell>
 
-                            <TableCell className="text-muted-foreground">
-                              {
-                                item
-                                  .products
-                                  ?.sku
-                              }
-                            </TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {line.product
+                                  ?.sku ||
+                                  "—"}
+                              </TableCell>
 
-                            <TableCell className="text-right">
-                              {
-                                item.quantity
-                              }
-                            </TableCell>
-                          </TableRow>
-                        ),
+                              <TableCell className="text-right font-medium">
+                                {Number(
+                                  line.quantity,
+                                ).toLocaleString(
+                                  "en-KE",
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ),
+                        )
                       )}
                     </TableBody>
                   </Table>
                 </div>
-
-                {selectedTransfer.notes && (
-                  <div>
-                    <Label>
-                      Notes
-                    </Label>
-
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {
-                        selectedTransfer.notes
-                      }
-                    </p>
-                  </div>
-                )}
-
-                {selectedTransfer.rejection_reason && (
-                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
-                    <p className="text-sm font-medium">
-                      Rejection Reason
-                    </p>
-
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {
-                        selectedTransfer.rejection_reason
-                      }
-                    </p>
-                  </div>
-                )}
-
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-lg border p-3">
-                    <p className="text-xs text-muted-foreground">
-                      Requested
-                    </p>
-
-                    <p className="mt-1 text-sm font-medium">
-                      {selectedTransfer.requested_at
-                        ? new Date(
-                            selectedTransfer.requested_at,
-                          ).toLocaleString(
-                            "en-KE",
-                          )
-                        : "—"}
-                    </p>
-                  </div>
-
-                  <div className="rounded-lg border p-3">
-                    <p className="text-xs text-muted-foreground">
-                      Dispatched
-                    </p>
-
-                    <p className="mt-1 text-sm font-medium">
-                      {selectedTransfer.dispatched_at
-                        ? new Date(
-                            selectedTransfer.dispatched_at,
-                          ).toLocaleString(
-                            "en-KE",
-                          )
-                        : "—"}
-                    </p>
-                  </div>
-
-                  <div className="rounded-lg border p-3">
-                    <p className="text-xs text-muted-foreground">
-                      Received
-                    </p>
-
-                    <p className="mt-1 text-sm font-medium">
-                      {selectedTransfer.received_at
-                        ? new Date(
-                            selectedTransfer.received_at,
-                          ).toLocaleString(
-                            "en-KE",
-                          )
-                        : "—"}
-                    </p>
-                  </div>
-                </div>
               </div>
 
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    setDetailsOpen(
-                      false,
-                    )
-                  }
-                >
-                  Close
-                </Button>
-              </DialogFooter>
-            </>
+              <div className="flex flex-wrap justify-end gap-2">
+                {canApproveTransfer(
+                  selectedTransfer,
+                ) && (
+                  <>
+                    <Button
+                      onClick={() =>
+                        void changeTransferStatus(
+                          selectedTransfer,
+                          "approve",
+                        )
+                      }
+                      disabled={saving}
+                    >
+                      <Check className="mr-2 h-4 w-4" />
+                      Approve
+                    </Button>
+
+                    <Button
+                      variant="destructive"
+                      onClick={() =>
+                        openReject(
+                          selectedTransfer,
+                        )
+                      }
+                      disabled={saving}
+                    >
+                      <X className="mr-2 h-4 w-4" />
+                      Reject
+                    </Button>
+                  </>
+                )}
+
+                {canDispatchTransfer(
+                  selectedTransfer,
+                ) && (
+                  <Button
+                    onClick={() =>
+                      void changeTransferStatus(
+                        selectedTransfer,
+                        "dispatch",
+                      )
+                    }
+                    disabled={saving}
+                  >
+                    <Truck className="mr-2 h-4 w-4" />
+                    Dispatch
+                  </Button>
+                )}
+
+                {canReceiveTransfer(
+                  selectedTransfer,
+                ) && (
+                  <Button
+                    onClick={() =>
+                      void changeTransferStatus(
+                        selectedTransfer,
+                        "receive",
+                      )
+                    }
+                    disabled={saving}
+                  >
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    Receive
+                  </Button>
+                )}
+
+                {canCancelTransfer(
+                  selectedTransfer,
+                ) && (
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      void changeTransferStatus(
+                        selectedTransfer,
+                        "cancel",
+                      )
+                    }
+                    disabled={saving}
+                  >
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Cancel
+                  </Button>
+                )}
+              </div>
+            </div>
           )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() =>
+                setDetailOpen(false)
+              }
+            >
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog
         open={rejectOpen}
-        onOpenChange={
-          setRejectOpen
-        }
+        onOpenChange={(open) => {
+          if (!saving) {
+            setRejectOpen(open);
+
+            if (!open) {
+              setRejectionReason("");
+            }
+          }
+        }}
       >
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
               Reject Stock Transfer
             </DialogTitle>
 
             <DialogDescription>
-              Explain why this transfer request is being
-              rejected.
+              Provide a reason so the transfer requester
+              knows why it was rejected.
             </DialogDescription>
           </DialogHeader>
 
@@ -1622,17 +1879,15 @@ export default function StockTransfersTab() {
             </Label>
 
             <Textarea
-              value={
-                rejectionReason
-              }
+              value={rejectionReason}
               onChange={(event) =>
                 setRejectionReason(
-                  event.target
-                    .value,
+                  event.target.value,
                 )
               }
-              placeholder="Reason for rejecting this transfer..."
-              autoFocus
+              placeholder="Enter the reason for rejecting this transfer..."
+              disabled={saving}
+              rows={4}
             />
           </div>
 
@@ -1640,26 +1895,51 @@ export default function StockTransfersTab() {
             <Button
               variant="outline"
               onClick={() =>
-                setRejectOpen(
-                  false,
-                )
+                setRejectOpen(false)
               }
+              disabled={saving}
             >
               Cancel
             </Button>
 
             <Button
               variant="destructive"
-              onClick={() =>
-                void rejectTransfer()
-              }
+              onClick={() => {
+                if (
+                  !rejectionReason.trim()
+                ) {
+                  toast.error(
+                    "Enter a rejection reason.",
+                  );
+                  return;
+                }
+
+                if (!selectedTransfer) {
+                  return;
+                }
+
+                void changeTransferStatus(
+                  selectedTransfer,
+                  "reject",
+                  rejectionReason,
+                );
+              }}
               disabled={
-                !rejectionReason.trim() ||
-                processingId ===
-                  selectedTransfer?.id
+                saving ||
+                !rejectionReason.trim()
               }
             >
-              Reject Transfer
+              {saving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Rejecting...
+                </>
+              ) : (
+                <>
+                  <X className="mr-2 h-4 w-4" />
+                  Reject Transfer
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
