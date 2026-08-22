@@ -8,7 +8,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, Trash2 } from "lucide-react";
 import { useJournalEntries } from "@/hooks/useJournalEntries";
 
-interface Account { id: string; code: string; name: string; type: string }
+interface Account {
+  id: string;
+  code: string;
+  name: string;
+  type: string;
+}
 
 interface Props {
   open: boolean;
@@ -49,7 +54,7 @@ export function JournalEntryDialog({ open, onOpenChange, accounts }: Props) {
     setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (submit = false) => {
     const cleanLines = lines
       .filter((l) => l.account_id && (Number(l.debit) > 0 || Number(l.credit) > 0))
       .map((l) => ({
@@ -64,6 +69,7 @@ export function JournalEntryDialog({ open, onOpenChange, accounts }: Props) {
       reference: reference || undefined,
       description: description || undefined,
       lines: cleanLines,
+      submit,
     });
     onOpenChange(false);
   };
@@ -88,7 +94,11 @@ export function JournalEntryDialog({ open, onOpenChange, accounts }: Props) {
           </div>
           <div className="space-y-2">
             <Label>Description / Memo</Label>
-            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Narration for this entry" />
+            <Input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Narration for this entry"
+            />
           </div>
 
           <div className="rounded-md border">
@@ -107,42 +117,64 @@ export function JournalEntryDialog({ open, onOpenChange, accounts }: Props) {
                   <TableRow key={i}>
                     <TableCell>
                       <Select value={line.account_id} onValueChange={(v) => updateLine(i, { account_id: v })}>
-                        <SelectTrigger className="h-9"><SelectValue placeholder="Select account" /></SelectTrigger>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select account" />
+                        </SelectTrigger>
                         <SelectContent>
                           {accounts.map((a) => (
-                            <SelectItem key={a.id} value={a.id}>{a.code} — {a.name}</SelectItem>
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.code} — {a.name}
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </TableCell>
                     <TableCell>
-                      <Input className="h-9" value={line.description} onChange={(e) => updateLine(i, { description: e.target.value })} placeholder="Optional" />
+                      <Input
+                        className="h-9"
+                        value={line.description}
+                        onChange={(e) => updateLine(i, { description: e.target.value })}
+                        placeholder="Optional"
+                      />
                     </TableCell>
                     <TableCell>
                       <Input
                         className="h-9 text-right"
-                        type="number" step="0.01"
+                        type="number"
+                        step="0.01"
                         value={line.debit}
-                        onChange={(e) => updateLine(i, { debit: e.target.value, credit: e.target.value ? "" : line.credit })}
+                        onChange={(e) =>
+                          updateLine(i, { debit: e.target.value, credit: e.target.value ? "" : line.credit })
+                        }
                       />
                     </TableCell>
                     <TableCell>
                       <Input
                         className="h-9 text-right"
-                        type="number" step="0.01"
+                        type="number"
+                        step="0.01"
                         value={line.credit}
-                        onChange={(e) => updateLine(i, { credit: e.target.value, debit: e.target.value ? "" : line.debit })}
+                        onChange={(e) =>
+                          updateLine(i, { credit: e.target.value, debit: e.target.value ? "" : line.debit })
+                        }
                       />
                     </TableCell>
                     <TableCell>
-                      <Button size="icon" variant="ghost" onClick={() => setLines(lines.filter((_, idx) => idx !== i))} disabled={lines.length <= 2}>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setLines(lines.filter((_, idx) => idx !== i))}
+                        disabled={lines.length <= 2}
+                      >
                         <Trash2 className="h-4 w-4 text-muted-foreground" />
                       </Button>
                     </TableCell>
                   </TableRow>
                 ))}
                 <TableRow className="bg-muted/30 font-medium">
-                  <TableCell colSpan={2} className="text-right text-sm">Totals</TableCell>
+                  <TableCell colSpan={2} className="text-right text-sm">
+                    Totals
+                  </TableCell>
                   <TableCell className="text-right font-mono">{totalDebit.toLocaleString()}</TableCell>
                   <TableCell className="text-right font-mono">{totalCredit.toLocaleString()}</TableCell>
                   <TableCell></TableCell>
@@ -162,9 +194,14 @@ export function JournalEntryDialog({ open, onOpenChange, accounts }: Props) {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={!balanced || create.isPending}>
-            {create.isPending ? "Posting..." : "Post Entry"}
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button variant="outline" onClick={() => handleSubmit(false)} disabled={!balanced || create.isPending}>
+            {create.isPending ? "Saving..." : "Save Draft"}
+          </Button>
+          <Button onClick={() => handleSubmit(true)} disabled={!balanced || create.isPending}>
+            {create.isPending ? "Submitting..." : "Save & Submit"}
           </Button>
         </DialogFooter>
       </DialogContent>
