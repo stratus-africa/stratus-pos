@@ -14,7 +14,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
 import { useBusiness } from "@/contexts/BusinessContext";
-import { supabase } from "@/integrations/supabase/client";
 import { APP_MODULES } from "@/lib/modules";
 import { useEntitlement } from "@/hooks/useEntitlement";
 
@@ -30,7 +29,6 @@ type NavEntry = {
 const SUPER_ADMIN_ENTRIES: NavEntry[] = [
   { label: "Super Admin Dashboard", url: "/super-admin", icon: Store, group: "Admin" },
   { label: "Tenant Approvals", url: "/super-admin/tenant-approvals", icon: Users, group: "Admin" },
-  { label: "Businesses", url: "/super-admin/businesses", icon: Store, group: "Admin" },
   { label: "Subscriptions", url: "/super-admin/subscriptions", icon: CreditCard, group: "Admin" },
   { label: "Packages", url: "/super-admin/packages", icon: Package, group: "Admin" },
   { label: "Landing CMS", url: "/super-admin/landing", icon: BookOpen, group: "Admin" },
@@ -39,8 +37,6 @@ const SUPER_ADMIN_ENTRIES: NavEntry[] = [
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [tenantResults, setTenantResults] = useState<{ id: string; name: string; business_type?: string | null }[]>([]);
-  const [searchingTenants, setSearchingTenants] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { permissions, hasPermission } = usePermissions();
@@ -58,26 +54,6 @@ export function CommandPalette() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-
-  useEffect(() => {
-    if (!isSuperAdmin || !open || query.trim().length < 2) {
-      setTenantResults([]);
-      return;
-    }
-    const timer = window.setTimeout(async () => {
-      setSearchingTenants(true);
-      const q = query.trim();
-      const { data } = await supabase
-        .from("businesses")
-        .select("id, name, business_type")
-        .ilike("name", `%${q}%`)
-        .order("name")
-        .limit(8);
-      setTenantResults((data || []) as any);
-      setSearchingTenants(false);
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [isSuperAdmin, open, query]);
 
   if (!user) return null;
 
@@ -109,7 +85,7 @@ export function CommandPalette() {
       <CommandInput
         value={query}
         onValueChange={setQuery}
-        placeholder={`Search pages, tenants, actions… (${userRole ?? "user"})`}
+        placeholder={`Search pages and actions… (${userRole ?? "user"})`}
       />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
@@ -137,30 +113,6 @@ export function CommandPalette() {
                   {e.label}
                 </CommandItem>
               ))}
-            </CommandGroup>
-          </>
-        )}
-        {isSuperAdmin && query.trim().length >= 2 && (
-          <>
-            <CommandSeparator />
-            <CommandGroup heading="Tenants">
-              {searchingTenants ? (
-                <CommandItem disabled>Searching tenants…</CommandItem>
-              ) : tenantResults.length ? (
-                tenantResults.map((tenant) => (
-                  <CommandItem
-                    key={"t:" + tenant.id}
-                    value={`${tenant.name} ${tenant.business_type || ""}`}
-                    onSelect={() => go(`/super-admin/businesses/${tenant.id}`)}
-                  >
-                    <Store className="mr-2 h-4 w-4" />
-                    <span className="flex-1">{tenant.name}</span>
-                    <span className="text-xs text-muted-foreground">Open tenant</span>
-                  </CommandItem>
-                ))
-              ) : (
-                <CommandItem disabled>No matching tenants</CommandItem>
-              )}
             </CommandGroup>
           </>
         )}
