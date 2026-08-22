@@ -2055,6 +2055,117 @@ export type Database = {
         }
         Relationships: []
       }
+      mpesa_incoming_sms: {
+        Row: {
+          amount: number | null
+          business_id: string
+          created_at: string
+          id: string
+          matched_at: string | null
+          matched_by: string | null
+          message: string
+          mpesa_receipt_number: string | null
+          mpesa_transaction_id: string | null
+          payer_name: string | null
+          received_at: string
+          sale_id: string | null
+          sender: string | null
+          sender_phone: string | null
+          status: string
+          transaction_at: string | null
+        }
+        Insert: {
+          amount?: number | null
+          business_id: string
+          created_at?: string
+          id?: string
+          matched_at?: string | null
+          matched_by?: string | null
+          message: string
+          mpesa_receipt_number?: string | null
+          mpesa_transaction_id?: string | null
+          payer_name?: string | null
+          received_at?: string
+          sale_id?: string | null
+          sender?: string | null
+          sender_phone?: string | null
+          status?: string
+          transaction_at?: string | null
+        }
+        Update: {
+          amount?: number | null
+          business_id?: string
+          created_at?: string
+          id?: string
+          matched_at?: string | null
+          matched_by?: string | null
+          message?: string
+          mpesa_receipt_number?: string | null
+          mpesa_transaction_id?: string | null
+          payer_name?: string | null
+          received_at?: string
+          sale_id?: string | null
+          sender?: string | null
+          sender_phone?: string | null
+          status?: string
+          transaction_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mpesa_incoming_sms_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mpesa_incoming_sms_mpesa_transaction_id_fkey"
+            columns: ["mpesa_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "mpesa_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mpesa_incoming_sms_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mpesa_sms_ingest_tokens: {
+        Row: {
+          business_id: string
+          created_at: string
+          token_hash: string
+          token_prefix: string
+          updated_at: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          token_hash: string
+          token_prefix: string
+          updated_at?: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          token_hash?: string
+          token_prefix?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mpesa_sms_ingest_tokens_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: true
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mpesa_transactions: {
         Row: {
           amount: number
@@ -4943,6 +5054,10 @@ export type Database = {
         Args: { _business_id: string; _notes?: string }
         Returns: undefined
       }
+      auto_reconcile_mpesa_sms: {
+        Args: { _business_id: string }
+        Returns: number
+      }
       bank_txn_signed_amount: {
         Args: { _amount: number; _type: string }
         Returns: number
@@ -4953,6 +5068,10 @@ export type Database = {
           has_barcode: boolean
           user_id: string
         }[]
+      }
+      business_has_mpesa_feature: {
+        Args: { _business_id: string; _feature_key: string }
+        Returns: boolean
       }
       clear_user_login_barcode: {
         Args: { _user_id: string }
@@ -5212,6 +5331,10 @@ export type Database = {
           rejection_reason: string
           selected_package_id: string
         }[]
+      }
+      match_mpesa_payment_to_sale: {
+        Args: { _sale_id: string; _sms_id?: string; _transaction_id?: string }
+        Returns: Json
       }
       move_to_dlq: {
         Args: {
