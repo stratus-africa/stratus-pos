@@ -233,14 +233,24 @@ export default function SuperAdminPackageEdit() {
 
     try {
       const result = await savePlanModules({ data: { packageId: id, moduleKeys: selectedModuleKeys } });
-      const savedKeys = new Set(result.moduleKeys);
+      const savedKeys = new Set((result.moduleKeys || []).map((key) => String(key).trim().toLowerCase()));
+      const expectedKeys = new Set(selectedModuleKeys.map((key) => String(key).trim().toLowerCase()));
+      const missingKeys = [...expectedKeys].filter((key) => !savedKeys.has(key));
+
+      if (missingKeys.length > 0) {
+        throw new Error(`Module save verification failed. ${missingKeys.length} module(s) were not persisted.`);
+      }
+
       setFeatureToggles(
         Object.fromEntries(
-          ALL_FEATURES.map((feature) => [feature.key, feature.group === "core" || savedKeys.has(feature.key)]),
+          ALL_FEATURES.map((feature) => [
+            feature.key,
+            feature.group === "core" || savedKeys.has(getCanonicalFeatureKey(feature.key).toLowerCase()),
+          ]),
         ),
       );
 
-      toast.success(`Modules updated - ${result.moduleKeys.length} enabled for ${form.name}`);
+      toast.success(`Modules updated - ${savedKeys.size} enabled for ${form.name}`);
     } catch (error: any) {
       toast.error(error?.message || "Failed to update plan modules");
     } finally {
@@ -289,7 +299,13 @@ export default function SuperAdminPackageEdit() {
 
       // Save module entitlements FIRST so a failure while saving pricing/limits
       // can never silently discard the module changes.
-      await savePlanModules({ data: { packageId: pkgId, moduleKeys: selectedModuleKeys } });
+      const moduleResult = await savePlanModules({ data: { packageId: pkgId, moduleKeys: selectedModuleKeys } });
+      const savedModuleKeys = new Set((moduleResult.moduleKeys || []).map((key) => String(key).trim().toLowerCase()));
+      const expectedModuleKeys = new Set(selectedModuleKeys.map((key) => String(key).trim().toLowerCase()));
+      const missingModuleKeys = [...expectedModuleKeys].filter((key) => !savedModuleKeys.has(key));
+      if (missingModuleKeys.length > 0) {
+        throw new Error(`Module save verification failed. ${missingModuleKeys.length} module(s) were not persisted.`);
+      }
 
       if (!isNew) {
         await updateSubscriptionPlan(id!, {

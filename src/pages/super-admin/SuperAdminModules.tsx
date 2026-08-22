@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Loader2, LayoutGrid, Search, Save } from "lucide-react";
 import { toast } from "sonner";
 import { APP_MODULES, moduleGroupLabels, type ModuleGroup } from "@/lib/modules";
+import { superAdminUpdatePlanModules } from "@/lib/superAdmin.functions";
 
 interface Pkg { id: string; name: string; sort_order: number | null; is_active: boolean }
 
@@ -16,6 +18,7 @@ export default function SuperAdminModules() {
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const [pending, setPending] = useState<Record<string, boolean>>({});
+  const savePlanModules = useServerFn(superAdminUpdatePlanModules);
 
   const packagesQuery = useQuery({
     queryKey: ["sa-modules-packages"],
@@ -86,24 +89,27 @@ export default function SuperAdminModules() {
   const save = async () => {
     setSaving(true);
     try {
-      const changes = Object.keys(pending).filter((k) => pending[k] !== baseline[k]);
-      for (const k of changes) {
-        const [pkgId, moduleKey] = k.split("::");
-        const mod = APP_MODULES.find((m) => m.key === moduleKey)!;
-        const keys = [mod.key, ...(mod.aliases ?? [])];
-        // Clear any alias rows so a module has exactly one canonical row per plan.
-        await supabase.from("package_features").delete().eq("package_id", pkgId).in("feature_key", keys);
-        if (pending[k]) {
-          const { error } = await supabase.from("package_features").insert({
-            package_id: pkgId,
-            feature_key: mod.key,
-            feature_label: mod.label,
-            enabled: true,
-          });
-          if (error) throw error;
-        }
+      const changedPackages = packages.filter((pkg) =>
+        APP_MODULES.some((mod) => {
+          const key = cellKey(pkg.id, mod.key);
+          return pending[key] !== undefined && pending[key] !== baseline[key];
+        }),
+      );
+
+      let changedModules = 0;
+      for (const pkg of changedPackages) {
+        const moduleKeys = APP_MODULES
+          .filter((mod) => effective[cellKey(pkg.id, mod.key)])
+          .map((mod) => mod.key);
+
+        await savePlanModules({ data: { packageId: pkg.id, moduleKeys } });
+        changedModules += APP_MODULES.filter((mod) => {
+          const key = cellKey(pkg.id, mod.key);
+          return pending[key] !== undefined && pending[key] !== baseline[key];
+        }).length;
       }
-      toast.success(`Saved ${changes.length} module change${changes.length === 1 ? "" : "s"}`);
+
+      toast.success(`Saved ${changedModules} module change${changedModules === 1 ? "" : "s"}`);
       setPending({});
       await queryClient.invalidateQueries({ queryKey: ["sa-modules-features"] });
     } catch (e: any) {
