@@ -52,6 +52,10 @@ export interface FiscalInvoiceInput {
   items: Array<{
     name: string;
     kra_item_code?: string | null;
+    item_classification?: string | null;
+    quantity_unit?: string | null;
+    packaging_unit?: string | null;
+    country_of_origin?: string | null;
     hs_code?: string | null;
     quantity: number;
     unit_price: number;

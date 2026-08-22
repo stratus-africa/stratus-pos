@@ -16,13 +16,8 @@ export interface TaxProviderConfig {
 export function getTaxProvider(cfg: TaxProviderConfig): TaxProvider {
   if (cfg.provider === "digitax" && cfg.api_key && cfg.business_pin) {
     return new DigitaxProvider({
-      baseUrl: cfg.environment === "production"
-        ? "https://etims.kra.go.ke/api"
-        : "https://etims-sandbox.kra.go.ke/api",
+      baseUrl: "https://api.digitax.tech/ke/v2",
       apiKey: cfg.api_key,
-      businessPin: cfg.business_pin,
-      branchCode: cfg.branch_code,
-      deviceName: cfg.device_name,
     });
   }
   return new MockDigitaxProvider({
