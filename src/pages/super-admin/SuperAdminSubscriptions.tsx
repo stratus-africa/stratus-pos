@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "@/lib/router-compat";
+import { useNavigate } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -321,19 +321,42 @@ export default function SuperAdminSubscriptions() {
 
       {/* Stat tiles */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        {STAT_TILES.map((tile) => (
-          <div key={tile.key} className="bg-white border border-border rounded-xl p-4 flex items-center gap-3.5">
-            <div className={`h-11 w-11 rounded-lg ${tile.iconBg} flex items-center justify-center text-white`}>
-              <tile.icon className="h-5 w-5" />
+        {STAT_TILES.map((tile) => {
+          const isPending = tile.key === "pending";
+          const tileContent = (
+            <>
+              <div className={`h-11 w-11 rounded-lg ${tile.iconBg} flex items-center justify-center text-white`}>
+                <tile.icon className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold leading-none">{counts[tile.key] ?? 0}</p>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mt-1.5">
+                  {tile.label}
+                </p>
+              </div>
+            </>
+          );
+
+          if (isPending) {
+            return (
+              <button
+                key={tile.key}
+                type="button"
+                onClick={() => navigate("/super-admin/businesses")}
+                className="bg-white border border-border rounded-xl p-4 flex items-center gap-3.5 text-left w-full transition-all hover:border-amber-300 hover:bg-amber-50/40 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+                title="View pending tenants"
+              >
+                {tileContent}
+              </button>
+            );
+          }
+
+          return (
+            <div key={tile.key} className="bg-white border border-border rounded-xl p-4 flex items-center gap-3.5">
+              {tileContent}
             </div>
-            <div>
-              <p className="text-2xl font-bold leading-none">{counts[tile.key] ?? 0}</p>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mt-1.5">
-                {tile.label}
-              </p>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Pending offline payments */}
