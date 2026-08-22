@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { assertCanPost } from "@/lib/postingGuard";
 
 /**
  * Retries accounting posting for a received purchase.
@@ -11,6 +12,7 @@ export function usePostPurchaseToLedger() {
 
   return useMutation({
     mutationFn: async (purchaseId: string) => {
+      assertCanPost();
       const { data, error } = await (supabase as any).rpc(
         "finance_post_purchase",
         { _purchase_id: purchaseId },

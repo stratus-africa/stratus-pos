@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { assertCanPost } from "@/lib/postingGuard";
 
 export type SupplierPaymentLedgerInput = {
   businessId: string;
@@ -24,6 +25,7 @@ export function usePostSupplierPaymentToLedger() {
 
   return useMutation({
     mutationFn: async (input: SupplierPaymentLedgerInput) => {
+      assertCanPost();
       if (!input.businessId) throw new Error("Business is required.");
       if (!input.paymentId) throw new Error("Payment id is required.");
       if (!input.bankAccountId) throw new Error("Bank/cash account is required.");
@@ -65,6 +67,7 @@ export function usePostSupplierPaymentToLedger() {
  * Retry an existing banking transaction's accounting posting.
  */
 export async function postBankingTransactionToLedger(transactionId: string) {
+  assertCanPost();
   const { data, error } = await (supabase as any).rpc(
     "finance_post_banking_transaction",
     { _transaction_id: transactionId },

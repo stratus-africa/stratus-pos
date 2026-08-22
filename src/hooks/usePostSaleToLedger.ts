@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { assertCanPost } from "@/lib/postingGuard";
 
 /**
  * Explicit POS/Sales accounting retry.
@@ -13,6 +14,7 @@ export function usePostSaleToLedger() {
 
   const mutation = useMutation({
     mutationFn: async (saleId: string) => {
+      assertCanPost();
       // Repair the business mappings first. finance_post_sale also performs
       // this defensively inside the transaction path.
       const { data: sale, error: saleError } = await supabase

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { assertCanPost } from "@/lib/postingGuard";
 import {
   isOnline,
   listQueuedSales,
@@ -10,6 +11,9 @@ import {
 } from "@/lib/offlineSales";
 
 async function pushSale(q: QueuedSale): Promise<void> {
+  // Offline replay is a real posting mutation; re-check the subscription gate
+  // at sync time so an expired tenant cannot bypass the guard by reconnecting.
+  assertCanPost();
   // Idempotency: the sale id was minted offline, so a replay of an already
   // synced sale is detected here and skipped instead of duplicating.
   const { data: existing } = await supabase.from("sales").select("id").eq("id", q.id).maybeSingle();

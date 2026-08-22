@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { assertCanPost } from "@/lib/postingGuard";
 
 export function usePostInventoryToLedger() {
   const queryClient = useQueryClient();
@@ -15,6 +16,7 @@ export function usePostInventoryToLedger() {
 
   const postSaleCogs = useMutation({
     mutationFn: async (saleId: string) => {
+      assertCanPost();
       const { data, error } = await (supabase as any).rpc(
         "finance_post_sale_cogs",
         { _sale_id: saleId },
@@ -27,6 +29,7 @@ export function usePostInventoryToLedger() {
 
   const recordPurchaseInventory = useMutation({
     mutationFn: async (purchaseId: string) => {
+      assertCanPost();
       const { data, error } = await (supabase as any).rpc(
         "finance_record_purchase_inventory",
         { _purchase_id: purchaseId },
@@ -39,6 +42,7 @@ export function usePostInventoryToLedger() {
 
   const postAdjustment = useMutation({
     mutationFn: async (adjustmentId: string) => {
+      assertCanPost();
       const { data, error } = await (supabase as any).rpc(
         "finance_post_stock_adjustment",
         { _adjustment_id: adjustmentId },

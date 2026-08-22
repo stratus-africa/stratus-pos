@@ -5,6 +5,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { handlePlanLimitError } from "@/lib/planLimits";
+import { assertCanPost } from "@/lib/postingGuard";
 
 export interface Customer {
   id: string;
@@ -186,6 +187,7 @@ export function useSales({ subscribeToFiscalUpdates = true }: { subscribeToFisca
 
   const deleteSale = useMutation({
     mutationFn: async (id: string) => {
+      assertCanPost();
       if (cashierOnly) {
         throw new Error("Cashiers cannot delete sales.");
       }
@@ -244,6 +246,7 @@ export function useSales({ subscribeToFiscalUpdates = true }: { subscribeToFisca
 
   const cancelSale = useMutation({
     mutationFn: async ({ id, cancel = true }: { id: string; cancel?: boolean }) => {
+      assertCanPost();
       if (cashierOnly) throw new Error("Cashiers cannot cancel sales.");
       const { data: saleSnap } = await supabase
         .from("sales")

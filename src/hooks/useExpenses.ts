@@ -142,6 +142,7 @@ export function useExpenses() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
+      assertCanPost();
       const { error } = await supabase.from("expenses").delete().eq("id", id);
       if (error) throw error;
     },

@@ -399,6 +399,7 @@ export function usePurchases() {
    */
   const deletePurchase = useMutation({
     mutationFn: async (id: string) => {
+      assertCanPost();
       if (!business) throw new Error("No business");
       const { data: purchaseSnap } = await supabase
         .from("purchases")

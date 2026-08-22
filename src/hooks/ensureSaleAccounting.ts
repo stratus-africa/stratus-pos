@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { assertCanPost } from "@/lib/postingGuard";
 
 /**
  * Call immediately before an explicit POS/Sales accounting retry when the
@@ -8,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
  * finance_post_sale(), so this is optional for the main POS flow.
  */
 export async function ensureSaleAccountingRules(businessId: string) {
+  assertCanPost();
   if (!businessId) throw new Error("Business id is required.");
 
   const { error } = await (supabase as any).rpc(

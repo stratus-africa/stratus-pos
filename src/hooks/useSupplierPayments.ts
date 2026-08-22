@@ -160,6 +160,7 @@ export function useSupplierPayments() {
       reference?: string;
       description?: string;
     }) => {
+      assertCanPost();
       if (!Number.isFinite(amount) || amount <= 0) throw new Error("Enter a valid payment amount");
       const difference = amount - Number(payment.amount || 0);
       const { error } = await supabase
@@ -218,6 +219,7 @@ export function useSupplierPayments() {
 
   const remove = useMutation({
     mutationFn: async (payment: SupplierPayment) => {
+      assertCanPost();
       // Delete the bank txn — the BEFORE DELETE trigger will reverse the bank balance.
       const { error } = await supabase.from("bank_transactions").delete().eq("id", payment.id);
       if (error) throw error;
