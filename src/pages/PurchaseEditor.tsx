@@ -19,7 +19,17 @@ import { useAuth } from "@/contexts/AuthContext";
 import { SupplierFormDialog } from "@/components/purchases/SupplierFormDialog";
 import { ProductFormDialog } from "@/components/products/ProductFormDialog";
 import BarcodeScanner from "@/components/BarcodeScanner";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function PurchaseEditor() {
@@ -52,11 +62,19 @@ export default function PurchaseEditor() {
   const [taxInclusive, setTaxInclusive] = useState<boolean>(orgTaxInclusive);
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<PurchaseItem[]>([]);
-  
+
   const [paidThroughAccountId, setPaidThroughAccountId] = useState("");
   const [amountPaid, setAmountPaid] = useState("");
 
-  const [existingPayments, setExistingPayments] = useState<Array<{ id: string; date: string; amount: number; reference: string | null; bank_accounts?: { name: string } | null }>>([]);
+  const [existingPayments, setExistingPayments] = useState<
+    Array<{
+      id: string;
+      date: string;
+      amount: number;
+      reference: string | null;
+      bank_accounts?: { name: string } | null;
+    }>
+  >([]);
 
   const [scannerOpen, setScannerOpen] = useState(false);
   const [productDialogOpen, setProductDialogOpen] = useState(false);
@@ -117,22 +135,33 @@ export default function PurchaseEditor() {
       // Increment qty
       const updated = [...items];
       const newQty = updated[existingIdx].quantity + 1;
-      updated[existingIdx] = { ...updated[existingIdx], quantity: newQty, total: newQty * updated[existingIdx].unit_cost };
+      updated[existingIdx] = {
+        ...updated[existingIdx],
+        quantity: newQty,
+        total: newQty * updated[existingIdx].unit_cost,
+      };
       setItems(updated);
       return;
     }
-    setItems((prev) => [...prev, {
-      product_id: productId,
-      quantity: 1,
-      unit_cost: product.purchase_price,
-      total: product.purchase_price,
-      products: { name: product.name },
-    }]);
+    setItems((prev) => [
+      ...prev,
+      {
+        product_id: productId,
+        quantity: 1,
+        unit_cost: product.purchase_price,
+        total: product.purchase_price,
+        products: { name: product.name },
+      },
+    ]);
   };
 
   // Editable fields: qty, unit_cost, total. When qty or unit_cost changes, total = qty * unit_cost.
   // When total changes, unit_cost = total / qty (qty stays fixed).
-  const updateItem = (idx: number, field: "quantity" | "unit_cost" | "total" | "quantity_received", rawValue: number) => {
+  const updateItem = (
+    idx: number,
+    field: "quantity" | "unit_cost" | "total" | "quantity_received",
+    rawValue: number,
+  ) => {
     const updated = [...items];
     const row = { ...updated[idx] };
     // Guard against scanner/typo values (e.g. a barcode typed into the qty box).
@@ -183,7 +212,7 @@ export default function PurchaseEditor() {
       }
       return acc;
     },
-    { subtotal: 0, tax: 0, total: 0 }
+    { subtotal: 0, tax: 0, total: 0 },
   );
   const { subtotal, tax, total } = computed;
 
@@ -194,7 +223,10 @@ export default function PurchaseEditor() {
   useEffect(() => {
     if (isEditing) return;
     if (paymentStatus === "paid") setAmountPaid(total ? total.toFixed(2) : "");
-    else if (paymentStatus === "unpaid") { setAmountPaid(""); setPaidThroughAccountId(""); }
+    else if (paymentStatus === "unpaid") {
+      setAmountPaid("");
+      setPaidThroughAccountId("");
+    }
   }, [paymentStatus, total, isEditing]);
 
   const handleBarcodeDetected = (code: string) => {
@@ -202,7 +234,7 @@ export default function PurchaseEditor() {
     const trimmed = code.trim();
     if (!trimmed) return;
     const match = productsQuery.data?.find(
-      (p) => (p.barcode && p.barcode.trim() === trimmed) || (p.sku && p.sku.trim() === trimmed)
+      (p) => (p.barcode && p.barcode.trim() === trimmed) || (p.sku && p.sku.trim() === trimmed),
     );
     if (match) {
       addItemById(match.id);
@@ -226,47 +258,69 @@ export default function PurchaseEditor() {
       .limit(1);
     const created = latest?.[0];
     if (created) {
-      setItems((prev) => [...prev, {
-        product_id: created.id,
-        quantity: 1,
-        unit_cost: created.purchase_price,
-        total: created.purchase_price,
-        products: { name: created.name },
-      }]);
+      setItems((prev) => [
+        ...prev,
+        {
+          product_id: created.id,
+          quantity: 1,
+          unit_cost: created.purchase_price,
+          total: created.purchase_price,
+          products: { name: created.name },
+        },
+      ]);
     }
     setProductDialogOpen(false);
     setPendingBarcode("");
   };
 
-  const formatKES = (n: number) => new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(n);
+  const formatKES = (n: number) =>
+    new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(n);
 
   const productOptions = useMemo(() => {
     const base = (productsQuery.data || []).filter((p) => p.is_active && !items.find((i) => i.product_id === p.id));
     const q = productSearch.trim().toLowerCase();
     if (!q) return base.slice(0, 50);
-    return base.filter((p) =>
-      p.name.toLowerCase().includes(q) ||
-      (p.sku && p.sku.toLowerCase().includes(q)) ||
-      ((p as any).barcode && (p as any).barcode.toLowerCase().includes(q))
-    ).slice(0, 50);
+    return base
+      .filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          (p.sku && p.sku.toLowerCase().includes(q)) ||
+          ((p as any).barcode && (p as any).barcode.toLowerCase().includes(q)),
+      )
+      .slice(0, 50);
   }, [productsQuery.data, items, productSearch]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || items.length === 0) return;
-    if (!supplierId) { toast.error("Supplier is required"); return; }
+    if (!supplierId) {
+      toast.error("Supplier is required");
+      return;
+    }
     const missingCost = items.find((it) => !it.unit_cost || Number(it.unit_cost) <= 0);
-    if (missingCost) { toast.error("Unit Cost is required for every line item and must be greater than zero."); return; }
+    if (missingCost) {
+      toast.error("Unit Cost is required for every line item and must be greater than zero.");
+      return;
+    }
     if (vatEnabled && supplierMissingPin) {
       toast.error(`Supplier "${selectedSupplier?.name}" has no KRA PIN.`);
       return;
     }
     let paidThrough: { bank_account_id: string; amount: number } | null = null;
     if (requiresPaidThrough) {
-      if (!paidThroughAccountId) { toast.error("Select the bank account used to pay"); return; }
+      if (!paidThroughAccountId) {
+        toast.error("Select the bank account used to pay");
+        return;
+      }
       const amt = parseFloat(amountPaid);
-      if (!amt || amt <= 0) { toast.error("Enter a valid amount paid"); return; }
-      if (amt > total + 0.01) { toast.error("Amount paid cannot exceed total"); return; }
+      if (!amt || amt <= 0) {
+        toast.error("Enter a valid amount paid");
+        return;
+      }
+      if (amt > total + 0.01) {
+        toast.error("Amount paid cannot exceed total");
+        return;
+      }
       paidThrough = { bank_account_id: paidThroughAccountId, amount: amt };
     }
 
@@ -280,7 +334,9 @@ export default function PurchaseEditor() {
       supplier_id: supplierId,
       location_id: locationId,
       invoice_number: invoiceNumber || undefined,
-      subtotal, tax, total,
+      subtotal,
+      tax,
+      total,
       payment_status: paymentStatus,
       status,
       vat_enabled: vatEnabled,
@@ -295,9 +351,7 @@ export default function PurchaseEditor() {
         .filter(([, n]) => Number.isFinite(n) && n > 0);
       if (entries.length === 0) return;
       await Promise.all(
-        entries.map(([pid, price]) =>
-          supabase.from("products").update({ selling_price: price }).eq("id", pid)
-        )
+        entries.map(([pid, price]) => supabase.from("products").update({ selling_price: price }).eq("id", pid)),
       );
       toast.success(`Updated selling price on ${entries.length} product(s)`);
     };
@@ -315,7 +369,11 @@ export default function PurchaseEditor() {
   };
 
   if (loadingExisting) {
-    return <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
   }
 
   return (
@@ -329,21 +387,33 @@ export default function PurchaseEditor() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <Card>
-          <CardHeader className="pb-3"><CardTitle className="text-base">Details</CardTitle></CardHeader>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Details</CardTitle>
+          </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Supplier *</Label>
                 <div className="flex gap-2">
                   <Select value={supplierId} onValueChange={setSupplierId}>
-                    <SelectTrigger className="flex-1"><SelectValue placeholder="Select supplier..." /></SelectTrigger>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select supplier..." />
+                    </SelectTrigger>
                     <SelectContent>
                       {suppliersQuery.data?.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button type="button" size="icon" variant="outline" onClick={() => setSupplierDialogOpen(true)} title="Add supplier">
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    onClick={() => setSupplierDialogOpen(true)}
+                    title="Add supplier"
+                  >
                     <UserPlus className="h-4 w-4" />
                   </Button>
                 </div>
@@ -351,9 +421,15 @@ export default function PurchaseEditor() {
               <div className="space-y-2">
                 <Label>Location *</Label>
                 <Select value={locationId} onValueChange={setLocationId} required>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {locations.map((l) => (<SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>))}
+                    {locations.map((l) => (
+                      <SelectItem key={l.id} value={l.id}>
+                        {l.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -362,12 +438,18 @@ export default function PurchaseEditor() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="space-y-2">
                 <Label>Invoice #</Label>
-                <Input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} placeholder="Optional" />
+                <Input
+                  value={invoiceNumber}
+                  onChange={(e) => setInvoiceNumber(e.target.value)}
+                  placeholder="Optional"
+                />
               </div>
               <div className="space-y-2">
                 <Label>Payment Status</Label>
                 <Select value={paymentStatus} onValueChange={setPaymentStatus}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="unpaid">Unpaid</SelectItem>
                     <SelectItem value="partial">Partial</SelectItem>
@@ -377,14 +459,12 @@ export default function PurchaseEditor() {
               </div>
               <div className="space-y-2">
                 <Label>Status</Label>
-                <Select value={status} onValueChange={setStatus}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="received">Received (auto-updates stock)</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="h-10 rounded-md border bg-muted/40 px-3 flex items-center text-sm font-medium">
+                  {status.replaceAll("_", " ")}
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Approval, receiving and cancellation are controlled from the purchase lifecycle actions.
+                </p>
               </div>
             </div>
 
@@ -405,8 +485,13 @@ export default function PurchaseEditor() {
               {vatEnabled && (
                 <div className="space-y-1">
                   <Label className="text-xs">Tax mode</Label>
-                  <Select value={taxInclusive ? "inclusive" : "exclusive"} onValueChange={(v) => setTaxInclusive(v === "inclusive")}>
-                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <Select
+                    value={taxInclusive ? "inclusive" : "exclusive"}
+                    onValueChange={(v) => setTaxInclusive(v === "inclusive")}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="exclusive">Tax Exclusive — tax added on top of unit cost</SelectItem>
                       <SelectItem value="inclusive">Tax Inclusive — unit cost already includes tax</SelectItem>
@@ -417,7 +502,9 @@ export default function PurchaseEditor() {
               {vatEnabled && supplierMissingPin && (
                 <div className="flex items-start gap-2 text-xs text-destructive bg-destructive/10 rounded p-2">
                   <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                  <span>Supplier "{selectedSupplier?.name}" has no KRA PIN. Edit the supplier to add one, or disable VAT.</span>
+                  <span>
+                    Supplier "{selectedSupplier?.name}" has no KRA PIN. Edit the supplier to add one, or disable VAT.
+                  </span>
                 </div>
               )}
             </div>
@@ -433,8 +520,14 @@ export default function PurchaseEditor() {
               <div className="flex gap-2">
                 <Input
                   value={productSearch}
-                  onChange={(e) => { setProductSearch(e.target.value); setHighlightIdx(0); }}
-                  onFocus={() => { setSearchFocused(true); setHighlightIdx(0); }}
+                  onChange={(e) => {
+                    setProductSearch(e.target.value);
+                    setHighlightIdx(0);
+                  }}
+                  onFocus={() => {
+                    setSearchFocused(true);
+                    setHighlightIdx(0);
+                  }}
                   onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
                   onKeyDown={(e) => {
                     if (e.key === "ArrowDown") {
@@ -450,9 +543,11 @@ export default function PurchaseEditor() {
                       e.preventDefault();
                       const q = productSearch.trim();
                       // Prefer exact SKU/barcode match
-                      const exact = q ? (productsQuery.data || []).find(
-                        (p) => (p.barcode && p.barcode.trim() === q) || (p.sku && p.sku.trim() === q)
-                      ) : null;
+                      const exact = q
+                        ? (productsQuery.data || []).find(
+                            (p) => (p.barcode && p.barcode.trim() === q) || (p.sku && p.sku.trim() === q),
+                          )
+                        : null;
                       const target = exact || productOptions[highlightIdx] || productOptions[0];
                       if (target) {
                         addItemById(target.id);
@@ -469,7 +564,13 @@ export default function PurchaseEditor() {
                   placeholder="Scan barcode or type to search products..."
                   className="flex-1"
                 />
-                <Button type="button" size="icon" variant="outline" onClick={() => setScannerOpen(true)} title="Scan barcode">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  onClick={() => setScannerOpen(true)}
+                  title="Scan barcode"
+                >
                   <ScanLine className="h-4 w-4" />
                 </Button>
               </div>
@@ -479,7 +580,9 @@ export default function PurchaseEditor() {
                     <button
                       type="button"
                       key={p.id}
-                      ref={(el) => { suggestionRefs.current[idx] = el; }}
+                      ref={(el) => {
+                        suggestionRefs.current[idx] = el;
+                      }}
                       onMouseEnter={() => setHighlightIdx(idx)}
                       onMouseDown={(e) => {
                         e.preventDefault();
@@ -542,11 +645,20 @@ export default function PurchaseEditor() {
                         <TableCell className="font-medium">
                           <div>{item.products?.name}</div>
                           {currentProduct && (
-                            <div className="text-[11px] text-muted-foreground">Sells at {formatKES(currentProduct.selling_price)}</div>
+                            <div className="text-[11px] text-muted-foreground">
+                              Sells at {formatKES(currentProduct.selling_price)}
+                            </div>
                           )}
                         </TableCell>
                         <TableCell>
-                          <Input type="number" min={0.01} step={0.01} value={item.quantity} onChange={(e) => updateItem(idx, "quantity", parseFloat(e.target.value) || 1)} className="h-8" />
+                          <Input
+                            type="number"
+                            min={0.01}
+                            step={0.01}
+                            value={item.quantity}
+                            onChange={(e) => updateItem(idx, "quantity", parseFloat(e.target.value) || 1)}
+                            className="h-8"
+                          />
                         </TableCell>
                         {postsStock && (
                           <TableCell>
@@ -562,10 +674,24 @@ export default function PurchaseEditor() {
                           </TableCell>
                         )}
                         <TableCell>
-                          <Input type="number" min={0} step={0.01} value={item.unit_cost} onChange={(e) => updateItem(idx, "unit_cost", parseFloat(e.target.value) || 0)} className="h-8" />
+                          <Input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            value={item.unit_cost}
+                            onChange={(e) => updateItem(idx, "unit_cost", parseFloat(e.target.value) || 0)}
+                            className="h-8"
+                          />
                         </TableCell>
                         <TableCell>
-                          <Input type="number" min={0} step={0.01} value={Number(item.total || 0).toFixed(2)} onChange={(e) => updateItem(idx, "total", parseFloat(e.target.value) || 0)} className="h-8" />
+                          <Input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            value={Number(item.total || 0).toFixed(2)}
+                            onChange={(e) => updateItem(idx, "total", parseFloat(e.target.value) || 0)}
+                            className="h-8"
+                          />
                         </TableCell>
                         {vatEnabled && (
                           <TableCell>
@@ -580,7 +706,9 @@ export default function PurchaseEditor() {
                                   setItems(next);
                                 }}
                               >
-                                <SelectTrigger className="h-8"><SelectValue placeholder="Select VAT" /></SelectTrigger>
+                                <SelectTrigger className="h-8">
+                                  <SelectValue placeholder="Select VAT" />
+                                </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="__default__">Default ({taxRate}%)</SelectItem>
                                   {activeTaxRates.map((r) => (
@@ -599,7 +727,9 @@ export default function PurchaseEditor() {
                             min={0}
                             step={0.01}
                             value={sellingPriceOverrides[item.product_id] ?? ""}
-                            onChange={(e) => setSellingPriceOverrides((prev) => ({ ...prev, [item.product_id]: e.target.value }))}
+                            onChange={(e) =>
+                              setSellingPriceOverrides((prev) => ({ ...prev, [item.product_id]: e.target.value }))
+                            }
                             placeholder="—"
                             className="h-8"
                           />
@@ -615,120 +745,141 @@ export default function PurchaseEditor() {
                 </TableBody>
               </Table>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-6">No items yet. Add products or scan a barcode.</p>
+              <p className="text-sm text-muted-foreground text-center py-6">
+                No items yet. Add products or scan a barcode.
+              </p>
             )}
 
             <p className="text-xs text-muted-foreground">
-              Tip: <strong>Received</strong> is what posts to stock — set it below Qty for partial deliveries and raise it later as more arrives. Enter <strong>Total</strong> and the Unit Cost auto-computes from Total ÷ Qty. Fill <strong>New Sell Price</strong> to update the product's selling price when saving.
+              Tip: <strong>Received</strong> is what posts to stock — set it below Qty for partial deliveries and raise
+              it later as more arrives. Enter <strong>Total</strong> and the Unit Cost auto-computes from Total ÷ Qty.
+              Fill <strong>New Sell Price</strong> to update the product's selling price when saving.
             </p>
 
-            {vatEnabled && (() => {
-              // Group taxable amount + VAT by resolved rate for auditability.
-              const map = new Map<number, { rate: number; taxable: number; vat: number }>();
-              for (const i of items) {
-                const chosen = i.tax_rate_id ? activeTaxRates.find((r) => r.id === i.tax_rate_id) : null;
-                const pct = chosen ? Number(chosen.rate) : taxRate;
-                if (!pct) continue;
-                const r = pct / 100;
-                const net = taxInclusive ? i.total / (1 + r) : i.total;
-                const vat = taxInclusive ? i.total - net : i.total * r;
-                const key = Math.round(pct * 100) / 100;
-                const existing = map.get(key);
-                if (existing) { existing.taxable += net; existing.vat += vat; }
-                else map.set(key, { rate: key, taxable: net, vat });
-              }
-              const rows = Array.from(map.values()).sort((a, b) => a.rate - b.rate);
-              if (rows.length === 0) return null;
-              return (
-                <div className="rounded-md border bg-muted/30 p-3">
-                  <p className="text-xs font-semibold mb-2">VAT Breakdown ({taxInclusive ? "tax inclusive" : "tax exclusive"})</p>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="h-8">Rate</TableHead>
-                        <TableHead className="h-8 text-right">Taxable</TableHead>
-                        <TableHead className="h-8 text-right">VAT</TableHead>
-                        <TableHead className="h-8 text-right">Gross</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {rows.map((r) => (
-                        <TableRow key={r.rate}>
-                          <TableCell className="py-1.5">{r.rate}%</TableCell>
-                          <TableCell className="py-1.5 text-right">{formatKES(r.taxable)}</TableCell>
-                          <TableCell className="py-1.5 text-right">{formatKES(r.vat)}</TableCell>
-                          <TableCell className="py-1.5 text-right">{formatKES(r.taxable + r.vat)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              );
-            })()}
-
-            <div className="flex justify-end">
-              <div className="space-y-1 text-right text-sm">
-                <div>Subtotal: <span className="font-medium">{formatKES(subtotal)}</span></div>
-                <div>Tax {vatEnabled ? "(per-line)" : "(VAT off)"}: <span className="font-medium">{formatKES(tax)}</span></div>
-                <div className="text-base font-bold">Total: {formatKES(total)}</div>
-              </div>
-            </div>
-
-          </CardContent>
-        </Card>
-
-
-        {showPaymentSection && (
-          <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-base">{isEditing ? "Payments" : "Payment"}</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              {isEditing && (() => {
-                const paidSoFar = existingPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
-                const additional = parseFloat(amountPaid || "0") || 0;
-                const projectedPaid = paidSoFar + additional;
-                const remaining = Math.max(0, total - projectedPaid);
+            {vatEnabled &&
+              (() => {
+                // Group taxable amount + VAT by resolved rate for auditability.
+                const map = new Map<number, { rate: number; taxable: number; vat: number }>();
+                for (const i of items) {
+                  const chosen = i.tax_rate_id ? activeTaxRates.find((r) => r.id === i.tax_rate_id) : null;
+                  const pct = chosen ? Number(chosen.rate) : taxRate;
+                  if (!pct) continue;
+                  const r = pct / 100;
+                  const net = taxInclusive ? i.total / (1 + r) : i.total;
+                  const vat = taxInclusive ? i.total - net : i.total * r;
+                  const key = Math.round(pct * 100) / 100;
+                  const existing = map.get(key);
+                  if (existing) {
+                    existing.taxable += net;
+                    existing.vat += vat;
+                  } else map.set(key, { rate: key, taxable: net, vat });
+                }
+                const rows = Array.from(map.values()).sort((a, b) => a.rate - b.rate);
+                if (rows.length === 0) return null;
                 return (
-                  <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                      <div>
-                        <div className="text-xs text-muted-foreground">Order total</div>
-                        <div className="font-semibold">{formatKES(total)}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">Paid so far</div>
-                        <div className="font-semibold text-success">{formatKES(paidSoFar)}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">Adding now</div>
-                        <div className="font-semibold">{formatKES(additional)}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">Remaining</div>
-                        <div className={`font-semibold ${remaining <= 0.01 ? "text-success" : "text-destructive"}`}>{formatKES(remaining)}</div>
-                      </div>
-                    </div>
-                    {existingPayments.length > 0 ? (
-                      <div className="border-t pt-2">
-                        <p className="text-xs font-medium text-muted-foreground mb-1">Existing payments (kept as-is)</p>
-                        <ul className="text-xs space-y-0.5 max-h-32 overflow-auto">
-                          {existingPayments.map((p) => (
-                            <li key={p.id} className="flex justify-between gap-2">
-                              <span className="truncate">
-                                {new Date(p.date).toLocaleDateString("en-KE", { day: "2-digit", month: "short" })}
-                                {" · "}{p.bank_accounts?.name || "—"}
-                                {p.reference ? ` · ${p.reference}` : ""}
-                              </span>
-                              <span className="font-medium shrink-0">{formatKES(Number(p.amount))}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground border-t pt-2">No existing payments yet for this purchase.</p>
-                    )}
+                  <div className="rounded-md border bg-muted/30 p-3">
+                    <p className="text-xs font-semibold mb-2">
+                      VAT Breakdown ({taxInclusive ? "tax inclusive" : "tax exclusive"})
+                    </p>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="h-8">Rate</TableHead>
+                          <TableHead className="h-8 text-right">Taxable</TableHead>
+                          <TableHead className="h-8 text-right">VAT</TableHead>
+                          <TableHead className="h-8 text-right">Gross</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {rows.map((r) => (
+                          <TableRow key={r.rate}>
+                            <TableCell className="py-1.5">{r.rate}%</TableCell>
+                            <TableCell className="py-1.5 text-right">{formatKES(r.taxable)}</TableCell>
+                            <TableCell className="py-1.5 text-right">{formatKES(r.vat)}</TableCell>
+                            <TableCell className="py-1.5 text-right">{formatKES(r.taxable + r.vat)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
                 );
               })()}
+
+            <div className="flex justify-end">
+              <div className="space-y-1 text-right text-sm">
+                <div>
+                  Subtotal: <span className="font-medium">{formatKES(subtotal)}</span>
+                </div>
+                <div>
+                  Tax {vatEnabled ? "(per-line)" : "(VAT off)"}: <span className="font-medium">{formatKES(tax)}</span>
+                </div>
+                <div className="text-base font-bold">Total: {formatKES(total)}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {showPaymentSection && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">{isEditing ? "Payments" : "Payment"}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {isEditing &&
+                (() => {
+                  const paidSoFar = existingPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
+                  const additional = parseFloat(amountPaid || "0") || 0;
+                  const projectedPaid = paidSoFar + additional;
+                  const remaining = Math.max(0, total - projectedPaid);
+                  return (
+                    <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                        <div>
+                          <div className="text-xs text-muted-foreground">Order total</div>
+                          <div className="font-semibold">{formatKES(total)}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-muted-foreground">Paid so far</div>
+                          <div className="font-semibold text-success">{formatKES(paidSoFar)}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-muted-foreground">Adding now</div>
+                          <div className="font-semibold">{formatKES(additional)}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-muted-foreground">Remaining</div>
+                          <div className={`font-semibold ${remaining <= 0.01 ? "text-success" : "text-destructive"}`}>
+                            {formatKES(remaining)}
+                          </div>
+                        </div>
+                      </div>
+                      {existingPayments.length > 0 ? (
+                        <div className="border-t pt-2">
+                          <p className="text-xs font-medium text-muted-foreground mb-1">
+                            Existing payments (kept as-is)
+                          </p>
+                          <ul className="text-xs space-y-0.5 max-h-32 overflow-auto">
+                            {existingPayments.map((p) => (
+                              <li key={p.id} className="flex justify-between gap-2">
+                                <span className="truncate">
+                                  {new Date(p.date).toLocaleDateString("en-KE", { day: "2-digit", month: "short" })}
+                                  {" · "}
+                                  {p.bank_accounts?.name || "—"}
+                                  {p.reference ? ` · ${p.reference}` : ""}
+                                </span>
+                                <span className="font-medium shrink-0">{formatKES(Number(p.amount))}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground border-t pt-2">
+                          No existing payments yet for this purchase.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
               <p className="text-xs text-muted-foreground">
                 {isEditing
                   ? "Fill in below to add a NEW payment. Existing payments above will NOT be changed. Payment status auto-recomputes from the new total paid."
@@ -738,17 +889,28 @@ export default function PurchaseEditor() {
                 <div className="space-y-2">
                   <Label>{isEditing ? "Add Payment From Account" : "Bank Account *"}</Label>
                   <Select value={paidThroughAccountId} onValueChange={setPaidThroughAccountId}>
-                    <SelectTrigger><SelectValue placeholder="Select account..." /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select account..." />
+                    </SelectTrigger>
                     <SelectContent>
                       {(bankAccounts ?? []).map((a) => (
-                        <SelectItem key={a.id} value={a.id}>{a.name} ({formatKES(Number(a.balance))})</SelectItem>
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.name} ({formatKES(Number(a.balance))})
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>{isEditing ? "Additional Amount (KES)" : "Amount Paid (KES) *"}</Label>
-                  <Input type="number" min={0} step={0.01} value={amountPaid} onChange={(e) => setAmountPaid(e.target.value)} placeholder="0.00" />
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={amountPaid}
+                    onChange={(e) => setAmountPaid(e.target.value)}
+                    placeholder="0.00"
+                  />
                 </div>
               </div>
             </CardContent>
@@ -767,7 +929,11 @@ export default function PurchaseEditor() {
             {isEditing && status !== "cancelled" && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button type="button" variant="outline" className="text-destructive border-destructive/40 hover:bg-destructive/10">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                  >
                     <Ban className="mr-2 h-4 w-4" /> Cancel Purchase
                   </Button>
                 </AlertDialogTrigger>
@@ -785,21 +951,31 @@ export default function PurchaseEditor() {
                     <AlertDialogAction
                       onClick={() => {
                         if (!id || !user) return;
-                        updatePurchase.mutate({
-                          id,
-                          purchase: {
-                            supplier_id: supplierId,
-                            location_id: locationId,
-                            invoice_number: invoiceNumber || undefined,
-                            subtotal, tax, total,
-                            payment_status: paymentStatus,
-                            status: "cancelled",
-                            vat_enabled: vatEnabled,
-                            notes: notes || undefined,
-                            created_by: user.id,
+                        updatePurchase.mutate(
+                          {
+                            id,
+                            purchase: {
+                              supplier_id: supplierId,
+                              location_id: locationId,
+                              invoice_number: invoiceNumber || undefined,
+                              subtotal,
+                              tax,
+                              total,
+                              payment_status: paymentStatus,
+                              status: "cancelled",
+                              vat_enabled: vatEnabled,
+                              notes: notes || undefined,
+                              created_by: user.id,
+                            },
+                            items,
                           },
-                          items,
-                        }, { onSuccess: () => { toast.success("Purchase cancelled"); navigate("/purchases"); } });
+                          {
+                            onSuccess: () => {
+                              toast.success("Purchase cancelled");
+                              navigate("/purchases");
+                            },
+                          },
+                        );
                       }}
                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                     >
@@ -811,9 +987,24 @@ export default function PurchaseEditor() {
             )}
           </div>
           <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={() => navigate("/purchases")}>Back</Button>
-            <Button type="submit" disabled={createPurchase.isPending || updatePurchase.isPending || items.length === 0 || !!supplierMissingPin || noSupplier}>
-              {createPurchase.isPending || updatePurchase.isPending ? "Saving..." : isEditing ? "Update Purchase" : "Create Purchase"}
+            <Button type="button" variant="outline" onClick={() => navigate("/purchases")}>
+              Back
+            </Button>
+            <Button
+              type="submit"
+              disabled={
+                createPurchase.isPending ||
+                updatePurchase.isPending ||
+                items.length === 0 ||
+                !!supplierMissingPin ||
+                noSupplier
+              }
+            >
+              {createPurchase.isPending || updatePurchase.isPending
+                ? "Saving..."
+                : isEditing
+                  ? "Update Purchase"
+                  : "Create Purchase"}
             </Button>
           </div>
         </div>
@@ -826,7 +1017,11 @@ export default function PurchaseEditor() {
         onSubmit={async (data) => {
           await createSupplier.mutateAsync(data);
           const { data: latest } = await supabase
-            .from("suppliers").select("id, name").eq("business_id", business!.id).order("created_at", { ascending: false }).limit(1);
+            .from("suppliers")
+            .select("id, name")
+            .eq("business_id", business!.id)
+            .order("created_at", { ascending: false })
+            .limit(1);
           if (latest && latest[0]) setSupplierId(latest[0].id);
         }}
       />
@@ -835,7 +1030,10 @@ export default function PurchaseEditor() {
 
       <ProductFormDialog
         open={productDialogOpen}
-        onOpenChange={(o) => { setProductDialogOpen(o); if (!o) setPendingBarcode(""); }}
+        onOpenChange={(o) => {
+          setProductDialogOpen(o);
+          if (!o) setPendingBarcode("");
+        }}
         onSubmit={handleProductCreated}
         isLoading={createProduct.isPending}
         initialBarcode={pendingBarcode}
