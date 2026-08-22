@@ -10,6 +10,7 @@ import { Loader2, ShieldAlert, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import ManagerApprovalDialog from "@/components/pos/ManagerApprovalDialog";
 import type { Sale } from "@/hooks/useSales";
 
@@ -36,6 +37,7 @@ export default function SaleEditDialog({ open, onOpenChange, sale }: Props) {
   const { business, userRole } = useBusiness();
   const qc = useQueryClient();
   const isCashier = userRole === "cashier";
+  const { hasPermission } = usePermissions();
 
   const [lines, setLines] = useState<EditableLine[]>([]);
   const [notes, setNotes] = useState("");
@@ -92,6 +94,7 @@ export default function SaleEditDialog({ open, onOpenChange, sale }: Props) {
 
   const handleSave = async (approvalOverride?: string) => {
     if (!sale || !business) return;
+    if (!hasPermission("sales.edit")) { toast.error("Missing permission: sales.edit"); return; }
     const approver = approvalOverride ?? approvedBy;
     if (fiscalLocked) {
       toast.error("This invoice has been fiscalised and can no longer be edited.");
@@ -301,7 +304,7 @@ export default function SaleEditDialog({ open, onOpenChange, sale }: Props) {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-            <Button onClick={() => void handleSave()} disabled={saving || loading || fiscalLocked}>
+            <Button onClick={() => void handleSave()} disabled={saving || loading || fiscalLocked || !hasPermission("sales.edit")}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {needsApproval ? "Approve & save" : "Save changes"}
             </Button>

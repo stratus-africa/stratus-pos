@@ -10,7 +10,7 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { format } from "date-fns";
-import { CreditCard, Printer, RefreshCw } from "lucide-react";
+import { CreditCard, Printer, RefreshCw, RotateCcw, Ban, Clock } from "lucide-react";
 import { toast } from "sonner";
 import ReceiptDialog from "@/components/pos/ReceiptDialog";
 
@@ -21,9 +21,9 @@ interface Props {
 }
 
 export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
-  const { getSaleDetails, retryFiscalisation } = useSales();
+  const { getSaleDetails, retryFiscalisation, requestRefund, getSaleTimeline } = useSales();
   const { business, userRole } = useBusiness();
-  const { hasPermission: _hp } = usePermissions();
+  const { hasPermission } = usePermissions();
   const canRetryFiscal = userRole !== "cashier";
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -32,6 +32,8 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
   const [loading, setLoading] = useState(false);
   const [fiscalError, setFiscalError] = useState<string | null>(null);
   const [reprintOpen, setReprintOpen] = useState(false);
+  const [timeline, setTimeline] = useState<any[]>([]);
+  const [showTimeline, setShowTimeline] = useState(false);
 
   useEffect(() => {
     if (sale && open) {
@@ -100,6 +102,21 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
       return;
     }
     setReprintOpen(true);
+  };
+
+  const handleRefund = () => {
+    if (!sale) return;
+    const raw = window.prompt("Refund amount (KES)");
+    const amount = Number(raw);
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    const reason = window.prompt("Refund reason")?.trim();
+    if (!reason) return;
+    requestRefund.mutate({ saleId: sale.id, amount, reason });
+  };
+
+  const handleTimeline = async () => {
+    if (!sale) return;
+    try { setTimeline(await getSaleTimeline(sale.id)); setShowTimeline(true); } catch (e: any) { toast.error(e.message); }
   };
 
   const handleRecordPayment = () => {
@@ -300,15 +317,24 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
           </>
         )}
 
+        {showTimeline && (
+          <div className="rounded-md border p-3 space-y-2">
+            <div className="flex items-center gap-2 font-semibold"><Clock className="h-4 w-4" /> Sale Timeline</div>
+            {timeline.length === 0 ? <p className="text-sm text-muted-foreground">No lifecycle events recorded yet.</p> : timeline.map((e) => (
+              <div key={e.id} className="border-l-2 pl-3 text-sm"><div className="font-medium">{String(e.event_type).replaceAll("_", " ")}</div><div className="text-muted-foreground">{format(new Date(e.created_at), "PPp")}{e.amount ? ` · KES ${Number(e.amount).toLocaleString()}` : ""}</div></div>
+            ))}
+          </div>
+        )}
+
         <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-end gap-2">
-          {sale.payment_status !== "paid" && sale.payment_status !== "cancelled" && (
-            <Button onClick={handleRecordPayment} disabled={loading} className="w-full sm:w-auto">
-              <CreditCard className="h-4 w-4 mr-1" /> Record Payment
-            </Button>
+          {hasPermission("sales.record_payment") && sale.payment_status !== "paid" && sale.payment_status !== "cancelled" && (
+            <Button onClick={handleRecordPayment} disabled={loading} className="w-full sm:w-auto"><CreditCard className="h-4 w-4 mr-1" /> Record Payment</Button>
           )}
-          <Button variant="outline" onClick={handleReprint} disabled={loading} className="w-full sm:w-auto">
-            <Printer className="h-4 w-4 mr-1" /> Reprint Receipt
-          </Button>
+          {hasPermission("sales.refund") && sale.status !== "cancelled" && sale.status !== "refunded" && (
+            <Button variant="outline" onClick={handleRefund} disabled={loading || requestRefund.isPending} className="w-full sm:w-auto"><RotateCcw className="h-4 w-4 mr-1" /> Refund</Button>
+          )}
+          {hasPermission("sales.timeline") && <Button variant="outline" onClick={handleTimeline} disabled={loading} className="w-full sm:w-auto"><Clock className="h-4 w-4 mr-1" /> Timeline</Button>}
+          {hasPermission("sales.print_invoice") && <Button variant="outline" onClick={handleReprint} disabled={loading} className="w-full sm:w-auto"><Printer className="h-4 w-4 mr-1" /> Reprint Receipt</Button>}
         </DialogFooter>
 
         <ReceiptDialog open={reprintOpen} onOpenChange={setReprintOpen} data={receiptPayload} reprint />
