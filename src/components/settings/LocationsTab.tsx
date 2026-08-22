@@ -1,25 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  ArrowRightLeft,
-  Building2,
-  CheckCircle2,
-  Edit,
-  MapPin,
-  Plus,
-  RefreshCw,
-  Store,
-  Warehouse,
-  XCircle,
-} from "lucide-react";
+import { Building2, CheckCircle2, Edit, MapPin, Plus, RefreshCw, Store, Warehouse, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { usePermissions } from "@/hooks/usePermissions";
 
-import StockTransfersTab from "@/components/settings/StockTransfersTab";
-
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -109,20 +95,10 @@ export function LocationsTab() {
     hasPermission("settings.locations_disable") ||
     hasPermission("settings.edit");
 
-  const canTransfer = hasPermission("multi_location.transfer_stock");
-
-  const canApproveTransfers = hasPermission("multi_location.approve_transfers");
-
   const [locations, setLocations] = useState<Location[]>(contextLocations as Location[]);
-
   const [loading, setLoading] = useState(false);
-
-  const [activeTab, setActiveTab] = useState("locations");
-
   const [dialogOpen, setDialogOpen] = useState(false);
-
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
-
   const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState<LocationForm>({
@@ -348,268 +324,234 @@ export function LocationsTab() {
         </div>
 
         <p className="mt-1 text-sm text-muted-foreground">
-          Manage stores, warehouses, branches and inter-location inventory transfers.
+          Manage stores, warehouses, and branches across your business.
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
-        <TabsList className="grid w-full grid-cols-2 sm:w-fit sm:grid-cols-2">
-          <TabsTrigger value="locations" className="gap-2">
-            <MapPin className="h-4 w-4" />
-            Locations
-          </TabsTrigger>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">Total Locations</p>
 
-          <TabsTrigger value="transfers" className="gap-2">
-            <ArrowRightLeft className="h-4 w-4" />
-            Transfers
-          </TabsTrigger>
-        </TabsList>
+            <p className="mt-1 text-2xl font-semibold">{locations.length}</p>
+          </CardContent>
+        </Card>
 
-        <TabsContent value="locations" className="space-y-5">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-sm text-muted-foreground">Total Locations</p>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">Active</p>
 
-                <p className="mt-1 text-2xl font-semibold">{locations.length}</p>
-              </CardContent>
-            </Card>
+            <p className="mt-1 text-2xl font-semibold">{activeLocations.length}</p>
+          </CardContent>
+        </Card>
 
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-sm text-muted-foreground">Active</p>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">Inactive</p>
 
-                <p className="mt-1 text-2xl font-semibold">{activeLocations.length}</p>
-              </CardContent>
-            </Card>
+            <p className="mt-1 text-2xl font-semibold">{inactiveLocations.length}</p>
+          </CardContent>
+        </Card>
 
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-sm text-muted-foreground">Inactive</p>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">Current Location</p>
 
-                <p className="mt-1 text-2xl font-semibold">{inactiveLocations.length}</p>
-              </CardContent>
-            </Card>
+            <p className="mt-1 truncate text-lg font-semibold">{currentLocation?.name || "Not selected"}</p>
+          </CardContent>
+        </Card>
+      </div>
 
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-sm text-muted-foreground">Current Location</p>
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle>Business Locations</CardTitle>
 
-                <p className="mt-1 truncate text-lg font-semibold">{currentLocation?.name || "Not selected"}</p>
-              </CardContent>
-            </Card>
-          </div>
+              <CardDescription>Each location maintains its own stock balance and operational context.</CardDescription>
+            </div>
 
-          <Card>
-            <CardHeader>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <CardTitle>Business Locations</CardTitle>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => void loadLocations()} disabled={loading}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
 
-                  <CardDescription>
-                    Each location maintains its own stock balance and operational context.
-                  </CardDescription>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => void loadLocations()} disabled={loading}>
-                    <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-                    Refresh
-                  </Button>
-
-                  {canManageLocations && (
-                    <Button size="sm" onClick={openCreate}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Location
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent>
-              {locations.length === 0 ? (
-                <div className="rounded-lg border border-dashed py-12 text-center">
-                  <MapPin className="mx-auto h-10 w-10 text-muted-foreground" />
-
-                  <h3 className="mt-4 font-medium">No locations</h3>
-
-                  <p className="mt-1 text-sm text-muted-foreground">Add your first store, warehouse or branch.</p>
-
-                  {canManageLocations && (
-                    <Button className="mt-4" onClick={openCreate}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Location
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Location</TableHead>
-
-                        <TableHead>Type</TableHead>
-
-                        <TableHead>Address</TableHead>
-
-                        <TableHead>Status</TableHead>
-
-                        <TableHead>Current</TableHead>
-
-                        <TableHead className="w-[180px]" />
-                      </TableRow>
-                    </TableHeader>
-
-                    <TableBody>
-                      {locations.map((location) => {
-                        const isCurrent = currentLocation?.id === location.id;
-
-                        return (
-                          <TableRow key={location.id}>
-                            <TableCell>
-                              <div className="flex items-center gap-3">
-                                <div className="flex h-9 w-9 items-center justify-center rounded-lg border bg-muted/40">
-                                  <LocationIcon type={location.type} className="h-4 w-4" />
-                                </div>
-
-                                <div>
-                                  <p className="font-medium">{location.name}</p>
-
-                                  <p className="text-xs text-muted-foreground">{location.id}</p>
-                                </div>
-                              </div>
-                            </TableCell>
-
-                            <TableCell>
-                              <Badge variant="outline">
-                                {LOCATION_TYPES.find((type) => type.value === normalizeLocationType(location.type))
-                                  ?.label || location.type}
-                              </Badge>
-                            </TableCell>
-
-                            <TableCell className="max-w-[280px] truncate text-muted-foreground">
-                              {location.address || "—"}
-                            </TableCell>
-
-                            <TableCell>
-                              {location.is_active ? (
-                                <Badge>
-                                  <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-                                  Active
-                                </Badge>
-                              ) : (
-                                <Badge variant="secondary">
-                                  <XCircle className="mr-1 h-3.5 w-3.5" />
-                                  Inactive
-                                </Badge>
-                              )}
-                            </TableCell>
-
-                            <TableCell>
-                              {isCurrent ? (
-                                <Badge variant="outline">Current</Badge>
-                              ) : (
-                                location.is_active && (
-                                  <Button size="sm" variant="ghost" onClick={() => selectCurrentLocation(location)}>
-                                    Select
-                                  </Button>
-                                )
-                              )}
-                            </TableCell>
-
-                            <TableCell>
-                              <div className="flex justify-end gap-1">
-                                {canManageLocations && (
-                                  <>
-                                    <Button size="sm" variant="ghost" onClick={() => openEdit(location)}>
-                                      <Edit className="mr-1.5 h-4 w-4" />
-                                      Edit
-                                    </Button>
-
-                                    <Button size="sm" variant="ghost" onClick={() => void toggleLocation(location)}>
-                                      {location.is_active ? "Disable" : "Activate"}
-                                    </Button>
-                                  </>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
+              {canManageLocations && (
+                <Button size="sm" onClick={openCreate}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Location
+                </Button>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+        </CardHeader>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Location Operations</CardTitle>
+        <CardContent>
+          {locations.length === 0 ? (
+            <div className="rounded-lg border border-dashed py-12 text-center">
+              <MapPin className="mx-auto h-10 w-10 text-muted-foreground" />
 
-              <CardDescription>Multi-location features available in this business.</CardDescription>
-            </CardHeader>
+              <h3 className="mt-4 font-medium">No locations</h3>
 
-            <CardContent>
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                <div className="rounded-lg border p-4">
-                  <div className="flex items-center gap-2">
-                    <Warehouse className="h-4 w-4" />
+              <p className="mt-1 text-sm text-muted-foreground">Add your first store, warehouse or branch.</p>
 
-                    <p className="font-medium">Stock by Location</p>
-                  </div>
+              {canManageLocations && (
+                <Button className="mt-4" onClick={openCreate}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Location
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Location</TableHead>
 
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Inventory balances are maintained independently for each location.
-                  </p>
-                </div>
+                    <TableHead>Type</TableHead>
 
-                <div className="rounded-lg border p-4">
-                  <div className="flex items-center gap-2">
-                    <ArrowRightLeft className="h-4 w-4" />
+                    <TableHead>Address</TableHead>
 
-                    <p className="font-medium">Stock Transfers</p>
-                  </div>
+                    <TableHead>Status</TableHead>
 
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Move inventory between locations with an approval workflow.
-                  </p>
+                    <TableHead>Current</TableHead>
 
-                  {!canTransfer && (
-                    <Badge variant="secondary" className="mt-3">
-                      No transfer permission
-                    </Badge>
-                  )}
-                </div>
+                    <TableHead className="w-[180px]" />
+                  </TableRow>
+                </TableHeader>
 
-                <div className="rounded-lg border p-4">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4" />
+                <TableBody>
+                  {locations.map((location) => {
+                    const isCurrent = currentLocation?.id === location.id;
 
-                    <p className="font-medium">Transfer Approval</p>
-                  </div>
+                    return (
+                      <TableRow key={location.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg border bg-muted/40">
+                              <LocationIcon type={location.type} className="h-4 w-4" />
+                            </div>
 
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Approved users can review and approve stock movement requests.
-                  </p>
+                            <div>
+                              <p className="font-medium">{location.name}</p>
 
-                  {!canApproveTransfers && (
-                    <Badge variant="secondary" className="mt-3">
-                      No approval permission
-                    </Badge>
-                  )}
-                </div>
+                              <p className="text-xs text-muted-foreground">{location.id}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+
+                        <TableCell>
+                          <Badge variant="outline">
+                            {LOCATION_TYPES.find((type) => type.value === normalizeLocationType(location.type))
+                              ?.label || location.type}
+                          </Badge>
+                        </TableCell>
+
+                        <TableCell className="max-w-[280px] truncate text-muted-foreground">
+                          {location.address || "—"}
+                        </TableCell>
+
+                        <TableCell>
+                          {location.is_active ? (
+                            <Badge>
+                              <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                              Active
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary">
+                              <XCircle className="mr-1 h-3.5 w-3.5" />
+                              Inactive
+                            </Badge>
+                          )}
+                        </TableCell>
+
+                        <TableCell>
+                          {isCurrent ? (
+                            <Badge variant="outline">Current</Badge>
+                          ) : (
+                            location.is_active && (
+                              <Button size="sm" variant="ghost" onClick={() => selectCurrentLocation(location)}>
+                                Select
+                              </Button>
+                            )
+                          )}
+                        </TableCell>
+
+                        <TableCell>
+                          <div className="flex justify-end gap-1">
+                            {canManageLocations && (
+                              <>
+                                <Button size="sm" variant="ghost" onClick={() => openEdit(location)}>
+                                  <Edit className="mr-1.5 h-4 w-4" />
+                                  Edit
+                                </Button>
+
+                                <Button size="sm" variant="ghost" onClick={() => void toggleLocation(location)}>
+                                  {location.is_active ? "Disable" : "Activate"}
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Location Operations</CardTitle>
+
+          <CardDescription>Multi-location features available in this business.</CardDescription>
+        </CardHeader>
+
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            <div className="rounded-lg border p-4">
+              <div className="flex items-center gap-2">
+                <Warehouse className="h-4 w-4" />
+
+                <p className="font-medium">Stock by Location</p>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
-        <TabsContent value="transfers" className="space-y-5">
-          <StockTransfersTab />
-        </TabsContent>
-      </Tabs>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Inventory balances are maintained independently for each location.
+              </p>
+            </div>
+
+            <div className="rounded-lg border p-4">
+              <div className="flex items-center gap-2">
+                <ArrowRightLeft className="h-4 w-4" />
+
+                <p className="font-medium">Stock Transfers</p>
+              </div>
+
+              <p className="mt-1 text-sm text-muted-foreground">
+                Move inventory between locations with an approval workflow.
+              </p>
+            </div>
+
+            <div className="rounded-lg border p-4">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4" />
+
+                <p className="font-medium">Transfer Approval</p>
+              </div>
+
+              <p className="mt-1 text-sm text-muted-foreground">
+                Approved users can review and approve stock movement requests.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg">

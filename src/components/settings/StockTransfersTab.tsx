@@ -106,12 +106,12 @@ const formatDate = (value: string | null | undefined) => {
   });
 };
 
-export default function StockTransfersTab() {
+export function StockTransfersTab() {
   const { business, locations } = useBusiness();
   const { hasPermission } = usePermissions();
 
-  const canCreate = hasPermission("inventory.transfer");
-  const canApprove = hasPermission("inventory.approve_transfer");
+  const canCreate = hasPermission("inventory.transfer") || hasPermission("multi_location.transfer_stock");
+  const canApprove = hasPermission("inventory.approve_transfer") || hasPermission("multi_location.approve_transfers");
   const canReceive = hasPermission("inventory.receive");
 
   const activeLocations = useMemo(() => (locations || []).filter((location) => location.is_active), [locations]);
@@ -441,7 +441,7 @@ export default function StockTransfersTab() {
       {activeLocations.length < 2 && (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            Add at least two active locations in Business Settings → Locations before creating a stock transfer.
+            Add at least two active locations before creating a stock transfer.
           </CardContent>
         </Card>
       )}
@@ -801,3 +801,5 @@ export default function StockTransfersTab() {
     </div>
   );
 }
+
+export default StockTransfersTab;
