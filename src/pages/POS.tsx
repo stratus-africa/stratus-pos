@@ -36,6 +36,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import PaymentDialog, { LoyaltyPayload } from "@/components/pos/PaymentDialog";
 import ReceiptDialog from "@/components/pos/ReceiptDialog";
 import StartDayDialog from "@/components/pos/StartDayDialog";
+import EndDayDialog from "@/components/pos/EndDayDialog";
+import TillCashMovementDialog from "@/components/pos/TillCashMovementDialog";
 import WhatsNewDialog from "@/components/announcements/WhatsNewDialog";
 import ManagerApprovalDialog from "@/components/pos/ManagerApprovalDialog";
 import BarcodeScanner from "@/components/BarcodeScanner";
@@ -77,7 +79,30 @@ const POS = () => {
   const { user: authUser } = useAuth();
   const offline = useOfflineSales();
   const { hasModule, hasFeature } = useEntitlement();
-  const mpesaEnabled = hasModule("mpesa") && hasFeature("mpesa", "stk_push");
+  const canPosFeature = useCallback(
+    (key: string, allowOverride = false) => {
+      if (hasFeature("pos", key)) return true;
+      return allowOverride && hasFeature("pos", "override");
+    },
+    [hasFeature],
+  );
+  const canCreateSale = canPosFeature("create_sale");
+  const canEditCart = canPosFeature("edit_cart", true);
+  const canChangePrice = canPosFeature("change_price", true);
+  const canLineDiscount = canPosFeature("apply_line_discount", true) || canPosFeature("apply_discount", true);
+  const canHoldSale = canPosFeature("hold_sale");
+  const canResumeSale = canPosFeature("resume_sale");
+  const canDeleteCart = canPosFeature("delete_cart", true);
+  const canReprintReceipt = canPosFeature("reprint_receipt");
+  const canCash = canPosFeature("payment_cash");
+  const canCard = canPosFeature("payment_card");
+  const canMobileMoney = canPosFeature("payment_mobile_money");
+  const canCredit = canPosFeature("payment_credit") && canPosFeature("credit_sale");
+  const canOpenTill = canPosFeature("open_till");
+  const canCloseTill = canPosFeature("close_till") && canPosFeature("reconcile_till");
+  const canCashIn = canPosFeature("cash_in");
+  const canCashOut = canPosFeature("cash_out", true);
+  const mpesaEnabled = hasModule("mpesa") && hasFeature("mpesa", "stk_push") && canMobileMoney;
 
   // Resume a credit-sale settlement requested from the Sales receipt.
   // The payload is consumed once all required POS data is available.
@@ -133,6 +158,8 @@ const POS = () => {
 
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [resumeOpen, setResumeOpen] = useState(false);
+  const [endDayOpen, setEndDayOpen] = useState(false);
+  const [cashMovementType, setCashMovementType] = useState<"cash_in" | "cash_out" | null>(null);
   const [initialPaymentMethod, setInitialPaymentMethod] = useState<"cash" | "mpesa" | "card">("cash");
   const [receiptData, setReceiptData] = useState<any>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
@@ -275,7 +302,7 @@ const POS = () => {
   const requireManagerToRemove =
     locationOverride === null || locationOverride === undefined ? businessRequires : !!locationOverride;
   // Admins/managers/stores managers don't need extra approval — they ARE the approvers.
-  const cashierNeedsApproval = requireManagerToRemove && userRole === "cashier";
+  const cashierNeedsApproval = requireManagerToRemove && userRole === "cashier" && !canPosFeature("override");
   const showStockQty = (business as { pos_show_stock_qty?: boolean })?.pos_show_stock_qty ?? true;
   const hideZeroStock = (business as { pos_hide_zero_stock?: boolean })?.pos_hide_zero_stock ?? true;
 
@@ -323,6 +350,10 @@ const POS = () => {
   }, []);
 
   const handleScanned = (code: string) => {
+    if (!canCreateSale) {
+      toast.error("You do not have permission to create POS sales.");
+      return;
+    }
     const trimmed = code.trim();
     if (!trimmed) return;
 
@@ -531,8 +562,11 @@ const POS = () => {
   //   F9  park sale             ESC clear cart
   useEffect(() => {
     const openPayment = (method: "cash" | "mpesa" | "card") => {
-      if (method === "mpesa" && !mpesaEnabled) {
-        toast.error("M-Pesa is not included in this plan");
+      const allowed = method === "cash" ? canCash : method === "card" ? canCard : mpesaEnabled;
+      if (!allowed) {
+        toast.error(
+          `${method === "mpesa" ? "M-Pesa" : method === "card" ? "Card" : "Cash"} payments are not permitted for your role.`,
+        );
         return;
       }
       if (pos.cart.length === 0) return;
@@ -541,7 +575,7 @@ const POS = () => {
     };
 
     const quickCashComplete = async () => {
-      if (pos.cart.length === 0 || pos.processing) return;
+      if (!canCash || pos.cart.length === 0 || pos.processing) return;
       const digitaxOn = (business as any)?.digitax_enabled === true;
       await pos.completeSale([{ method: "cash", amount: pos.cartTotal, reference: "" }], null, digitaxOn);
     };
@@ -554,6 +588,7 @@ const POS = () => {
 
       switch (e.key) {
         case "F1":
+          if (!canCreateSale) return;
           e.preventDefault();
           setScannerOpen(true);
           break;
@@ -582,7 +617,7 @@ const POS = () => {
           openPayment("card");
           break;
         case "F9":
-          if (pos.cart.length === 0) return;
+          if (!canHoldSale || pos.cart.length === 0) return;
           e.preventDefault();
           {
             const suggested = pos.customerName || `Sale ${new Date().toLocaleTimeString()}`;
@@ -595,13 +630,32 @@ const POS = () => {
           if (paymentOpen || scannerOpen || approvalOpen || receiptOpen || startDayOpen || productPickerOpen) return;
           if (pos.cart.length === 0) return;
           e.preventDefault();
+          if (!canDeleteCart) {
+            toast.error("You do not have permission to clear the POS cart.");
+            return;
+          }
           if (window.confirm("Clear the current cart?")) pos.clearCart();
           break;
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [pos, business, paymentOpen, scannerOpen, approvalOpen, receiptOpen, startDayOpen, productPickerOpen]);
+  }, [
+    pos,
+    business,
+    paymentOpen,
+    scannerOpen,
+    approvalOpen,
+    receiptOpen,
+    startDayOpen,
+    productPickerOpen,
+    canCash,
+    canCard,
+    mpesaEnabled,
+    canCreateSale,
+    canHoldSale,
+    canDeleteCart,
+  ]);
 
   // Global keyboard-wedge scanner listener — works anywhere on the POS screen,
   // with or without the product picker open and with nothing focused.
@@ -636,10 +690,11 @@ const POS = () => {
                 Open the register to begin processing sales. You'll need to count and enter your starting cash float.
               </p>
             </div>
-            <Button size="lg" onClick={() => setStartDayOpen(true)}>
+            <Button size="lg" onClick={() => setStartDayOpen(true)} disabled={!canOpenTill}>
               <Sunrise className="mr-2 h-5 w-5" />
               Start of Day
             </Button>
+            {!canOpenTill && <p className="text-xs text-destructive">You do not have permission to open a till.</p>}
           </CardContent>
         </Card>
 
@@ -988,6 +1043,9 @@ const POS = () => {
                   onRemove={pos.removeFromCart}
                   onBeforeRemove={handleBeforeRemove}
                   stockOf={pos.stockOf}
+                  canEditCart={canEditCart}
+                  canChangePrice={canChangePrice}
+                  canApplyLineDiscount={canLineDiscount}
                 />
               )}
             </ScrollArea>
@@ -1050,14 +1108,21 @@ const POS = () => {
           <div className="grid grid-cols-3 divide-x divide-primary-foreground/20 border-b border-primary-foreground/20">
             <button
               type="button"
-              onClick={pos.clearCart}
-              className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium hover:bg-primary-foreground/10"
+              onClick={() => {
+                if (!canDeleteCart) {
+                  toast.error("You do not have permission to clear the POS cart.");
+                  return;
+                }
+                pos.clearCart();
+              }}
+              disabled={!canDeleteCart}
+              className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium hover:bg-primary-foreground/10 disabled:opacity-50"
             >
               <Plus className="h-4 w-4" /> New
             </button>
             <button
               type="button"
-              disabled={isResume ? pos.heldSales.length === 0 : pos.cart.length === 0}
+              disabled={isResume ? !canResumeSale || pos.heldSales.length === 0 : !canHoldSale || pos.cart.length === 0}
               onClick={() => {
                 if (isResume) {
                   setResumeOpen(true);
@@ -1076,10 +1141,15 @@ const POS = () => {
             <button
               type="button"
               onClick={() => {
+                if (!canPosFeature("create_customer")) {
+                  toast.error("You do not have permission to create customers from POS.");
+                  return;
+                }
                 setCreditIntent("new_credit");
                 setCreditCustomerOpen(true);
               }}
-              className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium hover:bg-primary-foreground/10"
+              disabled={!canPosFeature("create_customer")}
+              className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium hover:bg-primary-foreground/10 disabled:opacity-50"
             >
               <User className="h-4 w-4" /> New Customer
             </button>
@@ -1109,6 +1179,7 @@ const POS = () => {
                 <div className="flex items-center gap-2">
                   <span className="opacity-80 whitespace-nowrap">Customer</span>
                   <Select
+                    disabled={!canPosFeature("select_customer")}
                     value={pos.customerId || "walkin"}
                     onValueChange={(v) => {
                       if (v === "walkin") {
@@ -1182,8 +1253,12 @@ const POS = () => {
               <Button
                 variant="outline"
                 className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
-                disabled={pos.cart.length === 0}
+                disabled={!canCash || pos.cart.length === 0}
                 onClick={() => {
+                  if (!canCash) {
+                    toast.error("Cash payments are not permitted for your role.");
+                    return;
+                  }
                   setInitialPaymentMethod("cash");
                   setPaymentOpen(true);
                 }}
@@ -1193,7 +1268,7 @@ const POS = () => {
               <Button
                 variant="outline"
                 className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
-                disabled={pos.cart.length === 0}
+                disabled={!mpesaEnabled || pos.cart.length === 0}
                 onClick={() => {
                   if (!mpesaEnabled) {
                     toast.error("M-Pesa is not included in this plan");
@@ -1208,8 +1283,30 @@ const POS = () => {
               <Button
                 variant="outline"
                 className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
-                disabled={pos.cart.length === 0 && pos.processing}
+                disabled={!canCard || pos.cart.length === 0}
                 onClick={() => {
+                  if (!canCard) {
+                    toast.error("Card payments are not permitted for your role.");
+                    return;
+                  }
+                  setInitialPaymentMethod("card");
+                  setPaymentOpen(true);
+                }}
+              >
+                <span className="h-4 w-4 mr-1.5 inline-flex items-center justify-center rounded border text-[9px] font-bold">
+                  C
+                </span>{" "}
+                Card
+              </Button>
+              <Button
+                variant="outline"
+                className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
+                disabled={!canCredit || (pos.cart.length === 0 && pos.processing)}
+                onClick={() => {
+                  if (!canCredit) {
+                    toast.error("Credit sales are not permitted for your role.");
+                    return;
+                  }
                   if (pos.cart.length === 0) {
                     // No items in cart — view/settle an existing credit sale
                     setCreditIntent("view_credits");
@@ -1235,7 +1332,9 @@ const POS = () => {
               <Button
                 variant="outline"
                 className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
-                disabled={isResume ? pos.heldSales.length === 0 : pos.cart.length === 0}
+                disabled={
+                  isResume ? !canResumeSale || pos.heldSales.length === 0 : !canHoldSale || pos.cart.length === 0
+                }
                 onClick={() => {
                   if (isResume) {
                     setResumeOpen(true);
@@ -1255,7 +1354,12 @@ const POS = () => {
               variant="ghost"
               size="sm"
               className="w-full h-10 text-xs text-primary-foreground hover:bg-primary-foreground/10"
+              disabled={!canReprintReceipt}
               onClick={() => {
+                if (!canReprintReceipt) {
+                  toast.error("Receipt reprinting is not permitted for your role.");
+                  return;
+                }
                 const last = loadLastReceipt(business?.id);
                 if (!last) {
                   toast.error("No previous receipt found on this device.");
@@ -1350,6 +1454,47 @@ const POS = () => {
         />
 
         <ScannerSettingsDialog open={scanSettingsOpen} onOpenChange={setScanSettingsOpen} />
+
+        {canCloseTill && session.activeSession && (
+          <div className="fixed bottom-4 left-4 z-30 flex gap-2">
+            <Button size="sm" variant="secondary" onClick={() => setEndDayOpen(true)}>
+              Close Till
+            </Button>
+            {canCashIn && (
+              <Button size="sm" variant="secondary" onClick={() => setCashMovementType("cash_in")}>
+                Cash In
+              </Button>
+            )}
+            {canCashOut && (
+              <Button size="sm" variant="destructive" onClick={() => setCashMovementType("cash_out")}>
+                Cash Out
+              </Button>
+            )}
+          </div>
+        )}
+
+        {session.activeSession && (
+          <EndDayDialog
+            open={endDayOpen}
+            onOpenChange={setEndDayOpen}
+            session={session.activeSession}
+            onConfirm={async (closingCash, notes) => {
+              const closed = await session.endDay(closingCash, notes);
+              if (closed) setEndDayOpen(false);
+            }}
+          />
+        )}
+
+        {cashMovementType && (
+          <TillCashMovementDialog
+            open={!!cashMovementType}
+            onOpenChange={(open) => {
+              if (!open) setCashMovementType(null);
+            }}
+            type={cashMovementType}
+            onConfirm={(amount, reason) => session.recordCashMovement(cashMovementType, amount, reason)}
+          />
+        )}
 
         <ManagerApprovalDialog
           open={approvalOpen}
