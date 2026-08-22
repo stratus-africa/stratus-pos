@@ -15,6 +15,9 @@ import {
   CreditCard,
   ExternalLink,
   Activity,
+  AlertTriangle,
+  UserCheck,
+  Clock3,
 } from "lucide-react";
 import { format, formatDistanceToNow, subMonths, startOfMonth } from "date-fns";
 import {
@@ -30,6 +33,7 @@ import {
   Cell,
 } from "recharts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 interface PlatformStats {
   totalTenants: number;
@@ -73,6 +77,7 @@ export default function SuperAdminDashboard() {
   const [tenantsTrend, setTenantsTrend] = useState<MonthlyTenants[]>([]);
   const [tenants, setTenants] = useState<TenantOption[]>([]);
   const [activities, setActivities] = useState<RecentActivity[]>([]);
+  const [attention, setAttention] = useState<{ pendingApprovals: number; pastDue: number; expiringTrials: number; inactiveTenants: number }>({ pendingApprovals: 0, pastDue: 0, expiringTrials: 0, inactiveTenants: 0 });
   const [tenantFilter, setTenantFilter] = useState("all");
   const [loading, setLoading] = useState(true);
 
@@ -101,17 +106,24 @@ export default function SuperAdminDashboard() {
 
   useEffect(() => {
     const fetchAll = async () => {
-      const [bizRes, packagesRes, subsRes, allBizRes, revenueRes] = await Promise.all([
+      const now = new Date();
+      const sevenDays = new Date(now.getTime() + 7 * 86400000).toISOString();
+      const [bizRes, packagesRes, subsRes, allBizRes, revenueRes, approvalsRes] = await Promise.all([
         supabase.from("businesses").select("id", { count: "exact", head: true }).eq("is_active", true),
         supabase.from("subscription_packages").select("id", { count: "exact", head: true }).eq("is_active", true),
-        supabase.from("subscriptions").select("status, plan_code"),
-        supabase.from("businesses").select("id, name, created_at").order("name"),
+        supabase.from("subscriptions").select("status, plan_code, current_period_end"),
+        supabase.from("businesses").select("id, name, created_at, is_active").order("name"),
         supabase.from("offline_payment_requests").select("amount_kes").eq("status", "approved"),
+        (supabase as any).rpc("list_tenant_approvals", { _status: "pending", _search: null }),
       ]);
 
       const subs = subsRes.data || [];
       const activeSubs = subs.filter((s) => s.status === "active").length;
       const trialSubs = subs.filter((s) => s.status === "trialing").length;
+      const pastDue = subs.filter((s) => s.status === "past_due").length;
+      const expiringTrials = subs.filter((s: any) => s.status === "trialing" && s.current_period_end && new Date(s.current_period_end) <= new Date(sevenDays)).length;
+      const inactiveTenants = (allBizRes.data || []).filter((b: any) => b.is_active === false).length;
+      setAttention({ pendingApprovals: approvalsRes.data?.length || 0, pastDue, expiringTrials, inactiveTenants });
 
       setStats({
         totalTenants: bizRes.count || 0,
@@ -298,6 +310,25 @@ export default function SuperAdminDashboard() {
         ))}
       </div>
 
+      {/* Needs attention */}
+      <Card className="overflow-hidden border-border/70 bg-card shadow-sm">
+        <div className="flex items-center justify-between border-b border-border/60 bg-gradient-to-r from-amber-500/[0.06] via-transparent to-transparent px-4 py-4 sm:px-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600">
+              <AlertTriangle className="h-4 w-4" />
+            </div>
+            <div><h3 className="text-sm font-semibold">Needs attention</h3><p className="text-xs text-muted-foreground">Items that may need action today</p></div>
+          </div>
+          <Link to="/super-admin/activity" className="rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">View audit log</Link>
+        </div>
+        <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-4">
+          <AttentionCard label="Pending approvals" value={attention.pendingApprovals} icon={UserCheck} link="/super-admin/tenant-approvals" />
+          <AttentionCard label="Past due subscriptions" value={attention.pastDue} icon={CreditCard} link="/super-admin/subscriptions" />
+          <AttentionCard label="Trials ending in 7 days" value={attention.expiringTrials} icon={Clock3} link="/super-admin/subscriptions" />
+          <AttentionCard label="Inactive tenants" value={attention.inactiveTenants} icon={Building2} link="/super-admin/businesses" />
+        </div>
+      </Card>
+
       {/* Charts row */}
       <div className="hidden gap-4 lg:grid lg:grid-cols-3">
         {/* Tenants trend */}
@@ -465,5 +496,29 @@ export default function SuperAdminDashboard() {
         </Card>
       </div>
     </div>
+  );
+}
+
+function AttentionCard({ label, value, icon: Icon, link }: { label: string; value: number; icon: any; link: string }) {
+  const urgent = value > 0;
+  return (
+    <Link
+      to={link}
+      className={cn(
+        "group rounded-xl border p-4 transition-all hover:-translate-y-0.5 hover:shadow-sm",
+        urgent ? "border-amber-500/20 bg-amber-500/[0.035] hover:border-amber-500/35" : "border-border/70 bg-muted/10 hover:bg-muted/30",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg", urgent ? "bg-amber-500/10 text-amber-600" : "bg-muted text-muted-foreground")}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <span className={cn("text-2xl font-bold tracking-tight", urgent ? "text-amber-600" : "text-foreground")}>{value}</span>
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+      </div>
+    </Link>
   );
 }

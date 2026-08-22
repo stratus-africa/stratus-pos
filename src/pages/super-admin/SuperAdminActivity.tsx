@@ -1,289 +1,104 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { ShoppingCart, Receipt, DollarSign, ChevronLeft, ChevronRight } from "lucide-react";
-import { format } from "date-fns";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Activity, ChevronLeft, ChevronRight, FileText, Search, User, ShieldCheck, Clock3 } from "lucide-react";
+import { format, formatDistanceToNow } from "date-fns";
 
-type ActivityType = "sales" | "expenses" | "signups";
-
-interface Row {
+type AuditRow = {
   id: string;
+  business_id: string;
+  action: string;
+  description: string | null;
+  entity_type: string | null;
+  entity_id: string | null;
+  user_name: string | null;
+  user_email: string | null;
+  metadata: Record<string, any> | null;
+  ip_address: string | null;
   created_at: string;
-  business_id: string | null;
-  business_name?: string;
-  // sales
-  invoice_number?: string | null;
-  total?: number;
-  payment_status?: string;
-  // expenses
-  amount?: number;
-  description?: string | null;
-  payment_method?: string | null;
-  // signups
-  full_name?: string | null;
-  email?: string | null;
-}
+};
 
-const PAGE_SIZES = [25, 50, 100, 200];
+type Tenant = { id: string; name: string };
+const PAGE_SIZE = 25;
 
 export default function SuperAdminActivity() {
-  const [activity, setActivity] = useState<ActivityType>("sales");
-  const [sales, setSales] = useState<Row[]>([]);
-  const [expenses, setExpenses] = useState<Row[]>([]);
-  const [signups, setSignups] = useState<Row[]>([]);
-  const [businesses, setBusinesses] = useState<{ id: string; name: string }[]>([]);
+  const [rows, setRows] = useState<AuditRow[]>([]);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const [tenant, setTenant] = useState<string>("all");
-  const [fromDate, setFromDate] = useState<string>("");
-  const [toDate, setToDate] = useState<string>("");
+  const [search, setSearch] = useState("");
+  const [tenant, setTenant] = useState("all");
+  const [action, setAction] = useState("all");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number>(() => {
-    const v = Number(localStorage.getItem("sa_activity_page_size"));
-    return PAGE_SIZES.includes(v) ? v : 25;
-  });
+  const [selected, setSelected] = useState<AuditRow | null>(null);
 
-  useEffect(() => {
-    localStorage.setItem("sa_activity_page_size", String(pageSize));
-  }, [pageSize]);
+  const tenantMap = useMemo(() => new Map(tenants.map((t) => [t.id, t.name])), [tenants]);
+  const actionOptions = useMemo(() => Array.from(new Set(rows.map((r) => r.action))).sort(), [rows]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [activity, tenant, fromDate, toDate, pageSize]);
+  const fetchAudit = async () => {
+    setLoading(true);
+    const [{ data: audit }, { data: biz }] = await Promise.all([
+      supabase.from("audit_logs").select("id,business_id,action,description,entity_type,entity_id,user_name,user_email,metadata,ip_address,created_at").order("created_at", { ascending: false }).limit(1000),
+      supabase.from("businesses").select("id,name").order("name"),
+    ]);
+    setRows((audit || []) as AuditRow[]);
+    setTenants((biz || []) as Tenant[]);
+    setLoading(false);
+  };
 
-  useEffect(() => {
-    const fetchAll = async () => {
-      setLoading(true);
-      const [salesRes, expensesRes, profilesRes, bizRes] = await Promise.all([
-        supabase.from("sales").select("id, invoice_number, total, payment_status, created_at, business_id").order("created_at", { ascending: false }).limit(1000),
-        supabase.from("expenses").select("id, amount, description, date, payment_method, business_id").order("date", { ascending: false }).limit(1000),
-        supabase.from("profiles").select("id, full_name, email, created_at, business_id").order("created_at", { ascending: false }).limit(1000),
-        supabase.from("businesses").select("id, name").order("name"),
-      ]);
-
-      const bizList = (bizRes.data || []) as { id: string; name: string }[];
-      const bizMap = new Map(bizList.map((b) => [b.id, b.name]));
-      setBusinesses(bizList);
-
-      setSales((salesRes.data || []).map((s: any) => ({ ...s, business_name: bizMap.get(s.business_id) || "Unknown" })));
-      setExpenses((expensesRes.data || []).map((e: any) => ({ ...e, created_at: e.date, business_name: bizMap.get(e.business_id) || "Unknown" })));
-      setSignups((profilesRes.data || []).map((p: any) => ({ ...p, business_name: p.business_id ? bizMap.get(p.business_id) || "Unknown" : undefined })));
-      setLoading(false);
-    };
-    fetchAll();
-  }, []);
-
-  const source = activity === "sales" ? sales : activity === "expenses" ? expenses : signups;
+  useEffect(() => { fetchAudit(); }, []);
+  useEffect(() => { setPage(1); }, [search, tenant, action]);
 
   const filtered = useMemo(() => {
-    const from = fromDate ? new Date(fromDate).getTime() : null;
-    const to = toDate ? new Date(toDate).getTime() + 86400000 : null;
-    return source.filter((r) => {
+    const q = search.trim().toLowerCase();
+    return rows.filter((r) => {
       if (tenant !== "all" && r.business_id !== tenant) return false;
-      const t = new Date(r.created_at).getTime();
-      if (from && t < from) return false;
-      if (to && t >= to) return false;
-      return true;
+      if (action !== "all" && r.action !== action) return false;
+      if (!q) return true;
+      return [r.action, r.description, r.entity_type, r.entity_id, r.user_name, r.user_email, tenantMap.get(r.business_id)]
+        .filter(Boolean).join(" ").toLowerCase().includes(q);
     });
-  }, [source, tenant, fromDate, toDate]);
+  }, [rows, search, tenant, action, tenantMap]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
-  }
+  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Platform Activity</h1>
-        <p className="text-muted-foreground">Recent activity across all businesses</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><ShieldCheck className="h-5 w-5" /></div>
+            <div><h1 className="text-2xl font-bold tracking-tight">Audit Log</h1><p className="text-sm text-muted-foreground">Immutable platform activity across tenants and privileged actions.</p></div>
+          </div>
+        </div>
+        <div className="hidden items-center gap-2 rounded-lg border bg-card px-3 py-2 text-xs text-muted-foreground sm:flex"><Clock3 className="h-3.5 w-3.5" /> Newest events first</div>
       </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
-            <div>
-              <Label className="text-xs">Activity</Label>
-              <Select value={activity} onValueChange={(v) => setActivity(v as ActivityType)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sales">Sales</SelectItem>
-                  <SelectItem value="expenses">Expenses</SelectItem>
-                  <SelectItem value="signups">Signups</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">Tenant</Label>
-              <Select value={tenant} onValueChange={setTenant}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All tenants</SelectItem>
-                  {businesses.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">From</Label>
-              <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-            </div>
-            <div>
-              <Label className="text-xs">To</Label>
-              <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" className="w-full" onClick={() => { setTenant("all"); setFromDate(""); setToDate(""); }}>
-                Reset
-              </Button>
-            </div>
-          </div>
+      <Card className="border-border/70 shadow-sm">
+        <CardContent className="p-3 sm:p-4 flex flex-col lg:flex-row gap-3">
+          <div className="relative flex-1 min-w-0"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input className="h-10 pl-9" placeholder="Search action, tenant, user, entity…" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
+          <Select value={tenant} onValueChange={setTenant}><SelectTrigger className="w-full lg:w-56"><SelectValue placeholder="All tenants" /></SelectTrigger><SelectContent><SelectItem value="all">All tenants</SelectItem>{tenants.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent></Select>
+          <Select value={action} onValueChange={setAction}><SelectTrigger className="w-full lg:w-48"><SelectValue placeholder="All actions" /></SelectTrigger><SelectContent><SelectItem value="all">All actions</SelectItem>{actionOptions.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent></Select>
         </CardContent>
       </Card>
 
-      <Tabs value={activity} onValueChange={(v) => setActivity(v as ActivityType)}>
-        <TabsList>
-          <TabsTrigger value="sales" className="gap-1"><ShoppingCart className="h-4 w-4" /> Sales</TabsTrigger>
-          <TabsTrigger value="expenses" className="gap-1"><DollarSign className="h-4 w-4" /> Expenses</TabsTrigger>
-          <TabsTrigger value="signups" className="gap-1"><Receipt className="h-4 w-4" /> Signups</TabsTrigger>
-        </TabsList>
+      <Card className="overflow-hidden border-border/70 shadow-sm">
+        <CardHeader className="border-b border-border/60 bg-muted/20 pb-3"><CardTitle className="text-sm flex items-center justify-between"><span className="flex items-center gap-2"><Activity className="h-4 w-4 text-primary" /> Activity</span><span className="rounded-full bg-background px-2.5 py-1 text-xs font-normal text-muted-foreground">{filtered.length.toLocaleString()} events</span></CardTitle></CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b bg-muted/20 text-left"><th className="px-4 py-3 font-medium">Time</th><th className="px-4 py-3 font-medium">Action</th><th className="px-4 py-3 font-medium">Tenant</th><th className="px-4 py-3 font-medium">Actor</th><th className="px-4 py-3 font-medium">Entity</th><th className="px-4 py-3" /></tr></thead><tbody>
+            {loading ? <tr><td colSpan={6} className="p-10 text-center text-muted-foreground">Loading audit events…</td></tr> : pageRows.length === 0 ? <tr><td colSpan={6} className="p-10 text-center text-muted-foreground">No audit events match your filters.</td></tr> : pageRows.map((r) => <tr key={r.id} className="border-b border-border/60 hover:bg-primary/[0.025] cursor-pointer transition-colors" onClick={() => setSelected(r)}><td className="px-4 py-3 whitespace-nowrap"><div>{format(new Date(r.created_at), "MMM d, yyyy HH:mm")}</div><div className="text-[11px] text-muted-foreground">{formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}</div></td><td className="px-4 py-3"><Badge variant="outline" className="rounded-md bg-background font-mono text-[10px] uppercase tracking-wide">{r.action}</Badge><div className="text-xs text-muted-foreground mt-1 max-w-xs truncate">{r.description || "—"}</div></td><td className="px-4 py-3 font-medium">{tenantMap.get(r.business_id) || "Unknown tenant"}</td><td className="px-4 py-3"><div className="flex items-center gap-1.5"><User className="h-3.5 w-3.5 text-muted-foreground" />{r.user_name || r.user_email || "System"}</div></td><td className="px-4 py-3 text-xs text-muted-foreground">{r.entity_type || "—"}{r.entity_id ? <div className="font-mono truncate max-w-32">{r.entity_id}</div> : null}</td><td className="px-4 py-3 text-right">›</td></tr>)}
+          </tbody></table></div>
+          <div className="flex items-center justify-between p-3 border-t"><span className="text-xs text-muted-foreground">Page {page} of {pages}</span><div className="flex gap-2"><Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}><ChevronLeft className="h-4 w-4" /></Button><Button size="sm" variant="outline" disabled={page >= pages} onClick={() => setPage((p) => p + 1)}><ChevronRight className="h-4 w-4" /></Button></div></div>
+        </CardContent>
+      </Card>
 
-        <TabsContent value="sales">
-          <Card>
-            <CardHeader><CardTitle className="text-base">Sales ({filtered.length})</CardTitle></CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Invoice</TableHead>
-                    <TableHead>Business</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pageRows.map((s) => (
-                    <TableRow key={s.id}>
-                      <TableCell className="font-mono text-sm">{s.invoice_number || "—"}</TableCell>
-                      <TableCell className="font-medium">{s.business_name}</TableCell>
-                      <TableCell>
-                        <Badge variant={s.payment_status === "paid" ? "default" : "secondary"} className="capitalize">{s.payment_status}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-medium">KES {Number(s.total).toLocaleString()}</TableCell>
-                      <TableCell className="text-muted-foreground">{format(new Date(s.created_at), "MMM dd, HH:mm")}</TableCell>
-                    </TableRow>
-                  ))}
-                  {pageRows.length === 0 && (
-                    <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No results</TableCell></TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="expenses">
-          <Card>
-            <CardHeader><CardTitle className="text-base">Expenses ({filtered.length})</CardTitle></CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Business</TableHead>
-                    <TableHead>Method</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pageRows.map((e) => (
-                    <TableRow key={e.id}>
-                      <TableCell>{e.description || "—"}</TableCell>
-                      <TableCell className="font-medium">{e.business_name}</TableCell>
-                      <TableCell><Badge variant="outline" className="capitalize">{e.payment_method?.replace("_", " ") || "—"}</Badge></TableCell>
-                      <TableCell className="text-right font-medium text-red-500">KES {Number(e.amount).toLocaleString()}</TableCell>
-                      <TableCell className="text-muted-foreground">{format(new Date(e.created_at), "MMM dd, yyyy")}</TableCell>
-                    </TableRow>
-                  ))}
-                  {pageRows.length === 0 && (
-                    <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No results</TableCell></TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="signups">
-          <Card>
-            <CardHeader><CardTitle className="text-base">Signups ({filtered.length})</CardTitle></CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Business</TableHead>
-                    <TableHead>Joined</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pageRows.map((s) => (
-                    <TableRow key={s.id}>
-                      <TableCell className="font-medium">{s.full_name || "Unnamed"}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm">{s.email || "—"}</TableCell>
-                      <TableCell>{s.business_name || <span className="text-muted-foreground">—</span>}</TableCell>
-                      <TableCell className="text-muted-foreground">{format(new Date(s.created_at), "MMM dd, yyyy HH:mm")}</TableCell>
-                    </TableRow>
-                  ))}
-                  {pageRows.length === 0 && (
-                    <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No results</TableCell></TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">Rows per page</span>
-          <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
-            <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {PAGE_SIZES.map((n) => (
-                <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">Page {page} of {totalPages}</span>
-          <Button size="icon" variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button size="icon" variant="outline" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}><DialogContent className="sm:max-w-2xl"><DialogHeader><DialogTitle>Audit Event</DialogTitle></DialogHeader>{selected && <div className="space-y-4 text-sm"><div className="grid grid-cols-2 gap-4"><Info label="Action" value={selected.action} /><Info label="Tenant" value={tenantMap.get(selected.business_id) || selected.business_id} /><Info label="Actor" value={selected.user_name || selected.user_email || "System"} /><Info label="Timestamp" value={format(new Date(selected.created_at), "PPpp")} /><Info label="Entity" value={selected.entity_type || "—"} /><Info label="IP address" value={selected.ip_address || "—"} /></div><div><div className="text-xs font-semibold uppercase text-muted-foreground mb-1">Description</div><div className="rounded-lg border p-3">{selected.description || "No description recorded."}</div></div><div><div className="text-xs font-semibold uppercase text-muted-foreground mb-1">Metadata</div><pre className="rounded-lg bg-muted p-3 text-xs overflow-auto max-h-72">{JSON.stringify(selected.metadata || {}, null, 2)}</pre></div></div>}</DialogContent></Dialog>
     </div>
   );
 }
+function Info({ label, value }: { label: string; value: string }) { return <div><div className="text-xs text-muted-foreground">{label}</div><div className="font-medium mt-0.5 break-words">{value}</div></div>; }
