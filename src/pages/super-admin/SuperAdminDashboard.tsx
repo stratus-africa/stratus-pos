@@ -33,7 +33,6 @@ import {
   Cell,
 } from "recharts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 interface PlatformStats {
   totalTenants: number;
@@ -77,7 +76,12 @@ export default function SuperAdminDashboard() {
   const [tenantsTrend, setTenantsTrend] = useState<MonthlyTenants[]>([]);
   const [tenants, setTenants] = useState<TenantOption[]>([]);
   const [activities, setActivities] = useState<RecentActivity[]>([]);
-  const [attention, setAttention] = useState<{ pendingApprovals: number; pastDue: number; expiringTrials: number; inactiveTenants: number }>({ pendingApprovals: 0, pastDue: 0, expiringTrials: 0, inactiveTenants: 0 });
+  const [attention, setAttention] = useState<{
+    pendingApprovals: number;
+    pastDue: number;
+    expiringTrials: number;
+    inactiveTenants: number;
+  }>({ pendingApprovals: 0, pastDue: 0, expiringTrials: 0, inactiveTenants: 0 });
   const [tenantFilter, setTenantFilter] = useState("all");
   const [loading, setLoading] = useState(true);
 
@@ -121,7 +125,10 @@ export default function SuperAdminDashboard() {
       const activeSubs = subs.filter((s) => s.status === "active").length;
       const trialSubs = subs.filter((s) => s.status === "trialing").length;
       const pastDue = subs.filter((s) => s.status === "past_due").length;
-      const expiringTrials = subs.filter((s: any) => s.status === "trialing" && s.current_period_end && new Date(s.current_period_end) <= new Date(sevenDays)).length;
+      const expiringTrials = subs.filter(
+        (s: any) =>
+          s.status === "trialing" && s.current_period_end && new Date(s.current_period_end) <= new Date(sevenDays),
+      ).length;
       const inactiveTenants = (allBizRes.data || []).filter((b: any) => b.is_active === false).length;
       setAttention({ pendingApprovals: approvalsRes.data?.length || 0, pastDue, expiringTrials, inactiveTenants });
 
@@ -191,8 +198,6 @@ export default function SuperAdminDashboard() {
       icon: Building2,
       iconBg: "bg-indigo-500/10 dark:bg-indigo-400/15",
       iconColor: "text-indigo-500",
-      link: "/super-admin/businesses",
-      linkLabel: "View all tenants",
     },
     {
       label: "Revenue collected",
@@ -232,12 +237,9 @@ export default function SuperAdminDashboard() {
 
   const quickActions = [
     {
-      title: "Manage tenants",
-      description: "View and manage all tenants",
       icon: Building2,
       iconBg: "bg-emerald-500/10 dark:bg-emerald-400/15",
       iconColor: "text-emerald-500",
-      link: "/super-admin/businesses",
     },
     {
       title: "Create new plan",
@@ -311,21 +313,36 @@ export default function SuperAdminDashboard() {
       </div>
 
       {/* Needs attention */}
-      <Card className="overflow-hidden border-border/70 bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b border-border/60 bg-gradient-to-r from-amber-500/[0.06] via-transparent to-transparent px-4 py-4 sm:px-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600">
-              <AlertTriangle className="h-4 w-4" />
-            </div>
-            <div><h3 className="text-sm font-semibold">Needs attention</h3><p className="text-xs text-muted-foreground">Items that may need action today</p></div>
+      <Card className="p-4 sm:p-5 bg-card border-border shadow-none">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            <h3 className="text-sm font-semibold">Needs attention</h3>
           </div>
-          <Link to="/super-admin/activity" className="rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">View audit log</Link>
+          <Link to="/super-admin/activity" className="text-xs text-muted-foreground hover:text-foreground">
+            View audit log →
+          </Link>
         </div>
-        <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-4">
-          <AttentionCard label="Pending approvals" value={attention.pendingApprovals} icon={UserCheck} link="/super-admin/tenant-approvals" />
-          <AttentionCard label="Past due subscriptions" value={attention.pastDue} icon={CreditCard} link="/super-admin/subscriptions" />
-          <AttentionCard label="Trials ending in 7 days" value={attention.expiringTrials} icon={Clock3} link="/super-admin/subscriptions" />
-          <AttentionCard label="Inactive tenants" value={attention.inactiveTenants} icon={Building2} link="/super-admin/businesses" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <AttentionCard
+            label="Pending approvals"
+            value={attention.pendingApprovals}
+            icon={UserCheck}
+            link="/super-admin/tenant-approvals"
+          />
+          <AttentionCard
+            label="Past due subscriptions"
+            value={attention.pastDue}
+            icon={CreditCard}
+            link="/super-admin/subscriptions"
+          />
+          <AttentionCard
+            label="Trials ending in 7 days"
+            value={attention.expiringTrials}
+            icon={Clock3}
+            link="/super-admin/subscriptions"
+          />
+          <AttentionCard label="Inactive tenants" value={attention.inactiveTenants} icon={Building2} />
         </div>
       </Card>
 
@@ -500,25 +517,13 @@ export default function SuperAdminDashboard() {
 }
 
 function AttentionCard({ label, value, icon: Icon, link }: { label: string; value: number; icon: any; link: string }) {
-  const urgent = value > 0;
   return (
-    <Link
-      to={link}
-      className={cn(
-        "group rounded-xl border p-4 transition-all hover:-translate-y-0.5 hover:shadow-sm",
-        urgent ? "border-amber-500/20 bg-amber-500/[0.035] hover:border-amber-500/35" : "border-border/70 bg-muted/10 hover:bg-muted/30",
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg", urgent ? "bg-amber-500/10 text-amber-600" : "bg-muted text-muted-foreground")}>
-          <Icon className="h-4 w-4" />
-        </div>
-        <span className={cn("text-2xl font-bold tracking-tight", urgent ? "text-amber-600" : "text-foreground")}>{value}</span>
+    <Link to={link} className="rounded-lg border p-3 hover:bg-muted/30 transition-colors">
+      <div className="flex items-center justify-between">
+        <Icon className="h-4 w-4 text-muted-foreground" />
+        <span className={`text-lg font-bold ${value > 0 ? "text-amber-600" : ""}`}>{value}</span>
       </div>
-      <div className="mt-3 flex items-center justify-between gap-2">
-        <span className="text-xs font-medium text-muted-foreground">{label}</span>
-        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-      </div>
+      <div className="text-[11px] text-muted-foreground mt-2">{label}</div>
     </Link>
   );
 }
