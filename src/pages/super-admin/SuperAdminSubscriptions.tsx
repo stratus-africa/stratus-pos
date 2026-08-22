@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "@/lib/router-compat";
+import { Link, useNavigate } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,6 @@ import {
   PauseCircle,
   XCircle,
   Search,
-  Eye,
   Ban,
   Loader2,
   Banknote,
@@ -323,8 +322,8 @@ export default function SuperAdminSubscriptions() {
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
         {STAT_TILES.map((tile) => {
           const isPending = tile.key === "pending";
-          const tileContent = (
-            <>
+          const content = (
+            <div className="bg-white border border-border rounded-xl p-4 flex items-center gap-3.5">
               <div className={`h-11 w-11 rounded-lg ${tile.iconBg} flex items-center justify-center text-white`}>
                 <tile.icon className="h-5 w-5" />
               </div>
@@ -334,27 +333,20 @@ export default function SuperAdminSubscriptions() {
                   {tile.label}
                 </p>
               </div>
-            </>
-          );
-
-          if (isPending) {
-            return (
-              <button
-                key={tile.key}
-                type="button"
-                onClick={() => navigate("/super-admin/businesses")}
-                className="bg-white border border-border rounded-xl p-4 flex items-center gap-3.5 text-left w-full transition-all hover:border-amber-300 hover:bg-amber-50/40 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-400/40"
-                title="View pending tenants"
-              >
-                {tileContent}
-              </button>
-            );
-          }
-
-          return (
-            <div key={tile.key} className="bg-white border border-border rounded-xl p-4 flex items-center gap-3.5">
-              {tileContent}
             </div>
+          );
+          return isPending ? (
+            <button
+              key={tile.key}
+              type="button"
+              onClick={() => navigate("/super-admin/businesses")}
+              className="text-left rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 hover:-translate-y-0.5 transition-transform"
+              title="Open pending tenants"
+            >
+              {content}
+            </button>
+          ) : (
+            <div key={tile.key}>{content}</div>
           );
         })}
       </div>
@@ -510,15 +502,6 @@ export default function SuperAdminSubscriptions() {
                   <TableCell className="text-sm text-muted-foreground">—</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1.5">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 text-xs"
-                        onClick={() => r.tenantId && navigate(`/super-admin/businesses/${r.tenantId}`)}
-                        disabled={!r.tenantId}
-                      >
-                        <Eye className="h-3 w-3 mr-1" /> View
-                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
