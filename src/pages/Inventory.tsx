@@ -28,9 +28,11 @@ import {
   Printer,
   Upload,
   Scale,
+  ArrowLeftRight,
 } from "lucide-react";
 import { StockCountsTab } from "@/components/inventory/StockCountsTab";
 import { StockReconciliationTab } from "@/components/inventory/StockReconciliationTab";
+import { StockTransfersTab } from "@/components/inventory/StockTransfersTab";
 
 import { useInventory, type SortKey, type AdjustmentDocument } from "@/hooks/useInventory";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -50,6 +52,7 @@ const INVENTORY_TABS = [
   { key: "adjustments", label: "Adjustments", icon: <ClipboardList className="h-4 w-4" /> },
   { key: "counts", label: "Stock Take", icon: <ClipboardCheck className="h-4 w-4" /> },
   { key: "reconciliation", label: "Reconciliation", icon: <Scale className="h-4 w-4" /> },
+  { key: "transfers", label: "Stock Transfers", icon: <ArrowLeftRight className="h-4 w-4" /> },
 ] as const;
 type StockSort = "name_asc" | "name_desc" | "barcode_asc" | "barcode_desc" | "qty_asc" | "qty_desc";
 
@@ -86,7 +89,16 @@ const Inventory = () => {
   const { locations, currentLocation, business } = useBusiness();
   const { user } = useAuth();
   const { hasPermission } = usePermissions();
-  const canEditAdjustments = hasPermission("inventory.edit");
+  const canViewInventory = hasPermission("inventory.view");
+  const canAdjustStock = hasPermission("inventory.adjust");
+  const canViewAdjustments = canViewInventory || hasPermission("inventory.view_movements");
+  const canStockCount = hasPermission("inventory.count_create") || hasPermission("inventory.count_perform");
+  const canReconcileStock = hasPermission("inventory.count_approve");
+  const canViewTransfers =
+    hasPermission("inventory.transfer") ||
+    hasPermission("inventory.approve_transfer") ||
+    hasPermission("inventory.receive");
+  const canEditAdjustments = canAdjustStock;
   const { createPurchase } = usePurchases();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -102,6 +114,20 @@ const Inventory = () => {
   };
 
   const [activeTab, setActiveTab] = useState<string>(initialStr("tab", "stock"));
+  const visibleInventoryTabs = INVENTORY_TABS.filter((tab) => {
+    if (tab.key === "adjustments") return canViewAdjustments;
+    if (tab.key === "counts") return canStockCount;
+    if (tab.key === "reconciliation") return canReconcileStock;
+    if (tab.key === "transfers") return canViewTransfers;
+    return canViewInventory;
+  });
+
+  useEffect(() => {
+    if (!visibleInventoryTabs.some((tab) => tab.key === activeTab)) {
+      setActiveTab(visibleInventoryTabs[0]?.key ?? "stock");
+    }
+  }, [activeTab, visibleInventoryTabs]);
+
   const [locationFilter, setLocationFilter] = useState<string>(currentLocation?.id || "all");
   const [search, setSearch] = useState<string>(initialStr("q", ""));
   const [adjDialogOpen, setAdjDialogOpen] = useState(false);
@@ -430,9 +456,11 @@ const Inventory = () => {
         title="Inventory"
         description="Stock levels, adjustments, and inventory health across your locations."
         primaryAction={
-          <Button onClick={() => setAdjDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" /> Adjust Stock
-          </Button>
+          {canAdjustStock && (
+            <Button onClick={() => setAdjDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" /> Adjust Stock
+            </Button>
+          )}
         }
         statusBadge={<Badge variant="secondary">Operational</Badge>}
       />
@@ -502,7 +530,7 @@ const Inventory = () => {
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {INVENTORY_TABS.map((t) => (
+              {visibleInventoryTabs.map((t) => (
                 <SelectItem key={t.key} value={t.key}>
                   <span className="flex items-center gap-2">
                     {t.icon}
@@ -515,7 +543,7 @@ const Inventory = () => {
         </div>
 
         <TabsList className="hidden md:inline-flex">
-          {INVENTORY_TABS.map((t) => (
+          {visibleInventoryTabs.map((t) => (
             <TabsTrigger key={t.key} value={t.key} className="gap-1">
               {t.icon}
               {t.label}
@@ -529,6 +557,10 @@ const Inventory = () => {
 
         <TabsContent value="reconciliation">
           <StockReconciliationTab />
+        </TabsContent>
+
+        <TabsContent value="transfers">
+          <StockTransfersTab />
         </TabsContent>
 
         <TabsContent value="stock" className="space-y-4">
