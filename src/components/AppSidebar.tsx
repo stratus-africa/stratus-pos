@@ -55,9 +55,13 @@ export function AppSidebar() {
   const entitledModuleKeys = new Set(getEntitledModules());
 
   // Filter APP_MODULES to only those in the tenant's plan AND visible to the user's role.
-  const visibleModules = APP_MODULES.filter((module) => {
+  //
+  // Multi-Location is intentionally NOT displayed as a standalone sidebar module.
+  // Its functionality is managed under Business Settings → Locations.
+  const visibleModules = APP_MODULES.filter((module) => module.key !== "multi_location").filter((module) => {
     const entitled = entitledModuleKeys.has(module.key);
     const roleAllowed = !module.roles?.length || (!!userRole && module.roles.includes(userRole as any));
+
     const permissionAllowed =
       module.permissions.length === 0 || module.permissions.some((permission) => hasPermission(permission));
 
@@ -66,7 +70,12 @@ export function AppSidebar() {
       (window as any).__DEBUG_SIDEBAR &&
       (!entitled || !roleAllowed || !permissionAllowed)
     ) {
-      console.debug(`[Sidebar] ${module.key} blocked`, { entitled, roleAllowed, permissionAllowed, userRole });
+      console.debug(`[Sidebar] ${module.key} blocked`, {
+        entitled,
+        roleAllowed,
+        permissionAllowed,
+        userRole,
+      });
     }
 
     return entitled && roleAllowed && permissionAllowed;
@@ -76,13 +85,18 @@ export function AppSidebar() {
     const navItems = Array.isArray(module?.navigation)
       ? module.navigation.filter((item) => !item?.permission || hasPermission(item.permission))
       : [];
+
     const targetRoute = module?.route ?? navItems[0]?.route ?? "/";
+
     const visibleChildren = navItems.filter(
       (item) => item?.route && item.route !== targetRoute && item.route !== currentPath,
     );
+
     const hasChildren = visibleChildren.length > 0;
+
     const parentActive =
       currentPath === targetRoute || visibleChildren.some((item) => item?.route && currentPath === item.route);
+
     const SidebarIcon = module?.Icon ?? Store;
 
     if (!hasChildren) {
@@ -115,9 +129,11 @@ export function AppSidebar() {
                 activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
               >
                 <SidebarIcon className="mr-2 h-4 w-4" />
+
                 {!collapsed && <span className="flex-1">{module.label}</span>}
               </NavLink>
             </SidebarMenuButton>
+
             {!collapsed && (
               <CollapsibleTrigger asChild>
                 <button
@@ -130,6 +146,7 @@ export function AppSidebar() {
               </CollapsibleTrigger>
             )}
           </div>
+
           {!collapsed && (
             <CollapsibleContent>
               <SidebarMenuSub>
@@ -157,13 +174,14 @@ export function AppSidebar() {
     }))
     .filter((group) => group.modules.length > 0);
 
-  // ── Sidebar content — one branch per entitlement state ───────────────────────
+  // Sidebar content — one branch per entitlement state
   const renderSidebarContent = () => {
     // State: loading
     if (isLoadingAuth) {
       return (
         <SidebarGroup>
           <SidebarGroupLabel>Loading modules…</SidebarGroupLabel>
+
           <SidebarGroupContent>
             <SidebarMenu>
               {[1, 2, 3].map((i) => (
@@ -177,16 +195,19 @@ export function AppSidebar() {
       );
     }
 
-    // State E: database / RPC error — show error, never "no modules"
+    // Database / RPC error
     if (resolutionStatus === "db_error" || entitlementError) {
       return (
         <SidebarGroup>
           <SidebarGroupLabel className="flex items-center gap-1.5 text-amber-600">
-            <AlertTriangle className="h-3.5 w-3.5" /> Access error
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Access error
           </SidebarGroupLabel>
+
           <SidebarGroupContent>
             <div className="px-2 py-3 text-xs text-muted-foreground space-y-2">
               <p>Could not load plan information. Check your connection and refresh.</p>
+
               <Button
                 size="sm"
                 variant="outline"
@@ -201,13 +222,15 @@ export function AppSidebar() {
       );
     }
 
-    // State A: no business
+    // No business
     if (resolutionStatus === "no_business") {
       return (
         <SidebarGroup>
           <SidebarGroupLabel className="flex items-center gap-1.5">
-            <Building2 className="h-3.5 w-3.5" /> No business
+            <Building2 className="h-3.5 w-3.5" />
+            No business
           </SidebarGroupLabel>
+
           <SidebarGroupContent>
             <div className="px-2 py-3 text-xs text-muted-foreground">
               Your account is not linked to a business. Complete onboarding to continue.
@@ -217,11 +240,12 @@ export function AppSidebar() {
       );
     }
 
-    // State B: business exists but no plan assigned
+    // Business exists but no plan assigned
     if (resolutionStatus === "no_plan" || !hasPlan) {
       return (
         <SidebarGroup>
           <SidebarGroupLabel>Modules</SidebarGroupLabel>
+
           <SidebarGroupContent>
             <div className="px-2 py-3 text-xs text-muted-foreground">
               No subscription plan is assigned to this business. Contact your administrator.
@@ -231,11 +255,12 @@ export function AppSidebar() {
       );
     }
 
-    // State B variant: package assigned but not found in DB
+    // Package assigned but not found
     if (resolutionStatus === "package_not_found") {
       return (
         <SidebarGroup>
           <SidebarGroupLabel>Modules</SidebarGroupLabel>
+
           <SidebarGroupContent>
             <div className="px-2 py-3 text-xs text-muted-foreground">
               Assigned plan could not be loaded. Contact your administrator.
@@ -245,11 +270,12 @@ export function AppSidebar() {
       );
     }
 
-    // State C: plan exists but has zero enabled modules
+    // Plan exists but zero modules
     if (entitledModuleKeys.size === 0) {
       return (
         <SidebarGroup>
           <SidebarGroupLabel>Modules</SidebarGroupLabel>
+
           <SidebarGroupContent>
             <div className="px-2 py-3 text-xs text-muted-foreground">
               No modules are enabled for your current plan. Contact your administrator.
@@ -259,13 +285,14 @@ export function AppSidebar() {
       );
     }
 
-    // State D: plan has modules — render them
+    // Plan has modules
     if (groupedModules.length > 0) {
       return groupedModules.map((group) => (
         <SidebarGroup key={group.category}>
           <SidebarGroupLabel>
             {group.category === "dashboard" ? "Dashboard" : moduleCategoryLabels[group.category]}
           </SidebarGroupLabel>
+
           <SidebarGroupContent>
             <SidebarMenu>{group.modules.map(renderModule)}</SidebarMenu>
           </SidebarGroupContent>
@@ -273,10 +300,11 @@ export function AppSidebar() {
       ));
     }
 
-    // Plan has modules but none match current user's permissions / role
+    // Modules exist but current role has no access
     return (
       <SidebarGroup>
         <SidebarGroupLabel>Modules</SidebarGroupLabel>
+
         <SidebarGroupContent>
           <div className="px-2 py-3 text-xs text-muted-foreground">
             No modules are accessible with your current role.
@@ -293,9 +321,11 @@ export function AppSidebar() {
           <div className="h-9 w-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-xs shrink-0">
             <Store className="h-4 w-4" />
           </div>
+
           {!collapsed && (
             <div className="flex flex-col min-w-0 leading-tight">
               <span className="text-base font-bold tracking-tight text-sidebar-foreground truncate">StratusPOS</span>
+
               {business && <span className="text-xs text-muted-foreground truncate">{business.name}</span>}
             </div>
           )}
@@ -314,6 +344,7 @@ export function AppSidebar() {
             Super Admin Panel
           </Link>
         )}
+
         {!collapsed && userRole && (
           <div className="px-2 pb-1">
             <Badge
@@ -324,6 +355,7 @@ export function AppSidebar() {
             </Badge>
           </div>
         )}
+
         <Button
           variant="ghost"
           className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-muted"
