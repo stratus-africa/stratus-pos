@@ -100,6 +100,10 @@ const mobileNavGroups = navGroups
   .filter((group) => group.label !== "Main")
   .map((group) => ({ ...group, mobileLabel: group.label === "System" ? "Settings" : group.label }));
 
+// Match the tenant mobile navigation pattern: Dashboard is pinned,
+// the three primary Super Admin sections stay visible, and the rest is in More.
+const MOBILE_QUICK_GROUPS = ["Management", "Payments", "Monitoring"] as const;
+
 export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const { signOut, user } = useAuth();
   const location = useLocation();
@@ -136,14 +140,13 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
 
   const selectedMobileGroup = mobileNavGroups.find((group) => group.label === mobileSection) || mobileNavGroups[0];
   const SelectedMobileGroupIcon = selectedMobileGroup?.items[0]?.icon;
+  const isDashboardActive = location.pathname === "/super-admin";
+  const activeMobileGroup = mobileNavGroups.find((group) =>
+    group.items.some((item) => location.pathname.startsWith(item.url)),
+  );
 
   useEffectR(() => {
-    const activeGroup = mobileNavGroups.find((group) =>
-      group.items.some((item) =>
-        item.url === "/super-admin" ? location.pathname === "/super-admin" : location.pathname.startsWith(item.url),
-      ),
-    );
-    if (activeGroup) setMobileSection(activeGroup.label);
+    if (activeMobileGroup) setMobileSection(activeMobileGroup.label);
   }, [location.pathname]);
 
   return (
@@ -261,13 +264,41 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
       {isMobile && selectedMobileGroup && (
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <nav
-            className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2"
-            aria-label="Super admin navigation"
+            className="fixed inset-x-0 bottom-0 z-40 bg-background px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden"
+            aria-label="Super admin primary navigation"
           >
-            <div className="mx-auto grid max-w-md grid-cols-5 items-end rounded-[1.75rem] border border-border/60 bg-card/95 px-2 py-2 shadow-lg backdrop-blur">
-              {mobileNavGroups.slice(0, 4).map((group) => {
-                const active = group.label === mobileSection;
-                const Icon = group.items[0].icon;
+            <div className="mx-auto flex max-w-md items-stretch justify-around rounded-[1.75rem] border border-border/60 bg-card/95 px-2 py-2 shadow-lg backdrop-blur">
+              <Link
+                to="/super-admin"
+                aria-current={isDashboardActive ? "page" : undefined}
+                className="group relative flex min-w-0 flex-1 flex-col items-center justify-end gap-0.5 px-1 pt-1"
+              >
+                <span
+                  className={cn(
+                    "relative flex h-11 w-11 items-center justify-center rounded-full transition-all duration-200",
+                    isDashboardActive
+                      ? "-translate-y-3 bg-primary text-primary-foreground shadow-lg shadow-primary/30 ring-4 ring-background"
+                      : "text-muted-foreground group-active:bg-muted",
+                  )}
+                >
+                  <LayoutDashboard className="h-5 w-5" />
+                </span>
+                <span
+                  className={cn(
+                    "w-full truncate text-center text-[11px] leading-none transition-colors",
+                    isDashboardActive ? "-mt-2 font-semibold text-primary" : "font-medium text-muted-foreground",
+                  )}
+                >
+                  Home
+                </span>
+              </Link>
+
+              {MOBILE_QUICK_GROUPS.map((groupLabel) => {
+                const group = mobileNavGroups.find((g) => g.label === groupLabel);
+                if (!group) return null;
+                const active = activeMobileGroup?.label === group.label && !isDashboardActive;
+                const Icon = group.items[0]?.icon || LayoutGrid;
+                const hasPending = group.label === "Management" && pendingCount > 0;
                 return (
                   <button
                     key={group.label}
@@ -279,24 +310,35 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
                       setMobileMenuOpen(true);
                     }}
                     className={cn(
-                      "group flex min-w-0 flex-col items-center justify-end gap-0.5 px-1 pt-1 text-[10px] font-medium",
+                      "group relative flex min-w-0 flex-1 flex-col items-center justify-end gap-0.5 px-1 pt-1 text-[11px] font-medium",
                       active ? "text-primary" : "text-muted-foreground",
                     )}
                   >
                     <span
                       className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-full transition-all",
+                        "relative flex h-11 w-11 items-center justify-center rounded-full transition-all duration-200",
                         active
-                          ? "-translate-y-2 bg-primary text-primary-foreground shadow-lg shadow-primary/30 ring-4 ring-background"
+                          ? "-translate-y-3 bg-primary text-primary-foreground shadow-lg shadow-primary/30 ring-4 ring-background"
                           : "group-active:bg-muted",
                       )}
                     >
-                      <Icon className="h-4 w-4" />
+                      <Icon className="h-5 w-5" />
+                      {hasPending && (
+                        <span
+                          className={cn(
+                            "absolute -right-1 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold leading-none text-destructive-foreground ring-2",
+                            active ? "ring-background" : "ring-card",
+                          )}
+                        >
+                          {pendingCount > 99 ? "99+" : pendingCount}
+                        </span>
+                      )}
                     </span>
                     <span className={cn("truncate", active && "-mt-2 font-semibold")}>{group.mobileLabel}</span>
                   </button>
                 );
               })}
+
               <button
                 type="button"
                 aria-label="Open more navigation"
@@ -304,17 +346,17 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
                   setShowAllMobileMenus(true);
                   setMobileMenuOpen(true);
                 }}
-                className="group flex min-w-0 flex-col items-center justify-end gap-0.5 px-1 pt-1 text-[10px] font-medium text-muted-foreground"
+                className="group flex min-w-0 flex-1 flex-col items-center justify-end gap-0.5 px-1 pt-1 text-[11px] font-medium text-muted-foreground"
               >
-                <span className="flex h-10 w-10 items-center justify-center rounded-full transition-all group-active:bg-muted">
-                  <Menu className="h-4 w-4" />
+                <span className="flex h-11 w-11 items-center justify-center rounded-full transition-colors group-active:bg-muted">
+                  <Menu className="h-5 w-5" />
                 </span>
                 <span className="truncate">More</span>
               </button>
             </div>
           </nav>
 
-          <SheetContent side="bottom" className="flex max-h-[80vh] flex-col rounded-t-2xl p-0">
+          <SheetContent side="bottom" className="flex max-h-[88vh] flex-col rounded-t-2xl p-0">
             <SheetHeader className="border-b px-4 py-3 text-left">
               <SheetTitle className="flex items-center gap-2 text-base">
                 {showAllMobileMenus ? (
@@ -333,7 +375,7 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
                     onClick={() => setMobileMenuOpen(false)}
                     className={cn(
                       "flex min-h-20 flex-col items-center justify-center gap-1 rounded-xl border px-2 text-center text-xs font-medium transition-colors",
-                      isActive("/super-admin")
+                      isDashboardActive
                         ? "border-primary bg-primary/10 text-primary"
                         : "bg-card text-foreground hover:bg-muted",
                     )}
@@ -342,7 +384,8 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
                     <span>Dashboard</span>
                   </Link>
                   {mobileNavGroups.map((group) => {
-                    const Icon = group.items[0].icon;
+                    const Icon = group.items[0]?.icon || LayoutGrid;
+                    const active = activeMobileGroup?.label === group.label;
                     return (
                       <button
                         key={group.label}
@@ -351,10 +394,20 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
                           setMobileSection(group.label);
                           setShowAllMobileMenus(false);
                         }}
-                        className="flex min-h-20 flex-col items-center justify-center gap-1 rounded-xl border bg-card px-2 text-center text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                        className={cn(
+                          "relative flex min-h-20 flex-col items-center justify-center gap-1 rounded-xl border px-2 text-center text-xs font-medium transition-colors",
+                          active
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "bg-card text-foreground hover:bg-muted",
+                        )}
                       >
                         <Icon className="h-5 w-5" />
                         <span>{group.mobileLabel}</span>
+                        {group.label === "Management" && pendingCount > 0 && (
+                          <span className="absolute right-2 top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold text-destructive-foreground">
+                            {pendingCount > 99 ? "99+" : pendingCount}
+                          </span>
+                        )}
                       </button>
                     );
                   })}
@@ -374,6 +427,11 @@ export function SuperAdminLayout({ children }: { children: React.ReactNode }) {
                     >
                       <item.icon className="h-5 w-5" />
                       <span className="line-clamp-2">{item.title}</span>
+                      {item.url === "/super-admin/tenant-approvals" && pendingCount > 0 && (
+                        <span className="mt-0.5 rounded-full bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground">
+                          {pendingCount > 99 ? "99+" : pendingCount}
+                        </span>
+                      )}
                     </Link>
                   );
                 })

@@ -60,6 +60,7 @@ import { Route as SuperSuperAdminSecurityRouteImport } from './routes/_super.sup
 import { Route as SuperSuperAdminSubscriptionsRouteImport } from './routes/_super.super-admin.subscriptions'
 import { Route as SuperSuperAdminSupportRouteImport } from './routes/_super.super-admin.support'
 import { Route as SuperSuperAdminTenantApprovalsRouteImport } from './routes/_super.super-admin.tenant-approvals'
+import { Route as SuperSuperAdminTransactionsRouteImport } from './routes/_super.super-admin.transactions'
 import { Route as SuperSuperAdminUsersRouteImport } from './routes/_super.super-admin.users'
 import { Route as AppPurchasesIdEditRouteImport } from './routes/_app.purchases.$id.edit'
 import { Route as SuperSuperAdminBusinessesIndexRouteImport } from './routes/_super.super-admin.businesses.index'
@@ -339,6 +340,12 @@ const SuperSuperAdminTenantApprovalsRoute =
     path: '/super-admin/tenant-approvals',
     getParentRoute: () => SuperRoute,
   } as any)
+const SuperSuperAdminTransactionsRoute =
+  SuperSuperAdminTransactionsRouteImport.update({
+    id: '/super-admin/transactions',
+    path: '/super-admin/transactions',
+    getParentRoute: () => SuperRoute,
+  } as any)
 const SuperSuperAdminUsersRoute = SuperSuperAdminUsersRouteImport.update({
   id: '/super-admin/users',
   path: '/super-admin/users',
@@ -496,6 +503,7 @@ export interface FileRoutesByFullPath {
   '/super-admin/subscriptions': typeof SuperSuperAdminSubscriptionsRoute
   '/super-admin/support': typeof SuperSuperAdminSupportRoute
   '/super-admin/tenant-approvals': typeof SuperSuperAdminTenantApprovalsRoute
+  '/super-admin/transactions': typeof SuperSuperAdminTransactionsRoute
   '/super-admin/users': typeof SuperSuperAdminUsersRoute
   '/purchases/': typeof AppPurchasesIndexRoute
   '/super-admin/': typeof SuperSuperAdminIndexRoute
@@ -566,6 +574,7 @@ export interface FileRoutesByTo {
   '/super-admin/subscriptions': typeof SuperSuperAdminSubscriptionsRoute
   '/super-admin/support': typeof SuperSuperAdminSupportRoute
   '/super-admin/tenant-approvals': typeof SuperSuperAdminTenantApprovalsRoute
+  '/super-admin/transactions': typeof SuperSuperAdminTransactionsRoute
   '/super-admin/users': typeof SuperSuperAdminUsersRoute
   '/purchases': typeof AppPurchasesIndexRoute
   '/super-admin': typeof SuperSuperAdminIndexRoute
@@ -639,6 +648,7 @@ export interface FileRoutesById {
   '/_super/super-admin/subscriptions': typeof SuperSuperAdminSubscriptionsRoute
   '/_super/super-admin/support': typeof SuperSuperAdminSupportRoute
   '/_super/super-admin/tenant-approvals': typeof SuperSuperAdminTenantApprovalsRoute
+  '/_super/super-admin/transactions': typeof SuperSuperAdminTransactionsRoute
   '/_super/super-admin/users': typeof SuperSuperAdminUsersRoute
   '/_app/purchases/': typeof AppPurchasesIndexRoute
   '/_super/super-admin/': typeof SuperSuperAdminIndexRoute
@@ -711,6 +721,7 @@ export interface FileRouteTypes {
     | '/super-admin/subscriptions'
     | '/super-admin/support'
     | '/super-admin/tenant-approvals'
+    | '/super-admin/transactions'
     | '/super-admin/users'
     | '/purchases/'
     | '/super-admin/'
@@ -781,6 +792,7 @@ export interface FileRouteTypes {
     | '/super-admin/subscriptions'
     | '/super-admin/support'
     | '/super-admin/tenant-approvals'
+    | '/super-admin/transactions'
     | '/super-admin/users'
     | '/purchases'
     | '/super-admin'
@@ -853,6 +865,7 @@ export interface FileRouteTypes {
     | '/_super/super-admin/subscriptions'
     | '/_super/super-admin/support'
     | '/_super/super-admin/tenant-approvals'
+    | '/_super/super-admin/transactions'
     | '/_super/super-admin/users'
     | '/_app/purchases/'
     | '/_super/super-admin/'
@@ -1251,6 +1264,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SuperSuperAdminTenantApprovalsRouteImport
       parentRoute: typeof SuperRoute
     }
+    '/_super/super-admin/transactions': {
+      id: '/_super/super-admin/transactions'
+      path: '/super-admin/transactions'
+      fullPath: '/super-admin/transactions'
+      preLoaderRoute: typeof SuperSuperAdminTransactionsRouteImport
+      parentRoute: typeof SuperRoute
+    }
     '/_super/super-admin/users': {
       id: '/_super/super-admin/users'
       path: '/super-admin/users'
@@ -1458,6 +1478,7 @@ interface SuperRouteChildren {
   SuperSuperAdminSubscriptionsRoute: typeof SuperSuperAdminSubscriptionsRoute
   SuperSuperAdminSupportRoute: typeof SuperSuperAdminSupportRoute
   SuperSuperAdminTenantApprovalsRoute: typeof SuperSuperAdminTenantApprovalsRoute
+  SuperSuperAdminTransactionsRoute: typeof SuperSuperAdminTransactionsRoute
   SuperSuperAdminUsersRoute: typeof SuperSuperAdminUsersRoute
   SuperSuperAdminIndexRoute: typeof SuperSuperAdminIndexRoute
   SuperSuperAdminCmsCtaRoute: typeof SuperSuperAdminCmsCtaRoute
@@ -1494,6 +1515,7 @@ const SuperRouteChildren: SuperRouteChildren = {
   SuperSuperAdminSubscriptionsRoute: SuperSuperAdminSubscriptionsRoute,
   SuperSuperAdminSupportRoute: SuperSuperAdminSupportRoute,
   SuperSuperAdminTenantApprovalsRoute: SuperSuperAdminTenantApprovalsRoute,
+  SuperSuperAdminTransactionsRoute: SuperSuperAdminTransactionsRoute,
   SuperSuperAdminUsersRoute: SuperSuperAdminUsersRoute,
   SuperSuperAdminIndexRoute: SuperSuperAdminIndexRoute,
   SuperSuperAdminCmsCtaRoute: SuperSuperAdminCmsCtaRoute,
