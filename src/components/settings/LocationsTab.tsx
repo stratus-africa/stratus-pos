@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { Building2, CheckCircle2, Edit, MapPin, Plus, RefreshCw, Store, Warehouse, XCircle } from "lucide-react";
+import {
+  ArrowRightLeft,
+  Building2,
+  CheckCircle2,
+  Edit,
+  MapPin,
+  Plus,
+  RefreshCw,
+  Store,
+  Warehouse,
+  XCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
