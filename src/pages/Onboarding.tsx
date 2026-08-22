@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import ImportMappingDialog from "@/components/products/ImportMappingDialog";
 import { mapProductImportRows, parseProductImportFile } from "@/lib/productImport";
+import { downloadProductOpeningStockTemplate } from "@/lib/productImportTemplate";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -44,6 +45,7 @@ import {
   Wallet,
   Upload,
   FileSpreadsheet,
+  FileDown,
   Eye,
   EyeOff,
 } from "lucide-react";
@@ -314,7 +316,12 @@ const ProductsStep = ({ draft, update }: StepProps) => {
   };
 
   const confirmMapping = (mapping: Record<string, string | null>) => {
-    const importRows = mapProductImportRows(rows, mapping);
+    const importRows = mapProductImportRows(rows, mapping).map((row) => ({
+      ...row,
+      opening_stock_quantity: draft.products.openingStockEnabled ? row.opening_stock_quantity : 0,
+      opening_stock_value: draft.products.openingStockEnabled ? row.opening_stock_value : 0,
+      opening_stock_date: draft.products.openingStockEnabled ? (row.opening_stock_date || draft.products.openingStockDate || null) : null,
+    }));
     if (!importRows.length) {
       toast.error("No product rows with a Name column were found");
       return;
@@ -324,7 +331,7 @@ const ProductsStep = ({ draft, update }: StepProps) => {
     toast.success(`${importRows.length} products ready to import when you finish setup`);
   };
 
-  return <Step title="Set up your products" description="Use the same CSV/Excel importer available in Products. Your catalogue is staged now and created only when your workspace is created.">
+  return <Step title="Set up your products & opening stock" description="Use the same CSV/Excel importer available in Products. You can optionally bring in your opening stock at the same time. Everything is staged until you create your workspace.">
     <div className="grid sm:grid-cols-3 gap-4">{[
       ["empty", "Start empty", "Add products later from Products."],
       ["import", "Import catalogue", "Upload CSV or Excel and map the columns now."],
@@ -333,14 +340,30 @@ const ProductsStep = ({ draft, update }: StepProps) => {
     {draft.products.mode === "import" && <div className="mt-6 rounded-2xl border bg-white p-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div><p className="font-semibold">Product catalogue</p><p className="text-sm text-muted-foreground mt-1">{draft.products.importRows.length ? `${draft.products.importRows.length} products mapped and ready.` : "Upload your CSV, XLSX or XLS file to start."}</p></div>
-        <label className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium cursor-pointer">
-          <Upload className="mr-2 h-4 w-4" /> {reading ? "Reading…" : draft.products.importRows.length ? "Replace file" : "Choose file"}
-          <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFile} disabled={reading} />
-        </label>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" onClick={() => downloadProductOpeningStockTemplate().catch((error) => toast.error(error instanceof Error ? error.message : "Unable to create template"))}>
+            <FileDown className="mr-2 h-4 w-4" /> Download Template
+          </Button>
+          <label className="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium cursor-pointer">
+            <Upload className="mr-2 h-4 w-4" /> {reading ? "Reading…" : draft.products.importRows.length ? "Replace file" : "Choose file"}
+            <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFile} disabled={reading} />
+          </label>
+        </div>
       </div>
-      <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground"><FileSpreadsheet className="h-4 w-4" /> Uses the same column mapping and import fields as Products → Data → Import file.</div>
+      <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground"><FileSpreadsheet className="h-4 w-4" /> Uses the same product column mapping as Products → Data → Import file.</div>
+      <div className="mt-5 rounded-xl border bg-slate-50 p-4">
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" className="mt-1 h-4 w-4 accent-emerald-600" checked={draft.products.openingStockEnabled} onChange={(e) => update("products", { ...draft.products, openingStockEnabled: e.target.checked })} />
+          <span><span className="font-medium">Import opening stock</span><span className="block text-sm text-muted-foreground mt-1">Map Opening Stock Quantity, Opening Stock Value and optionally Opening Stock Date from your file. Stock will be booked to your first location.</span></span>
+        </label>
+        {draft.products.openingStockEnabled && <div className="mt-4 max-w-xs">
+          <Label htmlFor="openingStockDate">Default opening stock date</Label>
+          <Input id="openingStockDate" type="date" value={draft.products.openingStockDate} onChange={(e) => update("products", { ...draft.products, openingStockDate: e.target.value })} className="mt-1 h-10" />
+          <p className="text-xs text-muted-foreground mt-1">Used when a row does not contain its own Opening Stock Date.</p>
+        </div>}
+      </div>
     </div>}
-    <ImportMappingDialog open={mappingOpen} onOpenChange={setMappingOpen} headers={headers} sampleRow={rows[0]} importing={reading} onConfirm={confirmMapping} />
+    <ImportMappingDialog open={mappingOpen} onOpenChange={setMappingOpen} headers={headers} sampleRow={rows[0]} importing={reading} includeOpeningStock={draft.products.openingStockEnabled} onConfirm={confirmMapping} />
   </Step>;
 };
 
@@ -374,7 +397,7 @@ const FinishStep = ({ draft, update }: StepProps) => {
   const selected = plans.find((p) => p.id === draft.plan.packageId);
   return <Step title="Review and create your workspace" description="Choose your starting plan, review the setup, then create your live StratusPOS workspace.">
     <div className="space-y-5">
-      <div className="rounded-2xl border p-5 grid sm:grid-cols-2 gap-4 text-sm"><Summary label="Business" value={draft.business.companyName || "Not set"} /><Summary label="Location" value={draft.location.name || "Not set"} /><Summary label="Products" value={draft.products.mode === "empty" ? "Start empty" : draft.products.mode === "import" ? `${draft.products.importRows.length || 0} products to import` : "Add manually"} /><Summary label="Team" value={`${draft.team.invites.length} planned invite${draft.team.invites.length === 1 ? "" : "s"}`} /><Summary label="M-Pesa" value={draft.payments.mpesaEnabled ? "Enabled" : "Disabled"} /><Summary label="VAT" value={draft.payments.vatEnabled ? `${draft.payments.taxRate}%` : "Disabled"} /></div>
+      <div className="rounded-2xl border p-5 grid sm:grid-cols-2 gap-4 text-sm"><Summary label="Business" value={draft.business.companyName || "Not set"} /><Summary label="Location" value={draft.location.name || "Not set"} /><Summary label="Products" value={draft.products.mode === "empty" ? "Start empty" : draft.products.mode === "import" ? `${draft.products.importRows.length || 0} products${draft.products.openingStockEnabled ? " + opening stock" : ""}` : "Add manually"} /><Summary label="Team" value={`${draft.team.invites.length} planned invite${draft.team.invites.length === 1 ? "" : "s"}`} /><Summary label="M-Pesa" value={draft.payments.mpesaEnabled ? "Enabled" : "Disabled"} /><Summary label="VAT" value={draft.payments.vatEnabled ? `${draft.payments.taxRate}%` : "Disabled"} /></div>
       <div className="space-y-2"><Label>Choose your starting plan</Label><Select value={draft.plan.packageId} onValueChange={(packageId) => update("plan", { packageId })}><SelectTrigger className="h-12"><SelectValue placeholder="Select a plan" /></SelectTrigger><SelectContent>{plans.map((p) => <SelectItem key={p.id} value={p.id}>{p.name} — KES {p.monthly_price_kes.toLocaleString()}/mo{p.trial_days ? ` · ${p.trial_days}-day trial` : ""}</SelectItem>)}</SelectContent></Select><p className="text-xs text-muted-foreground">You can change plans later. Free/trial packages are initialized automatically when the workspace is created.</p></div>
       {selected && <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-4 text-sm text-emerald-800"><CheckCircle2 className="h-4 w-4 inline mr-2" />Selected: <strong>{selected.name}</strong>{selected.trial_days ? ` with a ${selected.trial_days}-day trial.` : "."}</div>}
     </div>

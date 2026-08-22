@@ -67,6 +67,7 @@ import { useFeatureLimit } from "@/components/FeatureGate";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ModuleHeader } from "@/components/modules/ModulePageShell";
 import { mapProductImportRows, parseProductImportFile } from "@/lib/productImport";
+import { downloadProductOpeningStockTemplate } from "@/lib/productImportTemplate";
 
 const Products = () => {
   const [onlyMissingBarcode, setOnlyMissingBarcode] = useState(false);
@@ -307,50 +308,12 @@ const Products = () => {
     new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(amount);
 
   const downloadTemplate = async () => {
-    const XLSX = await import("xlsx");
-    const sample = [
-      {
-        Name: "Maize Flour 2kg",
-        SKU: "MF-2KG",
-        Barcode: "6901234567890",
-        Category: "Flour",
-        Brand: "Jogoo",
-        Unit: "Pieces",
-        "Purchase Price": 120,
-        "Selling Price": 150,
-        "Tax Rate": 16,
-        Active: "Yes",
-      },
-      {
-        Name: "Sugar 1kg",
-        SKU: "SG-1KG",
-        Barcode: "6907654321098",
-        Category: "Sugar",
-        Brand: "Mumias",
-        Unit: "Pieces",
-        "Purchase Price": 140,
-        "Selling Price": 180,
-        "Tax Rate": 16,
-        Active: "Yes",
-      },
-    ];
-    const ws = XLSX.utils.json_to_sheet(sample);
-    ws["!cols"] = [
-      { wch: 20 },
-      { wch: 10 },
-      { wch: 15 },
-      { wch: 12 },
-      { wch: 10 },
-      { wch: 10 },
-      { wch: 14 },
-      { wch: 14 },
-      { wch: 10 },
-      { wch: 8 },
-    ];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Template");
-    XLSX.writeFile(wb, "product_import_template.csv", { bookType: "csv" });
-    toast.success("Template downloaded");
+    try {
+      await downloadProductOpeningStockTemplate();
+      toast.success("Product + opening stock template downloaded");
+    } catch (err: any) {
+      toast.error(`Unable to create template: ${err?.message || "Unknown error"}`);
+    }
   };
 
   const exportProducts = async (format: "csv" | "xlsx") => {
@@ -445,7 +408,7 @@ const Products = () => {
               <DropdownMenuContent align="end" className="w-52">
                 <DropdownMenuLabel>Import</DropdownMenuLabel>
                 <DropdownMenuItem onClick={downloadTemplate}>
-                  <FileDown className="mr-2 h-4 w-4" /> Download template
+                  <FileDown className="mr-2 h-4 w-4" /> Download Template
                 </DropdownMenuItem>
                 <DropdownMenuItem disabled={importing} onClick={() => fileInputRef.current?.click()}>
                   <Upload className="mr-2 h-4 w-4" /> Import file
