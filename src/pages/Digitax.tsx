@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useEntitlement } from "@/hooks/useEntitlement";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,8 @@ const STATUS_STYLE: Record<string, string> = {
   submitted: "bg-emerald-100 text-emerald-700",
   retry_required: "bg-amber-100 text-amber-800",
   failed: "bg-red-100 text-red-700",
+  validation_failed: "bg-red-100 text-red-700",
+  accepted: "bg-emerald-100 text-emerald-700",
   skipped: "bg-muted text-muted-foreground",
 };
 
@@ -22,6 +25,8 @@ const DigitaxPage = () => {
   const queueQ = useDigitaxQueue();
   const logsQ = useDigitaxLogs();
   const retry = useRetryDigitaxItem();
+  const { hasFeature } = useEntitlement();
+  const canRetry = hasFeature("digitax", "retry");
 
   const stats = useMemo(() => {
     const rows = queueQ.data ?? [];
@@ -96,7 +101,7 @@ const DigitaxPage = () => {
                       <TableCell>{String(r.retry_count ?? 0)}</TableCell>
                       <TableCell className="max-w-xs truncate text-xs text-muted-foreground">{r.error_message as string ?? "—"}</TableCell>
                       <TableCell>
-                        {(r.status === "failed" || r.status === "retry_required") && (
+                        {canRetry && (r.status === "failed" || r.status === "retry_required") && (
                           <Button size="sm" variant="outline" onClick={() => retry.mutate(r.id as string)}>
                             <RefreshCw className="h-3 w-3 mr-1" /> Retry
                           </Button>
