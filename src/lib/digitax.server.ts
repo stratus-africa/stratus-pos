@@ -53,6 +53,19 @@ export async function submitToDigitax(
     .select('*, products(name, kra_item_code, hs_code, tax_category)')
     .eq('sale_id', sale.id);
 
+  let original_invoice_number: string | undefined;
+  if (body.original_sale_id) {
+    const { data: originalSale } = await admin.from('sales').select('invoice_number').eq('id', body.original_sale_id).maybeSingle();
+    original_invoice_number = originalSale?.invoice_number ?? undefined;
+  }
+
+  const { data: paymentRows } = await admin.from('payments').select('method, amount').eq('sale_id', sale.id);
+  const paymentMethods = (paymentRows ?? []).map((r: any) => String(r.method ?? '').toLowerCase());
+  const payment_type_code = paymentMethods.some((m: string) => m === 'mpesa' || m === 'mobile_money') ? '06'
+    : paymentMethods.some((m: string) => m === 'card') ? '05'
+    : paymentMethods.some((m: string) => m === 'credit') ? '02'
+    : paymentMethods.length ? '01' : '07';
+
   const payload = {
     business_id: sale.business_id,
     sale_id: sale.id,
@@ -70,6 +83,10 @@ export async function submitToDigitax(
     items: (items ?? []).map((it: any) => ({
       name: it.products?.name ?? 'Item',
       kra_item_code: it.products?.kra_item_code ?? null,
+      item_classification: it.products?.item_classification ?? null,
+      quantity_unit: it.products?.quantity_unit ?? null,
+      packaging_unit: it.products?.packaging_unit ?? null,
+      country_of_origin: it.products?.country_of_origin ?? null,
       hs_code: it.products?.hs_code ?? null,
       tax_category: it.products?.tax_category ?? null,
       quantity: Number(it.quantity),
@@ -83,6 +100,8 @@ export async function submitToDigitax(
     total: Number(sale.total),
     currency: settings.default_currency ?? 'KES',
     issued_at: sale.created_at,
+    payment_type_code,
+    original_invoice_number,
   };
 
   // Server-side KRA field validation — never call the provider without required fields
@@ -174,12 +193,28 @@ export interface DigitaxTestConnectionResult {
 }
 
 export async function testDigitaxConnection(
+  admin: SupabaseClient,
+  userId: string,
   body: DigitaxTestConnectionInput,
 ): Promise<DigitaxTestConnectionResult> {
   const provider = body.provider ?? 'mock';
-  if (provider === 'mock') {
-    return { ok: true, message: 'Mock DigiTax sandbox reachable (simulated)' };
+  if (provider === 'mock') return { ok: true, message: 'Mock DigiTax sandbox reachable (simulated)' };
+
+  const { data: profile } = await admin.from('profiles').select('business_id').eq('id', userId).maybeSingle();
+  if (!profile?.business_id) return { ok: false, message: 'Business profile not found' };
+  const { data: settings } = await admin.from('digitax_settings').select('environment,business_pin').eq('business_id', profile.business_id).maybeSingle();
+  if (!settings?.business_pin) return { ok: false, message: 'Business KRA PIN is required' };
+  const { data: apiKey, error } = await admin.rpc('digitax_get_api_key', { _business_id: profile.business_id });
+  if (error) return { ok: false, message: error.message };
+  if (!apiKey) return { ok: false, message: 'DigiTax API key is not configured' };
+
+  const base = 'https://api.digitax.tech/ke/v2';
+  try {
+    const res = await fetch(`${base}/etims-info`, { headers: { 'X-API-Key': String(apiKey) } });
+    const text = await res.text();
+    if (!res.ok) return { ok: false, message: `DigiTax ${res.status}: ${text}` };
+    return { ok: true, message: `DigiTax ${settings.environment} connection verified` };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }
-  // For the real provider, we'd hit /health with the stored API key.
-  return { ok: true, message: 'DigiTax provider connected (stubbed)' };
 }

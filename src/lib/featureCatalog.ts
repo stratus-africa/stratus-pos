@@ -390,6 +390,23 @@ export const FEATURE_CATALOG: FeatureDefinition[] = [
   f("reports", "export", "Export Reports", "Export reports and datasets.", "export", "medium"),
   f("reports", "schedule", "Schedule Reports", "Schedule recurring report delivery.", "automation", "medium"),
 
+  // M-Pesa
+  f("mpesa", "view", "View M-Pesa", "Access M-Pesa transactions and reconciliation.", "overview"),
+  f("mpesa", "view_transactions", "View M-Pesa Transactions", "View M-Pesa transaction records.", "transactions"),
+  f("mpesa", "stk_push", "Send STK Push", "Request an M-Pesa customer payment prompt.", "payments", "high"),
+  f("mpesa", "sms_inbox", "View Incoming SMS", "View incoming M-Pesa payment messages.", "incoming_payments"),
+  f("mpesa", "reconcile", "Reconcile M-Pesa", "Reconcile incoming M-Pesa payments.", "reconciliation", "high"),
+  f("mpesa", "auto_reconcile", "Auto-Reconcile M-Pesa", "Automatically match M-Pesa messages to transactions.", "reconciliation", "high"),
+  f("mpesa", "manual_match", "Manually Match M-Pesa", "Match a payment to an outstanding sale.", "reconciliation", "high"),
+  f("mpesa", "refund", "Refund M-Pesa", "Initiate an M-Pesa reversal/refund where supported.", "refunds", "critical"),
+  f("mpesa", "settings", "Configure M-Pesa", "Configure M-Pesa credentials and account settings.", "configuration", "critical"),
+
+  // Tax / eTIMS
+  f("digitax", "view", "View Tax Compliance", "View eTIMS fiscalisation status and logs.", "overview"),
+  f("digitax", "submit", "Submit to eTIMS", "Fiscalise sales and credit notes through DigiTax.", "compliance", "critical"),
+  f("digitax", "retry", "Retry eTIMS Submission", "Retry failed eTIMS submissions.", "compliance", "high"),
+  f("digitax", "settings", "Configure eTIMS", "Configure DigiTax/eTIMS settings.", "configuration", "critical"),
+
   // Settings
   f("settings", "business_view", "View Business Settings", "View business configuration.", "business"),
   f("settings", "business_edit", "Edit Business Details", "Edit business identity and details.", "business", "high"),

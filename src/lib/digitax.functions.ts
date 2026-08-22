@@ -26,7 +26,8 @@ const digitaxTestConnectionSchema = z.object({
 export const digitaxTestConnection = createServerFn({ method: 'POST' })
   .middleware([requireSupabaseAuth])
   .inputValidator(digitaxTestConnectionSchema)
-  .handler(async ({ data }): Promise<DigitaxTestConnectionResult> => {
+  .handler(async ({ data, context }): Promise<DigitaxTestConnectionResult> => {
+    const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
     const { testDigitaxConnection } = await import('./digitax.server');
-    return testDigitaxConnection(data);
+    return testDigitaxConnection(supabaseAdmin, context.userId, data);
   });
