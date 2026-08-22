@@ -257,6 +257,81 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "stk-test") {
+      const { phoneNumber } = body;
+      if (!phoneNumber) return jsonRes({ error: "phoneNumber is required" }, 400);
+      const msisdn = formatPhoneNumber(String(phoneNumber));
+      if (!isValidKenyanPhone(msisdn)) return jsonRes({ error: "Enter a valid Kenyan mobile number, e.g. 07XX XXX XXX" }, 400);
+
+      const { data: profile } = await supabase.from("profiles").select("business_id").eq("id", userId).maybeSingle();
+      const { data: isSuperAdmin } = await supabase.rpc("is_super_admin", { _user_id: userId });
+      if (!profile?.business_id && !isSuperAdmin) return jsonRes({ error: "Your account is not linked to a business" }, 403);
+      const businessId = profile?.business_id;
+      if (!businessId) return jsonRes({ error: "A business is required for the STK test" }, 400);
+
+      const { data: stkEnabled, error: entitlementError } = await supabase.rpc("business_has_mpesa_feature", {
+        _business_id: businessId,
+        _feature_key: "mpesa.stk_push",
+      });
+      if (entitlementError) throw entitlementError;
+      if (!stkEnabled) return jsonRes({ error: "M-Pesa STK Push is not enabled for this business plan" }, 403);
+
+      const config = await loadBusinessMpesaConfig(businessId);
+      const result = await initiateSTKPush(
+        {
+          phoneNumber: msisdn,
+          amount: 1,
+          accountReference: "STRATUS-TEST",
+          transactionDesc: "StratusPOS M-Pesa test",
+          callbackUrl: `${callbackBaseUrl}/mpesa-callback?type=stk-test`,
+          accountType: config.accountType,
+        },
+        config.environment,
+        config.creds,
+      );
+
+      const { error: insertError } = await supabase.from("mpesa_transactions").insert({
+        business_id: businessId,
+        phone_number: msisdn,
+        amount: 1,
+        type: "stk_test",
+        status: "pending",
+        checkout_request_id: result.CheckoutRequestID,
+        merchant_request_id: result.MerchantRequestID,
+        created_by: userId,
+      });
+      if (insertError) throw insertError;
+
+      return jsonRes({ success: true, checkoutRequestId: result.CheckoutRequestID, merchantRequestId: result.MerchantRequestID });
+    }
+
+    if (action === "stk-test-query") {
+      const { checkoutRequestId } = body;
+      if (!checkoutRequestId) return jsonRes({ error: "checkoutRequestId is required" }, 400);
+      const { data: transaction } = await supabase.from("mpesa_transactions").select("business_id,status,mpesa_receipt_number,result_description").eq("checkout_request_id", checkoutRequestId).maybeSingle();
+      if (!transaction) return jsonRes({ status: "failed", message: "Test transaction was not found" }, 404);
+      const { data: profile } = await supabase.from("profiles").select("business_id").eq("id", userId).maybeSingle();
+      const { data: isSuperAdmin } = await supabase.rpc("is_super_admin", { _user_id: userId });
+      if (profile?.business_id !== transaction.business_id && !isSuperAdmin) return jsonRes({ error: "Forbidden" }, 403);
+
+      if (transaction.status === "completed") return jsonRes({ status: "success", receipt: transaction.mpesa_receipt_number });
+      if (transaction.status === "failed") return jsonRes({ status: "failed", message: transaction.result_description || "The test payment failed" });
+
+      const config = await loadBusinessMpesaConfig(transaction.business_id);
+      const result = await querySTKPushStatus(checkoutRequestId, config.environment, config.creds);
+      const resultCode = Number(result.ResultCode);
+      if (resultCode === 0) {
+        const receipt = result.CallbackMetadata?.Item?.find((item: any) => item.Name === "MpesaReceiptNumber")?.Value || null;
+        await supabase.from("mpesa_transactions").update({ status: "completed", result_code: 0, result_description: result.ResultDesc || "Success", mpesa_receipt_number: receipt }).eq("checkout_request_id", checkoutRequestId);
+        return jsonRes({ status: "success", receipt });
+      }
+      if (result.ResultCode != null && resultCode !== 1037) {
+        await supabase.from("mpesa_transactions").update({ status: "failed", result_code: resultCode, result_description: result.ResultDesc || "Test payment failed" }).eq("checkout_request_id", checkoutRequestId);
+        return jsonRes({ status: "failed", message: result.ResultDesc || "The test payment failed" });
+      }
+      return jsonRes({ status: "pending", message: "Waiting for the customer to complete the prompt" });
+    }
+
     if (action === "stk-query") {
       const { checkoutRequestId, businessId } = body;
       if (!checkoutRequestId) {
@@ -328,7 +403,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    return new Response(JSON.stringify({ error: "Invalid action. Use stk-push, stk-query, or b2c." }), {
+    return new Response(JSON.stringify({ error: "Invalid action. Use stk-push, stk-query, stk-test, stk-test-query, or b2c." }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
