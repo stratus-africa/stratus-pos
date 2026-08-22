@@ -456,11 +456,11 @@ const Inventory = () => {
         title="Inventory"
         description="Stock levels, adjustments, and inventory health across your locations."
         primaryAction={
-          {canAdjustStock && (
+          canAdjustStock && (
             <Button onClick={() => setAdjDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" /> Adjust Stock
             </Button>
-          )}
+          )
         }
         statusBadge={<Badge variant="secondary">Operational</Badge>}
       />
