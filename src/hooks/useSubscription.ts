@@ -14,6 +14,7 @@ import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useEntitlement } from "@/hooks/useEntitlement";
 import { findModule, moduleKeys } from "@/lib/modules";
 import { resolvePreferredSubscription } from "@/lib/subscriptionPlan";
 
@@ -105,6 +106,14 @@ export function resolveModuleEntitlement({
 export function useSubscription() {
   const { user } = useAuth();
   const { business, refreshBusiness } = useBusiness();
+  const {
+    hasModule: canonicalHasModule,
+    hasFeatureKey: canonicalHasFeatureKey,
+    planModules,
+    plan,
+    isLoading: entitlementLoading,
+    entitlementError,
+  } = useEntitlement();
   const queryClient = useQueryClient();
 
   const planUserId = business?.owner_id || user?.id || null;
@@ -287,31 +296,31 @@ export function useSubscription() {
     });
   }
 
-  // ── Legacy hasModule — delegates to enabledModules derived above ─────────────
-  const hasModule = (key: string): boolean =>
-    resolveModuleEntitlement({ isActive, currentPackage, enabledModules, key });
-
-  const hasFeatureKey = (key: string): boolean => hasModule(key);
+  // ── Legacy compatibility facade ────────────────────────────────────────────
+  // Module/feature entitlement is owned exclusively by useEntitlement().
+  // Billing state remains owned by this hook.
+  const hasModule = (key: string): boolean => canonicalHasModule(key);
+  const hasFeatureKey = (key: string): boolean => canonicalHasFeatureKey(key);
   const tier: SubscriptionTier = isActive ? "pro" : "free";
   const hasFeature = (_requiredTier: SubscriptionTier): boolean => isActive;
 
   return {
     subscription,
-    isLoading: subLoading || pkgLoading,
+    isLoading: subLoading || pkgLoading || entitlementLoading,
     isActive,
     tier,
     hasFeature,
     hasFeatureKey,
     hasModule,
-    enabledModules,
-    enabledFeatureKeys: enabledModules,
-    currentPackage,
+    enabledModules: new Set(planModules),
+    enabledFeatureKeys: new Set(planModules),
+    currentPackage: (plan as SubscriptionPackage | null) ?? currentPackage,
     packageResolved,
     packageError,
     packageMatchCandidates: packageId ? [packageId] : [],
     subscriptionError,
     featuresError: packageFeaturesError,
-    error: packageError || subscriptionError || packageFeaturesError || null,
+    error: entitlementError || packageError || subscriptionError || packageFeaturesError || null,
     maxProducts: currentPackage?.max_products ?? 0,
     maxLocations: currentPackage?.max_locations ?? 1,
     maxUsers: currentPackage?.max_users ?? 1,
