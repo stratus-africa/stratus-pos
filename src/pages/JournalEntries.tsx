@@ -1,11 +1,22 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Plus, Trash2, BookOpen, ChevronDown, ChevronRight } from "lucide-react";
 import { useJournalEntries, JournalEntryLine } from "@/hooks/useJournalEntries";
 import { JournalEntryDialog } from "@/components/accounting/JournalEntryDialog";
@@ -13,7 +24,17 @@ import { Link } from "@/lib/router-compat";
 
 export default function JournalEntries() {
   const { business } = useBusiness();
+  const { hasPermission } = usePermissions();
   const { query, getLines, remove } = useJournalEntries();
+
+  const canCreate = hasPermission("manual_journals.create");
+  const canDelete = hasPermission("manual_journals.delete");
+  const canViewPosted = hasPermission("manual_journals.view_posted");
+  const canSubmit = hasPermission("manual_journals.submit");
+  const canApprove = hasPermission("manual_journals.approve");
+  const canPost = hasPermission("manual_journals.post");
+  const canReverse = hasPermission("manual_journals.reverse");
+  const canExport = hasPermission("manual_journals.export");
   const [accounts, setAccounts] = useState<{ id: string; code: string; name: string; type: string }[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -58,7 +79,29 @@ export default function JournalEntries() {
           <Link to="/chart-of-accounts">
             <Button variant="outline">Chart of Accounts</Button>
           </Link>
-          <Button onClick={() => setDialogOpen(true)} disabled={accounts.length < 2}>
+          {canExport && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                const header = "Date,Reference,Description,Total,Status";
+                const rows = entries.map((e) =>
+                  [e.date, e.reference || "", e.description || "", e.total, e.status]
+                    .map((v) => `"${String(v).replaceAll('"', '""')}"`)
+                    .join(","),
+                );
+                const blob = new Blob([[header, ...rows].join("\n")], { type: "text/csv;charset=utf-8" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "journal-entries.csv";
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              Export
+            </Button>
+          )}
+          <Button onClick={() => setDialogOpen(true)} disabled={!canCreate || accounts.length < 2}>
             <Plus className="h-4 w-4 mr-1" /> New Entry
           </Button>
         </div>
@@ -72,7 +115,9 @@ export default function JournalEntries() {
           {query.isLoading ? (
             <p className="p-6 text-sm text-muted-foreground">Loading...</p>
           ) : entries.length === 0 ? (
-            <p className="p-6 text-sm text-muted-foreground">No journal entries yet. Create one to record adjustments, transfers, or accruals.</p>
+            <p className="p-6 text-sm text-muted-foreground">
+              No journal entries yet. Create one to record adjustments, transfers, or accruals.
+            </p>
           ) : (
             <Table>
               <TableHeader>
@@ -92,30 +137,49 @@ export default function JournalEntries() {
                     <TableRow key={e.id} className={idx % 2 === 0 ? "" : "bg-muted/30"}>
                       <TableCell>
                         <Button size="icon" variant="ghost" onClick={() => toggleExpand(e.id)}>
-                          {expanded === e.id ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                          {expanded === e.id ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
                         </Button>
                       </TableCell>
                       <TableCell>{new Date(e.date).toLocaleDateString()}</TableCell>
                       <TableCell className="font-mono text-sm">{e.reference || "—"}</TableCell>
                       <TableCell className="text-sm">{e.description || "—"}</TableCell>
                       <TableCell className="text-right font-mono">{fmt(e.total)}</TableCell>
-                      <TableCell><Badge variant="outline" className="capitalize">{e.status}</Badge></TableCell>
                       <TableCell>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button size="icon" variant="ghost"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete journal entry?</AlertDialogTitle>
-                              <AlertDialogDescription>This will remove the entry and all its lines. This cannot be undone.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => remove.mutate(e.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        <Badge variant="outline" className="capitalize">
+                          {e.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {canDelete && e.status === "draft" && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button size="icon" variant="ghost">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete journal entry?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will remove the entry and all its lines. This cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => remove.mutate(e.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
                       </TableCell>
                     </TableRow>
                     {expanded === e.id && (
@@ -135,12 +199,20 @@ export default function JournalEntries() {
                                 {(lines[e.id] || []).map((l) => (
                                   <TableRow key={l.id}>
                                     <TableCell className="text-sm">
-                                      <span className="font-mono text-xs text-muted-foreground mr-2">{l.chart_of_accounts?.code}</span>
+                                      <span className="font-mono text-xs text-muted-foreground mr-2">
+                                        {l.chart_of_accounts?.code}
+                                      </span>
                                       {l.chart_of_accounts?.name}
                                     </TableCell>
-                                    <TableCell className="text-sm text-muted-foreground">{l.description || "—"}</TableCell>
-                                    <TableCell className="text-right font-mono">{l.debit > 0 ? fmt(l.debit) : ""}</TableCell>
-                                    <TableCell className="text-right font-mono">{l.credit > 0 ? fmt(l.credit) : ""}</TableCell>
+                                    <TableCell className="text-sm text-muted-foreground">
+                                      {l.description || "—"}
+                                    </TableCell>
+                                    <TableCell className="text-right font-mono">
+                                      {l.debit > 0 ? fmt(l.debit) : ""}
+                                    </TableCell>
+                                    <TableCell className="text-right font-mono">
+                                      {l.credit > 0 ? fmt(l.credit) : ""}
+                                    </TableCell>
                                   </TableRow>
                                 ))}
                               </TableBody>
