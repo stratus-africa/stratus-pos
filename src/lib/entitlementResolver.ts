@@ -34,10 +34,7 @@ const isAlwaysEntitledCoreModule = (moduleKey: string) =>
  * plan-level availability from the Plans/Modules UI.
  */
 export async function getGloballyEnabledModuleKeys(): Promise<Set<string>> {
-  const { data, error } = await supabase
-    .from("module_features")
-    .select("module_key")
-    .eq("is_active", true);
+  const { data, error } = await supabase.from("module_features").select("module_key").eq("is_active", true);
 
   if (error) throw error;
 
@@ -131,7 +128,7 @@ export type EntitlementResolutionStatus =
 
 export async function resolveBusinessEntitlement(input: {
   business?: { id?: string | null; owner_id?: string | null; selected_package_id?: string | null } | null;
-  activeSubscription?: any | null;
+  activeSubscription?: Record<string, unknown> | null;
 }) {
   const business = input.business ?? null;
   const activeSubscription = input.activeSubscription ?? null;
@@ -373,8 +370,10 @@ export async function checkFeatureAccess(
       .eq("package_id", planId)
       .in("feature_key", [featureKey, `${moduleKey}.${featureKey}`]);
 
-    const explicit = (planFeatureRows || []).find((row: any) => row.feature_key === featureKey);
-    const moduleFeature = (planFeatureRows || []).find((row: any) => row.feature_key === `${moduleKey}.${featureKey}`);
+    const explicit = (planFeatureRows || []).find((row: { feature_key: string }) => row.feature_key === featureKey);
+    const moduleFeature = (planFeatureRows || []).find(
+      (row: { feature_key: string }) => row.feature_key === `${moduleKey}.${featureKey}`,
+    );
     if (explicit) planFeatureAllowed = Boolean(explicit.enabled);
     else if (moduleFeature) planFeatureAllowed = Boolean(moduleFeature.enabled);
   }
