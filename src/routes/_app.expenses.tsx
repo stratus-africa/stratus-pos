@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { FeatureGate } from "@/components/FeatureGate";
 import { PermissionGuard } from "@/components/routing/helpers";
-import ChartOfAccounts from "@/pages/ChartOfAccounts";
+import Expenses from "@/pages/Expenses";
 
 export const Route = createFileRoute("/_app/expenses")({
   component: RouteComponent,
@@ -9,9 +9,9 @@ export const Route = createFileRoute("/_app/expenses")({
 
 function RouteComponent() {
   return (
-    <PermissionGuard moduleKey="accounting" route="/chart-of-accounts" permission="chart_of_accounts.view">
-      <FeatureGate moduleKey="chart_of_accounts">
-        <ChartOfAccounts />
+    <PermissionGuard moduleKey="expenses" route="/expenses" permission="expenses.view">
+      <FeatureGate moduleKey="expenses">
+        <Expenses />
       </FeatureGate>
     </PermissionGuard>
   );
