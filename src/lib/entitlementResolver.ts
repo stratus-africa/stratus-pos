@@ -34,10 +34,7 @@ const isAlwaysEntitledCoreModule = (moduleKey: string) =>
  * plan-level availability from the Plans/Modules UI.
  */
 export async function getGloballyEnabledModuleKeys(): Promise<Set<string>> {
-  const { data, error } = await supabase
-    .from("module_features")
-    .select("module_key")
-    .eq("is_active", true);
+  const { data, error } = await supabase.from("module_features").select("module_key").eq("is_active", true);
 
   if (error) throw error;
 
