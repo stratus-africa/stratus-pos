@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { toast } from "sonner";
 
 export function usePurchaseLifecycle(purchaseId?: string) {
@@ -23,7 +24,7 @@ export function usePurchaseLifecycle(purchaseId?: string) {
     mutationFn: async () => {
       if (!purchaseId) throw new Error("Purchase is required");
       if (!hasPermission("purchases.approve")) throw new Error("Missing permission: purchases.approve");
-      const { data, error } = await supabase.rpc("approve_purchase", { _purchase_id: purchaseId, _note: null });
+      const { data, error } = await supabase.rpc("approve_purchase", { _purchase_id: purchaseId, _note: undefined });
       if (error) throw error;
       return data;
     },
@@ -52,7 +53,7 @@ export function usePurchaseLifecycle(purchaseId?: string) {
       if (!purchaseId) throw new Error("Purchase is required");
       if (!hasPermission("purchases.return")) throw new Error("Missing permission: purchases.return");
       const reason = window.prompt("Reason for supplier return (optional)") || null;
-      const { data, error } = await supabase.rpc("create_purchase_return", { _purchase_id: purchaseId, _reason: reason });
+      const { data, error } = await supabase.rpc("create_purchase_return", { _purchase_id: purchaseId, _reason: reason ?? undefined });
       if (error) throw error;
       return data;
     },

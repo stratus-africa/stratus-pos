@@ -33,7 +33,7 @@ export function useAccountingPeriods(businessId?: string) {
         .eq("business_id", businessId!)
         .order("period_start", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as AccountingPeriod[];
+      return (data ?? []) as unknown as AccountingPeriod[];
     },
   });
 
