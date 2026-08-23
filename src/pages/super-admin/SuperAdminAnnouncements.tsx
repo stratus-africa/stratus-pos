@@ -153,8 +153,9 @@ export default function SuperAdminAnnouncements() {
       body: draft.body.trim(),
       version_label: draft.version_label.trim() || null,
       is_active: draft.is_active,
-      starts_at: zonedToUtc(draft.starts_at, draft.schedule_timezone),
+      starts_at: zonedToUtc(draft.starts_at, draft.schedule_timezone) || new Date().toISOString(),
       ends_at: zonedToUtc(draft.ends_at, draft.schedule_timezone),
+      target_all: true,
       schedule_timezone: draft.schedule_timezone,
       action_type: draft.action_type,
     };
