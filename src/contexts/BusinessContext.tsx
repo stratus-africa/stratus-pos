@@ -50,8 +50,6 @@ interface BusinessContextType {
   refreshBusiness: () => Promise<void>;
   userRole: AppRole | null;
   hasAccess: (requiredRoles: AppRole[]) => boolean;
-  isMasquerading: boolean;
-  stopMasquerade: () => void;
 }
 
 const BusinessContext = createStableContext<BusinessContextType | undefined>("business", undefined);
@@ -65,7 +63,6 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [userRole, setUserRole] = useState<AppRole | null>(null);
   const [isSuspended, setIsSuspended] = useState(false);
-  const [isMasquerading, setIsMasquerading] = useState(false);
   const [subscriptionEndsAt, setSubscriptionEndsAt] = useState<Date | null>(null);
   const [subscriptionExpired, setSubscriptionExpired] = useState(false);
 
@@ -78,7 +75,6 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setNeedsOnboarding(false);
       setUserRole(null);
       setIsSuspended(false);
-      setIsMasquerading(false);
       setSubscriptionEndsAt(null);
       setSubscriptionExpired(false);
       setPostingState({ expired: false, endsAt: null });
@@ -86,23 +82,9 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     try {
-      // Check for masquerade mode (super admin viewing as another business)
-      const masqueradeId = localStorage.getItem("masquerade_business_id");
-
       let businessId: string | null = null;
 
-      if (masqueradeId) {
-        // Verify user is super admin
-        const { data: isSA } = await supabase.rpc("is_super_admin", { _user_id: user.id });
-        if (isSA) {
-          businessId = masqueradeId;
-          setIsMasquerading(true);
-        } else {
-          localStorage.removeItem("masquerade_business_id");
-        }
-      }
-
-      if (!businessId) {
+      {
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("business_id")
@@ -129,7 +111,6 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           roleRow?.business_id ?? null,
           ownedBusiness?.id ?? null,
         );
-        setIsMasquerading(false);
 
         if (!profileError && !profile && businessId) {
           await supabase.from("profiles").upsert({ id: user.id, business_id: businessId }, { onConflict: "id" });
@@ -188,10 +169,6 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             // No subscription record → treat as expired unless business is active.
             expired = true;
           }
-        }
-        // Business-level active status reactivates all features.
-        if (biz.is_active === true) {
-          expired = false;
         }
         setSubscriptionEndsAt(endsAt);
         setSubscriptionExpired(expired);
@@ -264,15 +241,8 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const hasAccess = (requiredRoles: AppRole[]) => {
-    if (isMasquerading) return true; // Super admin has full access when masquerading
     if (!userRole) return false;
     return requiredRoles.includes(userRole);
-  };
-
-  const stopMasquerade = () => {
-    localStorage.removeItem("masquerade_business_id");
-    setIsMasquerading(false);
-    fetchBusiness();
   };
 
   // fetchBusiness is memoized so consumers such as useSubscription can safely
@@ -296,10 +266,8 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         createBusiness,
         refreshBusiness: fetchBusiness,
-        userRole: isMasquerading ? "admin" : userRole,
+        userRole,
         hasAccess,
-        isMasquerading,
-        stopMasquerade,
       }}
     >
       {children}
@@ -329,8 +297,6 @@ export const useOptionalBusiness = () => {
       refreshBusiness: async () => {},
       userRole: null,
       hasAccess: (_requiredRoles: AppRole[]) => false,
-      isMasquerading: false,
-      stopMasquerade: () => {},
     } satisfies BusinessContextType;
   }
   return context;
