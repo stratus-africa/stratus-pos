@@ -25,6 +25,7 @@ export async function handleStartSupportSession(
   body: StartSupportSessionInput,
 ) {
   const db = admin as any;
+  if (superAdminId === body.target_user_id) throw new Error("A Super Admin cannot impersonate their own account");
   const [{ data: business, error: businessError }, { data: targetRole, error: roleError }] = await Promise.all([
     db.from("businesses").select("id, name, is_active").eq("id", body.business_id).maybeSingle(),
     db
@@ -42,6 +43,9 @@ export async function handleStartSupportSession(
   if (!business.is_active) throw new Error("Cannot enter support mode for a suspended tenant");
   if (!targetRole) throw new Error("The selected user is not a tenant administrator for this business");
 
+  const { data: targetSuperAdmin } = await db.from("super_admins").select("user_id").eq("user_id", body.target_user_id).maybeSingle();
+  if (targetSuperAdmin) throw new Error("Super Admin accounts cannot be impersonated");
+
   const { data: profile, error: profileError } = await db
     .from("profiles")
     .select("id, email, full_name, business_id, is_active")
@@ -51,6 +55,10 @@ export async function handleStartSupportSession(
   if (profileError) throw new Error(profileError.message);
   if (!profile?.email) throw new Error("Tenant administrator email could not be resolved");
   if (profile.is_active === false) throw new Error("The selected tenant administrator is inactive");
+
+  const { data: authTarget, error: authTargetError } = await admin.auth.admin.getUserById(body.target_user_id);
+  if (authTargetError || !authTarget?.user?.email) throw new Error("Tenant administrator authentication account could not be resolved");
+  if (authTarget.user.email.toLowerCase() !== profile.email.toLowerCase()) throw new Error("Tenant administrator identity mismatch");
 
   // Only one live support session per target user. Revoke previous sessions first.
   await db
@@ -79,7 +87,7 @@ export async function handleStartSupportSession(
   // the support tab with verifyOtp; the Super Admin's own session stays intact.
   const { data: link, error: linkError } = await admin.auth.admin.generateLink({
     type: "magiclink",
-    email: profile.email,
+    email: authTarget.user.email,
   });
 
   if (linkError || !link?.properties?.hashed_token) {
@@ -130,7 +138,8 @@ export async function handleGetSupportSession(admin: SupabaseClient, targetUserI
       await db
         .from("support_sessions")
         .update({ status: "expired", ended_at: new Date().toISOString() })
-        .eq("id", supportSessionId);
+        .eq("id", supportSessionId)
+        .eq("status", "active");
     }
     throw new Error("Support session has expired");
   }

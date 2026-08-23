@@ -724,10 +724,7 @@ export async function handleUpdateSubscriptionPlan(admin: SupabaseClient, body: 
 }
 
 export const deleteSubscriptionPlanInputSchema = z.object({ packageId: z.string().uuid() });
-export async function handleDeleteSubscriptionPlan(
-  admin: SupabaseClient,
-  body: z.infer<typeof deleteSubscriptionPlanInputSchema>,
-) {
+export async function handleDeleteSubscriptionPlan(admin: SupabaseClient, body: z.infer<typeof deleteSubscriptionPlanInputSchema>) {
   const { count, error: countError } = await admin
     .from("subscriptions")
     .select("id", { count: "exact", head: true })
@@ -743,96 +740,34 @@ export async function handleDeleteSubscriptionPlan(
 }
 
 export const setTenantActiveInputSchema = z.object({ businessId: z.string().uuid(), active: z.boolean() });
-export async function handleSetTenantActive(
-  admin: SupabaseClient,
-  callerId: string,
-  body: z.infer<typeof setTenantActiveInputSchema>,
-) {
-  const { data: business, error: lookupError } = await admin
-    .from("businesses")
-    .select("id,name,is_active")
-    .eq("id", body.businessId)
-    .maybeSingle();
+export async function handleSetTenantActive(admin: SupabaseClient, callerId: string, body: z.infer<typeof setTenantActiveInputSchema>) {
+  const { data: business, error: lookupError } = await admin.from("businesses").select("id,name,is_active").eq("id", body.businessId).maybeSingle();
   if (lookupError) throw new Error(lookupError.message);
   if (!business) throw new Error("Tenant not found");
   const { error } = await admin.from("businesses").update({ is_active: body.active }).eq("id", body.businessId);
   if (error) throw new Error(error.message);
-  await admin
-    .from("audit_logs")
-    .insert({
-      business_id: body.businessId,
-      user_id: callerId,
-      action: body.active ? "tenant_reactivated" : "tenant_suspended",
-      entity_type: "business",
-      entity_id: body.businessId,
-      description: body.active ? "Tenant reactivated" : "Tenant suspended",
-    });
+  await admin.from("audit_logs").insert({ business_id: body.businessId, user_id: callerId, action: body.active ? "tenant_reactivated" : "tenant_suspended", entity_type: "business", entity_id: body.businessId, description: body.active ? "Tenant reactivated" : "Tenant suspended" });
   return { success: true };
 }
 
 export const cancelSubscriptionInputSchema = z.object({ subscriptionId: z.string().uuid() });
-export async function handleCancelSubscription(
-  admin: SupabaseClient,
-  callerId: string,
-  body: z.infer<typeof cancelSubscriptionInputSchema>,
-) {
-  const { data: sub, error: lookupError } = await admin
-    .from("subscriptions")
-    .select("id,user_id,status")
-    .eq("id", body.subscriptionId)
-    .maybeSingle();
+export async function handleCancelSubscription(admin: SupabaseClient, callerId: string, body: z.infer<typeof cancelSubscriptionInputSchema>) {
+  const { data: sub, error: lookupError } = await admin.from("subscriptions").select("id,user_id,status").eq("id", body.subscriptionId).maybeSingle();
   if (lookupError) throw new Error(lookupError.message);
   if (!sub) throw new Error("Subscription not found");
-  const { error } = await admin
-    .from("subscriptions")
-    .update({ status: "canceled", cancel_at_period_end: true })
-    .eq("id", body.subscriptionId);
+  const { error } = await admin.from("subscriptions").update({ status: "canceled", cancel_at_period_end: true }).eq("id", body.subscriptionId);
   if (error) throw new Error(error.message);
-  await admin
-    .from("audit_logs")
-    .insert({
-      user_id: callerId,
-      action: "subscription_canceled",
-      entity_type: "subscription",
-      entity_id: body.subscriptionId,
-      description: "Subscription canceled by Super Admin",
-      metadata: { target_user_id: sub.user_id },
-    });
+  await admin.from("audit_logs").insert({ user_id: callerId, action: "subscription_canceled", entity_type: "subscription", entity_id: body.subscriptionId, description: "Subscription canceled by Super Admin", metadata: { target_user_id: sub.user_id } });
   return { success: true };
 }
 
-export const setTenantUserActiveInputSchema = z.object({
-  userId: z.string().uuid(),
-  businessId: z.string().uuid(),
-  active: z.boolean(),
-});
-export async function handleSetTenantUserActive(
-  admin: SupabaseClient,
-  callerId: string,
-  body: z.infer<typeof setTenantUserActiveInputSchema>,
-) {
-  const { data: profile, error: lookupError } = await admin
-    .from("profiles")
-    .select("id,business_id")
-    .eq("id", body.userId)
-    .maybeSingle();
+export const setTenantUserActiveInputSchema = z.object({ userId: z.string().uuid(), businessId: z.string().uuid(), active: z.boolean() });
+export async function handleSetTenantUserActive(admin: SupabaseClient, callerId: string, body: z.infer<typeof setTenantUserActiveInputSchema>) {
+  const { data: profile, error: lookupError } = await admin.from("profiles").select("id,business_id").eq("id", body.userId).maybeSingle();
   if (lookupError) throw new Error(lookupError.message);
   if (!profile || profile.business_id !== body.businessId) throw new Error("User does not belong to this tenant");
-  const { error } = await admin
-    .from("profiles")
-    .update({ is_active: body.active })
-    .eq("id", body.userId)
-    .eq("business_id", body.businessId);
+  const { error } = await admin.from("profiles").update({ is_active: body.active }).eq("id", body.userId).eq("business_id", body.businessId);
   if (error) throw new Error(error.message);
-  await admin
-    .from("audit_logs")
-    .insert({
-      business_id: body.businessId,
-      user_id: callerId,
-      action: body.active ? "tenant_user_activated" : "tenant_user_deactivated",
-      entity_type: "profile",
-      entity_id: body.userId,
-      description: body.active ? "Tenant user activated" : "Tenant user deactivated",
-    });
+  await admin.from("audit_logs").insert({ business_id: body.businessId, user_id: callerId, action: body.active ? "tenant_user_activated" : "tenant_user_deactivated", entity_type: "profile", entity_id: body.userId, description: body.active ? "Tenant user activated" : "Tenant user deactivated" });
   return { success: true };
 }
