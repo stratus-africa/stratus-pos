@@ -2,7 +2,7 @@ import { useContext } from "react";
 import { createStableContext } from "@/lib/stable-context";
 
 export type ThemeKey =
-  | "burgundy"
+  | "tangerine"
   | "moss"
   | "modern_minimal"
   | "midnight_blues"
@@ -94,60 +94,28 @@ const theme = (
 });
 
 export const THEMES: Record<ThemeKey, ThemeDef> = {
-  burgundy: theme(
-    "burgundy",
-    "Burgundy",
-    "Minimal and warm",
-    ["#fdf8f9", "#800020", "#9a1b32", "#3d0a0d"],
+  tangerine: theme(
+    "tangerine",
+    "Tangerine",
+    "Fresh citrus orange",
+    ["#fffaf5", "#ea580c", "#fb923c", "#7c2d12"],
     make(
       [
-        "#fdf8f9",
-        "#3d0a0d",
-        "#ffffff",
-        "#3d0a0d",
-        "#ffffff",
-        "#3d0a0d",
-        "#800020",
-        "#ffffff",
-        "#f4e7ea",
-        "#800020",
-        "#f4e7ea",
-        "#7c5c5f",
-        "#9a1b32",
-        "#ffffff",
-        "#be123c",
-        "#ffffff",
-        "#e5d1d4",
-        "#e5d1d4",
-        "#800020",
+        "#fffaf5", "#2a160b", "#ffffff", "#2a160b", "#ffffff", "#2a160b",
+        "#ea580c", "#ffffff", "#fff0e6", "#7c2d12", "#fff4ec", "#7c665b",
+        "#fed7aa", "#7c2d12", "#dc2626", "#ffffff", "#eadbd2", "#eadbd2", "#ea580c",
       ],
-      ["#800020", "#9a1b32", "#be123c", "#d44a63", "#ea869a"],
-      ["#3d0a0d", "#fdf8f9", "#800020", "#ffffff", "#591116", "#fdf8f9", "#591116", "#800020"],
+      ["#ea580c", "#f97316", "#fb923c", "#fbbf24", "#c2410c"],
+      ["#2a160b", "#fffaf5", "#ea580c", "#ffffff", "#4a2512", "#fffaf5", "#eadbd2", "#ea580c"],
     ),
     make(
       [
-        "#0f0203",
-        "#fceef0",
-        "#1a0507",
-        "#fceef0",
-        "#1a0507",
-        "#fceef0",
-        "#e63946",
-        "#ffffff",
-        "#3d0a0d",
-        "#ffdce0",
-        "#2a0a0d",
-        "#d4a1a6",
-        "#cd182a",
-        "#ffffff",
-        "#ff4d6d",
-        "#ffffff",
-        "#2b0d10",
-        "#4a151b",
-        "#ff2e44",
+        "#17100b", "#fff7ed", "#21150d", "#fff7ed", "#21150d", "#fff7ed",
+        "#fb923c", "#1c0f08", "#3a2417", "#fff7ed", "#332016", "#c4a99a",
+        "#7c2d12", "#fff7ed", "#f87171", "#fff7ed", "#4a2c1b", "#4a2c1b", "#fb923c",
       ],
-      ["#e63946", "#ff8fa3", "#800020", "#ffb3c1", "#591116"],
-      ["#0a0102", "#fceef0", "#e63946", "#ffffff", "#1a0507", "#fceef0", "#2b0d10", "#e63946"],
+      ["#fff7ed", "#fed7aa", "#fde68a", "#bfdbfe", "#ddd6fe"],
+      ["#0f0905", "#fff7ed", "#fb923c", "#1c0f08", "#332016", "#fff7ed", "#4a2c1b", "#fb923c"],
     ),
   ),
 
@@ -436,6 +404,31 @@ export const THEMES: Record<ThemeKey, ThemeDef> = {
     ),
   ),
 
+  notebook: theme(
+    "notebook",
+    "Notebook",
+    "Paper and ink",
+    ["#f7f3e8", "#1f2937", "#d4a72c", "#f3ead5"],
+    make(
+      [
+        "#f7f3e8", "#1f2937", "#fffdf7", "#1f2937", "#fffdf7", "#1f2937",
+        "#1f2937", "#ffffff", "#ece7da", "#1f2937", "#eee8da", "#6b7280",
+        "#e8d9a8", "#1f2937", "#b42318", "#ffffff", "#ded6c7", "#ded6c7", "#1f2937",
+      ],
+      ["#1f2937", "#b45309", "#2563eb", "#15803d", "#7c3aed"],
+      ["#1f2937", "#f7f3e8", "#b45309", "#ffffff", "#e9e1d2", "#1f2937", "#ded6c7", "#b45309"],
+    ),
+    make(
+      [
+        "#18181b", "#f4f4f5", "#222224", "#f4f4f5", "#222224", "#f4f4f5",
+        "#f4f4f5", "#18181b", "#333338", "#f4f4f5", "#303035", "#a1a1aa",
+        "#3f3f46", "#f4f4f5", "#f87171", "#18181b", "#3f3f46", "#3f3f46", "#f4f4f5",
+      ],
+      ["#f4f4f5", "#fed7aa", "#fde68a", "#bfdbfe", "#ddd6fe"],
+      ["#111113", "#f4f4f5", "#f4f4f5", "#111113", "#303035", "#f4f4f5", "#3f3f46", "#f4f4f5"],
+    ),
+  ),
+
   whatsapp: theme(
     "whatsapp",
     "WhatsApp",
@@ -494,7 +487,15 @@ export const THEMES: Record<ThemeKey, ThemeDef> = {
   ),
 };
 
-export const DEFAULT_THEME: ThemeKey = "burgundy";
+// Dark mode charts/bars intentionally stay light-toned for readability across every theme.
+const DARK_CHART_TONES = ["#f8fafc", "#fed7aa", "#fde68a", "#bfdbfe", "#ddd6fe"];
+for (const themeDef of Object.values(THEMES)) {
+  DARK_CHART_TONES.forEach((color, index) => {
+    themeDef.dark[`--chart-${index + 1}`] = color;
+  });
+}
+
+export const DEFAULT_THEME: ThemeKey = "tangerine";
 export const DEFAULT_MODE: ThemeMode = "light";
 
 export function resolveThemeKey(value?: string | null): ThemeKey {
