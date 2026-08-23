@@ -27,7 +27,13 @@ export async function handleStartSupportSession(
   const db = admin as any;
   const [{ data: business, error: businessError }, { data: targetRole, error: roleError }] = await Promise.all([
     db.from("businesses").select("id, name, is_active").eq("id", body.business_id).maybeSingle(),
-    db.from("user_roles").select("role").eq("user_id", body.target_user_id).eq("business_id", body.business_id).eq("role", "admin").maybeSingle(),
+    db
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", body.target_user_id)
+      .eq("business_id", body.business_id)
+      .eq("role", "admin")
+      .maybeSingle(),
   ]);
 
   if (businessError) throw new Error(businessError.message);
@@ -121,7 +127,10 @@ export async function handleGetSupportSession(admin: SupabaseClient, targetUserI
 
   if (session.status !== "active" || new Date(session.expires_at).getTime() <= Date.now()) {
     if (session.status === "active") {
-      await db.from("support_sessions").update({ status: "expired", ended_at: new Date().toISOString() }).eq("id", supportSessionId);
+      await db
+        .from("support_sessions")
+        .update({ status: "expired", ended_at: new Date().toISOString() })
+        .eq("id", supportSessionId);
     }
     throw new Error("Support session has expired");
   }
