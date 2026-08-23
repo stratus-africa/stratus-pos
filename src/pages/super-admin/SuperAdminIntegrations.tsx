@@ -15,6 +15,7 @@ import {
   ServerCog,
   Settings2,
   Smartphone,
+  Banknote,
   WalletCards,
   Webhook,
   XCircle,
@@ -24,7 +25,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 type IntegrationStatus = "active" | "inactive" | "warning" | "not_configured" | "managed";
 
@@ -56,6 +60,20 @@ type GlobalSettings = {
     paystack?: { enabled?: boolean; mode?: string };
     mpesa?: { enabled?: boolean; mode?: string };
   };
+};
+
+type OfflineSettings = {
+  enabled: boolean;
+  mpesa_enabled: boolean;
+  cash_enabled: boolean;
+  instructions: string;
+};
+
+const OFFLINE_DEFAULTS: OfflineSettings = {
+  enabled: true,
+  mpesa_enabled: true,
+  cash_enabled: true,
+  instructions: "Send Money to Mpesa: 0700 196 729 or Airtel Money to 0750 290 707\nRecipient Name: Andrew Oloo",
 };
 
 const INTEGRATION_META = [
@@ -102,16 +120,26 @@ const INTEGRATION_META = [
     tone: "green",
     providerKey: "whatsapp",
   },
+  {
+    id: "offline",
+    name: "Offline Payments",
+    description: "Control cash and mobile-money payment submissions and the instructions shown to tenants.",
+    icon: Banknote,
+    tone: "amber",
+    providerKey: "offline",
+  },
 ];
 
 function toneClasses(tone: string) {
-  return {
-    sky: "bg-sky-50 text-sky-600 dark:bg-sky-950/30 dark:text-sky-400",
-    emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400",
-    amber: "bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400",
-    violet: "bg-violet-50 text-violet-600 dark:bg-violet-950/30 dark:text-violet-400",
-    green: "bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400",
-  }[tone] || "bg-muted text-muted-foreground";
+  return (
+    {
+      sky: "bg-sky-50 text-sky-600 dark:bg-sky-950/30 dark:text-sky-400",
+      emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400",
+      amber: "bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400",
+      violet: "bg-violet-50 text-violet-600 dark:bg-violet-950/30 dark:text-violet-400",
+      green: "bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400",
+    }[tone] || "bg-muted text-muted-foreground"
+  );
 }
 
 function statusBadge(status: IntegrationStatus) {
@@ -141,14 +169,17 @@ export default function SuperAdminIntegrations() {
   const [settings, setSettings] = useState<GlobalSettings>({});
   const [events, setEvents] = useState<IntegrationEvent[]>([]);
   const [search, setSearch] = useState("");
+  const [offline, setOffline] = useState<OfflineSettings>(OFFLINE_DEFAULTS);
+  const [savingOffline, setSavingOffline] = useState(false);
 
   const load = useCallback(async (silent = false) => {
     if (silent) setRefreshing(true);
     else setLoading(true);
 
     try {
-      const [{ data: global }, { data: eventRows }] = await Promise.all([
+      const [{ data: global }, { data: offlineRow }, { data: eventRows }] = await Promise.all([
         (supabase as any).from("app_settings").select("value").eq("key", "global").maybeSingle(),
+        (supabase as any).from("app_settings").select("value").eq("key", "offline_payments").maybeSingle(),
         (supabase as any)
           .from("integration_events")
           .select("id,provider,event_type,status,error_message,external_id,created_at")
@@ -157,6 +188,7 @@ export default function SuperAdminIntegrations() {
       ]);
 
       setSettings((global?.value || {}) as GlobalSettings);
+      setOffline({ ...OFFLINE_DEFAULTS, ...((offlineRow?.value || {}) as Partial<OfflineSettings>) });
       setEvents((eventRows || []) as IntegrationEvent[]);
     } finally {
       setLoading(false);
@@ -167,6 +199,24 @@ export default function SuperAdminIntegrations() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const saveOffline = async () => {
+    setSavingOffline(true);
+    try {
+      const { error } = await (supabase as any)
+        .from("app_settings")
+        .upsert(
+          { key: "offline_payments", value: offline, updated_at: new Date().toISOString() },
+          { onConflict: "key" },
+        );
+      if (error) throw error;
+      toast.success("Offline payment settings saved");
+    } catch (error: any) {
+      toast.error("Failed to save offline payment settings: " + (error?.message || "unknown error"));
+    } finally {
+      setSavingOffline(false);
+    }
+  };
 
   const integrations = useMemo<Integration[]>(() => {
     const paystack = settings.payments?.paystack;
@@ -199,13 +249,20 @@ export default function SuperAdminIntegrations() {
           statusLabel: mpesa?.mode === "live" ? "Live" : "Sandbox",
         };
       }
+      if (meta.id === "offline") {
+        return {
+          ...meta,
+          status: offline.enabled ? "active" : "inactive",
+          statusLabel: offline.enabled ? "Enabled" : "Disabled",
+        };
+      }
       return {
         ...meta,
         status: eventStatus(meta.providerKey, false),
         statusLabel: recentFor(meta.providerKey).length ? "Activity detected" : "No activity",
       };
     });
-  }, [events, settings]);
+  }, [events, settings, offline]);
 
   const filteredEvents = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -220,7 +277,9 @@ export default function SuperAdminIntegrations() {
   const stats = useMemo(() => {
     const active = integrations.filter((i) => i.status === "active" || i.status === "managed").length;
     const attention = integrations.filter((i) => i.status === "warning").length;
-    const successful = events.filter((e) => ["success", "successful", "completed"].includes(e.status.toLowerCase())).length;
+    const successful = events.filter((e) =>
+      ["success", "successful", "completed"].includes(e.status.toLowerCase()),
+    ).length;
     const failed = events.filter((e) => ["failed", "error"].includes(e.status.toLowerCase())).length;
     return { active, attention, successful, failed };
   }, [events, integrations]);
@@ -267,13 +326,88 @@ export default function SuperAdminIntegrations() {
             <Badge variant="outline">{integrations.length} integrations</Badge>
           </div>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2">
+        <CardContent className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {integrations.map((integration) => {
             const Icon = integration.icon;
+            if (integration.id === "offline") {
+              return (
+                <div key={integration.id} className="rounded-xl border bg-card p-4 transition-colors hover:bg-muted/20">
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={cn(
+                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
+                        toneClasses(integration.tone),
+                      )}
+                    >
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-semibold">{integration.name}</h3>
+                        {statusBadge(integration.status)}
+                      </div>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{integration.description}</p>
+                      <div className="mt-4 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-xs font-medium">Enable offline payments</span>
+                          <Switch
+                            checked={offline.enabled}
+                            onCheckedChange={(v) => setOffline((p) => ({ ...p, enabled: v }))}
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <label className="flex items-center gap-2 text-xs">
+                            <Switch
+                              checked={offline.mpesa_enabled}
+                              disabled={!offline.enabled}
+                              onCheckedChange={(v) => setOffline((p) => ({ ...p, mpesa_enabled: v }))}
+                            />
+                            M-Pesa / Airtel
+                          </label>
+                          <label className="flex items-center gap-2 text-xs">
+                            <Switch
+                              checked={offline.cash_enabled}
+                              disabled={!offline.enabled}
+                              onCheckedChange={(v) => setOffline((p) => ({ ...p, cash_enabled: v }))}
+                            />
+                            Cash
+                          </label>
+                        </div>
+                        <Textarea
+                          value={offline.instructions}
+                          onChange={(e) => setOffline((p) => ({ ...p, instructions: e.target.value }))}
+                          disabled={!offline.enabled}
+                          placeholder="Payment instructions shown to tenants..."
+                          className="min-h-20 text-xs"
+                        />
+                        <Button
+                          size="sm"
+                          className="w-full"
+                          onClick={() => void saveOffline()}
+                          disabled={savingOffline}
+                        >
+                          {savingOffline ? (
+                            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Settings2 className="mr-2 h-3.5 w-3.5" />
+                          )}
+                          Save Offline Payment Settings
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
             return (
               <div key={integration.id} className="rounded-xl border bg-card p-4 transition-colors hover:bg-muted/20">
                 <div className="flex items-start gap-3">
-                  <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", toneClasses(integration.tone))}>
+                  <div
+                    className={cn(
+                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
+                      toneClasses(integration.tone),
+                    )}
+                  >
                     <Icon className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -317,7 +451,9 @@ export default function SuperAdminIntegrations() {
               <CardTitle className="flex items-center gap-2 text-base">
                 <Activity className="h-4 w-4 text-primary" /> Integration Activity
               </CardTitle>
-              <p className="mt-1 text-xs text-muted-foreground">Latest webhook and provider events recorded by the platform.</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Latest webhook and provider events recorded by the platform.
+              </p>
             </div>
             <Input
               value={search}
@@ -340,19 +476,35 @@ export default function SuperAdminIntegrations() {
                 const failed = ["failed", "error"].includes(event.status.toLowerCase());
                 return (
                   <div key={event.id} className="flex flex-col gap-2 px-5 py-3.5 sm:flex-row sm:items-center">
-                    <div className={cn(
-                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-                      ok ? "bg-emerald-50 text-emerald-600" : failed ? "bg-red-50 text-red-600" : "bg-muted text-muted-foreground",
-                    )}>
-                      {ok ? <CheckCircle2 className="h-4 w-4" /> : failed ? <XCircle className="h-4 w-4" /> : <Clock3 className="h-4 w-4" />}
+                    <div
+                      className={cn(
+                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+                        ok
+                          ? "bg-emerald-50 text-emerald-600"
+                          : failed
+                            ? "bg-red-50 text-red-600"
+                            : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {ok ? (
+                        <CheckCircle2 className="h-4 w-4" />
+                      ) : failed ? (
+                        <XCircle className="h-4 w-4" />
+                      ) : (
+                        <Clock3 className="h-4 w-4" />
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium capitalize">{event.provider}</span>
-                        <Badge variant="outline" className="text-[10px]">{event.status}</Badge>
+                        <Badge variant="outline" className="text-[10px]">
+                          {event.status}
+                        </Badge>
                         {event.event_type && <span className="text-xs text-muted-foreground">{event.event_type}</span>}
                       </div>
-                      {event.error_message && <p className="mt-0.5 truncate text-xs text-destructive">{event.error_message}</p>}
+                      {event.error_message && (
+                        <p className="mt-0.5 truncate text-xs text-destructive">{event.error_message}</p>
+                      )}
                     </div>
                     <div className="text-left text-xs text-muted-foreground sm:text-right">
                       <div>{formatTime(event.created_at)}</div>

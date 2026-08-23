@@ -51,6 +51,7 @@ import { Route as SuperSuperAdminAnnouncementsRouteImport } from './routes/_supe
 import { Route as SuperSuperAdminEnterpriseRouteImport } from './routes/_super.super-admin.enterprise'
 import { Route as SuperSuperAdminFeatureFlagsRouteImport } from './routes/_super.super-admin.feature-flags'
 import { Route as SuperSuperAdminHealthRouteImport } from './routes/_super.super-admin.health'
+import { Route as SuperSuperAdminIntegrationsRouteImport } from './routes/_super.super-admin.integrations'
 import { Route as SuperSuperAdminLandingRouteImport } from './routes/_super.super-admin.landing'
 import { Route as SuperSuperAdminModulesRouteImport } from './routes/_super.super-admin.modules'
 import { Route as SuperSuperAdminNotificationsRouteImport } from './routes/_super.super-admin.notifications'
@@ -295,6 +296,12 @@ const SuperSuperAdminHealthRoute = SuperSuperAdminHealthRouteImport.update({
   path: '/super-admin/health',
   getParentRoute: () => SuperRoute,
 } as any)
+const SuperSuperAdminIntegrationsRoute =
+  SuperSuperAdminIntegrationsRouteImport.update({
+    id: '/super-admin/integrations',
+    path: '/super-admin/integrations',
+    getParentRoute: () => SuperRoute,
+  } as any)
 const SuperSuperAdminLandingRoute = SuperSuperAdminLandingRouteImport.update({
   id: '/super-admin/landing',
   path: '/super-admin/landing',
@@ -513,6 +520,7 @@ export interface FileRoutesByFullPath {
   '/super-admin/enterprise': typeof SuperSuperAdminEnterpriseRoute
   '/super-admin/feature-flags': typeof SuperSuperAdminFeatureFlagsRoute
   '/super-admin/health': typeof SuperSuperAdminHealthRoute
+  '/super-admin/integrations': typeof SuperSuperAdminIntegrationsRoute
   '/super-admin/landing': typeof SuperSuperAdminLandingRoute
   '/super-admin/modules': typeof SuperSuperAdminModulesRoute
   '/super-admin/notifications': typeof SuperSuperAdminNotificationsRoute
@@ -587,6 +595,7 @@ export interface FileRoutesByTo {
   '/super-admin/enterprise': typeof SuperSuperAdminEnterpriseRoute
   '/super-admin/feature-flags': typeof SuperSuperAdminFeatureFlagsRoute
   '/super-admin/health': typeof SuperSuperAdminHealthRoute
+  '/super-admin/integrations': typeof SuperSuperAdminIntegrationsRoute
   '/super-admin/landing': typeof SuperSuperAdminLandingRoute
   '/super-admin/modules': typeof SuperSuperAdminModulesRoute
   '/super-admin/notifications': typeof SuperSuperAdminNotificationsRoute
@@ -664,6 +673,7 @@ export interface FileRoutesById {
   '/_super/super-admin/enterprise': typeof SuperSuperAdminEnterpriseRoute
   '/_super/super-admin/feature-flags': typeof SuperSuperAdminFeatureFlagsRoute
   '/_super/super-admin/health': typeof SuperSuperAdminHealthRoute
+  '/_super/super-admin/integrations': typeof SuperSuperAdminIntegrationsRoute
   '/_super/super-admin/landing': typeof SuperSuperAdminLandingRoute
   '/_super/super-admin/modules': typeof SuperSuperAdminModulesRoute
   '/_super/super-admin/notifications': typeof SuperSuperAdminNotificationsRoute
@@ -740,6 +750,7 @@ export interface FileRouteTypes {
     | '/super-admin/enterprise'
     | '/super-admin/feature-flags'
     | '/super-admin/health'
+    | '/super-admin/integrations'
     | '/super-admin/landing'
     | '/super-admin/modules'
     | '/super-admin/notifications'
@@ -814,6 +825,7 @@ export interface FileRouteTypes {
     | '/super-admin/enterprise'
     | '/super-admin/feature-flags'
     | '/super-admin/health'
+    | '/super-admin/integrations'
     | '/super-admin/landing'
     | '/super-admin/modules'
     | '/super-admin/notifications'
@@ -890,6 +902,7 @@ export interface FileRouteTypes {
     | '/_super/super-admin/enterprise'
     | '/_super/super-admin/feature-flags'
     | '/_super/super-admin/health'
+    | '/_super/super-admin/integrations'
     | '/_super/super-admin/landing'
     | '/_super/super-admin/modules'
     | '/_super/super-admin/notifications'
@@ -1241,6 +1254,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SuperSuperAdminHealthRouteImport
       parentRoute: typeof SuperRoute
     }
+    '/_super/super-admin/integrations': {
+      id: '/_super/super-admin/integrations'
+      path: '/super-admin/integrations'
+      fullPath: '/super-admin/integrations'
+      preLoaderRoute: typeof SuperSuperAdminIntegrationsRouteImport
+      parentRoute: typeof SuperRoute
+    }
     '/_super/super-admin/landing': {
       id: '/_super/super-admin/landing'
       path: '/super-admin/landing'
@@ -1530,6 +1550,7 @@ interface SuperRouteChildren {
   SuperSuperAdminEnterpriseRoute: typeof SuperSuperAdminEnterpriseRoute
   SuperSuperAdminFeatureFlagsRoute: typeof SuperSuperAdminFeatureFlagsRoute
   SuperSuperAdminHealthRoute: typeof SuperSuperAdminHealthRoute
+  SuperSuperAdminIntegrationsRoute: typeof SuperSuperAdminIntegrationsRoute
   SuperSuperAdminLandingRoute: typeof SuperSuperAdminLandingRoute
   SuperSuperAdminModulesRoute: typeof SuperSuperAdminModulesRoute
   SuperSuperAdminNotificationsRoute: typeof SuperSuperAdminNotificationsRoute
@@ -1567,6 +1588,7 @@ const SuperRouteChildren: SuperRouteChildren = {
   SuperSuperAdminEnterpriseRoute: SuperSuperAdminEnterpriseRoute,
   SuperSuperAdminFeatureFlagsRoute: SuperSuperAdminFeatureFlagsRoute,
   SuperSuperAdminHealthRoute: SuperSuperAdminHealthRoute,
+  SuperSuperAdminIntegrationsRoute: SuperSuperAdminIntegrationsRoute,
   SuperSuperAdminLandingRoute: SuperSuperAdminLandingRoute,
   SuperSuperAdminModulesRoute: SuperSuperAdminModulesRoute,
   SuperSuperAdminNotificationsRoute: SuperSuperAdminNotificationsRoute,
