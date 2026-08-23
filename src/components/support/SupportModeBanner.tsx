@@ -21,9 +21,24 @@ export function SupportModeBanner() {
   useEffect(() => {
     const id = localStorage.getItem(STORAGE_KEY);
     if (!id) return;
-    getSession({ data: { support_session_id: id } })
-      .then(setSession)
-      .catch(() => localStorage.removeItem(STORAGE_KEY));
+    let cancelled = false;
+    const validate = async () => {
+      try {
+        const current = await getSession({ data: { support_session_id: id } });
+        if (!cancelled) setSession(current);
+      } catch {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem("stratuspos_support_started_at");
+        await supabase.auth.signOut();
+        if (!cancelled) window.location.replace("/sign-in?reason=support-expired");
+      }
+    };
+    void validate();
+    const timer = window.setInterval(validate, 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, [getSession]);
 
   if (!session) return null;
