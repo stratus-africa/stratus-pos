@@ -328,16 +328,63 @@ const Reports = () => {
     queryKey: ["report-audit", business?.id, from, to],
     queryFn: async () => {
       if (!business) return [];
-      const { data, error } = await supabase
-        .from("audit_logs")
-        .select("*")
-        .eq("business_id", business.id)
-        .gte("created_at", `${from}T00:00:00`)
-        .lte("created_at", `${to}T23:59:59`)
-        .order("created_at", { ascending: false })
-        .limit(1000);
-      if (error) throw error;
-      return data || [];
+
+      const [{ data: auditLogs, error: auditError }, { data: inventoryLogs, error: inventoryError }] =
+        await Promise.all([
+          supabase
+            .from("audit_logs")
+            .select("*")
+            .eq("business_id", business.id)
+            .gte("created_at", `${from}T00:00:00`)
+            .lte("created_at", `${to}T23:59:59`)
+            .order("created_at", { ascending: false })
+            .limit(1000),
+          supabase
+            .from("inventory_audit_log" as any)
+            .select("id, action, entity_type, entity_id, description, metadata, created_at, user_id")
+            .eq("business_id", business.id)
+            .gte("created_at", `${from}T00:00:00`)
+            .lte("created_at", `${to}T23:59:59`)
+            .order("created_at", { ascending: false })
+            .limit(1000),
+        ]);
+
+      if (auditError) throw auditError;
+      if (inventoryError) throw inventoryError;
+
+      const inventoryUserIds = Array.from(
+        new Set((inventoryLogs ?? []).map((row: any) => row.user_id).filter(Boolean)),
+      );
+
+      const profilesById = new Map<string, { name: string | null; email: string | null }>();
+      if (inventoryUserIds.length) {
+        const { data: profiles, error: profilesError } = await supabase
+          .from("profiles")
+          .select("id, full_name, email")
+          .in("id", inventoryUserIds);
+        if (profilesError) throw profilesError;
+        for (const profile of profiles ?? []) {
+          profilesById.set(profile.id, {
+            name: profile.full_name ?? null,
+            email: profile.email ?? null,
+          });
+        }
+      }
+
+      const normalizedInventoryLogs = (inventoryLogs ?? []).map((row: any) => {
+        const profile = row.user_id ? profilesById.get(row.user_id) : undefined;
+        return {
+          ...row,
+          user_name: profile?.name ?? null,
+          user_email: profile?.email ?? null,
+          metadata: row.metadata ?? {},
+          audit_source: "inventory",
+        };
+      });
+
+      return [...(auditLogs ?? []), ...normalizedInventoryLogs]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 2000);
     },
     enabled: !!business && canAudit && activeTab === "audit",
   });
