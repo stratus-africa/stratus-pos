@@ -19,7 +19,7 @@ import {
  * Admins always get the full permission set.
  */
 export function usePermissions() {
-  const { business, userRole, isMasquerading } = useBusiness();
+  const { business, userRole } = useBusiness();
   const role = userRole as AppRole | null;
 
   const { data, isLoading } = useQuery({
@@ -59,7 +59,7 @@ export function usePermissions() {
   });
 
   // Admin or super-admin masquerade => full access regardless of stored config.
-  if (isMasquerading || role === "admin") {
+  if (role === "admin") {
     return {
       isLoading: false,
       permissions: new Set<string>(["*"]),
