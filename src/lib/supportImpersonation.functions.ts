@@ -1,9 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import {
-  startSupportSessionInputSchema,
-  supportSessionInputSchema,
-} from "@/lib/supportImpersonation.server";
+import { startSupportSessionInputSchema, supportSessionInputSchema } from "@/lib/supportImpersonation.server";
 
 export const startSupportSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
