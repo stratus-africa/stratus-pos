@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { superAdminMutation } from "@/lib/superAdminMutations.functions";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -29,6 +31,7 @@ interface BusinessOption {
 }
 
 export default function SuperAdminUsers() {
+  const mutate = useServerFn(superAdminMutation);
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [superAdminIds, setSuperAdminIds] = useState<Set<string>>(new Set());
@@ -73,14 +76,12 @@ export default function SuperAdminUsers() {
       return;
     }
 
-    if (currentlySuper) {
-      const { error } = await supabase.from("super_admins").delete().eq("user_id", userId);
-      if (error) { toast.error("Failed to remove super admin"); return; }
-      toast.success("Super admin access removed");
-    } else {
-      const { error } = await supabase.from("super_admins").insert({ user_id: userId });
-      if (error) { toast.error("Failed to grant super admin"); return; }
-      toast.success("Super admin access granted");
+    try {
+      await mutate({ data: currentlySuper ? { action: "revoke_super_admin", userId } : { action: "grant_super_admin", userId } });
+      toast.success(currentlySuper ? "Super admin access removed" : "Super admin access granted");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to update Super Admin access");
+      return;
     }
     fetchUsers();
   };

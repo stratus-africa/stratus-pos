@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { superAdminMutation } from "@/lib/superAdminMutations.functions";
 import { APP_MODULES, moduleGroupLabels } from "@/lib/modules";
 import { FEATURE_CATALOG, type FeatureDefinition, type FeatureRisk } from "@/lib/featureCatalog";
 import { Button } from "@/components/ui/button";
@@ -52,6 +54,7 @@ function getFeatureDefinition(row: ModuleFeatureRow): FeatureDefinition | undefi
 }
 
 export default function SuperAdminModuleManager() {
+  const mutate = useServerFn(superAdminMutation);
   const [rows, setRows] = useState<ModuleFeatureRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<Record<string, boolean>>({});
@@ -180,9 +183,7 @@ export default function SuperAdminModuleManager() {
 
     setSaving((prev) => ({ ...prev, [row.id]: true }));
     try {
-      const { error } = await supabase.from("module_features").update({ is_active: nextActive }).eq("id", row.id);
-
-      if (error) throw error;
+      await mutate({ data: { action: "toggle_module_feature", id: row.id, is_active: nextActive } });
 
       setRows((prev) => prev.map((item) => (item.id === row.id ? { ...item, is_active: nextActive } : item)));
       toast.success(`${row.feature_label} ${nextActive ? "enabled" : "disabled"}`);
@@ -209,12 +210,7 @@ export default function SuperAdminModuleManager() {
 
     setSaving((prev) => ({ ...prev, [`module:${selectedModule.key}`]: true }));
     try {
-      const { error } = await supabase
-        .from("module_features")
-        .update({ is_active: nextEnabled })
-        .eq("module_key", selectedModule.key);
-
-      if (error) throw error;
+      await mutate({ data: { action: "toggle_module", module_key: selectedModule.key, is_active: nextEnabled } });
 
       setRows((prev) =>
         prev.map((row) => (row.module_key === selectedModule.key ? { ...row, is_active: nextEnabled } : row)),

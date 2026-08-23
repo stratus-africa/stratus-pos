@@ -3,7 +3,13 @@ import { useParams, useNavigate, Link } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { adminManageUser } from "@/lib/adminUsers.functions";
-import { superAdminDeleteTenant, superAdminResetTenant } from "@/lib/superAdmin.functions";
+import {
+  superAdminDeleteTenant,
+  superAdminResetTenant,
+  superAdminSetTenantActive,
+  superAdminCancelSubscription,
+  superAdminSetTenantUserActive,
+} from "@/lib/superAdmin.functions";
 import { resolvePreferredSubscription, resolveSubscriptionPlan } from "@/lib/subscriptionPlan";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -102,6 +108,9 @@ export default function SuperAdminTenantDetail() {
   const callDeleteTenant = useServerFn(superAdminDeleteTenant);
   const callResetTenant = useServerFn(superAdminResetTenant);
   const callAdminManageUser = useServerFn(adminManageUser);
+  const callSetTenantActive = useServerFn(superAdminSetTenantActive);
+  const callCancelSubscription = useServerFn(superAdminCancelSubscription);
+  const callSetTenantUserActive = useServerFn(superAdminSetTenantUserActive);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -238,11 +247,13 @@ export default function SuperAdminTenantDetail() {
   const setActive = async (active: boolean) => {
     if (!biz) return;
     setActing(active ? "reactivate" : "suspend");
-    const { error } = await supabase.from("businesses").update({ is_active: active }).eq("id", biz.id);
-    if (error) toast.error(error.message);
-    else {
+    try {
+      await callSetTenantActive({ data: { businessId: biz.id, active } });
       toast.success(active ? "Tenant reactivated" : "Tenant suspended");
       setBiz({ ...biz, is_active: active });
+      }
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to update tenant status");
     }
     setActing(null);
   };
@@ -250,14 +261,12 @@ export default function SuperAdminTenantDetail() {
   const cancelSub = async () => {
     if (!sub) return;
     setActing("cancel");
-    const { error } = await supabase
-      .from("subscriptions")
-      .update({ status: "canceled", cancel_at_period_end: true })
-      .eq("id", sub.id);
-    if (error) toast.error(error.message);
-    else {
+    try {
+      await callCancelSubscription({ data: { subscriptionId: sub.id } });
       toast.success("Subscription canceled");
       fetchAll();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to cancel subscription");
     }
     setActing(null);
   };
@@ -323,9 +332,10 @@ export default function SuperAdminTenantDetail() {
   };
 
   const toggleUserActive = async (userId: string, nextActive: boolean) => {
-    const { error } = await supabase.from("profiles").update({ is_active: nextActive }).eq("id", userId);
-    if (error) {
-      toast.error(error.message);
+    try {
+      await callSetTenantUserActive({ data: { userId, businessId: biz?.id || id || "", active: nextActive } });
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to update user status");
       return;
     }
     setTenantUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, is_active: nextActive } : u)));

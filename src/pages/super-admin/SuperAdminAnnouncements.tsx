@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { superAdminMutation } from "@/lib/superAdminMutations.functions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -112,6 +114,7 @@ const displayInZone = (iso: string | null, timezone: string) =>
     : "No limit";
 
 export default function SuperAdminAnnouncements() {
+  const mutate = useServerFn(superAdminMutation);
   const [rows, setRows] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -155,32 +158,27 @@ export default function SuperAdminAnnouncements() {
       schedule_timezone: draft.schedule_timezone,
       action_type: draft.action_type,
     };
-    const { error } = draft.id
-      ? await (supabase as any).from("system_announcements").update(payload).eq("id", draft.id)
-      : await (supabase as any).from("system_announcements").insert(payload);
-    setSaving(false);
-    if (error) {
-      toast.error(error.message);
+    try {
+      await mutate({ data: { action: "save_announcement", id: draft.id || null, payload } });
+    } catch (error: any) {
+      setSaving(false);
+      toast.error(error?.message || "Failed to save announcement");
       return;
     }
+    setSaving(false);
     toast.success(draft.id ? "Announcement updated" : "Announcement published");
     setOpen(false);
     void load();
   };
 
   const toggleActive = async (row: Announcement) => {
-    const { error } = await (supabase as any)
-      .from("system_announcements")
-      .update({ is_active: !row.is_active })
-      .eq("id", row.id);
-    if (error) return toast.error(error.message);
+    try { await mutate({ data: { action: "toggle_announcement", id: row.id, is_active: !row.is_active } }); } catch (error: any) { return toast.error(error?.message || "Failed to update announcement"); }
     void load();
   };
 
   const remove = async (row: Announcement) => {
     if (!confirm(`Delete announcement "${row.title}"?`)) return;
-    const { error } = await (supabase as any).from("system_announcements").delete().eq("id", row.id);
-    if (error) return toast.error(error.message);
+    try { await mutate({ data: { action: "delete_announcement", id: row.id } }); } catch (error: any) { return toast.error(error?.message || "Failed to delete announcement"); }
     toast.success("Announcement deleted");
     void load();
   };

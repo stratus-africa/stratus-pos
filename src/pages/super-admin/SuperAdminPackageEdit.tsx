@@ -2,8 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
-import { createSubscriptionPlan, updateSubscriptionPlan } from "@/lib/entitlementResolver";
-import { superAdminUpdatePlanModules } from "@/lib/superAdmin.functions";
+import {
+  superAdminUpdatePlanModules,
+  superAdminCreateSubscriptionPlan,
+  superAdminUpdateSubscriptionPlan,
+  superAdminDeleteSubscriptionPlan,
+} from "@/lib/superAdmin.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -89,6 +93,10 @@ const fmtKes = (n: number) =>
   }).format(n)}`;
 
 export default function SuperAdminPackageEdit() {
+  const callCreatePlan = useServerFn(superAdminCreateSubscriptionPlan);
+  const callUpdatePlan = useServerFn(superAdminUpdateSubscriptionPlan);
+  const callDeletePlan = useServerFn(superAdminDeleteSubscriptionPlan);
+
   const { id } = useParams<{ id: string }>();
   const isNew = !id || id === "new";
   const navigate = useNavigate();
@@ -270,7 +278,7 @@ export default function SuperAdminPackageEdit() {
       let pkgId: string | null = id || null;
 
       if (isNew) {
-        const result = await createSubscriptionPlan({
+        const result = await callCreatePlan({ data: {
           name: form.name.trim(),
           monthly_price_kes: form.monthly_price_kes,
           yearly_price_kes: form.yearly_price_kes,
@@ -280,7 +288,7 @@ export default function SuperAdminPackageEdit() {
           max_customers: form.max_customers,
           max_suppliers: form.max_suppliers,
           trial_days: form.free_trial ? form.trial_days : 0,
-        });
+        } });
 
         if (!result.success) {
           throw new Error(result.message);
@@ -308,7 +316,8 @@ export default function SuperAdminPackageEdit() {
       }
 
       if (!isNew) {
-        await updateSubscriptionPlan(id!, {
+        await callUpdatePlan({ data: {
+          packageId: id!,
           name: form.name.trim(),
           monthly_price_kes: form.monthly_price_kes,
           yearly_price_kes: form.yearly_price_kes,
@@ -320,7 +329,7 @@ export default function SuperAdminPackageEdit() {
           trial_days: form.free_trial ? form.trial_days : 0,
           is_active: form.is_active,
           is_public: !form.is_private,
-        });
+        } });
       }
 
       toast.success(isNew ? "Plan created" : `Plan updated - ${selectedModuleKeys.length} modules enabled`);
@@ -346,17 +355,7 @@ export default function SuperAdminPackageEdit() {
     setDeleting(true);
 
     try {
-      const { error: featureDeleteError } = await supabase.from("package_features").delete().eq("package_id", id);
-
-      if (featureDeleteError) {
-        throw featureDeleteError;
-      }
-
-      const { error } = await supabase.from("subscription_packages").delete().eq("id", id);
-
-      if (error) {
-        throw error;
-      }
+      await callDeletePlan({ data: { packageId: id } });
 
       toast.success("Plan deleted");
 

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { superAdminMutation } from "@/lib/superAdminMutations.functions";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +73,7 @@ const STAT_TILES = [
 ] as const;
 
 export default function SuperAdminSubscriptions() {
+  const superAdminMutate = useServerFn(superAdminMutation);
   const navigate = useNavigate();
   const paystackManageSubscriptionFn = useServerFn(paystackManageSubscription);
   const [loading, setLoading] = useState(true);
@@ -280,11 +283,7 @@ export default function SuperAdminSubscriptions() {
       }
 
       if (fnError) {
-        const { error: dbError } = await supabase
-          .from("subscriptions")
-          .update({ status: "canceled", cancel_at_period_end: true })
-          .eq("id", cancelTarget.id);
-        if (dbError) throw dbError;
+        await superAdminMutate({ data: { action: "cancel_subscription", subscriptionId: cancelTarget.id } });
       }
 
       setRows((prev) => prev.map((r) => (r.id === cancelTarget.id ? { ...r, status: "canceled" } : r)));

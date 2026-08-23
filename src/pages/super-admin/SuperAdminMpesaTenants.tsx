@@ -3,6 +3,7 @@ import { Link } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { setMpesaCredentials, deleteMpesaCredentials, testMpesaCredentials } from "@/lib/mpesaCredentials.functions";
+import { superAdminMutation } from "@/lib/superAdminMutations.functions";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ export default function SuperAdminMpesaTenants() {
   const saveCredentialsFn = useServerFn(setMpesaCredentials);
   const deleteCredentialsFn = useServerFn(deleteMpesaCredentials);
   const testCredentialsFn = useServerFn(testMpesaCredentials);
+  const mutate = useServerFn(superAdminMutation);
 
   const load = async () => {
     setLoading(true);
@@ -52,13 +54,11 @@ export default function SuperAdminMpesaTenants() {
     if (!selected) return;
     setSaving(true);
     try {
-      const { error } = await (supabase as any).from("businesses").update({
+      await mutate({ data: { action: "update_mpesa_settings", businessId: selected.id, payload: {
         mpesa_enabled: selected.mpesa_enabled, mpesa_environment: selected.mpesa_environment,
         mpesa_shortcode: selected.mpesa_shortcode?.replace(/\D/g, "") || null,
-        mpesa_paybill_or_till: selected.mpesa_paybill_or_till,
-        mpesa_callback_url: selected.mpesa_callback_url || null,
-      }).eq("id", selected.id);
-      if (error) throw error;
+        mpesa_paybill_or_till: selected.mpesa_paybill_or_till, mpesa_callback_url: selected.mpesa_callback_url || null,
+      } } });
       if (consumerKey || consumerSecret || passkey) {
         if (!consumerKey || !consumerSecret || !passkey) throw new Error("Enter all three credentials, or leave all blank");
         await saveCredentialsFn({ data: { business_id: selected.id, consumer_key: consumerKey, consumer_secret: consumerSecret, passkey } });

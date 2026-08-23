@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { adminManageUser } from "@/lib/adminUsers.functions";
+import { superAdminMutation } from "@/lib/superAdminMutations.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,6 +88,7 @@ const STATUS_META: Record<Status, { label: string; className: string }> = {
 const ROLES: AppRole[] = ["admin", "manager", "stores_manager", "cashier"];
 
 export default function SuperAdminBusinessEdit() {
+  const mutate = useServerFn(superAdminMutation);
   const callAdminManageUser = useServerFn(adminManageUser);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -203,22 +205,14 @@ export default function SuperAdminBusinessEdit() {
       return;
     }
     setSaving(true);
-    const { error } = await supabase
-      .from("businesses")
-      .update({
-        name: name.trim(),
-        currency,
-        tax_rate: parseFloat(taxRate) || 0,
-        timezone,
-        status,
-        is_active: status === "active",
-      } as any)
-      .eq("id", biz.id);
-    setSaving(false);
-    if (error) {
-      toast.error("Failed to save: " + error.message);
+    try {
+      await mutate({ data: { action: "update_tenant", businessId: biz.id, payload: { name: name.trim(), currency, tax_rate: parseFloat(taxRate) || 0, timezone, status, is_active: status === "active" } } });
+    } catch (error: any) {
+      setSaving(false);
+      toast.error("Failed to save: " + (error?.message || "unknown error"));
       return;
     }
+    setSaving(false);
     toast.success("Tenant updated");
     setBiz({
       ...biz,
@@ -251,14 +245,7 @@ export default function SuperAdminBusinessEdit() {
   };
 
   const toggleActive = async (u: TenantUser, next: boolean) => {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ is_active: next } as any)
-      .eq("id", u.user_id);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
+    try { await mutate({ data: { action: "toggle_tenant_user", businessId: id!, userId: u.user_id, is_active: next } }); } catch (error: any) { toast.error(error?.message || "Failed to update user"); return; }
     setUsers((prev) => prev.map((x) => (x.user_id === u.user_id ? { ...x, is_active: next } : x)));
     toast.success(next ? "User activated" : "User deactivated");
   };
@@ -279,38 +266,9 @@ export default function SuperAdminBusinessEdit() {
     const periodEndIso = periodEnd ? new Date(periodEnd + "T23:59:59Z").toISOString() : null;
 
     if (sub) {
-      const { error } = await supabase
-        .from("subscriptions")
-        .update({
-          product_id: plan.id,
-          status: "active",
-          cancel_at_period_end: false,
-          ...(periodEndIso ? { current_period_end: periodEndIso } : {}),
-        } as any)
-        .eq("id", sub.id);
-      if (error) {
-        toast.error(error.message);
-        setPlanSaving(false);
-        return;
-      }
+      try { await mutate({ data: { action: "assign_subscription", subscriptionId: sub.id, payload: { product_id: plan.id, status: "active", cancel_at_period_end: false, ...(periodEndIso ? { current_period_end: periodEndIso } : {}) } } }); } catch (error: any) { toast.error(error?.message || "Failed to update subscription"); setPlanSaving(false); return; }
     } else {
-      const { error } = await supabase.from("subscriptions").upsert(
-        {
-          user_id: ownerId,
-          product_id: plan.id,
-          status: "active",
-          environment: "live",
-          cancel_at_period_end: false,
-          current_period_start: new Date().toISOString(),
-          current_period_end: periodEndIso,
-        } as any,
-        { onConflict: "user_id,environment" },
-      );
-      if (error) {
-        toast.error(error.message);
-        setPlanSaving(false);
-        return;
-      }
+      try { await mutate({ data: { action: "create_subscription", userId: ownerId, payload: { product_id: plan.id, status: "active", environment: "live", cancel_at_period_end: false, current_period_start: new Date().toISOString(), current_period_end: periodEndIso } } }); } catch (error: any) { toast.error(error?.message || "Failed to create subscription"); setPlanSaving(false); return; }
     }
     toast.success("Plan updated — features activated for tenant");
     await fetchAll();
@@ -320,16 +278,9 @@ export default function SuperAdminBusinessEdit() {
   const cancelSubscription = async () => {
     if (!sub) return;
     setCancelling(true);
-    const { error } = await supabase
-      .from("subscriptions")
-      .update({ status: "canceled", cancel_at_period_end: true } as any)
-      .eq("id", sub.id);
+    try { await mutate({ data: { action: "cancel_subscription", subscriptionId: sub.id } }); } catch (error: any) { toast.error(error?.message || "Failed to cancel subscription"); setCancelling(false); setConfirmCancel(false); return; }
     setCancelling(false);
     setConfirmCancel(false);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
     toast.success("Subscription cancelled");
     await fetchAll();
   };
