@@ -75,6 +75,8 @@ import { Route as SuperSuperAdminCmsTestimonialsRouteImport } from './routes/_su
 import { Route as SuperSuperAdminPackagesIndexRouteImport } from './routes/_super.super-admin.packages.index'
 import { Route as SuperSuperAdminPackagesNewRouteImport } from './routes/_super.super-admin.packages.new'
 import { Route as SuperSuperAdminSettingsIndexRouteImport } from './routes/_super.super-admin.settings.index'
+import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
+import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as SuperSuperAdminBusinessesIdIndexRouteImport } from './routes/_super.super-admin.businesses.$id.index'
 import { Route as SuperSuperAdminBusinessesIdEditRouteImport } from './routes/_super.super-admin.businesses.$id.edit'
@@ -425,6 +427,16 @@ const SuperSuperAdminSettingsIndexRoute =
     path: '/super-admin/settings/',
     getParentRoute: () => SuperRoute,
   } as any)
+const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
+  id: '/lovable/email/auth/preview',
+  path: '/lovable/email/auth/preview',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LovableEmailAuthWebhookRoute = LovableEmailAuthWebhookRouteImport.update({
+  id: '/lovable/email/auth/webhook',
+  path: '/lovable/email/auth/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LovableEmailQueueProcessRoute =
   LovableEmailQueueProcessRouteImport.update({
     id: '/lovable/email/queue/process',
@@ -524,6 +536,8 @@ export interface FileRoutesByFullPath {
   '/super-admin/cms/stats': typeof SuperSuperAdminCmsStatsRoute
   '/super-admin/cms/testimonials': typeof SuperSuperAdminCmsTestimonialsRoute
   '/super-admin/packages/new': typeof SuperSuperAdminPackagesNewRoute
+  '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
+  '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/super-admin/businesses/': typeof SuperSuperAdminBusinessesIndexRoute
   '/super-admin/packages/': typeof SuperSuperAdminPackagesIndexRoute
@@ -596,6 +610,8 @@ export interface FileRoutesByTo {
   '/super-admin/cms/stats': typeof SuperSuperAdminCmsStatsRoute
   '/super-admin/cms/testimonials': typeof SuperSuperAdminCmsTestimonialsRoute
   '/super-admin/packages/new': typeof SuperSuperAdminPackagesNewRoute
+  '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
+  '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/super-admin/businesses': typeof SuperSuperAdminBusinessesIndexRoute
   '/super-admin/packages': typeof SuperSuperAdminPackagesIndexRoute
@@ -671,6 +687,8 @@ export interface FileRoutesById {
   '/_super/super-admin/cms/stats': typeof SuperSuperAdminCmsStatsRoute
   '/_super/super-admin/cms/testimonials': typeof SuperSuperAdminCmsTestimonialsRoute
   '/_super/super-admin/packages/new': typeof SuperSuperAdminPackagesNewRoute
+  '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
+  '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/_super/super-admin/businesses/': typeof SuperSuperAdminBusinessesIndexRoute
   '/_super/super-admin/packages/': typeof SuperSuperAdminPackagesIndexRoute
@@ -745,6 +763,8 @@ export interface FileRouteTypes {
     | '/super-admin/cms/stats'
     | '/super-admin/cms/testimonials'
     | '/super-admin/packages/new'
+    | '/lovable/email/auth/preview'
+    | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
     | '/super-admin/businesses/'
     | '/super-admin/packages/'
@@ -817,6 +837,8 @@ export interface FileRouteTypes {
     | '/super-admin/cms/stats'
     | '/super-admin/cms/testimonials'
     | '/super-admin/packages/new'
+    | '/lovable/email/auth/preview'
+    | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
     | '/super-admin/businesses'
     | '/super-admin/packages'
@@ -891,6 +913,8 @@ export interface FileRouteTypes {
     | '/_super/super-admin/cms/stats'
     | '/_super/super-admin/cms/testimonials'
     | '/_super/super-admin/packages/new'
+    | '/lovable/email/auth/preview'
+    | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
     | '/_super/super-admin/businesses/'
     | '/_super/super-admin/packages/'
@@ -916,6 +940,8 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   InvoiceIdRoute: typeof InvoiceIdRoute
   SuperAdminLoginRoute: typeof SuperAdminLoginRoute
+  LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
+  LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
 }
 
@@ -1383,6 +1409,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SuperSuperAdminSettingsIndexRouteImport
       parentRoute: typeof SuperRoute
     }
+    '/lovable/email/auth/preview': {
+      id: '/lovable/email/auth/preview'
+      path: '/lovable/email/auth/preview'
+      fullPath: '/lovable/email/auth/preview'
+      preLoaderRoute: typeof LovableEmailAuthPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lovable/email/auth/webhook': {
+      id: '/lovable/email/auth/webhook'
+      path: '/lovable/email/auth/webhook'
+      fullPath: '/lovable/email/auth/webhook'
+      preLoaderRoute: typeof LovableEmailAuthWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lovable/email/queue/process': {
       id: '/lovable/email/queue/process'
       path: '/lovable/email/queue/process'
@@ -1576,6 +1616,8 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   InvoiceIdRoute: InvoiceIdRoute,
   SuperAdminLoginRoute: SuperAdminLoginRoute,
+  LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
+  LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
 }
 export const routeTree = rootRouteImport
