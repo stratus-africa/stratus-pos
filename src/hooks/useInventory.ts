@@ -4,14 +4,19 @@ import { useBusiness } from "@/contexts/BusinessContext";
 import { toast } from "sonner";
 import { assertCanPost } from "@/lib/postingGuard";
 
-
 export interface InventoryItem {
   id: string;
   product_id: string;
   location_id: string;
   quantity: number;
   low_stock_threshold: number;
-  products?: { name: string; sku: string | null; barcode?: string | null; selling_price: number; purchase_price: number } | null;
+  products?: {
+    name: string;
+    sku: string | null;
+    barcode?: string | null;
+    selling_price: number;
+    purchase_price: number;
+  } | null;
   locations?: { name: string } | null;
 }
 
@@ -65,13 +70,15 @@ export interface LedgerQuery {
   lte: (col: string, val: unknown) => LedgerQuery;
   order: (col: string, opts?: { ascending?: boolean }) => LedgerQuery;
   limit: (n: number) => LedgerQuery;
-  range: (a: number, b: number) => Promise<{ data: LedgerViewRow[] | null; error: { message: string } | null; count: number | null }>;
+  range: (
+    a: number,
+    b: number,
+  ) => Promise<{ data: LedgerViewRow[] | null; error: { message: string } | null; count: number | null }>;
   then: never;
 }
 
 /** Typed accessor for the ledger view (not present in generated Supabase types). */
 export const ledgerView = () => (supabase.from as unknown as (t: string) => LedgerQuery)("stock_movements_ledger");
-
 
 export type SortKey = "date_desc" | "date_asc" | "product_asc" | "product_desc";
 
@@ -88,7 +95,11 @@ export interface PageOpts {
 }
 
 /** Classify a stock_adjustments row into a movement source for display + filtering. */
-export function classifyMovement(row: { reason: string; purchase_id?: string | null; quantity_change: number }): "sale" | "return" | "purchase" | "other" {
+export function classifyMovement(row: {
+  reason: string;
+  purchase_id?: string | null;
+  quantity_change: number;
+}): "sale" | "return" | "purchase" | "other" {
   if (row.purchase_id) return "purchase";
   const r = (row.reason || "").toLowerCase();
   if (r === "return") return "return";
@@ -130,81 +141,19 @@ export function useInventory(
     }) => {
       assertCanPost();
       if (!business) throw new Error("No business context");
-      const preventOverselling = (business as { prevent_overselling?: boolean } | null)?.prevent_overselling === true;
+      if (batch.items.length === 0) throw new Error("At least one adjustment line is required");
 
-      // 1) Create the document header (like a Purchase Order)
-      const { data: doc, error: docErr } = await (supabase as unknown as {
-        from: (t: string) => {
-          insert: (v: Record<string, unknown>) => { select: (c: string) => { single: () => Promise<{ data: { id: string } | null; error: unknown }> } };
-        };
-      })
-        .from("stock_adjustment_documents")
-        .insert({
-          business_id: business.id,
-          location_id: batch.location_id,
-          reason: batch.reason,
-          notes: batch.notes || null,
-          reference: batch.reference || null,
-          created_by: batch.created_by,
-          status: "posted",
-        })
-        .select("id")
-        .single();
-      if (docErr) throw docErr as Error;
-      const documentId = doc!.id;
-      const total = batch.items.length;
-      let done = 0;
-      batch.onProgress?.(0, total);
-
-      for (const item of batch.items) {
-        const { data: existing } = await supabase
-          .from("inventory")
-          .select("id, quantity")
-          .eq("product_id", item.product_id)
-          .eq("location_id", batch.location_id)
-          .maybeSingle();
-
-        const currentQty = existing ? Number(existing.quantity) : 0;
-        const newQty = currentQty + item.quantity_change;
-
-        if (preventOverselling && newQty < 0) {
-          throw new Error(`Adjustment would push stock below zero (current: ${currentQty}, change: ${item.quantity_change})`);
-        }
-
-        const { error: adjError } = await supabase
-          .from("stock_adjustments")
-          // document_id column exists but types may not yet include it
-          .insert({
-            product_id: item.product_id,
-            location_id: batch.location_id,
-            quantity_change: item.quantity_change,
-            reason: batch.reason,
-            notes: batch.notes || null,
-            created_by: batch.created_by,
-            document_id: documentId,
-          } as unknown as never);
-        if (adjError) throw adjError;
-
-        if (existing) {
-          const { error } = await supabase
-            .from("inventory")
-            .update({ quantity: newQty })
-            .eq("id", existing.id);
-          if (error) throw error;
-        } else {
-          const { error } = await supabase
-            .from("inventory")
-            .insert({
-              product_id: item.product_id,
-              location_id: batch.location_id,
-              quantity: item.quantity_change,
-            });
-          if (error) throw error;
-        }
-        done++;
-        batch.onProgress?.(done, total);
-      }
-      return { document_id: documentId };
+      const { data: documentId, error } = await supabase.rpc("post_stock_adjustment_document" as any, {
+        _location_id: batch.location_id,
+        _reason: batch.reason,
+        _notes: batch.notes || null,
+        _reference: batch.reference || null,
+        _created_by: batch.created_by,
+        _items: batch.items,
+      });
+      if (error) throw error;
+      batch.onProgress?.(batch.items.length, batch.items.length);
+      return { document_id: documentId as string };
     },
     onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
@@ -218,43 +167,13 @@ export function useInventory(
   const editAdjustment = useMutation({
     mutationFn: async (input: { id: string; quantity_change: number; reason: string; notes: string | null }) => {
       assertCanPost();
-      const { data: existing, error: loadErr } = await supabase
-
-        .from("stock_adjustments")
-        .select("id, product_id, location_id, quantity_change")
-        .eq("id", input.id)
-        .maybeSingle();
-      if (loadErr) throw loadErr;
-      if (!existing) throw new Error("Adjustment not found");
-
-      const delta = Number(input.quantity_change) - Number(existing.quantity_change);
-
-      const { error: updErr } = await supabase
-        .from("stock_adjustments")
-        .update({ quantity_change: input.quantity_change, reason: input.reason, notes: input.notes })
-        .eq("id", input.id);
-      if (updErr) throw updErr;
-
-      if (delta !== 0) {
-        const { data: inv } = await supabase
-          .from("inventory")
-          .select("id, quantity")
-          .eq("product_id", existing.product_id)
-          .eq("location_id", existing.location_id)
-          .maybeSingle();
-        if (inv) {
-          const { error } = await supabase
-            .from("inventory")
-            .update({ quantity: Number(inv.quantity) + delta })
-            .eq("id", inv.id);
-          if (error) throw error;
-        } else {
-          const { error } = await supabase
-            .from("inventory")
-            .insert({ product_id: existing.product_id, location_id: existing.location_id, quantity: delta });
-          if (error) throw error;
-        }
-      }
+      const { error } = await supabase.rpc("update_stock_adjustment" as any, {
+        _id: input.id,
+        _quantity_change: input.quantity_change,
+        _reason: input.reason,
+        _notes: input.notes,
+      });
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
@@ -279,8 +198,10 @@ export function useInventory(
         .is("purchase_id", null)
         .not("reason", "in", `(${MOVEMENT_REASONS.map((r) => `"${r}"`).join(",")})`);
       if (adjSort === "date_asc") q = q.order("created_at", { ascending: true });
-      else if (adjSort === "product_asc") q = q.order("product_id", { ascending: true }).order("created_at", { ascending: false });
-      else if (adjSort === "product_desc") q = q.order("product_id", { ascending: false }).order("created_at", { ascending: false });
+      else if (adjSort === "product_asc")
+        q = q.order("product_id", { ascending: true }).order("created_at", { ascending: false });
+      else if (adjSort === "product_desc")
+        q = q.order("product_id", { ascending: false }).order("created_at", { ascending: false });
       else q = q.order("created_at", { ascending: false });
       q = q.range(fromIdx, toIdx);
       if (locationId) q = q.eq("location_id", locationId);
@@ -296,22 +217,30 @@ export function useInventory(
   const mvPageSize = mvFilters.pageSize ?? 25;
   const mvSort: SortKey = mvFilters.sort ?? "date_desc";
   const movementsQuery = useQuery({
-    queryKey: ["stock_movements", business?.id, locationId, mvFilters.from, mvFilters.to, mvFilters.source, mvPage, mvPageSize, mvSort],
+    queryKey: [
+      "stock_movements",
+      business?.id,
+      locationId,
+      mvFilters.from,
+      mvFilters.to,
+      mvFilters.source,
+      mvPage,
+      mvPageSize,
+      mvSort,
+    ],
     queryFn: async () => {
       if (!business) return { rows: [] as StockAdjustment[], count: 0 };
       const fromIdx = (mvPage - 1) * mvPageSize;
       const toIdx = fromIdx + mvPageSize - 1;
       // Movements come from the unified ledger view (sales + purchases + manual
       // adjustments), so each stock transaction appears exactly once.
-      let q = ledgerView()
-        .select("*", { count: "exact" })
-        .eq("business_id", business.id);
-
-
+      let q = ledgerView().select("*", { count: "exact" }).eq("business_id", business.id);
 
       if (mvSort === "date_asc") q = q.order("created_at", { ascending: true });
-      else if (mvSort === "product_asc") q = q.order("product_name", { ascending: true }).order("created_at", { ascending: false });
-      else if (mvSort === "product_desc") q = q.order("product_name", { ascending: false }).order("created_at", { ascending: false });
+      else if (mvSort === "product_asc")
+        q = q.order("product_name", { ascending: true }).order("created_at", { ascending: false });
+      else if (mvSort === "product_desc")
+        q = q.order("product_name", { ascending: false }).order("created_at", { ascending: false });
       else q = q.order("created_at", { ascending: false });
 
       const src = mvFilters.source ?? "all";
@@ -341,46 +270,13 @@ export function useInventory(
     enabled: !!business,
   });
 
-
   const deleteAdjustment = useMutation({
     mutationFn: async (id: string) => {
       assertCanPost();
-      const { data: existing, error: loadErr } = await supabase
-        .from("stock_adjustments")
-        .select("id, product_id, location_id, quantity_change")
-        .eq("id", id)
-        .maybeSingle();
-      if (loadErr) throw loadErr;
-      if (!existing) throw new Error("Adjustment not found");
-
-      // Delete FIRST and use the returned rows as the source of truth. If the row
-      // was already removed (double-click / concurrent delete) nothing comes back
-      // and we must NOT reverse inventory again — that is what pushed stock negative.
-      const { data: deleted, error: delErr } = await supabase
-        .from("stock_adjustments")
-        .delete()
-        .eq("id", id)
-        .select("id, product_id, location_id, quantity_change");
-      if (delErr) throw delErr;
-      if (!deleted || deleted.length === 0) return;
-
-      for (const row of deleted) {
-        const { data: inv } = await supabase
-          .from("inventory")
-          .select("id, quantity")
-          .eq("product_id", row.product_id)
-          .eq("location_id", row.location_id)
-          .maybeSingle();
-        if (inv) {
-          const { error } = await supabase
-            .from("inventory")
-            .update({ quantity: Number(inv.quantity) - Number(row.quantity_change) })
-            .eq("id", inv.id);
-          if (error) throw error;
-        }
-      }
+      const { data, error } = await supabase.rpc("delete_stock_adjustment" as any, { _id: id });
+      if (error) throw error;
+      if (data === false) return;
     },
-
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["stock_adjustments"] });
@@ -398,7 +294,10 @@ export function useInventory(
       const toIdx = fromIdx + adjPageSize - 1;
       const client = supabase as unknown as {
         from: (t: string) => {
-          select: (c: string, o?: { count?: "exact" }) => {
+          select: (
+            c: string,
+            o?: { count?: "exact" },
+          ) => {
             eq: (k: string, v: unknown) => unknown;
             order: (k: string, o?: { ascending?: boolean }) => unknown;
             range: (a: number, b: number) => Promise<{ data: unknown; error: unknown; count: number | null }>;
@@ -412,15 +311,24 @@ export function useInventory(
           { count: "exact" },
         )
         .eq("business_id", business.id) as unknown as {
-        order: (k: string, o?: { ascending?: boolean }) => {
+        order: (
+          k: string,
+          o?: { ascending?: boolean },
+        ) => {
           eq?: (k: string, v: unknown) => unknown;
           range: (a: number, b: number) => Promise<{ data: unknown; error: unknown; count: number | null }>;
         };
         eq: (k: string, v: unknown) => typeof q;
       };
       if (locationId) q = q.eq("location_id", locationId);
-      const ordered = (q as unknown as { order: (k: string, o?: { ascending?: boolean }) => { range: (a: number, b: number) => Promise<{ data: unknown; error: unknown; count: number | null }> } })
-        .order("created_at", { ascending: adjSort === "date_asc" });
+      const ordered = (
+        q as unknown as {
+          order: (
+            k: string,
+            o?: { ascending?: boolean },
+          ) => { range: (a: number, b: number) => Promise<{ data: unknown; error: unknown; count: number | null }> };
+        }
+      ).order("created_at", { ascending: adjSort === "date_asc" });
       const { data, error, count } = await ordered.range(fromIdx, toIdx);
       if (error) throw error as Error;
       return { rows: (data || []) as AdjustmentDocument[], count: count ?? 0 };
@@ -431,42 +339,10 @@ export function useInventory(
   const deleteAdjustmentDocument = useMutation({
     mutationFn: async (id: string) => {
       assertCanPost();
-      // Delete the LINES first and use the returned rows to reverse inventory.
-      // Deleting first makes the operation idempotent: a repeated/concurrent delete
-      // returns zero rows and therefore reverses nothing (previously it reversed the
-      // same quantities twice and drove stock negative).
-      const { data: deletedLines, error: linesErr } = await supabase
-        .from("stock_adjustments")
-        .delete()
-        .eq("document_id", id)
-        .select("id, product_id, location_id, quantity_change");
-      if (linesErr) throw linesErr;
-
-      for (const l of (deletedLines || [])) {
-        const { data: inv } = await supabase
-          .from("inventory")
-          .select("id, quantity")
-          .eq("product_id", l.product_id)
-          .eq("location_id", l.location_id)
-          .maybeSingle();
-        if (inv) {
-          const { error } = await supabase
-            .from("inventory")
-            .update({ quantity: Number(inv.quantity) - Number(l.quantity_change) })
-            .eq("id", inv.id);
-          if (error) throw error;
-        }
-      }
-
-      const { error: delErr } = await (supabase as unknown as {
-        from: (t: string) => { delete: () => { eq: (k: string, v: unknown) => Promise<{ error: unknown }> } };
-      })
-        .from("stock_adjustment_documents")
-        .delete()
-        .eq("id", id);
-      if (delErr) throw delErr as Error;
+      const { data, error } = await supabase.rpc("delete_stock_adjustment_document" as any, { _id: id });
+      if (error) throw error;
+      if (data === false) return;
     },
-
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["stock_adjustments"] });
@@ -488,84 +364,16 @@ export function useInventory(
     }) => {
       assertCanPost();
       if (!business) throw new Error("No business context");
-
-      // 1) Delete existing lines first, then reverse using the rows actually deleted
-      //    so a repeated save can never reverse the same quantities twice.
-      const { data: deletedLines, error: linesErr } = await supabase
-        .from("stock_adjustments")
-        .delete()
-        .eq("document_id", input.id)
-        .select("id, product_id, location_id, quantity_change");
-      if (linesErr) throw linesErr;
-      for (const l of (deletedLines || [])) {
-        const { data: inv } = await supabase
-          .from("inventory")
-          .select("id, quantity")
-          .eq("product_id", l.product_id)
-          .eq("location_id", l.location_id)
-          .maybeSingle();
-        if (inv) {
-          const { error } = await supabase
-            .from("inventory")
-            .update({ quantity: Number(inv.quantity) - Number(l.quantity_change) })
-            .eq("id", inv.id);
-          if (error) throw error;
-        }
-      }
-
-
-      // 2) Update document header
-      const { error: updErr } = await (supabase as unknown as {
-        from: (t: string) => { update: (v: Record<string, unknown>) => { eq: (k: string, v: unknown) => Promise<{ error: unknown }> } };
-      })
-        .from("stock_adjustment_documents")
-        .update({
-          reason: input.reason,
-          notes: input.notes ?? null,
-          reference: input.reference ?? null,
-          location_id: input.location_id,
-        })
-        .eq("id", input.id);
-      if (updErr) throw updErr as Error;
-
-      // 3) Re-insert new lines & re-apply inventory changes
-      const preventOverselling = (business as { prevent_overselling?: boolean } | null)?.prevent_overselling === true;
-      for (const item of input.items) {
-        const { data: existing } = await supabase
-          .from("inventory")
-          .select("id, quantity")
-          .eq("product_id", item.product_id)
-          .eq("location_id", input.location_id)
-          .maybeSingle();
-        const currentQty = existing ? Number(existing.quantity) : 0;
-        const newQty = currentQty + item.quantity_change;
-        if (preventOverselling && newQty < 0) {
-          throw new Error(`Adjustment would push stock below zero (current: ${currentQty}, change: ${item.quantity_change})`);
-        }
-        const { error: adjErr } = await supabase
-          .from("stock_adjustments")
-          .insert({
-            product_id: item.product_id,
-            location_id: input.location_id,
-            quantity_change: item.quantity_change,
-            reason: input.reason,
-            notes: input.notes || null,
-            created_by: input.created_by,
-            document_id: input.id,
-          } as unknown as never);
-        if (adjErr) throw adjErr;
-        if (existing) {
-          const { error } = await supabase.from("inventory").update({ quantity: newQty }).eq("id", existing.id);
-          if (error) throw error;
-        } else {
-          const { error } = await supabase.from("inventory").insert({
-            product_id: item.product_id,
-            location_id: input.location_id,
-            quantity: item.quantity_change,
-          });
-          if (error) throw error;
-        }
-      }
+      const { error } = await supabase.rpc("update_stock_adjustment_document" as any, {
+        _id: input.id,
+        _location_id: input.location_id,
+        _reason: input.reason,
+        _notes: input.notes ?? null,
+        _reference: input.reference ?? null,
+        _created_by: input.created_by,
+        _items: input.items,
+      });
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
@@ -609,4 +417,3 @@ export interface AdjustmentDocument {
   locations?: { name: string } | null;
   lines: AdjustmentDocumentLine[];
 }
-
