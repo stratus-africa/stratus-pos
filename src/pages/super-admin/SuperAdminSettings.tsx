@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "@/lib/router-compat";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
@@ -9,25 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import {
-  Settings2,
-  Palette,
-  Building2,
-  CreditCard,
-  Loader2,
-  Check,
-  ChevronRight,
-  Banknote,
-  Bold,
-  Italic,
-  Underline,
-  List,
-  ListOrdered,
-} from "lucide-react";
+import { Settings2, Palette, Building2, Loader2, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { THEMES, DEFAULT_THEME, applyTheme, type ThemeKey } from "@/lib/themes";
 
-type TabKey = "general" | "branding" | "company" | "payments" | "offline";
+type TabKey = "general" | "branding" | "company";
 
 interface AppSettings {
   app_name?: string;
@@ -52,24 +37,6 @@ const TABS: { key: TabKey; label: string; icon: any }[] = [
   { key: "general", label: "General", icon: Settings2 },
   { key: "branding", label: "Branding", icon: Palette },
   { key: "company", label: "Company", icon: Building2 },
-  { key: "payments", label: "Payments", icon: CreditCard },
-  { key: "offline", label: "Offline Payments", icon: Banknote },
-];
-
-const PROVIDERS = [
-  {
-    id: "paystack",
-    label: "Paystack",
-    description: "Card & mobile money for Africa.",
-    route: "/super-admin/settings/payments/paystack",
-  },
-
-  {
-    id: "mpesa",
-    label: "M-Pesa",
-    description: "Daraja STK Push & Till payments.",
-    route: "/super-admin/settings/payments/mpesa",
-  },
 ];
 
 const DEFAULTS: AppSettings = {
@@ -79,71 +46,41 @@ const DEFAULTS: AppSettings = {
   default_language: "en",
 };
 
-type OfflineSettings = {
-  enabled: boolean;
-  mpesa_enabled: boolean;
-  cash_enabled: boolean;
-  instructions: string;
-};
-
-const OFFLINE_DEFAULTS: OfflineSettings = {
-  enabled: true,
-  mpesa_enabled: true,
-  cash_enabled: true,
-  instructions: "Send Money to Mpesa: 0700 196 729 or Airtel Money to 0750 290 707\nRecipient Name: Andrew Oloo",
-};
-
 export default function SuperAdminSettings() {
-  const navigate = useNavigate();
   const [tab, setTab] = useState<TabKey>("general");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [s, setS] = useState<AppSettings>(DEFAULTS);
-  const [offline, setOffline] = useState<OfflineSettings>(OFFLINE_DEFAULTS);
 
   useEffect(() => {
     (async () => {
-      const [{ data: g }, { data: o }] = await Promise.all([
-        (supabase as any).from("app_settings").select("value").eq("key", "global").maybeSingle(),
-        (supabase as any).from("app_settings").select("value").eq("key", "offline_payments").maybeSingle(),
-      ]);
+      const { data: g } = await (supabase as any)
+        .from("app_settings")
+        .select("value")
+        .eq("key", "global")
+        .maybeSingle();
       const globalSettings = { ...DEFAULTS, ...((g?.value as AppSettings) || {}) };
       setS(globalSettings);
       if (globalSettings.theme_color) {
         const selected = globalSettings.theme_color as ThemeKey;
         applyTheme(selected);
       }
-      setOffline({ ...OFFLINE_DEFAULTS, ...((o?.value as OfflineSettings) || {}) });
       setLoading(false);
     })();
   }, []);
 
   const set = <K extends keyof AppSettings>(k: K, v: AppSettings[K]) => setS((prev) => ({ ...prev, [k]: v }));
-  const setOff = <K extends keyof OfflineSettings>(k: K, v: OfflineSettings[K]) =>
-    setOffline((prev) => ({ ...prev, [k]: v }));
-
   const save = async () => {
     setSaving(true);
     try {
-      if (tab === "offline") {
-        const { error } = await (supabase as any)
-          .from("app_settings")
-          .upsert(
-            { key: "offline_payments", value: offline, updated_at: new Date().toISOString() },
-            { onConflict: "key" },
-          );
-        if (error) throw error;
-        toast.success("Offline payment settings saved");
-        return;
-      }
-      // Preserve any keys we don't manage on this screen (e.g. payments.*)
+      // Payment gateways and offline payments are managed from Integrations.
       const { data: cur } = await (supabase as any)
         .from("app_settings")
         .select("value")
         .eq("key", "global")
         .maybeSingle();
       const existing = (cur?.value as AppSettings) || {};
-      const merged: AppSettings = { ...existing, ...s, payments: existing.payments ?? s.payments };
+      const merged: AppSettings = { ...existing, ...s };
 
       const { error } = await (supabase as any)
         .from("app_settings")
@@ -165,7 +102,7 @@ export default function SuperAdminSettings() {
     );
   }
 
-  const showSaveButton = tab !== "payments";
+  const showSaveButton = true;
 
   return (
     <div className="space-y-6">
@@ -302,90 +239,6 @@ export default function SuperAdminSettings() {
                 </Field>
               </div>
             )}
-
-            {tab === "payments" && (
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Select a provider to configure its keys, environment, and webhooks.
-                </p>
-                <div className="grid gap-2">
-                  {PROVIDERS.map((p) => {
-                    const enabled = !!s.payments?.[p.id]?.enabled;
-                    return (
-                      <button
-                        key={p.id}
-                        onClick={() => navigate(p.route)}
-                        className="flex items-center justify-between gap-4 rounded-md border bg-card hover:bg-muted/50 transition-colors p-4 text-left"
-                      >
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{p.label}</span>
-                            <span
-                              className={cn(
-                                "text-[10px] px-1.5 py-0.5 rounded-full border",
-                                enabled
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                  : "bg-muted text-muted-foreground",
-                              )}
-                            >
-                              {enabled ? "Enabled" : "Disabled"}
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-0.5">{p.description}</p>
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {tab === "offline" && (
-              <div className="space-y-5">
-                <Field
-                  label="Enable offline payments"
-                  help="Master switch. Turn off to hide the offline payment option from all tenants."
-                >
-                  <div className="flex items-center gap-3">
-                    <Switch checked={offline.enabled} onCheckedChange={(v) => setOff("enabled", v)} />
-                    <span className="text-sm text-muted-foreground">{offline.enabled ? "Enabled" : "Disabled"}</span>
-                  </div>
-                </Field>
-                <div className="grid gap-5 md:grid-cols-2">
-                  <Field label="M-Pesa / Airtel Money" help="Allow tenants to submit mobile money payments.">
-                    <div className="flex items-center gap-3">
-                      <Switch
-                        checked={offline.mpesa_enabled}
-                        onCheckedChange={(v) => setOff("mpesa_enabled", v)}
-                        disabled={!offline.enabled}
-                      />
-                      <span className="text-sm text-muted-foreground">
-                        {offline.mpesa_enabled ? "Enabled" : "Disabled"}
-                      </span>
-                    </div>
-                  </Field>
-                  <Field label="Cash" help="Allow tenants to submit cash payments.">
-                    <div className="flex items-center gap-3">
-                      <Switch
-                        checked={offline.cash_enabled}
-                        onCheckedChange={(v) => setOff("cash_enabled", v)}
-                        disabled={!offline.enabled}
-                      />
-                      <span className="text-sm text-muted-foreground">
-                        {offline.cash_enabled ? "Enabled" : "Disabled"}
-                      </span>
-                    </div>
-                  </Field>
-                </div>
-                <Field label="Payment instructions" help="Shown to tenants inside the offline payment dialog.">
-                  <RichTextEditor
-                    value={offline.instructions}
-                    onChange={(instructions) => setOff("instructions", instructions)}
-                  />
-                </Field>
-              </div>
-            )}
           </div>
         </Card>
       </div>
@@ -401,10 +254,6 @@ function describe(tab: TabKey) {
       return "Upload your logo and favicon.";
     case "company":
       return "Your company contact information for invoices and emails.";
-    case "payments":
-      return "Choose and configure your payment providers.";
-    case "offline":
-      return "Configure offline payment methods and instructions shown to tenants.";
   }
 }
 
@@ -461,98 +310,5 @@ function ThemePalettePicker({ value, onChange }: { value?: string; onChange: (th
         })}
       </div>
     </Field>
-  );
-}
-
-function RichTextEditor({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const editorRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    const html = /<\/?[a-z][\s\S]*>/i.test(value)
-      ? value
-      : value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
-    if (editor.innerHTML !== html) editor.innerHTML = html;
-  }, [value]);
-
-  const applyFormat = (command: string) => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    editor.focus();
-    document.execCommand(command, false);
-    onChange(editor.innerHTML);
-  };
-
-  return (
-    <div className="overflow-hidden rounded-md border bg-background">
-      <div className="flex flex-wrap gap-1 border-b bg-muted/30 p-1.5">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          aria-label="Bold"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => applyFormat("bold")}
-        >
-          <Bold className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          aria-label="Italic"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => applyFormat("italic")}
-        >
-          <Italic className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          aria-label="Underline"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => applyFormat("underline")}
-        >
-          <Underline className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          aria-label="Bulleted list"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => applyFormat("insertUnorderedList")}
-        >
-          <List className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          aria-label="Numbered list"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => applyFormat("insertOrderedList")}
-        >
-          <ListOrdered className="h-4 w-4" />
-        </Button>
-      </div>
-      <div
-        ref={editorRef}
-        contentEditable
-        role="textbox"
-        aria-multiline="true"
-        suppressContentEditableWarning
-        onInput={(event) => onChange(event.currentTarget.innerHTML)}
-        className="min-h-32 p-3 text-sm outline-none empty:before:pointer-events-none empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)]"
-        data-placeholder="Enter payment instructions..."
-      />
-    </div>
   );
 }
