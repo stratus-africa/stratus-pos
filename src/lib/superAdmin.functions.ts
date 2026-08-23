@@ -7,6 +7,12 @@ import {
   resetTenantInputSchema,
   assignTenantSubscriptionInputSchema,
   updatePlanModulesInputSchema,
+  createSubscriptionPlanInputSchema,
+  updateSubscriptionPlanInputSchema,
+  deleteSubscriptionPlanInputSchema,
+  setTenantActiveInputSchema,
+  cancelSubscriptionInputSchema,
+  setTenantUserActiveInputSchema,
 } from "@/lib/superAdmin.server";
 
 export const superAdminUpdatePlanModules = createServerFn({ method: "POST" })
@@ -62,4 +68,64 @@ export const superAdminAssignTenantSubscription = createServerFn({ method: "POST
 
     await assertSuperAdmin(supabaseAdmin, context.userId);
     return handleAssignTenantSubscription(supabaseAdmin, data);
+  });
+
+export const superAdminCreateSubscriptionPlan = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(createSubscriptionPlanInputSchema)
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { assertSuperAdmin, handleCreateSubscriptionPlan } = await import("@/lib/superAdmin.server");
+    await assertSuperAdmin(supabaseAdmin, context.userId);
+    return handleCreateSubscriptionPlan(supabaseAdmin, data);
+  });
+
+export const superAdminUpdateSubscriptionPlan = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(updateSubscriptionPlanInputSchema)
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { assertSuperAdmin, handleUpdateSubscriptionPlan } = await import("@/lib/superAdmin.server");
+    await assertSuperAdmin(supabaseAdmin, context.userId);
+    return handleUpdateSubscriptionPlan(supabaseAdmin, data);
+  });
+
+export const superAdminDeleteSubscriptionPlan = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(deleteSubscriptionPlanInputSchema)
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { assertSuperAdmin, handleDeleteSubscriptionPlan } = await import("@/lib/superAdmin.server");
+    await assertSuperAdmin(supabaseAdmin, context.userId);
+    return handleDeleteSubscriptionPlan(supabaseAdmin, data);
+  });
+
+export const superAdminSetTenantActive = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(setTenantActiveInputSchema)
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { assertSuperAdmin, handleSetTenantActive } = await import("@/lib/superAdmin.server");
+    await assertSuperAdmin(supabaseAdmin, context.userId);
+    return handleSetTenantActive(supabaseAdmin, context.userId, data);
+  });
+
+export const superAdminCancelSubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(cancelSubscriptionInputSchema)
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { assertSuperAdmin, handleCancelSubscription } = await import("@/lib/superAdmin.server");
+    await assertSuperAdmin(supabaseAdmin, context.userId);
+    return handleCancelSubscription(supabaseAdmin, context.userId, data);
+  });
+
+export const superAdminSetTenantUserActive = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(setTenantUserActiveInputSchema)
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { assertSuperAdmin, handleSetTenantUserActive } = await import("@/lib/superAdmin.server");
+    await assertSuperAdmin(supabaseAdmin, context.userId);
+    return handleSetTenantUserActive(supabaseAdmin, context.userId, data);
   });
