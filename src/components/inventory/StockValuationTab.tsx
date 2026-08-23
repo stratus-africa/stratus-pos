@@ -21,7 +21,7 @@ export function StockValuationTab() {
     enabled: Boolean(business?.id && allowed),
     queryFn: async () => {
       if (!business?.id) return [] as any[];
-      let request = supabase.from("inventory").select("id, product_id, location_id, quantity, products(name, sku, purchase_price, selling_price), locations(name)").eq("business_id", business.id);
+      let request = (supabase as any).from("inventory").select("id, product_id, location_id, quantity, products(name, sku, purchase_price, selling_price), locations(name)").eq("business_id", business.id);
       if (currentLocation?.id) request = request.eq("location_id", currentLocation.id);
       const { data, error } = await request.order("quantity", { ascending: false });
       if (error) throw error;
@@ -36,7 +36,7 @@ export function StockValuationTab() {
     return { ...row, quantity, cost, retail, costValue: quantity * cost, retailValue: quantity * retail };
   }), [query.data]);
 
-  const totals = useMemo(() => ({ cost: rows.reduce((sum, row) => sum + row.costValue, 0), retail: rows.reduce((sum, row) => sum + row.retailValue, 0), units: rows.reduce((sum, row) => sum + row.quantity, 0) }), [rows]);
+  const totals = useMemo(() => ({ cost: rows.reduce((sum: number, row: any) => sum + row.costValue, 0), retail: rows.reduce((sum: number, row: any) => sum + row.retailValue, 0), units: rows.reduce((sum: number, row: any) => sum + row.quantity, 0) }), [rows]);
 
   if (!allowed) return <Alert><AlertDescription>You do not have permission to view stock valuation.</AlertDescription></Alert>;
 
@@ -54,7 +54,7 @@ export function StockValuationTab() {
           <Table>
             <TableHeader><TableRow><TableHead>Product</TableHead><TableHead>SKU</TableHead><TableHead>Location</TableHead><TableHead className="text-right">Qty</TableHead><TableHead className="text-right">Unit Cost</TableHead><TableHead className="text-right">Cost Value</TableHead><TableHead className="text-right">Retail Value</TableHead></TableRow></TableHeader>
             <TableBody>
-              {query.isLoading ? <TableRow><TableCell colSpan={7} className="text-center py-8">Loading valuation…</TableCell></TableRow> : query.isError ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-destructive">Unable to load valuation.</TableCell></TableRow> : rows.length === 0 ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No inventory records found.</TableCell></TableRow> : rows.map((row) => <TableRow key={row.id}><TableCell className="font-medium">{row.products?.name || "—"}</TableCell><TableCell>{row.products?.sku || "—"}</TableCell><TableCell>{row.locations?.name || "—"}</TableCell><TableCell className="text-right">{row.quantity}</TableCell><TableCell className="text-right">{money(row.cost)}</TableCell><TableCell className="text-right font-semibold">{money(row.costValue)}</TableCell><TableCell className="text-right"><Badge variant="secondary">{money(row.retailValue)}</Badge></TableCell></TableRow>)}
+              {query.isLoading ? <TableRow><TableCell colSpan={7} className="text-center py-8">Loading valuation…</TableCell></TableRow> : query.isError ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-destructive">Unable to load valuation.</TableCell></TableRow> : rows.length === 0 ? <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No inventory records found.</TableCell></TableRow> : rows.map((row: any) => <TableRow key={row.id}><TableCell className="font-medium">{row.products?.name || "—"}</TableCell><TableCell>{row.products?.sku || "—"}</TableCell><TableCell>{row.locations?.name || "—"}</TableCell><TableCell className="text-right">{row.quantity}</TableCell><TableCell className="text-right">{money(row.cost)}</TableCell><TableCell className="text-right font-semibold">{money(row.costValue)}</TableCell><TableCell className="text-right"><Badge variant="secondary">{money(row.retailValue)}</Badge></TableCell></TableRow>)}
             </TableBody>
           </Table>
         </CardContent>

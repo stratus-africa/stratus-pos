@@ -141,16 +141,16 @@ export function usePOSSession() {
       });
     }
 
-    const { data: cashMovements } = await supabase
+    const { data: cashMovements } = await (supabase as any)
       .from("pos_cash_movements")
       .select("movement_type, amount")
       .eq("session_id", activeSession.id);
     const cashIn = (cashMovements || [])
-      .filter((m) => m.movement_type === "cash_in")
-      .reduce((sum, m) => sum + Number(m.amount), 0);
+      .filter((m: any) => m.movement_type === "cash_in")
+      .reduce((sum: number, m: any) => sum + Number(m.amount), 0);
     const cashOut = (cashMovements || [])
-      .filter((m) => m.movement_type === "cash_out")
-      .reduce((sum, m) => sum + Number(m.amount), 0);
+      .filter((m: any) => m.movement_type === "cash_out")
+      .reduce((sum: number, m: any) => sum + Number(m.amount), 0);
 
     const expectedCash = activeSession.opening_float + paymentsCash + cashIn - cashOut;
     const cashDifference = closingCash - expectedCash;
@@ -210,7 +210,7 @@ export function usePOSSession() {
       return false;
     }
     if (!activeSession || !business || !currentLocation || !user || amount <= 0 || !reason.trim()) return false;
-    const { error } = await supabase.from("pos_cash_movements").insert({
+    const { error } = await (supabase as any).from("pos_cash_movements").insert({
       business_id: business.id,
       location_id: currentLocation.id,
       session_id: activeSession.id,
@@ -233,6 +233,7 @@ export function usePOSSession() {
     startDay,
     endDay,
     fetchSessionHistory,
+    recordCashMovement,
     refresh: fetchActiveSession,
   };
 }

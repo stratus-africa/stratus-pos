@@ -243,6 +243,9 @@ export default function SuperAdminDashboard() {
 
   const quickActions = [
     {
+      title: "Businesses",
+      description: "Manage all tenants",
+      link: "/super-admin/businesses",
       icon: Building2,
       iconBg: "bg-emerald-500/10 dark:bg-emerald-400/15",
       iconColor: "text-emerald-500",
@@ -368,7 +371,7 @@ export default function SuperAdminDashboard() {
             icon={Clock3}
             link="/super-admin/subscriptions"
           />
-          <AttentionCard label="Inactive tenants" value={attention.inactiveTenants} icon={Building2} />
+          <AttentionCard label="Inactive tenants" value={attention.inactiveTenants} icon={Building2} link="/super-admin/businesses" />
         </div>
       </Card>
 

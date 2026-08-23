@@ -42,6 +42,7 @@ export function PurchaseDetailDialog({
   open,
   onOpenChange,
   onEdit,
+  onPayment,
 }: {
   purchase: Purchase | null;
   open: boolean;

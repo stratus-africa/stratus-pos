@@ -15,7 +15,7 @@ export const revokeUserSessions = createServerFn({ method: 'POST' })
     const { error } = await supabaseAdmin.auth.admin.signOut(data.userId, 'global');
     if (error) throw new Error(error.message);
     await supabaseAdmin.from('security_sessions').update({ revoked_at: new Date().toISOString() }).eq('user_id', data.userId).is('revoked_at', null);
-    await supabaseAdmin.from('audit_logs').insert({ user_id: context.userId, action: 'sessions_revoked', entity_type: 'user', entity_id: data.userId, description: 'All sessions revoked for user', risk_level: 'critical' });
+    await (supabaseAdmin as any).from('audit_logs').insert({ user_id: context.userId, action: 'sessions_revoked', entity_type: 'user', entity_id: data.userId, description: 'All sessions revoked for user', risk_level: 'critical' });
     return { ok: true };
   });
 
@@ -29,11 +29,11 @@ export const createPrivilegedRequest = createServerFn({ method: 'POST' })
     const { data: result, error } = await supabaseAdmin.rpc('create_privileged_action_request', {
       _action_key: data.actionKey,
       _target_type: data.targetType,
-      _target_id: data.targetId ?? null,
+      _target_id: data.targetId ?? undefined,
       _reason: data.reason,
       _risk_level: data.riskLevel,
       _metadata: { source: 'super-admin-security-center' },
-    });
+    } as any);
     if (error) throw new Error(error.message);
     return result;
   });
@@ -46,7 +46,7 @@ export const decidePrivilegedRequest = createServerFn({ method: 'POST' })
     const { assertSuperAdmin } = await import('@/lib/superAdmin.server');
     await assertSuperAdmin(supabaseAdmin, context.userId);
     const { data: result, error } = await supabaseAdmin.rpc('decide_privileged_action_request', {
-      _request_id: data.requestId, _decision: data.decision, _reason: data.reason ?? null,
+      _request_id: data.requestId, _decision: data.decision, _reason: data.reason ?? undefined,
     });
     if (error) throw new Error(error.message);
     return result;

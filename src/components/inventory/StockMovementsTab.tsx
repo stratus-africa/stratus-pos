@@ -46,7 +46,7 @@ export function StockMovementsTab() {
           .eq("purchases.business_id", business.id)
           .order("created_at", { ascending: false })
           .limit(300),
-        supabase
+        (supabase as any)
           .from("stock_adjustments")
           .select("id, quantity, created_at, product_id, reason, reference, location_id, locations(name), products(name)")
           .eq("business_id", business.id)

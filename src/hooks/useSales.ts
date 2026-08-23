@@ -283,7 +283,7 @@ export function useSales({ subscribeToFiscalUpdates = true }: { subscribeToFisca
         _amount: input.amount,
         _reason: input.reason,
         _method: input.method || "cash",
-        _reference: input.reference || null,
+        _reference: input.reference || undefined,
       });
       if (error) throw error;
       return data as string;
@@ -301,7 +301,7 @@ export function useSales({ subscribeToFiscalUpdates = true }: { subscribeToFisca
       const { error } = await supabase.rpc("approve_sale_refund", {
         _refund_id: refundId,
         _approve: approve,
-        _reason: reason || null,
+        _reason: reason || undefined,
       });
       if (error) throw error;
     },
@@ -333,7 +333,7 @@ export function useSales({ subscribeToFiscalUpdates = true }: { subscribeToFisca
         _sale_id: input.saleId,
         _amount: input.amount,
         _method: input.method,
-        _reference: input.reference || null,
+        _reference: input.reference || undefined,
       });
       if (error) throw error;
       return data as string;

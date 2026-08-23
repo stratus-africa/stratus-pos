@@ -399,19 +399,21 @@ const Inventory = () => {
         quantity_change: Number(item.quantity_change),
       }));
     if (!requestItems.length) return;
-    supabase
-      .rpc("create_inventory_control_request" as any, {
+    void (async () => {
+      try {
+        const { error } = await supabase.rpc("create_inventory_control_request" as any, {
         _location_id: data.location_id,
         _reason: "Adjustment",
         _notes: data.notes || null,
         _reference: null,
-        _items: requestItems,
-      })
-      .then(({ error }) => {
+          _items: requestItems,
+        });
         if (error) throw error;
         toast.success("Stock adjustment submitted for approval");
-      })
-      .catch((error) => toast.error(error?.message || "Could not submit stock adjustment"));
+      } catch (error: any) {
+        toast.error(error?.message || "Could not submit stock adjustment");
+      }
+    })();
   };
 
   const formatKES = (amount: number) =>

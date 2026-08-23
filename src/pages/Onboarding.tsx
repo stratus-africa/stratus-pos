@@ -326,7 +326,7 @@ const ProductsStep = ({ draft, update }: StepProps) => {
       toast.error("No product rows with a Name column were found");
       return;
     }
-    update("products", { mode: "import", importRows });
+    update("products", { ...draft.products, mode: "import", importRows });
     setMappingOpen(false);
     toast.success(`${importRows.length} products ready to import when you finish setup`);
   };

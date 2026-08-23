@@ -65,8 +65,8 @@ export function useSupplierPayments() {
           _bank_account_id: input.bank_account_id,
           _amount: input.amount,
           _date: input.date,
-          _reference: input.reference || null,
-          _description: input.description || null,
+          _reference: input.reference || undefined,
+          _description: input.description || undefined,
         });
         if (error) throw error;
         return data;

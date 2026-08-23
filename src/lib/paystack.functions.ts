@@ -335,7 +335,7 @@ export interface PaystackTransactionRow {
   paid_at: string | null;
   created_at: string | null;
   customer?: { email?: string | null; first_name?: string | null; last_name?: string | null } | null;
-  metadata?: unknown;
+  metadata?: Record<string, any> | string | null;
 }
 
 export interface PaystackListTransactionsResult {

@@ -66,6 +66,7 @@ export default function SuperAdminBusinesses() {
     navigate(`/super-admin/businesses/${id}`);
   };
 
+  const [showAdd, setShowAdd] = useState(false);
   const [deleteBiz, setDeleteBiz] = useState<BusinessRow | null>(null);
   const [deleting, setDeleting] = useState(false);
 

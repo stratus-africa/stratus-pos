@@ -78,7 +78,7 @@ export function StockControlTab() {
       if (currentLocation?.id) q = q.eq("location_id", currentLocation.id);
       const { data, error } = await q;
       if (error) throw error;
-      return (data ?? []) as RequestRow[];
+      return (data ?? []) as unknown as RequestRow[];
     },
     enabled: !!business?.id,
   });
