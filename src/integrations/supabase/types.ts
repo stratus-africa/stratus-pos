@@ -65,8 +65,13 @@ export type Database = {
           created_at: string;
           fiscal_year: number;
           id: string;
+          locked_at: string | null;
+          locked_by: string | null;
+          notes: string | null;
           period_end: string;
           period_start: string;
+          reopened_at: string | null;
+          reopened_by: string | null;
           status: string;
           updated_at: string;
         };
@@ -77,8 +82,13 @@ export type Database = {
           created_at?: string;
           fiscal_year: number;
           id?: string;
+          locked_at?: string | null;
+          locked_by?: string | null;
+          notes?: string | null;
           period_end: string;
           period_start: string;
+          reopened_at?: string | null;
+          reopened_by?: string | null;
           status?: string;
           updated_at?: string;
         };
@@ -89,8 +99,13 @@ export type Database = {
           created_at?: string;
           fiscal_year?: number;
           id?: string;
+          locked_at?: string | null;
+          locked_by?: string | null;
+          notes?: string | null;
           period_end?: string;
           period_start?: string;
+          reopened_at?: string | null;
+          reopened_by?: string | null;
           status?: string;
           updated_at?: string;
         };
@@ -5933,6 +5948,56 @@ export type Database = {
           },
         ];
       };
+      support_sessions: {
+        Row: {
+          business_id: string;
+          created_at: string;
+          ended_at: string | null;
+          expires_at: string;
+          id: string;
+          metadata: Json;
+          started_at: string;
+          status: string;
+          super_admin_id: string;
+          target_user_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          business_id: string;
+          created_at?: string;
+          ended_at?: string | null;
+          expires_at: string;
+          id?: string;
+          metadata?: Json;
+          started_at?: string;
+          status?: string;
+          super_admin_id: string;
+          target_user_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          business_id?: string;
+          created_at?: string;
+          ended_at?: string | null;
+          expires_at?: string;
+          id?: string;
+          metadata?: Json;
+          started_at?: string;
+          status?: string;
+          super_admin_id?: string;
+          target_user_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "support_sessions_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       system_announcements: {
         Row: {
           action_type: string;
@@ -5944,7 +6009,7 @@ export type Database = {
           id: string;
           is_active: boolean;
           schedule_timezone: string;
-          starts_at: string | null;
+          starts_at: string;
           title: string;
           updated_at: string;
           version_label: string | null;
@@ -5959,7 +6024,7 @@ export type Database = {
           id?: string;
           is_active?: boolean;
           schedule_timezone?: string;
-          starts_at?: string | null;
+          starts_at?: string;
           title: string;
           updated_at?: string;
           version_label?: string | null;
@@ -5974,7 +6039,7 @@ export type Database = {
           id?: string;
           is_active?: boolean;
           schedule_timezone?: string;
-          starts_at?: string | null;
+          starts_at?: string;
           title?: string;
           updated_at?: string;
           version_label?: string | null;
