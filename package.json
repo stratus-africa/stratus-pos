@@ -104,5 +104,10 @@
     "jsdom": "^20.0.3",
     "vitest": "^3.2.4"
   },
-  "version": "0.0.0"
+  "version": "0.0.0",
+  "pnpm": {
+    "overrides": {
+      "entities": "4.5.0"
+    }
+  }
 }
