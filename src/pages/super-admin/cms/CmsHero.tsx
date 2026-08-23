@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Check, ExternalLink } from "lucide-react";
+import { Loader2, Check, ExternalLink, Upload, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { CmsPageShell } from "@/components/super-admin/cms/CmsPageShell";
 import { fetchSection, upsertSection, DEFAULT_CONTENT, SECTION_META } from "@/lib/landing-cms";
+import { uploadCmsImage } from "@/lib/cmsStorage";
 
 export default function CmsHero() {
   const meta = SECTION_META.hero;
@@ -25,6 +26,7 @@ export default function CmsHero() {
   const [heroImage, setHeroImage] = useState("");
   const [bgImage, setBgImage] = useState("");
   const [visible, setVisible] = useState(true);
+  const [uploading, setUploading] = useState<"hero" | "background" | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -44,6 +46,23 @@ export default function CmsHero() {
       setLoading(false);
     })();
   }, []);
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>, target: "hero" | "background") => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setUploading(target);
+    try {
+      const { url } = await uploadCmsImage(file, "hero");
+      if (target === "hero") setHeroImage(url);
+      else setBgImage(url);
+      toast.success("Image uploaded and stored in CMS storage");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to upload image");
+    } finally {
+      setUploading(null);
+    }
+  };
 
   const handleSave = async () => {
     if (!title.trim()) { toast.error("Title is required"); return; }
@@ -99,13 +118,33 @@ export default function CmsHero() {
               <Label>Secondary button URL</Label>
               <Input value={secondaryUrl} onChange={(e) => setSecondaryUrl(e.target.value)} placeholder="#features" />
             </div>
-            <div className="space-y-1.5">
-              <Label>Hero image URL</Label>
-              <Input value={heroImage} onChange={(e) => setHeroImage(e.target.value)} placeholder="https://..." />
+            <div className="space-y-2">
+              <Label>Hero image</Label>
+              <div className="flex gap-2">
+                <Input value={heroImage} onChange={(e) => setHeroImage(e.target.value)} placeholder="https://... or upload below" />
+                <Button type="button" variant="outline" disabled={uploading !== null} asChild>
+                  <label className="cursor-pointer">
+                    {uploading === "hero" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+                    Upload
+                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml" className="hidden" onChange={(e) => void handleImageUpload(e, "hero")} />
+                  </label>
+                </Button>
+              </div>
+              {heroImage && <img src={heroImage} alt="Hero preview" className="h-24 w-full rounded-lg border object-cover" />}
             </div>
-            <div className="space-y-1.5">
-              <Label>Background image URL</Label>
-              <Input value={bgImage} onChange={(e) => setBgImage(e.target.value)} placeholder="https://..." />
+            <div className="space-y-2">
+              <Label>Background image</Label>
+              <div className="flex gap-2">
+                <Input value={bgImage} onChange={(e) => setBgImage(e.target.value)} placeholder="https://... or upload below" />
+                <Button type="button" variant="outline" disabled={uploading !== null} asChild>
+                  <label className="cursor-pointer">
+                    {uploading === "background" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ImageIcon className="h-4 w-4 mr-2" />}
+                    Upload
+                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml" className="hidden" onChange={(e) => void handleImageUpload(e, "background")} />
+                  </label>
+                </Button>
+              </div>
+              {bgImage && <img src={bgImage} alt="Background preview" className="h-24 w-full rounded-lg border object-cover" />}
             </div>
           </div>
 
