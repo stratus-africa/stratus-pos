@@ -5,17 +5,18 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Sparkles } from "lucide-react";
+import InstallAppButton from "@/components/pwa/InstallAppButton";
 
 interface Announcement {
   id: string;
   title: string;
   body: string;
   version_label: string | null;
+  action_type: "none" | "install_web_app";
 }
 
 /**
- * Shows active platform announcements ("What's New") once per user per
- * announcement. Rendered at start of day after the POS register is opened.
+ * Shows active platform announcements once per user per announcement.
  */
 export default function WhatsNewDialog({ trigger }: { trigger: boolean }) {
   const { user } = useAuth();
@@ -29,7 +30,7 @@ export default function WhatsNewDialog({ trigger }: { trigger: boolean }) {
       const nowIso = new Date().toISOString();
       const { data: anns } = await (supabase as any)
         .from("system_announcements")
-        .select("id, title, body, version_label, starts_at, ends_at")
+        .select("id, title, body, version_label, starts_at, ends_at, action_type")
         .eq("is_active", true)
         .order("created_at", { ascending: false })
         .limit(10);
@@ -82,6 +83,17 @@ export default function WhatsNewDialog({ trigger }: { trigger: boolean }) {
                 {a.version_label && <Badge variant="secondary">{a.version_label}</Badge>}
               </div>
               <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{a.body}</p>
+              {a.action_type === "install_web_app" && (
+                <div className="mt-4 rounded-lg bg-muted/40 p-3">
+                  <InstallAppButton
+                    className="w-full sm:w-auto"
+                    icon="smartphone"
+                    variant="default"
+                  >
+                    Install StratusPOS
+                  </InstallAppButton>
+                </div>
+              )}
             </div>
           ))}
         </div>
