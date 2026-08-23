@@ -19,7 +19,7 @@ const REASONS = ["Purchase received", "Damage", "Loss", "Correction", "Return", 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: AdjustStockSubmit) => void;
+  onSubmit: (data: AdjustStockSubmit) => Promise<void>;
   isLoading?: boolean;
 }
 
@@ -41,10 +41,13 @@ function splitCsvLine(line: string): string[] {
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
     if (c === '"') {
-      if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
-      else inQ = !inQ;
+      if (inQ && line[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else inQ = !inQ;
     } else if ((c === "," || c === ";" || c === "\t") && !inQ) {
-      out.push(cur); cur = "";
+      out.push(cur);
+      cur = "";
     } else cur += c;
   }
   out.push(cur);
@@ -75,7 +78,6 @@ export function ImportAdjustmentsDialog({ open, onOpenChange, onSubmit, isLoadin
     }
   }, [isLoading]);
 
-
   const products = useMemo(() => productsQuery.data?.filter((p) => p.is_active) || [], [productsQuery.data]);
 
   const lookups = useMemo(() => {
@@ -93,13 +95,30 @@ export function ImportAdjustmentsDialog({ open, onOpenChange, onSubmit, isLoadin
 
   const parseText = (text: string) => {
     const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-    if (!lines.length) { toast.error("File is empty"); return; }
+    if (!lines.length) {
+      toast.error("File is empty");
+      return;
+    }
 
     let startIdx = 0;
     let idCol = 0;
     let qtyCol = 1;
     const header = splitCsvLine(lines[0]).map(norm);
-    const looksHeader = header.some((h) => ["barcode", "item", "item name", "product", "product name", "name", "sku", "qty", "quantity", "quantity_change", "change"].includes(h));
+    const looksHeader = header.some((h) =>
+      [
+        "barcode",
+        "item",
+        "item name",
+        "product",
+        "product name",
+        "name",
+        "sku",
+        "qty",
+        "quantity",
+        "quantity_change",
+        "change",
+      ].includes(h),
+    );
     if (looksHeader) {
       startIdx = 1;
       const findCol = (names: string[]) => header.findIndex((h) => names.includes(h));
@@ -156,35 +175,56 @@ export function ImportAdjustmentsDialog({ open, onOpenChange, onSubmit, isLoadin
   const invalidCount = rows.length - valid.length;
 
   const reset = () => {
-    setRows([]); setFileName(""); setNotes(""); setReference("");
+    setRows([]);
+    setFileName("");
+    setNotes("");
+    setReference("");
     setProgress(null);
     if (fileRef.current) fileRef.current.value = "";
   };
 
-  const handleSubmit = () => {
-    if (!locationId) { toast.error("Select a location"); return; }
-    if (!valid.length) { toast.error("No valid rows to import"); return; }
+  const handleSubmit = async () => {
+    if (!locationId) {
+      toast.error("Select a location");
+      return;
+    }
+    if (!valid.length) {
+      toast.error("No valid rows to import");
+      return;
+    }
     // Merge duplicates on the same product
     const merged = new Map<string, number>();
     valid.forEach((r) => merged.set(r.product_id!, (merged.get(r.product_id!) || 0) + r.quantity));
-    const items = Array.from(merged.entries()).map(([product_id, quantity_change]) => ({ product_id, quantity_change }));
+    const items = Array.from(merged.entries()).map(([product_id, quantity_change]) => ({
+      product_id,
+      quantity_change,
+    }));
     setProgress({ done: 0, total: items.length });
-    onSubmit({
-      items,
-      location_id: locationId,
-      reason,
-      notes: [reference ? `Ref: ${reference}` : "", notes].filter(Boolean).join(" — ") || undefined,
-      onProgress: (done, total) => {
-        setProgress({ done, total });
-        if (done >= total) {
-          setTimeout(() => { reset(); onOpenChange(false); }, 400);
-        }
-      },
-    });
+    try {
+      await onSubmit({
+        items,
+        location_id: locationId,
+        reason,
+        notes: [reference ? `Ref: ${reference}` : "", notes].filter(Boolean).join(" — ") || undefined,
+        onProgress: (done, total) => setProgress({ done, total }),
+      });
+      setProgress({ done: items.length, total: items.length });
+      reset();
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Stock adjustment import failed", error);
+      setProgress(null);
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) reset();
+        onOpenChange(o);
+      }}
+    >
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Import Stock Adjustments</DialogTitle>
@@ -195,18 +235,30 @@ export function ImportAdjustmentsDialog({ open, onOpenChange, onSubmit, isLoadin
             <div className="space-y-1.5">
               <Label>Location</Label>
               <Select value={locationId} onValueChange={setLocationId}>
-                <SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select location" />
+                </SelectTrigger>
                 <SelectContent>
-                  {locations.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                  {locations.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
               <Label>Reason</Label>
               <Select value={reason} onValueChange={setReason}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {REASONS.filter((r) => r !== "Purchase received").map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  {REASONS.filter((r) => r !== "Purchase received").map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {r}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -228,17 +280,26 @@ export function ImportAdjustmentsDialog({ open, onOpenChange, onSubmit, isLoadin
               <Button variant="ghost" size="sm" onClick={downloadTemplate}>
                 <Download className="mr-2 h-4 w-4" /> Template
               </Button>
-              {fileName && <span className="text-sm text-muted-foreground flex items-center gap-1"><FileText className="h-3.5 w-3.5" />{fileName}</span>}
+              {fileName && (
+                <span className="text-sm text-muted-foreground flex items-center gap-1">
+                  <FileText className="h-3.5 w-3.5" />
+                  {fileName}
+                </span>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
-              Two columns: barcode (or SKU / item name) and quantity change. Positive adds stock, negative removes. Header row optional.
+              Two columns: barcode (or SKU / item name) and quantity change. Positive adds stock, negative removes.
+              Header row optional.
             </p>
             <input
               ref={fileRef}
               type="file"
               accept=".csv,.txt,text/csv"
               className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleFile(f);
+              }}
             />
           </div>
 
@@ -262,7 +323,9 @@ export function ImportAdjustmentsDialog({ open, onOpenChange, onSubmit, isLoadin
                     {rows.slice(0, 500).map((r, i) => (
                       <TableRow key={i} className={r.error ? "opacity-60" : undefined}>
                         <TableCell className="font-mono text-xs">{r.identifier || "—"}</TableCell>
-                        <TableCell>{r.product_name || <span className="text-destructive text-xs">{r.error}</span>}</TableCell>
+                        <TableCell>
+                          {r.product_name || <span className="text-destructive text-xs">{r.error}</span>}
+                        </TableCell>
                         <TableCell className="text-xs uppercase text-muted-foreground">{r.matchedBy || "—"}</TableCell>
                         <TableCell className="text-right">{Number.isNaN(r.quantity) ? "—" : r.quantity}</TableCell>
                       </TableRow>
@@ -286,7 +349,8 @@ export function ImportAdjustmentsDialog({ open, onOpenChange, onSubmit, isLoadin
                   Importing adjustments…
                 </span>
                 <span className="tabular-nums">
-                  {progress.done} / {progress.total} ({Math.round((progress.done / Math.max(progress.total, 1)) * 100)}%)
+                  {progress.done} / {progress.total} ({Math.round((progress.done / Math.max(progress.total, 1)) * 100)}
+                  %)
                 </span>
               </div>
               <Progress value={(progress.done / Math.max(progress.total, 1)) * 100} className="h-2" />
@@ -294,9 +358,13 @@ export function ImportAdjustmentsDialog({ open, onOpenChange, onSubmit, isLoadin
           )}
 
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={!!progress}>Cancel</Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={!!progress}>
+              Cancel
+            </Button>
             <Button onClick={handleSubmit} disabled={isLoading || !valid.length || !!progress}>
-              {progress ? "Importing…" : `Import ${valid.length ? `${valid.length} line${valid.length === 1 ? "" : "s"}` : ""}`}
+              {progress
+                ? "Importing…"
+                : `Import ${valid.length ? `${valid.length} line${valid.length === 1 ? "" : "s"}` : ""}`}
             </Button>
           </div>
         </div>

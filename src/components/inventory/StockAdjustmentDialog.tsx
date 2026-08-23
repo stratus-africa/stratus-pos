@@ -43,7 +43,7 @@ export interface AdjustStockSubmit {
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: AdjustStockSubmit) => void;
+  onSubmit: (data: AdjustStockSubmit) => Promise<void>;
   isLoading?: boolean;
 }
 
@@ -287,7 +287,7 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
   /*
    * Submit adjustment.
    */
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (submitting || isLoading) {
@@ -370,35 +370,40 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
 
     setSubmitting(true);
 
-    onSubmit({
-      items: lines.map((line) => ({
-        product_id: line.product_id,
+    try {
+      await onSubmit({
+        items: lines.map((line) => ({
+          product_id: line.product_id,
+          quantity_change: Number(line.quantity_change),
+          unit_cost: Number(line.unit_cost) || 0,
+        })),
+        location_id: locationId,
+        reason,
+        notes: notes.trim() || undefined,
+        purchase: isPurchase
+          ? {
+              supplier_id: supplierId,
+              invoice_number: supplierInvoice.trim(),
+              purchase_date: purchaseDate,
+            }
+          : undefined,
+      });
 
-        quantity_change: Number(line.quantity_change),
-
-        unit_cost: Number(line.unit_cost) || 0,
-      })),
-
-      location_id: locationId,
-
-      reason,
-
-      notes: notes.trim() || undefined,
-
-      purchase: isPurchase
-        ? {
-            supplier_id: supplierId,
-
-            invoice_number: supplierInvoice.trim(),
-
-            purchase_date: purchaseDate,
-          }
-        : undefined,
-    });
-
-    clearDraft(business?.id);
-
-    setDraftSavedAt(null);
+      clearDraft(business?.id);
+      setDraftSavedAt(null);
+      setLines([]);
+      setSearch("");
+      setNotes("");
+      setSupplierId("");
+      setSupplierInvoice("");
+      onOpenChange(false);
+    } catch (error: unknown) {
+      // The parent mutation owns the user-facing error toast. Keep the dialog
+      // open so the user can correct/retry the adjustment.
+      console.error("Stock adjustment submission failed", error);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   /*

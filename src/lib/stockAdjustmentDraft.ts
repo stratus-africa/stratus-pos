@@ -2,7 +2,13 @@
 // Stored in localStorage per business.
 
 export interface StockAdjustmentDraft {
-  lines: { product_id: string; product_name: string; sku: string | null; quantity_change: number }[];
+  lines: {
+    product_id: string;
+    product_name: string;
+    sku: string | null;
+    quantity_change: number;
+    unit_cost?: number;
+  }[];
   location_id: string;
   reason: string;
   notes: string;
