@@ -10,6 +10,7 @@ import { CommandPalette } from "@/components/CommandPalette";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { useIsMobilePortrait } from "@/hooks/use-mobile";
 
+import { SupportModeBanner } from "@/components/support/SupportModeBanner";
 function MasqueradeBanner() {
   const { isMasquerading, business, stopMasquerade } = useBusiness();
   if (!isMasquerading) return null;
@@ -89,6 +90,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         {!isMobilePortrait && <AppSidebar />}
 
         <div className="flex-1 flex flex-col min-w-0">
+          <SupportModeBanner />
           <MasqueradeBanner />
           <SubscriptionExpiredBanner />
 
