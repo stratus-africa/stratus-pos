@@ -101,18 +101,50 @@ export const THEMES: Record<ThemeKey, ThemeDef> = {
     ["#fffaf5", "#ea580c", "#fb923c", "#7c2d12"],
     make(
       [
-        "#fffaf5", "#2a160b", "#ffffff", "#2a160b", "#ffffff", "#2a160b",
-        "#ea580c", "#ffffff", "#fff0e6", "#7c2d12", "#fff4ec", "#7c665b",
-        "#fed7aa", "#7c2d12", "#dc2626", "#ffffff", "#eadbd2", "#eadbd2", "#ea580c",
+        "#fffaf5",
+        "#2a160b",
+        "#ffffff",
+        "#2a160b",
+        "#ffffff",
+        "#2a160b",
+        "#ea580c",
+        "#ffffff",
+        "#fff0e6",
+        "#7c2d12",
+        "#fff4ec",
+        "#7c665b",
+        "#fed7aa",
+        "#7c2d12",
+        "#dc2626",
+        "#ffffff",
+        "#eadbd2",
+        "#eadbd2",
+        "#ea580c",
       ],
       ["#ea580c", "#f97316", "#fb923c", "#fbbf24", "#c2410c"],
       ["#2a160b", "#fffaf5", "#ea580c", "#ffffff", "#4a2512", "#fffaf5", "#eadbd2", "#ea580c"],
     ),
     make(
       [
-        "#17100b", "#fff7ed", "#21150d", "#fff7ed", "#21150d", "#fff7ed",
-        "#fb923c", "#1c0f08", "#3a2417", "#fff7ed", "#332016", "#c4a99a",
-        "#7c2d12", "#fff7ed", "#f87171", "#fff7ed", "#4a2c1b", "#4a2c1b", "#fb923c",
+        "#17100b",
+        "#fff7ed",
+        "#21150d",
+        "#fff7ed",
+        "#21150d",
+        "#fff7ed",
+        "#fb923c",
+        "#1c0f08",
+        "#3a2417",
+        "#fff7ed",
+        "#332016",
+        "#c4a99a",
+        "#7c2d12",
+        "#fff7ed",
+        "#f87171",
+        "#fff7ed",
+        "#4a2c1b",
+        "#4a2c1b",
+        "#fb923c",
       ],
       ["#fff7ed", "#fed7aa", "#fde68a", "#bfdbfe", "#ddd6fe"],
       ["#0f0905", "#fff7ed", "#fb923c", "#1c0f08", "#332016", "#fff7ed", "#4a2c1b", "#fb923c"],
@@ -411,18 +443,50 @@ export const THEMES: Record<ThemeKey, ThemeDef> = {
     ["#f7f3e8", "#1f2937", "#d4a72c", "#f3ead5"],
     make(
       [
-        "#f7f3e8", "#1f2937", "#fffdf7", "#1f2937", "#fffdf7", "#1f2937",
-        "#1f2937", "#ffffff", "#ece7da", "#1f2937", "#eee8da", "#6b7280",
-        "#e8d9a8", "#1f2937", "#b42318", "#ffffff", "#ded6c7", "#ded6c7", "#1f2937",
+        "#f7f3e8",
+        "#1f2937",
+        "#fffdf7",
+        "#1f2937",
+        "#fffdf7",
+        "#1f2937",
+        "#1f2937",
+        "#ffffff",
+        "#ece7da",
+        "#1f2937",
+        "#eee8da",
+        "#6b7280",
+        "#e8d9a8",
+        "#1f2937",
+        "#b42318",
+        "#ffffff",
+        "#ded6c7",
+        "#ded6c7",
+        "#1f2937",
       ],
       ["#1f2937", "#b45309", "#2563eb", "#15803d", "#7c3aed"],
       ["#1f2937", "#f7f3e8", "#b45309", "#ffffff", "#e9e1d2", "#1f2937", "#ded6c7", "#b45309"],
     ),
     make(
       [
-        "#18181b", "#f4f4f5", "#222224", "#f4f4f5", "#222224", "#f4f4f5",
-        "#f4f4f5", "#18181b", "#333338", "#f4f4f5", "#303035", "#a1a1aa",
-        "#3f3f46", "#f4f4f5", "#f87171", "#18181b", "#3f3f46", "#3f3f46", "#f4f4f5",
+        "#18181b",
+        "#f4f4f5",
+        "#222224",
+        "#f4f4f5",
+        "#222224",
+        "#f4f4f5",
+        "#f4f4f5",
+        "#18181b",
+        "#333338",
+        "#f4f4f5",
+        "#303035",
+        "#a1a1aa",
+        "#3f3f46",
+        "#f4f4f5",
+        "#f87171",
+        "#18181b",
+        "#3f3f46",
+        "#3f3f46",
+        "#f4f4f5",
       ],
       ["#f4f4f5", "#fed7aa", "#fde68a", "#bfdbfe", "#ddd6fe"],
       ["#111113", "#f4f4f5", "#f4f4f5", "#111113", "#303035", "#f4f4f5", "#3f3f46", "#f4f4f5"],
@@ -534,8 +598,16 @@ export function applyTheme(themeKey?: string | null, _scope?: unknown, mode: The
     root.dataset.mode = mode;
     root.classList.toggle("dark", mode === "dark");
 
-    for (const [name, value] of Object.entries(THEMES[key][mode])) {
+    const tokens = THEMES[key][mode];
+    for (const [name, value] of Object.entries(tokens)) {
       root.style.setProperty(name, value);
+    }
+
+    // Keep browser/PWA chrome synchronized with the selected theme instead of
+    // shipping a hard-coded brand color in the document head.
+    const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (themeColor) {
+      themeColor.content = tokens["--primary"] ?? tokens["--accent"] ?? "#171717";
     }
   }
 
