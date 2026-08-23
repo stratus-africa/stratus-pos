@@ -662,3 +662,177 @@ export async function handleAssignTenantSubscription(admin: any, body: AssignTen
     period_end: periodEnd.toISOString(),
   };
 }
+
+// ---------------- plan metadata / tenant controls ----------------
+
+export const createSubscriptionPlanInputSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  description: z.string().max(1000).optional(),
+  monthly_price_kes: z.number().nonnegative(),
+  yearly_price_kes: z.number().nonnegative(),
+  max_products: z.number().int().positive(),
+  max_users: z.number().int().positive(),
+  max_locations: z.number().int().positive(),
+  max_customers: z.number().int().positive().optional(),
+  max_suppliers: z.number().int().positive().optional(),
+  trial_days: z.number().int().nonnegative(),
+});
+export type CreateSubscriptionPlanInput = z.infer<typeof createSubscriptionPlanInputSchema>;
+
+export async function handleCreateSubscriptionPlan(admin: SupabaseClient, body: CreateSubscriptionPlanInput) {
+  const { data, error } = await admin.rpc("create_subscription_plan", {
+    _name: body.name,
+    _description: body.description ?? undefined,
+    _monthly_price_kes: body.monthly_price_kes,
+    _yearly_price_kes: body.yearly_price_kes,
+    _max_products: body.max_products,
+    _max_users: body.max_users,
+    _max_locations: body.max_locations,
+    _max_customers: body.max_customers ?? 50,
+    _max_suppliers: body.max_suppliers ?? 10,
+    _trial_days: body.trial_days,
+  } as any);
+  if (error) throw new Error(error.message);
+  return data as any;
+}
+
+export const updateSubscriptionPlanInputSchema = createSubscriptionPlanInputSchema.extend({
+  packageId: z.string().uuid(),
+  is_active: z.boolean(),
+  is_public: z.boolean().optional(),
+});
+export type UpdateSubscriptionPlanInput = z.infer<typeof updateSubscriptionPlanInputSchema>;
+
+export async function handleUpdateSubscriptionPlan(admin: SupabaseClient, body: UpdateSubscriptionPlanInput) {
+  const { data, error } = await admin.rpc("update_subscription_plan", {
+    _package_id: body.packageId,
+    _name: body.name,
+    _description: body.description ?? undefined,
+    _monthly_price_kes: body.monthly_price_kes,
+    _yearly_price_kes: body.yearly_price_kes,
+    _max_products: body.max_products,
+    _max_users: body.max_users,
+    _max_locations: body.max_locations,
+    _max_customers: body.max_customers ?? 50,
+    _max_suppliers: body.max_suppliers ?? 10,
+    _trial_days: body.trial_days,
+    _is_active: body.is_active,
+    _is_public: body.is_public,
+  } as any);
+  if (error) throw new Error(error.message);
+  return data as any;
+}
+
+export const deleteSubscriptionPlanInputSchema = z.object({ packageId: z.string().uuid() });
+export async function handleDeleteSubscriptionPlan(
+  admin: SupabaseClient,
+  body: z.infer<typeof deleteSubscriptionPlanInputSchema>,
+) {
+  const { count, error: countError } = await admin
+    .from("subscriptions")
+    .select("id", { count: "exact", head: true })
+    .eq("product_id", body.packageId);
+  if (countError) throw new Error(countError.message);
+  if ((count ?? 0) > 0) throw new Error("Cannot delete a plan with active subscribers.");
+
+  const { error: featureError } = await admin.from("package_features").delete().eq("package_id", body.packageId);
+  if (featureError) throw new Error(featureError.message);
+  const { error } = await admin.from("subscription_packages").delete().eq("id", body.packageId);
+  if (error) throw new Error(error.message);
+  return { success: true };
+}
+
+export const setTenantActiveInputSchema = z.object({ businessId: z.string().uuid(), active: z.boolean() });
+export async function handleSetTenantActive(
+  admin: SupabaseClient,
+  callerId: string,
+  body: z.infer<typeof setTenantActiveInputSchema>,
+) {
+  const { data: business, error: lookupError } = await admin
+    .from("businesses")
+    .select("id,name,is_active")
+    .eq("id", body.businessId)
+    .maybeSingle();
+  if (lookupError) throw new Error(lookupError.message);
+  if (!business) throw new Error("Tenant not found");
+  const { error } = await admin.from("businesses").update({ is_active: body.active }).eq("id", body.businessId);
+  if (error) throw new Error(error.message);
+  await admin
+    .from("audit_logs")
+    .insert({
+      business_id: body.businessId,
+      user_id: callerId,
+      action: body.active ? "tenant_reactivated" : "tenant_suspended",
+      entity_type: "business",
+      entity_id: body.businessId,
+      description: body.active ? "Tenant reactivated" : "Tenant suspended",
+    });
+  return { success: true };
+}
+
+export const cancelSubscriptionInputSchema = z.object({ subscriptionId: z.string().uuid() });
+export async function handleCancelSubscription(
+  admin: SupabaseClient,
+  callerId: string,
+  body: z.infer<typeof cancelSubscriptionInputSchema>,
+) {
+  const { data: sub, error: lookupError } = await admin
+    .from("subscriptions")
+    .select("id,user_id,status")
+    .eq("id", body.subscriptionId)
+    .maybeSingle();
+  if (lookupError) throw new Error(lookupError.message);
+  if (!sub) throw new Error("Subscription not found");
+  const { error } = await admin
+    .from("subscriptions")
+    .update({ status: "canceled", cancel_at_period_end: true })
+    .eq("id", body.subscriptionId);
+  if (error) throw new Error(error.message);
+  await admin
+    .from("audit_logs")
+    .insert({
+      user_id: callerId,
+      action: "subscription_canceled",
+      entity_type: "subscription",
+      entity_id: body.subscriptionId,
+      description: "Subscription canceled by Super Admin",
+      metadata: { target_user_id: sub.user_id },
+    });
+  return { success: true };
+}
+
+export const setTenantUserActiveInputSchema = z.object({
+  userId: z.string().uuid(),
+  businessId: z.string().uuid(),
+  active: z.boolean(),
+});
+export async function handleSetTenantUserActive(
+  admin: SupabaseClient,
+  callerId: string,
+  body: z.infer<typeof setTenantUserActiveInputSchema>,
+) {
+  const { data: profile, error: lookupError } = await admin
+    .from("profiles")
+    .select("id,business_id")
+    .eq("id", body.userId)
+    .maybeSingle();
+  if (lookupError) throw new Error(lookupError.message);
+  if (!profile || profile.business_id !== body.businessId) throw new Error("User does not belong to this tenant");
+  const { error } = await admin
+    .from("profiles")
+    .update({ is_active: body.active })
+    .eq("id", body.userId)
+    .eq("business_id", body.businessId);
+  if (error) throw new Error(error.message);
+  await admin
+    .from("audit_logs")
+    .insert({
+      business_id: body.businessId,
+      user_id: callerId,
+      action: body.active ? "tenant_user_activated" : "tenant_user_deactivated",
+      entity_type: "profile",
+      entity_id: body.userId,
+      description: body.active ? "Tenant user activated" : "Tenant user deactivated",
+    });
+  return { success: true };
+}
