@@ -15,6 +15,7 @@ interface PnLReportTabProps {
   from: string;
   to: string;
   loading: boolean;
+  ledgerProfitLoss?: Array<{ id: string; code: string; name: string; type: string; balance: number }>;
 }
 
 const PnLReportTab = ({
@@ -27,6 +28,7 @@ const PnLReportTab = ({
   from,
   to,
   loading,
+  ledgerProfitLoss = [],
 }: PnLReportTabProps) => {
   const cogs = totalCOGS;
   const gross = grossProfit;
@@ -109,6 +111,30 @@ const PnLReportTab = ({
             <span>
               Net Margin: <strong>{totalRevenue ? ((net / totalRevenue) * 100).toFixed(1) : 0}%</strong>
             </span>
+          </div>
+
+          <div className="mt-8">
+            <h3 className="mb-3 font-semibold">Posted Financial P&L Detail</h3>
+            <Table>
+              <TableBody>
+                {ledgerProfitLoss.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell>
+                      {r.code} {r.name}
+                    </TableCell>
+                    <TableCell className="capitalize">{r.type}</TableCell>
+                    <TableCell className="text-right">{formatKES(r.balance)}</TableCell>
+                  </TableRow>
+                ))}
+                {!ledgerProfitLoss.length && (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-muted-foreground">
+                      No posted financial entries for this period.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
             Revenue excludes VAT/tax collected on behalf of the tax authority. COGS is taken from the posted accounting
