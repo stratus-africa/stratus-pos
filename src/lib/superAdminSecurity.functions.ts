@@ -29,7 +29,7 @@ export const createPrivilegedRequest = createServerFn({ method: 'POST' })
     const { data: result, error } = await supabaseAdmin.rpc('create_privileged_action_request', {
       _action_key: data.actionKey,
       _target_type: data.targetType,
-      _target_id: data.targetId ?? undefined,
+      _target_id: data.targetId ?? "",
       _reason: data.reason,
       _risk_level: data.riskLevel,
       _metadata: { source: 'super-admin-security-center' },
