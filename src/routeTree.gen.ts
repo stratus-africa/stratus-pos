@@ -75,6 +75,7 @@ import { Route as SuperSuperAdminCmsTestimonialsRouteImport } from './routes/_su
 import { Route as SuperSuperAdminPackagesIndexRouteImport } from './routes/_super.super-admin.packages.index'
 import { Route as SuperSuperAdminPackagesNewRouteImport } from './routes/_super.super-admin.packages.new'
 import { Route as SuperSuperAdminSettingsIndexRouteImport } from './routes/_super.super-admin.settings.index'
+import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as SuperSuperAdminBusinessesIdIndexRouteImport } from './routes/_super.super-admin.businesses.$id.index'
 import { Route as SuperSuperAdminBusinessesIdEditRouteImport } from './routes/_super.super-admin.businesses.$id.edit'
 import { Route as SuperSuperAdminPackagesIdEditRouteImport } from './routes/_super.super-admin.packages.$id.edit'
@@ -424,6 +425,12 @@ const SuperSuperAdminSettingsIndexRoute =
     path: '/super-admin/settings/',
     getParentRoute: () => SuperRoute,
   } as any)
+const LovableEmailQueueProcessRoute =
+  LovableEmailQueueProcessRouteImport.update({
+    id: '/lovable/email/queue/process',
+    path: '/lovable/email/queue/process',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const SuperSuperAdminBusinessesIdIndexRoute =
   SuperSuperAdminBusinessesIdIndexRouteImport.update({
     id: '/super-admin/businesses/$id/',
@@ -517,6 +524,7 @@ export interface FileRoutesByFullPath {
   '/super-admin/cms/stats': typeof SuperSuperAdminCmsStatsRoute
   '/super-admin/cms/testimonials': typeof SuperSuperAdminCmsTestimonialsRoute
   '/super-admin/packages/new': typeof SuperSuperAdminPackagesNewRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/super-admin/businesses/': typeof SuperSuperAdminBusinessesIndexRoute
   '/super-admin/packages/': typeof SuperSuperAdminPackagesIndexRoute
   '/super-admin/settings/': typeof SuperSuperAdminSettingsIndexRoute
@@ -588,6 +596,7 @@ export interface FileRoutesByTo {
   '/super-admin/cms/stats': typeof SuperSuperAdminCmsStatsRoute
   '/super-admin/cms/testimonials': typeof SuperSuperAdminCmsTestimonialsRoute
   '/super-admin/packages/new': typeof SuperSuperAdminPackagesNewRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/super-admin/businesses': typeof SuperSuperAdminBusinessesIndexRoute
   '/super-admin/packages': typeof SuperSuperAdminPackagesIndexRoute
   '/super-admin/settings': typeof SuperSuperAdminSettingsIndexRoute
@@ -662,6 +671,7 @@ export interface FileRoutesById {
   '/_super/super-admin/cms/stats': typeof SuperSuperAdminCmsStatsRoute
   '/_super/super-admin/cms/testimonials': typeof SuperSuperAdminCmsTestimonialsRoute
   '/_super/super-admin/packages/new': typeof SuperSuperAdminPackagesNewRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/_super/super-admin/businesses/': typeof SuperSuperAdminBusinessesIndexRoute
   '/_super/super-admin/packages/': typeof SuperSuperAdminPackagesIndexRoute
   '/_super/super-admin/settings/': typeof SuperSuperAdminSettingsIndexRoute
@@ -735,6 +745,7 @@ export interface FileRouteTypes {
     | '/super-admin/cms/stats'
     | '/super-admin/cms/testimonials'
     | '/super-admin/packages/new'
+    | '/lovable/email/queue/process'
     | '/super-admin/businesses/'
     | '/super-admin/packages/'
     | '/super-admin/settings/'
@@ -806,6 +817,7 @@ export interface FileRouteTypes {
     | '/super-admin/cms/stats'
     | '/super-admin/cms/testimonials'
     | '/super-admin/packages/new'
+    | '/lovable/email/queue/process'
     | '/super-admin/businesses'
     | '/super-admin/packages'
     | '/super-admin/settings'
@@ -879,6 +891,7 @@ export interface FileRouteTypes {
     | '/_super/super-admin/cms/stats'
     | '/_super/super-admin/cms/testimonials'
     | '/_super/super-admin/packages/new'
+    | '/lovable/email/queue/process'
     | '/_super/super-admin/businesses/'
     | '/_super/super-admin/packages/'
     | '/_super/super-admin/settings/'
@@ -903,6 +916,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   InvoiceIdRoute: typeof InvoiceIdRoute
   SuperAdminLoginRoute: typeof SuperAdminLoginRoute
+  LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1369,6 +1383,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SuperSuperAdminSettingsIndexRouteImport
       parentRoute: typeof SuperRoute
     }
+    '/lovable/email/queue/process': {
+      id: '/lovable/email/queue/process'
+      path: '/lovable/email/queue/process'
+      fullPath: '/lovable/email/queue/process'
+      preLoaderRoute: typeof LovableEmailQueueProcessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_super/super-admin/businesses/$id/': {
       id: '/_super/super-admin/businesses/$id/'
       path: '/super-admin/businesses/$id'
@@ -1555,6 +1576,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   InvoiceIdRoute: InvoiceIdRoute,
   SuperAdminLoginRoute: SuperAdminLoginRoute,
+  LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
