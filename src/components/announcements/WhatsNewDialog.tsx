@@ -1,9 +1,17 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBusiness } from "@/contexts/BusinessContext";
 import { Sparkles } from "lucide-react";
 import InstallAppButton from "@/components/pwa/InstallAppButton";
 
@@ -13,6 +21,7 @@ interface Announcement {
   body: string;
   version_label: string | null;
   action_type: "none" | "install_web_app";
+  target_all: boolean;
 }
 
 /**
@@ -20,6 +29,7 @@ interface Announcement {
  */
 export default function WhatsNewDialog({ trigger }: { trigger: boolean }) {
   const { user } = useAuth();
+  const { business } = useBusiness();
   const [items, setItems] = useState<Announcement[]>([]);
   const [open, setOpen] = useState(false);
 
@@ -34,9 +44,24 @@ export default function WhatsNewDialog({ trigger }: { trigger: boolean }) {
         .eq("is_active", true)
         .order("created_at", { ascending: false })
         .limit(10);
-      const live = ((anns as any[]) || []).filter(
+      const candidates = ((anns as any[]) || []).filter(
         (a) => (!a.starts_at || a.starts_at <= nowIso) && (!a.ends_at || a.ends_at >= nowIso),
       );
+
+      const targetedIds = business?.id
+        ? new Set(
+            (
+              ((
+                await (supabase as any)
+                  .from("announcement_targets")
+                  .select("announcement_id")
+                  .eq("business_id", business.id)
+              ).data as any[]) || []
+            ).map((target) => target.announcement_id),
+          )
+        : new Set<string>();
+
+      const live = candidates.filter((a) => a.target_all !== false || targetedIds.has(a.id));
       if (live.length === 0) return;
       const { data: dismissed } = await (supabase as any)
         .from("announcement_dismissals")
@@ -52,16 +77,17 @@ export default function WhatsNewDialog({ trigger }: { trigger: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [trigger, user?.id]);
+  }, [trigger, user?.id, business?.id]);
 
   const close = async () => {
     setOpen(false);
     if (!user || items.length === 0) return;
-    await (supabase as any)
-      .from("announcement_dismissals")
-      .upsert(items.map((a) => ({ announcement_id: a.id, user_id: user.id })), {
+    await (supabase as any).from("announcement_dismissals").upsert(
+      items.map((a) => ({ announcement_id: a.id, user_id: user.id })),
+      {
         onConflict: "announcement_id,user_id",
-      });
+      },
+    );
   };
 
   if (items.length === 0) return null;
@@ -85,11 +111,7 @@ export default function WhatsNewDialog({ trigger }: { trigger: boolean }) {
               <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{a.body}</p>
               {a.action_type === "install_web_app" && (
                 <div className="mt-4 rounded-lg bg-muted/40 p-3">
-                  <InstallAppButton
-                    className="w-full sm:w-auto"
-                    icon="smartphone"
-                    variant="default"
-                  >
+                  <InstallAppButton className="w-full sm:w-auto" icon="smartphone" variant="default">
                     Install StratusPOS
                   </InstallAppButton>
                 </div>
@@ -104,4 +126,3 @@ export default function WhatsNewDialog({ trigger }: { trigger: boolean }) {
     </Dialog>
   );
 }
- 
