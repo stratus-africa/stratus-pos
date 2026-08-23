@@ -21,7 +21,7 @@ export function StockValuationTab() {
     enabled: Boolean(business?.id && allowed),
     queryFn: async () => {
       if (!business?.id) return [] as any[];
-      let request = supabase.from("inventory").select("id, product_id, location_id, quantity, products(name, sku, purchase_price, selling_price), locations(name)").eq("business_id", business.id);
+      let request = (supabase as any).from("inventory").select("id, product_id, location_id, quantity, products(name, sku, purchase_price, selling_price), locations(name)").eq("business_id", business.id);
       if (currentLocation?.id) request = request.eq("location_id", currentLocation.id);
       const { data, error } = await request.order("quantity", { ascending: false });
       if (error) throw error;
