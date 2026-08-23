@@ -36,8 +36,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import PaymentDialog, { LoyaltyPayload } from "@/components/pos/PaymentDialog";
 import ReceiptDialog from "@/components/pos/ReceiptDialog";
 import StartDayDialog from "@/components/pos/StartDayDialog";
-import EndDayDialog from "@/components/pos/EndDayDialog";
-import TillCashMovementDialog from "@/components/pos/TillCashMovementDialog";
 import WhatsNewDialog from "@/components/announcements/WhatsNewDialog";
 import ManagerApprovalDialog from "@/components/pos/ManagerApprovalDialog";
 import BarcodeScanner from "@/components/BarcodeScanner";
@@ -79,7 +77,7 @@ const POS = () => {
   const isMobile = useIsMobile();
   const { user: authUser } = useAuth();
   const offline = useOfflineSales();
-  const { hasFeature } = useEntitlement();
+  const { hasModule, hasFeature } = useEntitlement();
   const canPosFeature = useCallback(
     (key: string, allowOverride = false) => {
       if (hasFeature("pos", key)) return true;
@@ -100,9 +98,7 @@ const POS = () => {
   const canMobileMoney = canPosFeature("payment_mobile_money");
   const canCredit = canPosFeature("payment_credit") && canPosFeature("credit_sale");
   const canOpenTill = canPosFeature("open_till");
-  const canCloseTill = canPosFeature("close_till") && canPosFeature("reconcile_till");
-  const canCashIn = canPosFeature("cash_in");
-  const canCashOut = canPosFeature("cash_out", true);
+  const mpesaEnabled = hasModule("mpesa") && hasFeature("mpesa", "stk_push") && canMobileMoney;
 
   // Resume a credit-sale settlement requested from the Sales receipt.
   // The payload is consumed once all required POS data is available.
@@ -158,8 +154,6 @@ const POS = () => {
 
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [resumeOpen, setResumeOpen] = useState(false);
-  const [endDayOpen, setEndDayOpen] = useState(false);
-  const [cashMovementType, setCashMovementType] = useState<"cash_in" | "cash_out" | null>(null);
   const [initialPaymentMethod, setInitialPaymentMethod] = useState<"cash" | "mpesa" | "card">("cash");
   const [receiptData, setReceiptData] = useState<Record<string, unknown> | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
@@ -1268,10 +1262,10 @@ const POS = () => {
               <Button
                 variant="outline"
                 className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
-                disabled={!canMobileMoney || pos.cart.length === 0}
+                disabled={!mpesaEnabled || pos.cart.length === 0}
                 onClick={() => {
-                  if (!canMobileMoney) {
-                    toast.error("M-Pesa payments are not permitted for your role.");
+                  if (!mpesaEnabled) {
+                    toast.error("M-Pesa is not included in this plan");
                     return;
                   }
                   setInitialPaymentMethod("mpesa");
@@ -1329,37 +1323,6 @@ const POS = () => {
                 )}
                 {pos.cart.length === 0 ? "Credits" : "Credit"}
               </Button>
-              {session.activeSession && (canCloseTill || canCashIn || canCashOut) && (
-                <>
-                  {canCloseTill && (
-                    <Button
-                      variant="outline"
-                      className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
-                      onClick={() => setEndDayOpen(true)}
-                    >
-                      Close Till
-                    </Button>
-                  )}
-                  {canCashIn && (
-                    <Button
-                      variant="outline"
-                      className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
-                      onClick={() => setCashMovementType("cash_in")}
-                    >
-                      <Banknote className="h-4 w-4 mr-1.5" /> Cash In
-                    </Button>
-                  )}
-                  {canCashOut && (
-                    <Button
-                      variant="outline"
-                      className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
-                      onClick={() => setCashMovementType("cash_out")}
-                    >
-                      <Banknote className="h-4 w-4 mr-1.5" /> Cash Out
-                    </Button>
-                  )}
-                </>
-              )}
               <Button
                 variant="outline"
                 className="h-12 bg-primary-foreground text-primary border-transparent hover:bg-primary-foreground/90 font-semibold"
@@ -1485,29 +1448,6 @@ const POS = () => {
         />
 
         <ScannerSettingsDialog open={scanSettingsOpen} onOpenChange={setScanSettingsOpen} />
-
-        {session.activeSession && (
-          <EndDayDialog
-            open={endDayOpen}
-            onOpenChange={setEndDayOpen}
-            session={session.activeSession}
-            onConfirm={async (closingCash, notes) => {
-              const closed = await session.endDay(closingCash, notes);
-              if (closed) setEndDayOpen(false);
-            }}
-          />
-        )}
-
-        {cashMovementType && (
-          <TillCashMovementDialog
-            open={!!cashMovementType}
-            onOpenChange={(open) => {
-              if (!open) setCashMovementType(null);
-            }}
-            type={cashMovementType}
-            onConfirm={(amount, reason) => session.recordCashMovement(cashMovementType, amount, reason)}
-          />
-        )}
 
         <ManagerApprovalDialog
           open={approvalOpen}
