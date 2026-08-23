@@ -162,7 +162,7 @@ const Reports = () => {
       if (!business) return [];
       const pageSize = 1000;
       let offset = 0;
-      const all: any[] = [];
+      const all: Array<Record<string, unknown>> = [];
       // eslint-disable-next-line no-constant-condition
       while (true) {
         const { data, error } = await supabase
@@ -204,8 +204,8 @@ const Reports = () => {
     queryFn: async () => {
       if (!business || !currentLocation) return [];
       const pageSize = 1000;
-      const inventoryRows: any[] = [];
-      const batchRows: any[] = [];
+      const inventoryRows: Array<Record<string, unknown>> = [];
+      const batchRows: Array<Record<string, unknown>> = [];
 
       for (let offset = 0; ; offset += pageSize) {
         const { data, error } = await supabase
@@ -239,12 +239,12 @@ const Reports = () => {
         string,
         { batch_number: string; expiry_date: string | null; quantity: number }[]
       >();
-      batchRows.forEach((b: any) => {
+      batchRows.forEach((b: Record<string, unknown>) => {
         const arr = batchesByProduct.get(b.product_id) || [];
         arr.push({ batch_number: b.batch_number, expiry_date: b.expiry_date, quantity: Number(b.quantity) });
         batchesByProduct.set(b.product_id, arr);
       });
-      return inventoryRows.map((row: any) => ({
+      return inventoryRows.map((row: Record<string, unknown>) => ({
         ...row,
         _batches: batchesByProduct.get(row.product_id) || [],
       }));
@@ -296,7 +296,7 @@ const Reports = () => {
     queryKey: ["report-pnl-ledger", business?.id, from, to],
     queryFn: async () => {
       if (!business) return { revenue: 0, cogs: 0 };
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("journal_entries")
         .select("date, status, journal_entry_lines(debit, credit, account_id, chart_of_accounts(type, code, name))")
         .eq("business_id", business.id)
@@ -328,7 +328,7 @@ const Reports = () => {
     queryKey: ["report-audit", business?.id, from, to],
     queryFn: async () => {
       if (!business) return [];
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("audit_logs")
         .select("*")
         .eq("business_id", business.id)
@@ -349,7 +349,7 @@ const Reports = () => {
       const k = activeTab;
       if (k === "sales") return salesReport.data || [];
       if (k === "sales_by_customer") {
-        const m = new Map<string, any>();
+        const m = new Map<string, Record<string, unknown>>();
         for (const r of salesReport.data || []) {
           const key = r.customers?.name || "Walk-in / Unassigned";
           const x = m.get(key) || { customer: key, sales: 0, revenue: 0, discount: 0, tax: 0 };
@@ -362,7 +362,7 @@ const Reports = () => {
         return [...m.values()];
       }
       if (k === "sales_by_location") {
-        const m = new Map<string, any>();
+        const m = new Map<string, Record<string, unknown>>();
         for (const r of salesReport.data || []) {
           const key = r.locations?.name || r.location_id;
           const x = m.get(key) || { location: key, sales: 0, revenue: 0 };
@@ -373,7 +373,7 @@ const Reports = () => {
         return [...m.values()];
       }
       if (k === "sales_by_cashier") {
-        const m = new Map<string, any>();
+        const m = new Map<string, Record<string, unknown>>();
         for (const r of salesReport.data || []) {
           const key = r.created_by || "Unknown";
           const x = m.get(key) || { cashier: key, sales: 0, revenue: 0 };
@@ -384,7 +384,7 @@ const Reports = () => {
         return [...m.values()];
       }
       if (k === "sales_by_product") {
-        const m = new Map<string, any>();
+        const m = new Map<string, Record<string, unknown>>();
         for (const r of salesReport.data || [])
           for (const i of r.sale_items || []) {
             const key = i.products?.name || i.product_id;
@@ -397,11 +397,11 @@ const Reports = () => {
         return [...m.values()];
       }
       if (k === "sales_by_payment") {
-        const ids = (salesReport.data || []).map((r: any) => r.id);
+        const ids = (salesReport.data || []).map((r: { id: string }) => r.id);
         if (!ids.length) return [];
         const { data, error } = await supabase.from("payments").select("method,amount,sale_id").in("sale_id", ids);
         if (error) throw error;
-        const m = new Map<string, any>();
+        const m = new Map<string, Record<string, unknown>>();
         for (const r of data || []) {
           const key = r.method || "unknown";
           const x = m.get(key) || { payment_method: key, transactions: 0, amount: 0 };
@@ -417,7 +417,7 @@ const Reports = () => {
       if (k === "stock" || k === "stock_valuation" || k === "low_stock") return inventoryReport.data || [];
       if (k === "expiry") {
         const { data, error } = await supabase
-          .from("product_batches" as any)
+          .from("product_batches")
           .select("batch_number,expiry_date,quantity,products(name,sku),locations(name)")
           .eq("business_id", business.id)
           .gt("quantity", 0)
@@ -427,7 +427,7 @@ const Reports = () => {
       }
       if (k === "stock_adjustments") {
         const { data, error } = await supabase
-          .from("stock_adjustments" as any)
+          .from("stock_adjustments")
           .select("*,products(name,sku),locations(name)")
           .eq("business_id", business.id)
           .gte("created_at", `${from}T00:00:00`)
@@ -438,7 +438,7 @@ const Reports = () => {
       }
       if (k === "stock_transfers") {
         const { data, error } = await supabase
-          .from("stock_transfers" as any)
+          .from("stock_transfers")
           .select(
             "*,from_location:locations!stock_transfers_from_location_id_fkey(name),to_location:locations!stock_transfers_to_location_id_fkey(name)",
           )
@@ -451,7 +451,7 @@ const Reports = () => {
       }
       if (k === "tax") {
         const { data, error } = await supabase
-          .from("digitax_invoice_queue" as any)
+          .from("digitax_invoice_queue")
           .select("*")
           .eq("business_id", business.id)
           .gte("created_at", `${from}T00:00:00`)
@@ -464,7 +464,7 @@ const Reports = () => {
     },
     enabled:
       !!business &&
-      reportKeys.includes(activeTab as any) &&
+      reportKeys.includes(activeTab as (typeof reportKeys)[number]) &&
       activeTab !== "sales" &&
       activeTab !== "purchases" &&
       activeTab !== "expenses" &&
@@ -481,7 +481,7 @@ const Reports = () => {
 
   const fallbackRevenue = sales.reduce((s, r) => s + Number(r.total || 0) - Number(r.tax || 0), 0);
   const fallbackCOGS = sales.reduce((s, sale) => {
-    const items = (sale as any).sale_items || [];
+    const items = (sale as { sale_items?: unknown[] }).sale_items || [];
     return (
       s +
       items.reduce((is: number, i: any) => is + Number(i.quantity || 0) * Number(i.products?.purchase_price || 0), 0)
@@ -494,7 +494,7 @@ const Reports = () => {
   const netProfit = grossProfit - totalExpenses;
 
   const expenseByCategory: Record<string, number> = {};
-  expenses.forEach((e: any) => {
+  expenses.forEach((e: Record<string, unknown>) => {
     const cat = e.expense_categories?.name || "Uncategorized";
     expenseByCategory[cat] = (expenseByCategory[cat] || 0) + Number(e.amount);
   });
@@ -540,7 +540,7 @@ const Reports = () => {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col md:flex-row gap-4 md:gap-6">
         {(() => {
-          type ReportItem = { value: string; label: string; icon: any; show: boolean };
+          type ReportItem = { value: string; label: string; icon: React.ReactNode; show: boolean };
           type ReportGroup = { key: string; label: string; items: ReportItem[] };
 
           const groups: ReportGroup[] = [
@@ -742,7 +742,7 @@ const Reports = () => {
               <FeatureReportTab
                 title="Low Stock"
                 rows={(featureReport.data || []).filter(
-                  (r: any) =>
+                  (r: Record<string, unknown>) =>
                     Number(r.quantity || r.stock || 0) <= Number(r.products?.reorder_level || r.reorder_level || 0),
                 )}
                 loading={featureReport.isLoading}

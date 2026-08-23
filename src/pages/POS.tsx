@@ -65,6 +65,7 @@ import { useOfflineSales } from "@/hooks/useOfflineSales";
 import UnknownBarcodeDialog from "@/components/pos/UnknownBarcodeDialog";
 import { ProductFormDialog } from "@/components/products/ProductFormDialog";
 import { useEntitlement } from "@/hooks/useEntitlement";
+import type { PosSettings, LocationPosSettings } from "@/data/domainTypes";
 
 const POS = () => {
   const { productsQuery, createProduct } = useProducts();
@@ -161,9 +162,9 @@ const POS = () => {
   const [endDayOpen, setEndDayOpen] = useState(false);
   const [cashMovementType, setCashMovementType] = useState<"cash_in" | "cash_out" | null>(null);
   const [initialPaymentMethod, setInitialPaymentMethod] = useState<"cash" | "mpesa" | "card">("cash");
-  const [receiptData, setReceiptData] = useState<any>(null);
+  const [receiptData, setReceiptData] = useState<Record<string, unknown> | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
-  const [reprintData, setReprintData] = useState<any>(null);
+  const [reprintData, setReprintData] = useState<Record<string, unknown> | null>(null);
   const [reprintOpen, setReprintOpen] = useState(false);
 
   const [startDayOpen, setStartDayOpen] = useState(false);
@@ -297,8 +298,8 @@ const POS = () => {
   }, [paymentOpen, pos.cartTotal, displayCfg]);
 
   // Per-location override (true/false) takes precedence over business default.
-  const businessRequires = (business as any)?.pos_require_manager_to_remove_item ?? false;
-  const locationOverride = (currentLocation as any)?.pos_require_manager_to_remove_item;
+  const businessRequires = (business as PosSettings | null)?.pos_require_manager_to_remove_item ?? false;
+  const locationOverride = (currentLocation as LocationPosSettings | null)?.pos_require_manager_to_remove_item;
   const requireManagerToRemove =
     locationOverride === null || locationOverride === undefined ? businessRequires : !!locationOverride;
   // Admins/managers/stores managers don't need extra approval — they ARE the approvers.
@@ -490,7 +491,7 @@ const POS = () => {
           pointsEarned: earned,
           redemptionValue: loyalty.redemptionValue,
         };
-      } catch (e: any) {
+      } catch (e: unknown) {
         toast.warning(`Loyalty capture skipped: ${e.message || "unknown error"}`);
       }
     }
@@ -515,7 +516,7 @@ const POS = () => {
           toast.success(
             `Redeemed ${loyaltyCtx.pointsRedeemed} points (KES ${loyaltyCtx.redemptionValue.toLocaleString()})`,
           );
-      } catch (e: any) {
+      } catch (e: unknown) {
         toast.warning(`Loyalty balance update failed: ${e.message}`);
       }
       (result as any).loyalty = {
@@ -576,7 +577,7 @@ const POS = () => {
 
     const quickCashComplete = async () => {
       if (!canCash || pos.cart.length === 0 || pos.processing) return;
-      const digitaxOn = (business as any)?.digitax_enabled === true;
+      const digitaxOn = (business as PosSettings | null)?.digitax_enabled === true;
       await pos.completeSale([{ method: "cash", amount: pos.cartTotal, reference: "" }], null, digitaxOn);
     };
 

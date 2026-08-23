@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, Link } from "@/lib/router-compat";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,6 +55,8 @@ import { EditAdjustmentDocumentDialog } from "@/components/inventory/EditAdjustm
 import ProductDetailDialog from "@/components/products/ProductDetailDialog";
 import { ModuleHeader } from "@/components/modules/ModulePageShell";
 import { toast } from "sonner";
+import { inventoryData } from "@/data/inventory";
+import { supabase } from "@/integrations/supabase/client";
 
 const PAGE_SIZE_OPTIONS = [25, 100, 200] as const;
 
@@ -336,7 +337,7 @@ const Inventory = () => {
         .limit(20000);
       if (error) throw error;
       const map = new Map<string, string>();
-      (data || []).forEach((r: any) => {
+      (data || []).forEach((r: Record<string, unknown>) => {
         const pid = r.product_id;
         const ts = r.sales?.created_at;
         if (pid && ts && !map.has(pid)) map.set(pid, ts);
@@ -401,17 +402,17 @@ const Inventory = () => {
     if (!requestItems.length) return;
     void (async () => {
       try {
-        const { error } = await supabase.rpc("create_inventory_control_request" as any, {
-        _location_id: data.location_id,
-        _reason: "Adjustment",
-        _notes: data.notes || null,
-        _reference: null,
-          _items: requestItems,
+        const { error } = await inventoryData.createControlRequest({
+          locationId: data.location_id,
+          reason: "Adjustment",
+          notes: data.notes || null,
+          reference: null,
+          items: requestItems,
         });
         if (error) throw error;
         toast.success("Stock adjustment submitted for approval");
-      } catch (error: any) {
-        toast.error(error?.message || "Could not submit stock adjustment");
+      } catch (error: unknown) {
+        toast.error(error instanceof Error ? error.message : "Could not submit stock adjustment");
       }
     })();
   };
