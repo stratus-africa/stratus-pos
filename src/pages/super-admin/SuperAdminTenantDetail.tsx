@@ -251,7 +251,6 @@ export default function SuperAdminTenantDetail() {
       await callSetTenantActive({ data: { businessId: biz.id, active } });
       toast.success(active ? "Tenant reactivated" : "Tenant suspended");
       setBiz({ ...biz, is_active: active });
-      }
     } catch (error: any) {
       toast.error(error?.message || "Failed to update tenant status");
     }
