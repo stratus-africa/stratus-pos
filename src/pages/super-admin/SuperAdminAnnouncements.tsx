@@ -37,6 +37,7 @@ interface Announcement {
   ends_at: string | null;
   schedule_timezone: string;
   created_at: string;
+  action_type: "none" | "install_web_app";
 }
 
 type Draft = {
@@ -48,6 +49,7 @@ type Draft = {
   starts_at: string;
   ends_at: string;
   schedule_timezone: string;
+  action_type: "none" | "install_web_app";
 };
 
 const empty = (): Draft => ({
@@ -58,6 +60,7 @@ const empty = (): Draft => ({
   starts_at: "",
   ends_at: "",
   schedule_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+  action_type: "none",
 });
 const timezones =
   typeof Intl.supportedValuesOf === "function"
@@ -150,6 +153,7 @@ export default function SuperAdminAnnouncements() {
       starts_at: zonedToUtc(draft.starts_at, draft.schedule_timezone),
       ends_at: zonedToUtc(draft.ends_at, draft.schedule_timezone),
       schedule_timezone: draft.schedule_timezone,
+      action_type: draft.action_type,
     };
     const { error } = draft.id
       ? await (supabase as any).from("system_announcements").update(payload).eq("id", draft.id)
@@ -213,6 +217,7 @@ export default function SuperAdminAnnouncements() {
                   <TableHead>Title</TableHead>
                   <TableHead>Version</TableHead>
                   <TableHead>Window</TableHead>
+                  <TableHead>Action</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -220,13 +225,13 @@ export default function SuperAdminAnnouncements() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
                       Loading…
                     </TableCell>
                   </TableRow>
                 ) : rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
                       No announcements yet.
                     </TableCell>
                   </TableRow>
@@ -242,6 +247,13 @@ export default function SuperAdminAnnouncements() {
                         {row.starts_at ? format(new Date(row.starts_at), "dd MMM yyyy HH:mm") : "Always"}
                         {" → "}
                         {row.ends_at ? format(new Date(row.ends_at), "dd MMM yyyy") : "No end"}
+                      </TableCell>
+                      <TableCell>
+                        {row.action_type === "install_web_app" ? (
+                          <Badge variant="outline">Install Web App</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">None</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge variant={row.is_active ? "default" : "secondary"}>
@@ -267,6 +279,7 @@ export default function SuperAdminAnnouncements() {
                                   starts_at: toLocalInput(row.starts_at, row.schedule_timezone || "UTC"),
                                   ends_at: toLocalInput(row.ends_at, row.schedule_timezone || "UTC"),
                                   schedule_timezone: row.schedule_timezone || "UTC",
+                                  action_type: row.action_type || "none",
                                 });
                                 setOpen(true);
                               }}
@@ -316,6 +329,24 @@ export default function SuperAdminAnnouncements() {
               />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <Label>Announcement action</Label>
+                <Select
+                  value={draft.action_type}
+                  onValueChange={(action_type: Draft["action_type"]) => setDraft({ ...draft, action_type })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose an action" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="install_web_app">Install Web App</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Shows the native PWA install prompt when supported, or device-specific installation instructions.
+                </p>
+              </div>
               <div>
                 <Label>Version label (optional)</Label>
                 <Input
