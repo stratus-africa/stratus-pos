@@ -32,7 +32,6 @@ import {
   HelpCircle,
   LogOut,
   PanelLeft,
-  Bell,
   Menu,
   Zap,
   Megaphone,
@@ -107,10 +106,7 @@ const navGroups: NavGroup[] = [
   },
   {
     label: "COMMUNICATION",
-    items: [
-      { title: "Announcements", url: "/super-admin/announcements", icon: Megaphone },
-      { title: "Notifications", url: "/super-admin/notifications", icon: Bell },
-    ],
+    items: [{ title: "Announcements", url: "/super-admin/announcements", icon: Megaphone }],
   },
   {
     label: "WEBSITE",
@@ -121,7 +117,6 @@ const navGroups: NavGroup[] = [
     items: [
       { title: "Settings", url: "/super-admin/settings", icon: Settings2 },
       { title: "Integrations", url: "/super-admin/integrations", icon: Zap },
-      { title: "Backups", url: "/super-admin/enterprise", icon: DatabaseBackup },
     ],
   },
 ];
