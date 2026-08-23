@@ -38,9 +38,16 @@ export default function WhatsNewDialog({ trigger }: { trigger: boolean }) {
     let cancelled = false;
     (async () => {
       const nowIso = new Date().toISOString();
+      const { data: preferences } = await (supabase as any)
+        .from("user_notification_preferences")
+        .select("whats_new_frequency")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (preferences?.whats_new_frequency === "never") return;
+
       const { data: anns } = await (supabase as any)
         .from("system_announcements")
-        .select("id, title, body, version_label, starts_at, ends_at, action_type")
+        .select("id, title, body, version_label, starts_at, ends_at, action_type, target_all")
         .eq("is_active", true)
         .order("created_at", { ascending: false })
         .limit(10);
