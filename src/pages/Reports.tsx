@@ -55,7 +55,7 @@ const Reports = () => {
   const canPurchases = can("purchases");
   const canExpenses = can("expenses");
   const canInventory = can("stock");
-  const canPnL = can("profit_loss") && hasFeatureKey("accounting");
+  const canPnL = (can("profit_loss") || hasPermission("accounting.profit_loss")) && hasFeatureKey("accounting");
   const canLedger = hasPermission("reports.general_ledger") || hasPermission("accounting.general_ledger");
   const canTrial = hasPermission("reports.trial_balance") || hasPermission("accounting.trial_balance");
   const canFinancialPL = hasPermission("reports.profit_loss") || hasPermission("accounting.profit_loss");
@@ -87,7 +87,6 @@ const Reports = () => {
     "schedule",
     "general_ledger",
     "trial_balance",
-    "financial_pnl",
     "balance_sheet",
     "cash_flow",
   ] as const;
@@ -120,15 +119,13 @@ const Reports = () => {
   useEffect(() => {
     if (urlTab) setActiveTab(urlTab);
   }, [urlTab]);
-  const [from, setFrom] = useState(thirtyDaysAgo);
+  const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
   const [exporter, setExporter] = useState<(() => void) | null>(null);
 
   // Financial reporting is loaded only when a financial report is actually selected.
   // This prevents the heavy ledger RPC from blocking the normal Reports page.
-  const isFinancialTab = ["general_ledger", "trial_balance", "financial_pnl", "balance_sheet", "cash_flow"].includes(
-    activeTab,
-  );
+  const isFinancialTab = ["pnl", "general_ledger", "trial_balance", "balance_sheet", "cash_flow"].includes(activeTab);
   const financeQuery = useFinanceReports(from, to, isFinancialTab && canFinancial);
   const financeData = financeQuery.data;
 
@@ -210,7 +207,9 @@ const Reports = () => {
       for (let offset = 0; ; offset += pageSize) {
         const { data, error } = await supabase
           .from("inventory")
-          .select("*, products(name, sku, purchase_price, selling_price, categories(name), brands(name))")
+          .select(
+            "*, products(name, sku, purchase_price, selling_price, categories(name), brands(name)), locations(name)",
+          )
           .eq("location_id", currentLocation.id)
           .range(offset, offset + pageSize - 1);
         if (error) throw error;
@@ -244,8 +243,10 @@ const Reports = () => {
         arr.push({ batch_number: b.batch_number, expiry_date: b.expiry_date, quantity: Number(b.quantity) });
         batchesByProduct.set(b.product_id, arr);
       });
-      return inventoryRows.map((row: Record<string, unknown>) => ({
+      return inventoryRows.map((row: any) => ({
         ...row,
+        product_name: row.products?.name || row.product_id || "Unknown",
+        location_name: row.locations?.name || row.location_id || "Unknown",
         _batches: batchesByProduct.get(row.product_id) || [],
       }));
     },
@@ -420,13 +421,24 @@ const Reports = () => {
         return [...m.values()];
       }
       if (k === "sales_by_cashier") {
+        const cashierIds = Array.from(new Set((salesReport.data || []).map((r) => r.created_by).filter(Boolean)));
+        const names = new Map<string, string>();
+        if (cashierIds.length) {
+          const { data: profiles, error } = await supabase
+            .from("profiles")
+            .select("id, full_name, email")
+            .in("id", cashierIds);
+          if (error) throw error;
+          for (const profile of profiles || []) names.set(profile.id, profile.full_name || profile.email || profile.id);
+        }
         const m = new Map<string, Record<string, unknown>>();
         for (const r of salesReport.data || []) {
-          const key = r.created_by || "Unknown";
-          const x = m.get(key) || { cashier: key, sales: 0, revenue: 0 };
+          const id = r.created_by || "unknown";
+          const key = names.get(id) || "Unknown";
+          const x = m.get(id) || { cashier: key, sales: 0, revenue: 0 };
           x.sales++;
           x.revenue += Number(r.total || 0);
-          m.set(key, x);
+          m.set(id, x);
         }
         return [...m.values()];
       }
@@ -463,6 +475,7 @@ const Reports = () => {
       if (k === "expenses") return expensesReport.data || [];
       if (k === "stock" || k === "stock_valuation" || k === "low_stock") return inventoryReport.data || [];
       if (k === "expiry") {
+        if (!(business as { track_batches?: boolean }).track_batches) return [];
         const { data, error } = await supabase
           .from("product_batches")
           .select("batch_number,expiry_date,quantity,products(name,sku),locations(name)")
@@ -481,7 +494,11 @@ const Reports = () => {
           .lte("created_at", `${to}T23:59:59`)
           .order("created_at", { ascending: false });
         if (error) throw error;
-        return data || [];
+        return (data || []).map((row: any) => ({
+          ...row,
+          product_name: row.products?.name || row.product_id || "Unknown",
+          location_name: row.locations?.name || row.location_id || "Unknown",
+        }));
       }
       if (k === "stock_transfers") {
         const { data, error } = await supabase
@@ -565,7 +582,7 @@ const Reports = () => {
           <DateRangeFilter
             from={from}
             to={to}
-            defaultPreset="this_month"
+            defaultPreset="today"
             onChange={({ from: f, to: t }) => {
               setFrom(f);
               setTo(t);
@@ -647,7 +664,12 @@ const Reports = () => {
                 },
                 { value: "stock_transfers", label: "Transfers", icon: Package, show: can("stock_transfers") },
                 { value: "low_stock", label: "Low Stock", icon: Package, show: can("low_stock") },
-                { value: "expiry", label: "Expiry", icon: Clock, show: can("expiry") },
+                {
+                  value: "expiry",
+                  label: "Expiry",
+                  icon: Clock,
+                  show: can("expiry") && !!(business as { track_batches?: boolean })?.track_batches,
+                },
               ],
             },
             {
@@ -678,7 +700,6 @@ const Reports = () => {
                 { value: "pnl", label: "Profit & Loss", icon: TrendingUp, show: can("profit_loss") },
                 { value: "general_ledger", label: "General Ledger", icon: FileText, show: canLedger },
                 { value: "trial_balance", label: "Trial Balance", icon: FileText, show: canTrial },
-                { value: "financial_pnl", label: "Financial P&L", icon: TrendingUp, show: canFinancialPL },
                 { value: "balance_sheet", label: "Balance Sheet", icon: FileText, show: canBS },
                 { value: "cash_flow", label: "Cash Flow", icon: Receipt, show: canCash },
               ],
@@ -763,6 +784,7 @@ const Reports = () => {
                 title="Stock Valuation"
                 rows={featureReport.data || []}
                 loading={featureReport.isLoading}
+                pageSizes={[24, 50, 100, 200]}
               />
             </TabsContent>
           )}
@@ -772,6 +794,8 @@ const Reports = () => {
                 title="Stock Adjustments"
                 rows={featureReport.data || []}
                 loading={featureReport.isLoading}
+                pageSizes={[24, 50, 100, 200]}
+                statusFilter
               />
             </TabsContent>
           )}
@@ -793,6 +817,7 @@ const Reports = () => {
                     Number(r.quantity || r.stock || 0) <= Number(r.products?.reorder_level || r.reorder_level || 0),
                 )}
                 loading={featureReport.isLoading}
+                pageSizes={[24, 50, 100, 200]}
               />
             </TabsContent>
           )}
@@ -904,6 +929,7 @@ const Reports = () => {
                   from={from}
                   to={to}
                   loading={loading || pnlLedger.isLoading}
+                  ledgerProfitLoss={financeData?.profit_loss || []}
                 />
               </RequireFeature>
             </TabsContent>
@@ -1068,46 +1094,6 @@ const Reports = () => {
                             <td className="p-3 text-right font-medium">{financeMoney(r.balance)}</td>
                           </tr>
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
-          {canFinancialPL && (
-            <TabsContent value="financial_pnl" className="mt-0">
-              <Card>
-                <CardContent className="p-0">
-                  <div className="border-b p-4">
-                    <h2 className="font-semibold">Financial Profit & Loss</h2>
-                    <p className="text-sm text-muted-foreground">Based on posted double-entry ledger activity.</p>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="p-3 text-left">Account</th>
-                          <th className="p-3 text-left">Type</th>
-                          <th className="p-3 text-right">Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(financeData?.profit_loss || []).map((r) => (
-                          <tr key={r.id} className="border-b">
-                            <td className="p-3">
-                              {r.code} {r.name}
-                            </td>
-                            <td className="p-3 capitalize">{r.type}</td>
-                            <td className="p-3 text-right">{financeMoney(r.balance)}</td>
-                          </tr>
-                        ))}
-                        <tr className="font-bold">
-                          <td className="p-3" colSpan={2}>
-                            Net Profit
-                          </td>
-                          <td className="p-3 text-right">{financeMoney(financeNetProfit)}</td>
-                        </tr>
                       </tbody>
                     </table>
                   </div>
