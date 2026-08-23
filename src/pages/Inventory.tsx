@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, Link } from "@/lib/router-compat";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -106,6 +106,7 @@ const downloadCsv = (filename: string, headers: string[], rows: (string | number
 const Inventory = () => {
   const { locations, currentLocation, business } = useBusiness();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { hasPermission } = usePermissions();
   const canViewInventory = hasPermission("inventory.view");
   const canAdjustStock = hasPermission("inventory.adjust");
@@ -361,8 +362,12 @@ const Inventory = () => {
     return { slow, dead };
   }, [inventory, lastSalesQuery.data]);
 
-  const handleAdjust = (data: AdjustStockSubmit) => {
-    if (!user || !business) return;
+  const handleAdjust = async (data: AdjustStockSubmit) => {
+    if (!user || !business) {
+      const error = new Error("Business or user context is unavailable");
+      toast.error(error.message);
+      throw error;
+    }
     // For Purchase received, create a Purchase order — it handles inventory + stock_adjustments rows
     if (data.purchase) {
       const items = data.items.map((it) => {
@@ -371,7 +376,8 @@ const Inventory = () => {
         return { product_id: it.product_id, quantity: qty, unit_cost, total: qty * unit_cost };
       });
       const subtotal = items.reduce((s, i) => s + i.total, 0);
-      createPurchase.mutate({
+
+      await createPurchase.mutateAsync({
         purchase: {
           supplier_id: data.purchase.supplier_id,
           location_id: data.location_id,
@@ -399,21 +405,26 @@ const Inventory = () => {
         quantity_change: Number(item.quantity_change),
       }));
     if (!requestItems.length) return;
-    void (async () => {
-      try {
-        const { error } = await inventoryData.createControlRequest({
-          locationId: data.location_id,
-          reason: "Adjustment",
-          notes: data.notes || null,
-          reference: null,
-          items: requestItems,
-        });
-        if (error) throw error;
-        toast.success("Stock adjustment submitted for approval");
-      } catch (error: unknown) {
-        toast.error(error instanceof Error ? error.message : "Could not submit stock adjustment");
-      }
-    })();
+    const { error } = await inventoryData.createControlRequest({
+      locationId: data.location_id,
+      reason: data.reason,
+      notes: data.notes || null,
+      reference: null,
+      items: requestItems,
+    });
+    if (error) {
+      toast.error(error.message || "Could not submit stock adjustment");
+      throw error;
+    }
+
+    toast.success("Stock adjustment submitted for approval", {
+      description: "Inventory will change after an authorized approval.",
+    });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["inventory"] }),
+      queryClient.invalidateQueries({ queryKey: ["stock_adjustments"] }),
+      queryClient.invalidateQueries({ queryKey: ["inventory-control-requests"] }),
+    ]);
   };
 
   const formatKES = (amount: number) =>
