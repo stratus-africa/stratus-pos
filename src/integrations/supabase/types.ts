@@ -6785,6 +6785,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      accounting_audit_log: {
+        Row: {
+          id: string;
+          business_id: string;
+          journal_entry_id: string | null;
+          action: string;
+          user_id: string | null;
+          details: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          business_id: string;
+          journal_entry_id?: string | null;
+          action: string;
+          user_id?: string | null;
+          details?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          business_id?: string;
+          journal_entry_id?: string | null;
+          action?: string;
+          user_id?: string | null;
+          details?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       acct_account: {
@@ -8234,6 +8264,61 @@ export type Database = {
           _metadata?: Json;
         };
         Returns: undefined;
+      };
+      acct_reverse_journal: {
+        Args: { _journal_id: string; _reason?: string };
+        Returns: string;
+      };
+      create_business_transaction: {
+        Args: { _business_type?: string; _location_name: string; _name: string };
+        Returns: Json;
+      };
+      post_stock_adjustment: {
+        Args: {
+          _created_by?: string;
+          _document_id?: string;
+          _location_id: string;
+          _notes?: string;
+          _product_id: string;
+          _quantity_change: number;
+          _reason: string;
+        };
+        Returns: string;
+      };
+      post_stock_adjustment_document: {
+        Args: {
+          _created_by: string;
+          _items: Json;
+          _location_id: string;
+          _notes?: string;
+          _reason: string;
+          _reference: string;
+        };
+        Returns: string;
+      };
+      update_stock_adjustment: {
+        Args: { _id: string; _notes?: string; _quantity_change: number; _reason: string };
+        Returns: string;
+      };
+      delete_stock_adjustment: {
+        Args: { _id: string };
+        Returns: boolean;
+      };
+      delete_stock_adjustment_document: {
+        Args: { _id: string };
+        Returns: boolean;
+      };
+      update_stock_adjustment_document: {
+        Args: {
+          _created_by: string;
+          _id: string;
+          _items: Json;
+          _location_id: string;
+          _notes?: string;
+          _reason: string;
+          _reference: string;
+        };
+        Returns: string;
       };
     };
     Enums: {
