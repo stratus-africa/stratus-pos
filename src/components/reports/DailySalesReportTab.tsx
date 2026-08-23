@@ -1,29 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, RefreshCw, TrendingUp, ShoppingCart } from "lucide-react";
+import { TrendingUp, ShoppingCart } from "lucide-react";
 import SaleDetailDialog from "@/components/sales/SaleDetailDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatKES, downloadCSV } from "./reportUtils";
 import ReportTableScroll from "./ReportTableScroll";
-import { toast } from "sonner";
 
 interface Props {
   from: string;
@@ -47,10 +35,6 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
   const { business, currentLocation, userRole } = useBusiness();
   const { user } = useAuth();
   const ownOnly = !!userRole && userRole !== "admin" && userRole !== "manager";
-  const queryClient = useQueryClient();
-  const [recalculating, setRecalculating] = useState(false);
-  const canRecalculate = userRole === "admin" || userRole === "manager";
-
   const query = useQuery({
     queryKey: ["daily-sales-report", business?.id, currentLocation?.id, from, to, ownOnly ? user?.id : "all"],
     queryFn: async () => {
@@ -86,193 +70,6 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
   });
 
   const sales = query.data || [];
-
-  const recalculatePayments = async () => {
-    if (!business || recalculating) return;
-    setRecalculating(true);
-    try {
-      const { data, error } = await (supabase as any).rpc("recalculate_sale_payment_amounts", {
-        _business_id: business.id,
-        _from_date: from,
-        _to_date: to,
-        _location_id: currentLocation?.id ?? null,
-      });
-      if (error) throw error;
-      const result = Array.isArray(data) ? data[0] : data;
-      const updated = Number(result?.payments_updated || 0);
-      const removed = Number(result?.amount_removed || 0);
-      await Promise.all([
-        query.refetch(),
-        queryClient.invalidateQueries({ queryKey: ["bank_accounts"] }),
-        queryClient.invalidateQueries({ queryKey: ["bank_transactions"] }),
-        queryClient.invalidateQueries({ queryKey: ["sales"] }),
-      ]);
-      toast.success(
-        updated > 0
-          ? `Corrected ${updated} payment record${updated === 1 ? "" : "s"}; removed KES ${removed.toLocaleString()} of change.`
-          : "All payment amounts in this range are already correct.",
-      );
-    } catch (error: any) {
-      toast.error(error.message || "Could not recalculate sale payments");
-    } finally {
-      setRecalculating(false);
-    }
-  };
-
-  // Cashier list for the filter — names resolved from profiles in this business.
-  const cashiersQuery = useQuery({
-    queryKey: ["report-cashiers", business?.id, ownOnly ? user?.id : "all"],
-    queryFn: async () => {
-      if (!business) return [] as { id: string; full_name: string | null }[];
-      let q = supabase.from("profiles").select("id, full_name").eq("business_id", business.id);
-      if (ownOnly && user?.id) q = q.eq("id", user.id);
-      const { data, error } = await q;
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!business,
-  });
-
-  const cashierName = (id: string | null) => (cashiersQuery.data || []).find((c: any) => c.id === id)?.full_name || "—";
-
-  const [cashierFilter, setCashierFilter] = useState(ownOnly && user?.id ? user.id : "all");
-  const [paymentFilter, setPaymentFilter] = useState("all");
-  const [drillSale, setDrillSale] = useState<any | null>(null);
-  const [drillOpen, setDrillOpen] = useState(false);
-
-  const paymentMethods = useMemo(() => {
-    const set = new Set<string>();
-    sales.forEach((s: any) =>
-      (s.payments || []).forEach((p: any) => set.add(String(p.method || "unknown").toLowerCase())),
-    );
-    return [...set].sort();
-  }, [sales]);
-
-  const filteredSales = useMemo(
-    () =>
-      sales.filter((s: any) => {
-        if (cashierFilter !== "all" && s.created_by !== cashierFilter) return false;
-        if (paymentFilter !== "all") {
-          const methods = (s.payments || []).map((p: any) => String(p.method || "unknown").toLowerCase());
-          if (!methods.includes(paymentFilter)) return false;
-        }
-        return true;
-      }),
-    [sales, cashierFilter, paymentFilter],
-  );
-
-  const [pageSize, setPageSize] = useState<number>(() => {
-    const s = Number(localStorage.getItem("daily-sales-report:pageSize"));
-    return [25, 100, 200].includes(s) ? s : 25;
-  });
-  const [page, setPage] = useState(1);
-  useEffect(() => {
-    localStorage.setItem("daily-sales-report:pageSize", String(pageSize));
-  }, [pageSize]);
-  useEffect(() => {
-    if (ownOnly && user?.id && cashierFilter !== user.id) setCashierFilter(user.id);
-    setPage(1);
-  }, [pageSize, from, to, cashierFilter, paymentFilter, ownOnly, user?.id]);
-
-  const stats = useMemo(() => {
-    const active = filteredSales.filter((s: any) => s.status !== "cancelled");
-    const count = active.length;
-    // A payment-mode filter must report the amount received through that
-    // method, rather than the complete invoice value of every matching sale.
-    // This is important for split tenders and keeps the figures identical to
-    // the End of Day payment reconciliation.
-    const paymentRows = active.flatMap((s: any) =>
-      (s.payments || [])
-        .filter((p: any) => paymentFilter === "all" || String(p.method || "unknown").toLowerCase() === paymentFilter)
-        .map((p: any) => ({ method: String(p.method || "unknown").toLowerCase(), amount: Number(p.amount || 0) })),
-    );
-    const paymentsReceived = paymentRows.reduce((sum, payment) => sum + payment.amount, 0);
-    const revenue =
-      paymentFilter === "all" ? active.reduce((a: number, s: any) => a + Number(s.total), 0) : paymentsReceived;
-    const units = active.reduce(
-      (a: number, s: any) => a + (s.sale_items || []).reduce((b: number, l: any) => b + Number(l.quantity), 0),
-      0,
-    );
-    const byPay = new Map<string, number>();
-    paymentRows.forEach((payment) => {
-      byPay.set(payment.method, (byPay.get(payment.method) || 0) + payment.amount);
-    });
-    const byItem = new Map<string, { qty: number; total: number }>();
-    active.forEach((s: any) =>
-      (s.sale_items || []).forEach((l: any) => {
-        const name = l.products?.name || "Unknown";
-        const cur = byItem.get(name) || { qty: 0, total: 0 };
-        cur.qty += Number(l.quantity);
-        cur.total += Number(l.total);
-        byItem.set(name, cur);
-      }),
-    );
-    const topItems = [...byItem.entries()].sort((a, b) => b[1].total - a[1].total).slice(0, 10);
-    return {
-      active,
-      revenue,
-      paymentsReceived,
-      count,
-      units,
-      avg: count ? revenue / count : 0,
-      byPay: [...byPay.entries()].sort((a, b) => b[1] - a[1]),
-      topItems,
-    };
-  }, [filteredSales, paymentFilter]);
-
-  const paymentAmountForSale = (sale: any) =>
-    (sale.payments || [])
-      .filter((p: any) => paymentFilter === "all" || String(p.method || "unknown").toLowerCase() === paymentFilter)
-      .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
-
-  // Register the export function with parent toolbar
-  useEffect(() => {
-    if (!onRegisterExport) return;
-    const exportCsv = () => {
-      const filtered = stats.active.filter((s: any) => s.status !== "voided");
-      if (!filtered.length) return;
-      const headers = [
-        "Invoice Date",
-        "Invoice Number",
-        "Customer Name",
-        "Is Inclusive Tax",
-        "Due Date",
-        "Balance",
-        "Item Name",
-        "Quantity",
-        "Item Total",
-        "Usage unit",
-        "Item Price",
-        "Sales person",
-      ];
-      const rows: string[][] = [];
-      for (const s of filtered) {
-        const saleDate = String(s.created_at).slice(0, 10);
-        const customer = s.customers?.name || "Walk-in Customer";
-        for (const li of s.sale_items || []) {
-          rows.push([
-            saleDate,
-            s.invoice_number || "",
-            customer,
-            "true",
-            saleDate,
-            Number(s.total).toFixed(2),
-            li.products?.name || "",
-            String(li.quantity ?? ""),
-            Number(li.total ?? 0).toFixed(2),
-            li.products?.units?.name || "pcs",
-            Number(li.unit_price ?? 0).toFixed(2),
-            "",
-          ]);
-        }
-      }
-      downloadCSV(`Invoice_${from}_to_${to}.csv`, headers, rows);
-    };
-    onRegisterExport(exportCsv);
-    return () => onRegisterExport(null);
-  }, [stats, from, to, onRegisterExport]);
-
-  if (query.isLoading) return <div className="text-center py-12 text-muted-foreground">Loading…</div>;
 
   return (
     <div className="space-y-6">
@@ -317,38 +114,6 @@ export default function DailySalesReportTab({ from, to, onRegisterExport }: Prop
           >
             Clear filters
           </Button>
-        )}
-        {canRecalculate && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" size="sm" disabled={recalculating || sales.length === 0}>
-                {recalculating ? (
-                  <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="mr-1 h-4 w-4" />
-                )}
-                Recalculate payments
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Recalculate sales payments?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This corrects every non-cancelled sale from {from} to {to}
-                  {currentLocation ? ` at ${currentLocation.name}` : ""}. Change given to customers will be removed from
-                  payment and cash totals. For example, a KES 1,000 cash tender on a KES 305 sale will be recorded as
-                  KES 305.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={recalculating}>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={recalculatePayments} disabled={recalculating}>
-                  {recalculating && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                  Recalculate
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
         )}
       </div>
 
