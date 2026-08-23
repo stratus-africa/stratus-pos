@@ -67,15 +67,14 @@ export default function PaymentDialog({
   const { data: bankAccounts = [] } = useBankAccounts();
   const { data: methodAccounts = {} as Record<string, string | null> } = usePaymentMethodAccounts();
   const { business } = useBusiness();
-  const { hasModule, hasFeature } = useEntitlement();
+  const { hasFeature } = useEntitlement();
   const canCash = hasFeature("pos", "payment_cash");
   const canMobileMoney = hasFeature("pos", "payment_mobile_money");
   const canCard = hasFeature("pos", "payment_card");
   const canBank = hasFeature("pos", "payment_bank");
   const canSplit = hasFeature("pos", "split_payment");
   const canChangePaymentMethod = hasFeature("pos", "change_payment_method");
-  const canMpesaStk = hasModule("mpesa") && hasFeature("mpesa", "stk_push") && canMobileMoney;
-  const mpesaEnabled = canMpesaStk;
+  const mpesaEnabled = canMobileMoney;
   const { enabled: digitaxEnabled } = useDigitaxEnabled();
   const [pushToEtims, setPushToEtims] = useState(true);
   const loyaltyEnabled = (business as { loyalty_enabled?: boolean } | null)?.loyalty_enabled === true;
@@ -126,7 +125,10 @@ export default function PaymentDialog({
       toast.error("Split payments are not permitted for your role.");
       return;
     }
-    setPayments((p) => [...p, { method: canCash ? "cash" : canMobileMoney ? "mpesa" : "card", amount: remaining, reference: "" }]);
+    setPayments((p) => [
+      ...p,
+      { method: canCash ? "cash" : canMobileMoney ? "mpesa" : "card", amount: remaining, reference: "" },
+    ]);
   };
 
   const updatePayment = (idx: number, updates: Partial<PaymentEntry>) => {
@@ -365,10 +367,11 @@ export default function PaymentDialog({
             <div key={idx} className="space-y-2 rounded-lg border p-3">
               <div className="flex items-center justify-between">
                 <div className="flex gap-1">
-                  {METHODS.filter((m) =>
-                    (m.key === "cash" && canCash) ||
-                    (m.key === "mpesa" && canMobileMoney) ||
-                    (m.key === "card" && canCard)
+                  {METHODS.filter(
+                    (m) =>
+                      (m.key === "cash" && canCash) ||
+                      (m.key === "mpesa" && canMobileMoney) ||
+                      (m.key === "card" && canCard),
                   ).map((m) => (
                     <Button
                       key={m.key}
@@ -472,34 +475,40 @@ export default function PaymentDialog({
             </div>
           )}
 
-          {canSplit && <Button variant="outline" size="sm" onClick={addPayment} className="w-full">
-            <Plus className="h-4 w-4 mr-1" /> Split Payment
-          </Button>}
+          {canSplit && (
+            <Button variant="outline" size="sm" onClick={addPayment} className="w-full">
+              <Plus className="h-4 w-4 mr-1" /> Split Payment
+            </Button>
+          )}
 
-          {canBank && <><Separator />
+          {canBank && (
+            <>
+              <Separator />
 
-          <div className="space-y-2">
-            <Label className="text-muted-foreground text-xs">Deposit To (optional — links to Banking)</Label>
-            <Select
-              value={bankAccountId}
-              onValueChange={(v) => {
-                setBankAccountTouched(true);
-                setBankAccountId(v);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="No bank account linked" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                {bankAccounts.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.name} ({a.account_type.replace("_", " ")})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div></>}
+              <div className="space-y-2">
+                <Label className="text-muted-foreground text-xs">Deposit To (optional — links to Banking)</Label>
+                <Select
+                  value={bankAccountId}
+                  onValueChange={(v) => {
+                    setBankAccountTouched(true);
+                    setBankAccountId(v);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="No bank account linked" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {bankAccounts.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.name} ({a.account_type.replace("_", " ")})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
 
           <Separator />
 
