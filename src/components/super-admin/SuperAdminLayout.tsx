@@ -102,6 +102,11 @@ const navGroups: NavGroup[] = [
       { title: "Audit Log", url: "/super-admin/activity", icon: FileText },
       { title: "Security", url: "/super-admin/security", icon: Shield },
       { title: "System Jobs", url: "/super-admin/enterprise", icon: DatabaseBackup },
+      {
+        title: "Support / Impersonation",
+        url: "/super-admin/support",
+        icon: Headset,
+      },
     ],
   },
   {
