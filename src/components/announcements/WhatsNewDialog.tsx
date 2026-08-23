@@ -104,3 +104,4 @@ export default function WhatsNewDialog({ trigger }: { trigger: boolean }) {
     </Dialog>
   );
 }
+ 
