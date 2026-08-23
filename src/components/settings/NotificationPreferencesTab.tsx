@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { areNotificationTonesEnabled, setNotificationTonesEnabled } from "@/lib/notificationTone";
 
 type Preferences = {
   receipt_delivery: "whatsapp" | "sms" | "none";
@@ -26,6 +27,7 @@ export function NotificationPreferencesTab() {
   const [prefs, setPrefs] = useState<Preferences>(defaults);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [notificationTones, setNotificationTones] = useState(() => areNotificationTonesEnabled());
 
   useEffect(() => {
     if (!user) return;
@@ -77,6 +79,20 @@ export function NotificationPreferencesTab() {
         <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
           <div><Label className="text-base">Subscription reminders</Label><p className="text-sm text-muted-foreground">Let us remind you before your plan expires.</p></div>
           <Switch checked={prefs.subscription_reminders} onCheckedChange={(checked) => setPrefs({ ...prefs, subscription_reminders: checked })} disabled={loading} />
+        </div>
+
+        <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+          <div>
+            <Label className="text-base">Notification tones</Label>
+            <p className="text-sm text-muted-foreground">Play a short sound when a new StratusPOS notification arrives.</p>
+          </div>
+          <Switch
+            checked={notificationTones}
+            onCheckedChange={(checked) => {
+              setNotificationTones(checked);
+              setNotificationTonesEnabled(checked);
+            }}
+          />
         </div>
 
         <div className="space-y-2">
