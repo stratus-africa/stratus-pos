@@ -37,6 +37,7 @@ import {
   Zap,
   Megaphone,
   Settings2,
+  Headset,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -94,6 +95,7 @@ const navGroups: NavGroup[] = [
     items: [
       { title: "General Settings", url: "/super-admin/settings", icon: Settings2 },
       { title: "Announcements", url: "/super-admin/announcements", icon: Megaphone },
+      { title: "Support / Impersonation", url: "/super-admin/support", icon: Headset },
     ],
   },
 ];

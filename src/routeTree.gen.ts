@@ -43,6 +43,7 @@ import { Route as AppSuppliersRouteImport } from './routes/_app.suppliers'
 import { Route as AppTaxComplianceRouteImport } from './routes/_app.tax-compliance'
 import { Route as InvoiceIdRouteImport } from './routes/invoice.$id'
 import { Route as SuperAdminLoginRouteImport } from './routes/super-admin.login'
+import { Route as SupportConsumeRouteImport } from './routes/support.consume'
 import { Route as AppPurchasesIndexRouteImport } from './routes/_app.purchases.index'
 import { Route as AppPurchasesNewRouteImport } from './routes/_app.purchases.new'
 import { Route as SuperSuperAdminIndexRouteImport } from './routes/_super.super-admin.index'
@@ -251,6 +252,11 @@ const InvoiceIdRoute = InvoiceIdRouteImport.update({
 const SuperAdminLoginRoute = SuperAdminLoginRouteImport.update({
   id: '/super-admin/login',
   path: '/super-admin/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SupportConsumeRoute = SupportConsumeRouteImport.update({
+  id: '/support/consume',
+  path: '/support/consume',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppPurchasesIndexRoute = AppPurchasesIndexRouteImport.update({
@@ -514,6 +520,7 @@ export interface FileRoutesByFullPath {
   '/tax-compliance': typeof AppTaxComplianceRoute
   '/invoice/$id': typeof InvoiceIdRoute
   '/super-admin/login': typeof SuperAdminLoginRoute
+  '/support/consume': typeof SupportConsumeRoute
   '/purchases/new': typeof AppPurchasesNewRoute
   '/super-admin/activity': typeof SuperSuperAdminActivityRoute
   '/super-admin/announcements': typeof SuperSuperAdminAnnouncementsRoute
@@ -589,6 +596,7 @@ export interface FileRoutesByTo {
   '/tax-compliance': typeof AppTaxComplianceRoute
   '/invoice/$id': typeof InvoiceIdRoute
   '/super-admin/login': typeof SuperAdminLoginRoute
+  '/support/consume': typeof SupportConsumeRoute
   '/purchases/new': typeof AppPurchasesNewRoute
   '/super-admin/activity': typeof SuperSuperAdminActivityRoute
   '/super-admin/announcements': typeof SuperSuperAdminAnnouncementsRoute
@@ -666,6 +674,7 @@ export interface FileRoutesById {
   '/_app/tax-compliance': typeof AppTaxComplianceRoute
   '/invoice/$id': typeof InvoiceIdRoute
   '/super-admin/login': typeof SuperAdminLoginRoute
+  '/support/consume': typeof SupportConsumeRoute
   '/_app/': typeof AppIndexRoute
   '/_app/purchases/new': typeof AppPurchasesNewRoute
   '/_super/super-admin/activity': typeof SuperSuperAdminActivityRoute
@@ -744,6 +753,7 @@ export interface FileRouteTypes {
     | '/tax-compliance'
     | '/invoice/$id'
     | '/super-admin/login'
+    | '/support/consume'
     | '/purchases/new'
     | '/super-admin/activity'
     | '/super-admin/announcements'
@@ -819,6 +829,7 @@ export interface FileRouteTypes {
     | '/tax-compliance'
     | '/invoice/$id'
     | '/super-admin/login'
+    | '/support/consume'
     | '/purchases/new'
     | '/super-admin/activity'
     | '/super-admin/announcements'
@@ -895,6 +906,7 @@ export interface FileRouteTypes {
     | '/_app/tax-compliance'
     | '/invoice/$id'
     | '/super-admin/login'
+    | '/support/consume'
     | '/_app/'
     | '/_app/purchases/new'
     | '/_super/super-admin/activity'
@@ -953,6 +965,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   InvoiceIdRoute: typeof InvoiceIdRoute
   SuperAdminLoginRoute: typeof SuperAdminLoginRoute
+  SupportConsumeRoute: typeof SupportConsumeRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
@@ -1196,6 +1209,13 @@ declare module '@tanstack/react-router' {
       path: '/super-admin/login'
       fullPath: '/super-admin/login'
       preLoaderRoute: typeof SuperAdminLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/support/consume': {
+      id: '/support/consume'
+      path: '/support/consume'
+      fullPath: '/support/consume'
+      preLoaderRoute: typeof SupportConsumeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/purchases/': {
@@ -1638,6 +1658,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   InvoiceIdRoute: InvoiceIdRoute,
   SuperAdminLoginRoute: SuperAdminLoginRoute,
+  SupportConsumeRoute: SupportConsumeRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
