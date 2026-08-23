@@ -20,14 +20,17 @@ interface InstallAppButtonProps {
 
 const isStandalone = () => {
   if (typeof window === "undefined") return false;
-  return window.matchMedia?.("(display-mode: standalone)").matches === true ||
-    (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+  return (
+    window.matchMedia?.("(display-mode: standalone)").matches === true ||
+    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+  );
 };
 
 const isIos = () => {
   if (typeof navigator === "undefined") return false;
-  return /iphone|ipad|ipod/i.test(navigator.userAgent) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  return (
+    /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
 };
 
 const isSafari = () => {
@@ -103,7 +106,14 @@ export function InstallAppButton({
 
   return (
     <>
-      <Button type="button" variant={variant} size={size} className={className} onClick={handleInstall} disabled={installing}>
+      <Button
+        type="button"
+        variant={variant}
+        size={size}
+        className={className}
+        onClick={handleInstall}
+        disabled={installing}
+      >
         {Icon && <Icon className="mr-2 h-4 w-4" />}
         {installing ? "Installing…" : children}
       </Button>
@@ -123,14 +133,26 @@ export function InstallAppButton({
           </DialogHeader>
           {device === "ios-safari" ? (
             <ol className="space-y-3 text-sm text-muted-foreground">
-              <li><strong>1.</strong> Tap the <span className="font-medium text-foreground">Share</span> button in Safari.</li>
-              <li><strong>2.</strong> Select <span className="font-medium text-foreground">Add to Home Screen</span>.</li>
-              <li><strong>3.</strong> Tap <span className="font-medium text-foreground">Add</span>.</li>
+              <li>
+                <strong>1.</strong> Tap the <span className="font-medium text-foreground">Share</span> button in Safari.
+              </li>
+              <li>
+                <strong>2.</strong> Select <span className="font-medium text-foreground">Add to Home Screen</span>.
+              </li>
+              <li>
+                <strong>3.</strong> Tap <span className="font-medium text-foreground">Add</span>.
+              </li>
             </ol>
           ) : (
             <div className="space-y-3 text-sm text-muted-foreground">
-              <p>Open your browser menu and choose <span className="font-medium text-foreground">Install StratusPOS</span> or <span className="font-medium text-foreground">Add to Home Screen</span>.</p>
-              <p className="flex items-center gap-1"><ExternalLink className="h-4 w-4" /> The exact wording depends on your browser.</p>
+              <p>
+                Open your browser menu and choose{" "}
+                <span className="font-medium text-foreground">Install StratusPOS</span> or{" "}
+                <span className="font-medium text-foreground">Add to Home Screen</span>.
+              </p>
+              <p className="flex items-center gap-1">
+                <ExternalLink className="h-4 w-4" /> The exact wording depends on your browser.
+              </p>
             </div>
           )}
         </DialogContent>
