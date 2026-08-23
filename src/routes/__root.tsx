@@ -23,7 +23,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1.0" },
       { title: "StratusPOS" },
       { name: "description", content: "Stratus POS" },
-      { name: "theme-color", content: "#0f766e" },
+      { name: "theme-color", content: "#171717" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "default" },
