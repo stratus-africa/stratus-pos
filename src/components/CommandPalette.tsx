@@ -9,7 +9,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import { Store, Users, Package, CreditCard, BookOpen } from "lucide-react";
+import { Store, Users, Package, CreditCard, BookOpen, Headset } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSuperAdmin } from "@/hooks/useSuperAdmin";
@@ -31,6 +31,13 @@ const SUPER_ADMIN_ENTRIES: NavEntry[] = [
   { label: "Tenant Approvals", url: "/super-admin/tenant-approvals", icon: Users, group: "Admin" },
   { label: "Subscriptions", url: "/super-admin/subscriptions", icon: CreditCard, group: "Admin" },
   { label: "Packages", url: "/super-admin/packages", icon: Package, group: "Admin" },
+  {
+    label: "Support / Impersonation",
+    url: "/super-admin/support",
+    icon: Headset,
+    group: "Admin",
+    keywords: "login as tenant admin support mode impersonation",
+  },
   { label: "Landing CMS", url: "/super-admin/landing", icon: BookOpen, group: "Admin" },
 ];
 
