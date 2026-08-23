@@ -7,10 +7,12 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { BusinessProvider } from "@/contexts/BusinessContext";
 import { reportLovableError } from "@/lib/lovable-error-reporting";
 import NotFound from "@/pages/NotFound";
+import WhatsNewDialog from "@/components/announcements/WhatsNewDialog";
+import { NotificationToneProvider } from "@/components/NotificationToneProvider";
 
 import appCss from "../styles.css?url";
 
@@ -90,6 +92,8 @@ function RootComponent() {
           <Sonner />
           <AuthProvider>
             <BusinessProvider>
+              <NotificationToneProvider />
+              <GlobalAnnouncementHost />
               <Outlet />
             </BusinessProvider>
           </AuthProvider>
@@ -97,6 +101,13 @@ function RootComponent() {
       </ThemeProvider>
     </QueryClientProvider>
   );
+}
+
+function GlobalAnnouncementHost() {
+  const { user, loading } = useAuth();
+
+  if (loading || !user) return null;
+  return <WhatsNewDialog trigger />;
 }
 
 function RootErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
