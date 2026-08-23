@@ -47,7 +47,7 @@ export const exportTenantControlPlane = createServerFn({ method: 'POST' }).middl
   const { data: business, error } = await db.from('businesses').select('*').eq('id', data.businessId).maybeSingle();
   if (error || !business) throw new Error(error?.message || 'Tenant not found');
   const [subs, payments, packages] = await Promise.all([
-    db.from('subscriptions').select('*').eq('business_id', data.businessId),
+    (db as any).from('subscriptions').select('*').eq('business_id', data.businessId),
     db.from('offline_payment_requests').select('*').eq('business_id', data.businessId).order('created_at', { ascending: false }).limit(500),
     db.from('subscription_packages').select('id,name,monthly_price_kes,yearly_price_kes'),
   ]);
