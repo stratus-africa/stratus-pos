@@ -5941,6 +5941,7 @@ export type Database = {
       }
       system_announcements: {
         Row: {
+          action_type: string
           body: string
           created_at: string
           created_by: string | null
@@ -5954,6 +5955,7 @@ export type Database = {
           version_label: string | null
         }
         Insert: {
+          action_type?: string
           body: string
           created_at?: string
           created_by?: string | null
@@ -5967,6 +5969,7 @@ export type Database = {
           version_label?: string | null
         }
         Update: {
+          action_type?: string
           body?: string
           created_at?: string
           created_by?: string | null
