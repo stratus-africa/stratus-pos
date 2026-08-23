@@ -201,32 +201,16 @@ export const BusinessProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!user) return { error: new Error("Not authenticated") };
 
     try {
-      const businessId = crypto.randomUUID();
+      // Business onboarding is executed as one database transaction.
+      // This prevents a business/profile/role/location split-brain state when
+      // any individual step fails.
+      const { error } = await supabase.rpc("create_business_transaction" as any, {
+        _name: name,
+        _location_name: locationName,
+        _business_type: businessType,
+      });
 
-      const { error: bizError } = await supabase
-        .from("businesses")
-        .insert({ id: businessId, name, business_type: businessType } as any);
-
-      if (bizError) throw bizError;
-
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({ business_id: businessId })
-        .eq("id", user.id);
-
-      if (profileError) throw profileError;
-
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .insert({ user_id: user.id, role: "admin", business_id: businessId });
-
-      if (roleError) throw roleError;
-
-      const { error: locError } = await supabase
-        .from("locations")
-        .insert({ business_id: businessId, name: locationName, type: "store" });
-
-      if (locError) throw locError;
+      if (error) throw error;
 
       await fetchBusiness();
       return { error: null };
