@@ -1032,7 +1032,7 @@ const POS = () => {
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </div>
-            <ScrollArea className="flex-1 min-h-0">
+            <ScrollArea className="pos-cart-surface flex-1 min-h-0">
               {pos.cart.length === 0 ? (
                 <p className="text-center py-12 text-muted-foreground text-sm">
                   Search or scan a product to start a sale
