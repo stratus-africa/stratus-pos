@@ -41,7 +41,6 @@ import { StockValuationTab } from "@/components/inventory/StockValuationTab";
 import { StockControlTab } from "@/components/inventory/StockControlTab";
 import { BatchManagementTab } from "@/components/inventory/BatchManagementTab";
 import { ExpiryManagementTab } from "@/components/inventory/ExpiryManagementTab";
-import { InventoryAuditTab } from "@/components/inventory/InventoryAuditTab";
 import { StockCountReviewTab } from "@/components/inventory/StockCountReviewTab";
 
 import { useInventory, type SortKey, type AdjustmentDocument } from "@/hooks/useInventory";
@@ -68,7 +67,6 @@ const INVENTORY_TABS = [
   { key: "batches", label: "Batches", icon: <Package className="h-4 w-4" /> },
   { key: "expiry", label: "Expiry", icon: <CalendarClock className="h-4 w-4" /> },
   { key: "count-review", label: "Count Review", icon: <ClipboardCheck className="h-4 w-4" /> },
-  { key: "audit", label: "Audit Trail", icon: <History className="h-4 w-4" /> },
   { key: "adjustments", label: "Adjustments", icon: <ClipboardList className="h-4 w-4" /> },
   { key: "transfers", label: "Stock Transfers", icon: <ArrowLeftRight className="h-4 w-4" /> },
   { key: "counts", label: "Stock Take", icon: <ClipboardCheck className="h-4 w-4" /> },
@@ -645,10 +643,6 @@ const Inventory = () => {
 
         <TabsContent value="count-review">
           <StockCountReviewTab />
-        </TabsContent>
-
-        <TabsContent value="audit">
-          <InventoryAuditTab />
         </TabsContent>
 
         <TabsContent value="transfers">
