@@ -42,24 +42,22 @@ export const DailySalesReportTab: React.FC<DailySalesReportTabProps> = ({
       const endOfDay = `${selectedDate}T23:59:59.999Z`;
 
       const { data, error } = await supabase
-        .from("orders")
+        .from("sales")
         .select(
           `
           id,
-          order_number,
+          invoice_number,
           created_at,
-          total_amount,
+          total,
           subtotal,
-          tax_amount,
-          discount_amount,
-          payment_method,
+          tax,
+          discount,
           status,
-          order_items (
+          sale_items (
             id,
             quantity,
             unit_price,
-            total_price,
-            product_name
+            total
           )
         `,
         )
@@ -69,7 +67,7 @@ export const DailySalesReportTab: React.FC<DailySalesReportTabProps> = ({
 
       if (error) {
         // Fallback gracefully if schema differs
-        console.warn("Error fetching orders, returning empty array:", error);
+        console.warn("Error fetching sales, returning empty array:", error);
         return [];
       }
 
@@ -98,8 +96,8 @@ export const DailySalesReportTab: React.FC<DailySalesReportTabProps> = ({
     const totalTax = items.reduce((sum: number, order: any) => sum + Number(order.tax_amount || order.tax || 0), 0);
 
     const totalItemsSold = items.reduce((sum: number, order: any) => {
-      if (Array.isArray(order.order_items)) {
-        return sum + order.order_items.reduce((iSum: number, item: any) => iSum + Number(item.quantity || 1), 0);
+      if (Array.isArray(order.sale_items)) {
+        return sum + order.sale_items.reduce((iSum: number, item: any) => iSum + Number(item.quantity || 1), 0);
       }
       return sum + Number(order.items_count || 1);
     }, 0);
@@ -115,9 +113,9 @@ export const DailySalesReportTab: React.FC<DailySalesReportTabProps> = ({
   }, [sales]);
 
   const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-KE", {
       style: "currency",
-      currency: "USD",
+      currency: "KES",
     }).format(val || 0);
   };
 
@@ -241,7 +239,7 @@ export const DailySalesReportTab: React.FC<DailySalesReportTabProps> = ({
               <TableBody>
                 {sales.map((order: any) => (
                   <TableRow key={order.id}>
-                    <TableCell className="font-medium">{order.order_number || order.id.slice(0, 8)}</TableCell>
+                    <TableCell className="font-medium">{order.invoice_number || order.id.slice(0, 8)}</TableCell>
                     <TableCell>{order.created_at ? format(new Date(order.created_at), "hh:mm a") : "-"}</TableCell>
                     <TableCell className="capitalize">{order.payment_method || "Cash"}</TableCell>
                     <TableCell>
