@@ -797,6 +797,9 @@ const Reports = () => {
           const visibleGroups = groups
             .map((group) => ({ ...group, items: group.items.filter((item) => item.show) }))
             .filter((group) => group.items.length > 0);
+          const activeGroupKey = visibleGroups.find((group) =>
+            group.items.some((item) => item.value === activeTab),
+          )?.key;
           const items = visibleGroups.flatMap((group) => group.items);
 
           return (
@@ -823,7 +826,7 @@ const Reports = () => {
                 </Select>
               </div>
               <div className="hidden md:block md:w-64 shrink-0 rounded-lg border bg-muted/40 p-2">
-                <Accordion type="multiple" defaultValue={visibleGroups.map((g) => g.key)} className="w-full">
+                <Accordion type="single" collapsible={false} value={activeGroupKey} className="w-full">
                   {visibleGroups.map((group) => (
                     <AccordionItem
                       key={group.key}
