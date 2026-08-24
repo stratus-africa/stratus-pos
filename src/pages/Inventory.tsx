@@ -49,7 +49,7 @@ import { useFeatureLimit } from "@/components/FeatureGate";
 import { usePurchases } from "@/hooks/usePurchases";
 import { StockAdjustmentDialog, type AdjustStockSubmit } from "@/components/inventory/StockAdjustmentDialog";
 import { ImportAdjustmentsDialog } from "@/components/inventory/ImportAdjustmentsDialog";
-import { EditAdjustmentDocumentDialog } from "@/components/inventory/EditAdjustmentDocumentDialog";
+import EditAdjustmentDocumentDialog from "@/components/inventory/EditAdjustmentDocumentDialog";
 import ProductDetailDialog from "@/components/products/ProductDetailDialog";
 import { ModuleHeader } from "@/components/modules/ModulePageShell";
 import { toast } from "sonner";
