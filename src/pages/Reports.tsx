@@ -26,7 +26,7 @@ import {
   MapPin,
   Banknote,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -51,10 +51,11 @@ const today = new Date().toISOString().split("T")[0];
 const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
 
 const Reports = () => {
-  const { business, currentLocation } = useBusiness();
+  const { business, currentLocation, locations } = useBusiness();
   const { hasFeatureKey } = useFeatureLimit();
   const multiLocationEnabled = hasFeatureKey("multi_location");
   const { hasPermission } = usePermissions();
+  const queryClient = useQueryClient();
 
   // Tab visibility: combine plan feature flag (where applicable) with role permission
   const can = (key: string) => hasPermission(`reports.${key}`);
@@ -169,7 +170,7 @@ const Reports = () => {
       if (key === "trial_balance") return canTrial;
       if (key === "balance_sheet") return canBS;
       if (key === "cash_flow") return canCash;
-      return hasFeatureKey("accounting") && can("tax");
+      return hasFeatureKey("accounting") && can("tax") && business?.vat_enabled !== false;
     }
     if (key === "audit") return canAudit;
     if (key === "schedule") return hasFeatureKey("reports") && can("schedule");
@@ -182,6 +183,9 @@ const Reports = () => {
   }, [urlTab, firstTab]);
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
+  const [periodMode, setPeriodMode] = useState<"range" | "as_of">("range");
+  const [inventoryProduct, setInventoryProduct] = useState("");
+  const [inventoryLocation, setInventoryLocation] = useState(currentLocation?.id || "all");
   const [exporter, setExporter] = useState<(() => void) | null>(null);
 
   // Financial reporting is loaded only when a financial report is actually selected.
@@ -261,21 +265,24 @@ const Reports = () => {
   });
 
   const inventoryReport = useQuery({
-    queryKey: ["report-inventory", business?.id, currentLocation?.id],
+    queryKey: ["report-inventory", business?.id, inventoryLocation, inventoryProduct],
     queryFn: async () => {
-      if (!business || !currentLocation) return [];
+      if (!business) return [];
       const pageSize = 1000;
       const inventoryRows: Array<Record<string, unknown>> = [];
       const batchRows: Array<Record<string, unknown>> = [];
 
       for (let offset = 0; ; offset += pageSize) {
-        const { data, error } = await supabase
+        let inventoryQuery = supabase
           .from("inventory")
           .select(
             "*, products(name, sku, purchase_price, selling_price, categories(name), brands(name)), locations(name)",
           )
-          .eq("location_id", currentLocation.id)
-          .range(offset, offset + pageSize - 1);
+          .eq("business_id", business.id);
+        if (inventoryLocation !== "all") inventoryQuery = inventoryQuery.eq("location_id", inventoryLocation);
+        if (inventoryProduct.trim())
+          inventoryQuery = inventoryQuery.ilike("products.name", `%${inventoryProduct.trim()}%`);
+        const { data, error } = await inventoryQuery.range(offset, offset + pageSize - 1);
         if (error) throw error;
         const page = data || [];
         inventoryRows.push(...page);
@@ -287,7 +294,7 @@ const Reports = () => {
           .from("product_batches")
           .select("product_id, batch_number, expiry_date, quantity")
           .eq("business_id", business.id)
-          .eq("location_id", currentLocation.id)
+          .eq("location_id", inventoryLocation === "all" ? currentLocation?.id || "" : inventoryLocation)
           .eq("is_active", true)
           .gt("quantity", 0)
           .order("expiry_date", { ascending: true, nullsFirst: false })
@@ -314,7 +321,7 @@ const Reports = () => {
         _batches: batchesByProduct.get(row.product_id) || [],
       }));
     },
-    enabled: !!business && !!currentLocation && canInventory && ["inventory", "stock", "low_stock"].includes(activeTab),
+    enabled: !!business && canInventory && ["inventory", "stock", "low_stock"].includes(activeTab),
     staleTime: 30_000,
     gcTime: 5 * 60_000,
     refetchOnWindowFocus: false,
@@ -698,6 +705,20 @@ const Reports = () => {
   const { settings: accounting } = useAccountingSettings();
   const fyMonth = accounting.financial_year_start_month || 1;
 
+  const refreshActiveReport = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["report-sales", business?.id] });
+    await queryClient.invalidateQueries({ queryKey: ["report-inventory", business?.id] });
+    await queryClient.invalidateQueries({ queryKey: ["report-expenses", business?.id] });
+    await queryClient.invalidateQueries({ queryKey: ["report-purchases", business?.id] });
+    await queryClient.invalidateQueries({ queryKey: ["report-audit", business?.id] });
+    await queryClient.invalidateQueries({ queryKey: ["report-stock-valuation", business?.id] });
+    await queryClient.invalidateQueries({ queryKey: ["report-stock-adjustments", business?.id] });
+    await queryClient.invalidateQueries({ queryKey: ["stock_ledger", business?.id] });
+    await queryClient.invalidateQueries({ queryKey: ["stock_ledger_summary", business?.id] });
+    await queryClient.invalidateQueries({ queryKey: ["finance_reports", business?.id] });
+    await queryClient.invalidateQueries({ queryKey: ["report-feature", business?.id] });
+  };
+
   const loading =
     (activeTab === "sales" && salesReport.isLoading) ||
     (activeTab === "purchases" && purchasesReport.isLoading) ||
@@ -717,6 +738,11 @@ const Reports = () => {
             from={from}
             to={to}
             defaultPreset="today"
+            mode={periodMode}
+            onModeChange={(mode) => {
+              setPeriodMode(mode);
+              if (mode === "as_of") setFrom(to);
+            }}
             onChange={({ from: f, to: t }) => {
               setFrom(f);
               setTo(t);
@@ -727,7 +753,42 @@ const Reports = () => {
               {sales.length} sales in period
             </Badge>
           )}
+          {[
+            "stock",
+            "inventory",
+            "low_stock",
+            "stock_movement",
+            "stock_valuation",
+            "stock_adjustments",
+            "stock_transfers",
+            "expiry",
+          ].includes(activeTab) && (
+            <>
+              <Input
+                className="w-full sm:w-52"
+                placeholder="Product name"
+                value={inventoryProduct}
+                onChange={(e) => setInventoryProduct(e.target.value)}
+              />
+              <Select value={inventoryLocation} onValueChange={setInventoryLocation}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="Location" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All locations</SelectItem>
+                  {(locations || []).map((loc: any) => (
+                    <SelectItem key={loc.id} value={loc.id}>
+                      {loc.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          )}
           <div className="flex-1" />
+          <Button size="sm" variant="outline" onClick={refreshActiveReport} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} /> Refresh
+          </Button>
           {exporter && (
             <Button size="sm" variant="outline" onClick={() => exporter()}>
               <Download className="h-4 w-4 mr-1" /> Download CSV
@@ -855,7 +916,12 @@ const Reports = () => {
               label: "Financial",
               items: [
                 { value: "expenses", label: "Expenses", icon: Receipt, show: canModule("expenses", "expenses") },
-                { value: "tax", label: "Tax", icon: Receipt, show: canModule("tax", "accounting") },
+                {
+                  value: "tax",
+                  label: "Tax",
+                  icon: Receipt,
+                  show: canModule("tax", "accounting") && business?.vat_enabled !== false,
+                },
                 {
                   value: "pnl",
                   label: "Profit & Loss",
@@ -951,6 +1017,7 @@ const Reports = () => {
                       title={k === "sales_by_payment" ? "Payments Received Report" : k.replaceAll("_", " ")}
                       rows={featureReport.data || []}
                       loading={featureReport.isLoading || (k.startsWith("sales_") && salesReport.isLoading)}
+                      onRefresh={refreshActiveReport}
                     />
                   </TabsContent>
                 ),
@@ -961,6 +1028,7 @@ const Reports = () => {
                 title="Stock Valuation"
                 rows={stockValuationReport.data || []}
                 loading={stockValuationReport.isLoading}
+                onRefresh={refreshActiveReport}
                 pageSizes={[24, 50, 100, 200]}
               />
             </TabsContent>
@@ -971,6 +1039,7 @@ const Reports = () => {
                 title="Stock Adjustments"
                 rows={stockAdjustmentsReport.data || []}
                 loading={stockAdjustmentsReport.isLoading}
+                onRefresh={refreshActiveReport}
                 pageSizes={[24, 50, 100, 200]}
                 statusFilter
               />
@@ -982,6 +1051,7 @@ const Reports = () => {
                 title="Stock Transfers"
                 rows={featureReport.data || []}
                 loading={featureReport.isLoading}
+                onRefresh={refreshActiveReport}
               />
             </TabsContent>
           )}
@@ -994,13 +1064,19 @@ const Reports = () => {
                     Number(r.quantity || r.stock || 0) <= Number(r.products?.reorder_level || r.reorder_level || 0),
                 )}
                 loading={featureReport.isLoading}
+                onRefresh={refreshActiveReport}
                 pageSizes={[24, 50, 100, 200]}
               />
             </TabsContent>
           )}
           {can("expiry") && (
             <TabsContent value="expiry" className="mt-0">
-              <FeatureReportTab title="Expiry" rows={featureReport.data || []} loading={featureReport.isLoading} />
+              <FeatureReportTab
+                title="Expiry"
+                rows={featureReport.data || []}
+                loading={featureReport.isLoading}
+                onRefresh={refreshActiveReport}
+              />
             </TabsContent>
           )}
           {can("purchases_by_supplier") && (
@@ -1009,6 +1085,7 @@ const Reports = () => {
                 title="Purchases by Supplier"
                 rows={featureReport.data || []}
                 loading={featureReport.isLoading}
+                onRefresh={refreshActiveReport}
               />
             </TabsContent>
           )}
@@ -1018,12 +1095,18 @@ const Reports = () => {
                 title="Purchase Returns"
                 rows={featureReport.data || []}
                 loading={featureReport.isLoading}
+                onRefresh={refreshActiveReport}
               />
             </TabsContent>
           )}
           {can("tax") && (
             <TabsContent value="tax" className="mt-0">
-              <FeatureReportTab title="Tax Report" rows={featureReport.data || []} loading={featureReport.isLoading} />
+              <FeatureReportTab
+                title="Tax Report"
+                rows={featureReport.data || []}
+                loading={featureReport.isLoading}
+                onRefresh={refreshActiveReport}
+              />
             </TabsContent>
           )}
           {can("schedule") && (
@@ -1040,6 +1123,7 @@ const Reports = () => {
                 title="Stock Report"
                 rows={inventoryReport.data || []}
                 loading={inventoryReport.isLoading}
+                onRefresh={refreshActiveReport}
               />
             </TabsContent>
           )}
