@@ -155,9 +155,9 @@ const POS = () => {
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [resumeOpen, setResumeOpen] = useState(false);
   const [initialPaymentMethod, setInitialPaymentMethod] = useState<"cash" | "mpesa" | "card">("cash");
-  const [receiptData, setReceiptData] = useState<Record<string, unknown> | null>(null);
+  const [receiptData, setReceiptData] = useState<any>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
-  const [reprintData, setReprintData] = useState<Record<string, unknown> | null>(null);
+  const [reprintData, setReprintData] = useState<any>(null);
   const [reprintOpen, setReprintOpen] = useState(false);
 
   const [startDayOpen, setStartDayOpen] = useState(false);

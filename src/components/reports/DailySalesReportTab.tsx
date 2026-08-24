@@ -19,12 +19,16 @@ import { format } from "date-fns";
 
 interface DailySalesReportTabProps {
   initialDate?: string;
+  from?: string;
+  to?: string;
+  onRegisterExport?: (fn: (() => void) | null) => void;
 }
 
 export const DailySalesReportTab: React.FC<DailySalesReportTabProps> = ({
-  initialDate = format(new Date(), "yyyy-MM-dd"),
+  initialDate,
+  to,
 }) => {
-  const [selectedDate, setSelectedDate] = useState<string>(initialDate);
+  const [selectedDate, setSelectedDate] = useState<string>(initialDate ?? to ?? format(new Date(), "yyyy-MM-dd"));
 
   // Fetch sales / orders data for the selected date
   const {

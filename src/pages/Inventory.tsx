@@ -148,7 +148,7 @@ const Inventory = () => {
     hasPermission("inventory.count_perform") ||
     hasPermission("inventory.count_approve") ||
     hasPermission("inventory.view_variance");
-  const canViewAudit = hasPermission("inventory.view_movements") || hasPermission("inventory.view");
+  const _canViewAudit = hasPermission("inventory.view_movements") || hasPermission("inventory.view");
   const visibleInventoryTabs = INVENTORY_TABS.filter((tab) => {
     if (tab.key === "movements") return canViewMovements;
     if (tab.key === "valuation") return canViewValuation;
@@ -158,7 +158,6 @@ const Inventory = () => {
     if (tab.key === "batches") return canViewBatches;
     if (tab.key === "expiry") return canViewExpiry;
     if (tab.key === "count-review") return canViewCountReview;
-    if (tab.key === "audit") return canViewAudit;
     if (tab.key === "counts") return canStockCount;
     if (tab.key === "reconciliation") return canReconcileStock;
     return canViewInventory;

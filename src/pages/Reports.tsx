@@ -486,7 +486,7 @@ const Reports = () => {
         return data || [];
       }
       if (k === "stock_adjustments") {
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from("stock_adjustments")
           .select("*,products(name,sku),locations(name)")
           .eq("business_id", business.id)
