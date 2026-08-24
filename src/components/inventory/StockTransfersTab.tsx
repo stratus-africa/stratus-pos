@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useFeatureLimit } from "@/components/FeatureGate";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -109,7 +110,9 @@ const formatDate = (value: string | null | undefined) => {
 export function StockTransfersTab() {
   const { business, locations } = useBusiness();
   const { hasPermission } = usePermissions();
+  const { hasFeatureKey } = useFeatureLimit();
 
+  const multiLocationEnabled = hasFeatureKey("multi_location");
   const canCreate = hasPermission("inventory.transfer");
   const canApprove = hasPermission("inventory.approve_transfer");
   const canReceive = hasPermission("inventory.receive");
@@ -412,7 +415,7 @@ export function StockTransfersTab() {
               <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
               Refresh
             </Button>
-            {canCreate && (
+            {canCreate && multiLocationEnabled && (
               <Button size="sm" onClick={() => setCreateOpen(true)} disabled={activeLocations.length < 2}>
                 <Plus className="mr-2 h-4 w-4" />
                 New Transfer

@@ -10,6 +10,9 @@ import {
   RefreshCw,
   Search,
   Wallet,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
@@ -24,6 +27,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type BankAccount = {
   id: string;
@@ -433,34 +443,48 @@ export default function Banking() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="flex justify-end gap-1">
-                            {canEditAccount && (
-                              <Button variant="ghost" size="sm" onClick={() => openEditAccount(account)}>
-                                Edit
-                              </Button>
-                            )}
-                            {canReconcile && account.is_active && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
                               <Button
                                 variant="outline"
                                 size="sm"
+                                aria-label={`Actions for ${account.name}`}
                                 disabled={busy}
-                                onClick={() => reconcileAccount(account)}
                               >
-                                <RefreshCw className="mr-1 h-3.5 w-3.5" /> Reconcile
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Actions</span>
                               </Button>
-                            )}
-                            {canDeleteAccount && account.is_active && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-destructive"
-                                disabled={busy}
-                                onClick={() => deactivateAccount(account)}
-                              >
-                                Disable
-                              </Button>
-                            )}
-                          </div>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {canEditAccount && (
+                                <DropdownMenuItem
+                                  className="text-blue-600 focus:text-blue-600"
+                                  onClick={() => openEditAccount(account)}
+                                >
+                                  <Pencil className="mr-2 h-4 w-4" /> Edit
+                                </DropdownMenuItem>
+                              )}
+                              {canReconcile && account.is_active && (
+                                <DropdownMenuItem
+                                  className="text-indigo-600 focus:text-indigo-600"
+                                  onClick={() => reconcileAccount(account)}
+                                >
+                                  <RefreshCw className="mr-2 h-4 w-4" /> Reconcile
+                                </DropdownMenuItem>
+                              )}
+                              {canDeleteAccount && account.is_active && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={() => deactivateAccount(account)}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" /> Disable
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     ))

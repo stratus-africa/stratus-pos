@@ -9,11 +9,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Search, Wallet, Building2, Landmark, BookOpen } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Wallet, Building2, Landmark, BookOpen, MoreHorizontal } from "lucide-react";
 import { Link } from "@/lib/router-compat";
 import { OpeningBalanceDialog } from "@/components/accounting/OpeningBalanceDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const ACCOUNT_TYPES = ["asset", "liability", "equity", "revenue", "expense"] as const;
 
@@ -471,32 +478,61 @@ export default function ChartOfAccounts() {
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">{acc.description || "—"}</TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Set opening balance"
-                        onClick={() => {
-                          setOpeningAcc(acc);
-                          setOpeningDialogOpen(true);
-                        }}
-                      >
-                        <Landmark className="h-4 w-4" />
-                      </Button>
-                      {canEdit && (
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(acc)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {canDisable && (
-                        <Button variant="ghost" size="sm" onClick={() => handleToggleActive(acc)}>
-                          {acc.is_active ? "Disable" : "Enable"}
-                        </Button>
-                      )}
-                      {canDelete && (
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(acc)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" aria-label={`Actions for ${acc.name}`}>
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Actions</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            className="text-foreground"
+                            onClick={() => {
+                              setOpeningAcc(acc);
+                              setOpeningDialogOpen(true);
+                            }}
+                          >
+                            <Landmark className="mr-2 h-4 w-4" /> Set opening balance
+                          </DropdownMenuItem>
+                          {canEdit && (
+                            <DropdownMenuItem
+                              className="text-blue-600 focus:text-blue-600"
+                              onClick={() => openEdit(acc)}
+                            >
+                              <Pencil className="mr-2 h-4 w-4" /> Edit
+                            </DropdownMenuItem>
+                          )}
+                          {canDisable && (
+                            <DropdownMenuItem
+                              className={
+                                acc.is_active
+                                  ? "text-amber-600 focus:text-amber-600"
+                                  : "text-emerald-600 focus:text-emerald-600"
+                              }
+                              onClick={() => handleToggleActive(acc)}
+                            >
+                              {acc.is_active ? (
+                                <Trash2 className="mr-2 h-4 w-4" />
+                              ) : (
+                                <BookOpen className="mr-2 h-4 w-4" />
+                              )}
+                              {acc.is_active ? "Disable" : "Enable"}
+                            </DropdownMenuItem>
+                          )}
+                          {canDelete && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => handleDelete(acc)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}

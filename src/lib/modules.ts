@@ -302,7 +302,6 @@ export const MODULE_REGISTRY: AppModule[] = [
         route: "/journal-entries",
         permission: "chart_of_accounts.view",
       },
-      { key: "banking", label: "Banking / Bank Accounts", route: "/banking", permission: "banking.view" },
       { key: "reports", label: "Financial Reports", route: "/reports", permission: "accounting.reports" },
     ],
     dependencies: ["sales", "purchases", "expenses"],

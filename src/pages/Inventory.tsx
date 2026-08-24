@@ -141,7 +141,7 @@ const Inventory = () => {
     hasPermission("inventory.writeoff") ||
     hasPermission("inventory.approve_adjustment");
   const batchTrackingEnabled = (business as { track_batches?: boolean } | null)?.track_batches === true;
-  const canViewBatches = batchTrackingEnabled && hasPermission("inventory.view_batches");
+  const canViewBatches = multiLocationEnabled && batchTrackingEnabled && hasPermission("inventory.view_batches");
   const canViewExpiry = batchTrackingEnabled && hasPermission("inventory.view_expiry");
   const canViewCountReview =
     hasPermission("inventory.count_create") ||
