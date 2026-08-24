@@ -826,7 +826,7 @@ const Reports = () => {
                 </Select>
               </div>
               <div className="hidden md:block md:w-64 shrink-0 rounded-lg border bg-muted/40 p-2">
-                <Accordion type="single" collapsible={false} value={activeGroupKey} className="w-full">
+                <Accordion type="single" collapsible defaultValue={activeGroupKey} className="w-full">
                   {visibleGroups.map((group) => (
                     <AccordionItem
                       key={group.key}
