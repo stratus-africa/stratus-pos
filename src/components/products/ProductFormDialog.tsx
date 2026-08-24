@@ -5,7 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { useCategories, useBrands, useUnits, type ProductFormData, type Product, type ProductInitialBatch, type ProductVariantInput } from "@/hooks/useProducts";
+import {
+  useCategories,
+  useBrands,
+  useUnits,
+  type ProductFormData,
+  type Product,
+  type ProductInitialBatch,
+  type ProductVariantInput,
+} from "@/hooks/useProducts";
 import { useTaxRates } from "@/hooks/useTaxRates";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useFeatureLimit } from "@/components/FeatureGate";
@@ -18,7 +26,6 @@ import { useAccountMappings } from "@/hooks/useAccountMappings";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
 
-
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -30,7 +37,16 @@ interface Props {
   initialSku?: string;
 }
 
-export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoading, initialBarcode, initialName, initialSku }: Props) {
+export function ProductFormDialog({
+  open,
+  onOpenChange,
+  onSubmit,
+  product,
+  isLoading,
+  initialBarcode,
+  initialName,
+  initialSku,
+}: Props) {
   const { query: categoriesQuery } = useCategories();
   const { query: brandsQuery } = useBrands();
   const { query: unitsQuery } = useUnits();
@@ -63,8 +79,14 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
 
   const businessType = (business as any)?.business_type;
   const isClothing = businessType === "clothing";
+  const supportsProductImages = ["general", "minimart", "liquor_store", "pharmacy", "clothing"].includes(
+    businessType || "general",
+  );
+  const supportsProductVariants = isClothing;
   const batchesEnabled =
-    !product && canManageBatches && hasFeatureKey("batch_tracking") &&
+    !product &&
+    canManageBatches &&
+    hasFeatureKey("batch_tracking") &&
     ((businessType === "pharmacy" && (business as any)?.track_batches === true) || businessType !== "pharmacy");
 
   const [form, setForm] = useState<ProductFormData>({
@@ -96,7 +118,6 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
     sales_account_id: null,
     inventory_account_id: null,
   });
-
 
   const [selectedTaxRateId, setSelectedTaxRateId] = useState<string>("manual");
   const [batches, setBatches] = useState<ProductInitialBatch[]>([]);
@@ -152,9 +173,21 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
       }
     } else {
       setForm({
-        name: initialName || "", sku: initialSku || "", barcode: initialBarcode || "", category_id: null, brand_id: null, unit_id: null,
-        purchase_price: 0, selling_price: 0, tax_rate: 16, is_active: true, allow_decimal_quantity: false, image_url: null,
-        opening_stock_quantity: 0, opening_stock_value: 0, opening_stock_date: null,
+        name: initialName || "",
+        sku: initialSku || "",
+        barcode: initialBarcode || "",
+        category_id: null,
+        brand_id: null,
+        unit_id: null,
+        purchase_price: 0,
+        selling_price: 0,
+        tax_rate: 16,
+        is_active: true,
+        allow_decimal_quantity: false,
+        image_url: null,
+        opening_stock_quantity: 0,
+        opening_stock_value: 0,
+        opening_stock_date: null,
         opening_stock_location_id: currentLocation?.id || locations[0]?.id || null,
         purchase_account_id: defaultAccounts.cogs,
         sales_account_id: defaultAccounts.sales,
@@ -214,8 +247,7 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
   };
   const updateVariant = (idx: number, patch: Partial<ProductVariantInput>) =>
     setVariants((prev) => prev.map((v, i) => (i === idx ? { ...v, ...patch } : v)));
-  const removeVariant = (idx: number) =>
-    setVariants((prev) => prev.filter((_, i) => i !== idx));
+  const removeVariant = (idx: number) => setVariants((prev) => prev.filter((_, i) => i !== idx));
 
   const uploadImage = async (file: File): Promise<string | null> => {
     if (!business?.id) return null;
@@ -253,11 +285,26 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!(form.purchase_price > 0)) { toast.error("Purchase price is required"); return; }
-    if (!(form.selling_price > 0)) { toast.error("Selling price is required"); return; }
-    if (!form.purchase_account_id) { toast.error("Purchase account is required"); return; }
-    if (!form.sales_account_id) { toast.error("Sales account is required"); return; }
-    if (!form.inventory_account_id) { toast.error("Inventory tracking account is required"); return; }
+    if (!(form.purchase_price > 0)) {
+      toast.error("Purchase price is required");
+      return;
+    }
+    if (!(form.selling_price > 0)) {
+      toast.error("Selling price is required");
+      return;
+    }
+    if (!form.purchase_account_id) {
+      toast.error("Purchase account is required");
+      return;
+    }
+    if (!form.sales_account_id) {
+      toast.error("Sales account is required");
+      return;
+    }
+    if (!form.inventory_account_id) {
+      toast.error("Inventory tracking account is required");
+      return;
+    }
     const validBatches = batchesEnabled ? batches.filter((b) => b.batch_number.trim()) : [];
     const validVariants = isClothing
       ? variants.filter((v) => (v.color && v.color.trim()) || (v.size && v.size.trim()))
@@ -270,9 +317,10 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
     });
   };
 
-  const margin = form.selling_price > 0 && form.purchase_price > 0
-    ? (((form.selling_price - form.purchase_price) / form.purchase_price) * 100).toFixed(1)
-    : "0.0";
+  const margin =
+    form.selling_price > 0 && form.purchase_price > 0
+      ? (((form.selling_price - form.purchase_price) / form.purchase_price) * 100).toFixed(1)
+      : "0.0";
 
   const taxRates = taxRatesQuery.data || [];
   const selectedTaxRate = taxRates.find((t) => t.id === selectedTaxRateId);
@@ -292,7 +340,11 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
 
             <div className="space-y-2">
               <Label>SKU</Label>
-              <Input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} placeholder="Auto or manual" />
+              <Input
+                value={form.sku}
+                onChange={(e) => setForm({ ...form, sku: e.target.value })}
+                placeholder="Auto or manual"
+              />
             </div>
             <div className="space-y-2">
               <Label>Barcode</Label>
@@ -300,12 +352,20 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
             </div>
             <div className="space-y-2">
               <Label>Unit</Label>
-              <Select value={form.unit_id || "none"} onValueChange={(v) => setForm({ ...form, unit_id: v === "none" ? null : v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select
+                value={form.unit_id || "none"}
+                onValueChange={(v) => setForm({ ...form, unit_id: v === "none" ? null : v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
                   {unitsQuery.data?.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>{u.name}{u.abbreviation ? ` (${u.abbreviation})` : ""}</SelectItem>
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.name}
+                      {u.abbreviation ? ` (${u.abbreviation})` : ""}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -313,40 +373,71 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
 
             <div className="space-y-2">
               <Label>Category</Label>
-              <Select value={form.category_id || "none"} onValueChange={(v) => setForm({ ...form, category_id: v === "none" ? null : v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select
+                value={form.category_id || "none"}
+                onValueChange={(v) => setForm({ ...form, category_id: v === "none" ? null : v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
                   {categoriesQuery.data?.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>Brand</Label>
-              <Select value={form.brand_id || "none"} onValueChange={(v) => setForm({ ...form, brand_id: v === "none" ? null : v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select
+                value={form.brand_id || "none"}
+                onValueChange={(v) => setForm({ ...form, brand_id: v === "none" ? null : v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
                   {brandsQuery.data?.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="flex items-center gap-3 pt-6">
-              <Switch checked={form.is_active} onCheckedChange={(checked) => setForm({ ...form, is_active: checked })} />
+              <Switch
+                checked={form.is_active}
+                onCheckedChange={(checked) => setForm({ ...form, is_active: checked })}
+              />
               <Label>Active</Label>
             </div>
 
             <div className="space-y-2">
               <Label>Purchase Price (KES) *</Label>
-              <Input required type="number" min={0.01} step={0.01} value={form.purchase_price} onChange={(e) => setForm({ ...form, purchase_price: parseFloat(e.target.value) || 0 })} />
+              <Input
+                required
+                type="number"
+                min={0.01}
+                step={0.01}
+                value={form.purchase_price}
+                onChange={(e) => setForm({ ...form, purchase_price: parseFloat(e.target.value) || 0 })}
+              />
             </div>
             <div className="space-y-2">
               <Label>Selling Price (KES) *</Label>
-              <Input required type="number" min={0.01} step={0.01} value={form.selling_price} onChange={(e) => setForm({ ...form, selling_price: parseFloat(e.target.value) || 0 })} />
+              <Input
+                required
+                type="number"
+                min={0.01}
+                step={0.01}
+                value={form.selling_price}
+                onChange={(e) => setForm({ ...form, selling_price: parseFloat(e.target.value) || 0 })}
+              />
             </div>
             <div className="space-y-2">
               <Label>Margin</Label>
@@ -363,33 +454,54 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="space-y-2">
                   <Label>Purchase Account (COGS) *</Label>
-                  <Select value={form.purchase_account_id || ""} onValueChange={(v) => setForm({ ...form, purchase_account_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
+                  <Select
+                    value={form.purchase_account_id || ""}
+                    onValueChange={(v) => setForm({ ...form, purchase_account_id: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select account" />
+                    </SelectTrigger>
                     <SelectContent>
                       {accountsByType("expense").map((a) => (
-                        <SelectItem key={a.id} value={a.id}>{a.code} — {a.name}</SelectItem>
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.code} — {a.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Sales Account (Revenue) *</Label>
-                  <Select value={form.sales_account_id || ""} onValueChange={(v) => setForm({ ...form, sales_account_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
+                  <Select
+                    value={form.sales_account_id || ""}
+                    onValueChange={(v) => setForm({ ...form, sales_account_id: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select account" />
+                    </SelectTrigger>
                     <SelectContent>
                       {accountsByType("income").map((a) => (
-                        <SelectItem key={a.id} value={a.id}>{a.code} — {a.name}</SelectItem>
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.code} — {a.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Inventory Account (Asset) *</Label>
-                  <Select value={form.inventory_account_id || ""} onValueChange={(v) => setForm({ ...form, inventory_account_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
+                  <Select
+                    value={form.inventory_account_id || ""}
+                    onValueChange={(v) => setForm({ ...form, inventory_account_id: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select account" />
+                    </SelectTrigger>
                     <SelectContent>
                       {accountsByType("asset").map((a) => (
-                        <SelectItem key={a.id} value={a.id}>{a.code} — {a.name}</SelectItem>
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.code} — {a.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -399,7 +511,9 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
 
             <div className="md:col-span-2 rounded-lg border p-4 space-y-3">
               <div>
-                <h4 className="text-sm font-semibold flex items-center gap-2"><Boxes className="h-4 w-4" /> Opening Stock</h4>
+                <h4 className="text-sm font-semibold flex items-center gap-2">
+                  <Boxes className="h-4 w-4" /> Opening Stock
+                </h4>
                 <p className="text-xs text-muted-foreground">
                   {product
                     ? "Recorded opening quantity and purchase value carried over at your inventory start date."
@@ -409,36 +523,69 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="space-y-2">
                   <Label>Opening Quantity</Label>
-                  <Input type="number" min={0} step={0.01} value={form.opening_stock_quantity ?? 0}
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={form.opening_stock_quantity ?? 0}
                     onChange={(e) => {
                       const qty = parseFloat(e.target.value) || 0;
-                      setForm((f) => ({ ...f, opening_stock_quantity: qty, opening_stock_value: (f.purchase_price || 0) > 0 && !f.opening_stock_value ? qty * (f.purchase_price || 0) : f.opening_stock_value }));
-                    }} />
+                      setForm((f) => ({
+                        ...f,
+                        opening_stock_quantity: qty,
+                        opening_stock_value:
+                          (f.purchase_price || 0) > 0 && !f.opening_stock_value
+                            ? qty * (f.purchase_price || 0)
+                            : f.opening_stock_value,
+                      }));
+                    }}
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label>Purchase Value (KES)</Label>
-                  <Input type="number" min={0} step={0.01} value={form.opening_stock_value ?? 0}
-                    onChange={(e) => setForm({ ...form, opening_stock_value: parseFloat(e.target.value) || 0 })} />
+                  <Label>Purchase Value</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={form.opening_stock_value ?? 0}
+                    onChange={(e) => setForm({ ...form, opening_stock_value: parseFloat(e.target.value) || 0 })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>As At Date</Label>
-                  <Input type="date" value={form.opening_stock_date || inventoryStartDate || ""}
-                    onChange={(e) => setForm({ ...form, opening_stock_date: e.target.value || null })} />
+                  <Input
+                    type="date"
+                    value={form.opening_stock_date || inventoryStartDate || ""}
+                    onChange={(e) => setForm({ ...form, opening_stock_date: e.target.value || null })}
+                  />
                 </div>
                 {!product && (
                   <div className="space-y-2">
                     <Label>Location</Label>
-                    <Select value={form.opening_stock_location_id || ""} onValueChange={(v) => setForm({ ...form, opening_stock_location_id: v })}>
-                      <SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger>
+                    <Select
+                      value={form.opening_stock_location_id || ""}
+                      onValueChange={(v) => setForm({ ...form, opening_stock_location_id: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select location" />
+                      </SelectTrigger>
                       <SelectContent>
-                        {locations.map((l) => (<SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>))}
+                        {locations.map((l) => (
+                          <SelectItem key={l.id} value={l.id}>
+                            {l.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                Unit cost from opening stock: KES {((form.opening_stock_quantity ?? 0) > 0 ? (form.opening_stock_value ?? 0) / (form.opening_stock_quantity ?? 1) : 0).toFixed(2)}
+                Unit cost from opening stock: KES{" "}
+                {((form.opening_stock_quantity ?? 0) > 0
+                  ? (form.opening_stock_value ?? 0) / (form.opening_stock_quantity ?? 1)
+                  : 0
+                ).toFixed(2)}
                 {product ? " — edit quantities from Inventory to avoid double-counting stock." : ""}
               </p>
             </div>
@@ -449,7 +596,9 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
                   <Label>Tax Rate</Label>
                   {taxRates.length > 0 ? (
                     <Select value={selectedTaxRateId} onValueChange={handleTaxRateChange}>
-                      <SelectTrigger><SelectValue placeholder="Select tax rate" /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select tax rate" />
+                      </SelectTrigger>
                       <SelectContent>
                         {taxRates.map((tr) => (
                           <SelectItem key={tr.id} value={tr.id}>
@@ -460,10 +609,24 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
                       </SelectContent>
                     </Select>
                   ) : (
-                    <Input type="number" min={0} step={0.01} value={form.tax_rate} onChange={(e) => setForm({ ...form, tax_rate: parseFloat(e.target.value) || 0 })} />
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={form.tax_rate}
+                      onChange={(e) => setForm({ ...form, tax_rate: parseFloat(e.target.value) || 0 })}
+                    />
                   )}
                   {selectedTaxRateId === "manual" && taxRates.length > 0 && (
-                    <Input type="number" min={0} step={0.01} value={form.tax_rate} onChange={(e) => setForm({ ...form, tax_rate: parseFloat(e.target.value) || 0 })} placeholder="Custom rate %" className="mt-1" />
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={form.tax_rate}
+                      onChange={(e) => setForm({ ...form, tax_rate: parseFloat(e.target.value) || 0 })}
+                      placeholder="Custom rate %"
+                      className="mt-1"
+                    />
                   )}
                   {selectedTaxRate?.type === "exempt" && selectedTaxRate.exempt_reason && (
                     <p className="text-xs text-muted-foreground mt-1">Exempt: {selectedTaxRate.exempt_reason}</p>
@@ -490,7 +653,7 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
             </div>
           </div>
 
-          {canManageImages && (
+          {canManageImages && supportsProductImages && (
             <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <ImageIcon className="h-4 w-4 text-primary" />
@@ -505,14 +668,25 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
                   </div>
                 )}
                 <div className="flex flex-col gap-2">
-                  <Input type="file" accept="image/*" onChange={handleMainImageUpload} disabled={uploadingImage} className="text-sm" />
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleMainImageUpload}
+                    disabled={uploadingImage}
+                    className="text-sm"
+                  />
                   {uploadingImage && (
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Loader2 className="h-3 w-3 animate-spin" /> Uploading...
                     </p>
                   )}
                   {form.image_url && (
-                    <Button type="button" size="sm" variant="ghost" onClick={() => setForm({ ...form, image_url: null })}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setForm({ ...form, image_url: null })}
+                    >
                       Remove image
                     </Button>
                   )}
@@ -521,7 +695,7 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
             </div>
           )}
 
-          {canManageVariants && (
+          {canManageVariants && supportsProductVariants && (
             <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -543,11 +717,19 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
                     <div key={idx} className="grid grid-cols-12 gap-2 items-end border rounded-md p-2 bg-background">
                       <div className="col-span-2 space-y-1">
                         <Label className="text-xs">Color</Label>
-                        <Input value={v.color ?? ""} onChange={(e) => updateVariant(idx, { color: e.target.value })} placeholder="e.g. Red" />
+                        <Input
+                          value={v.color ?? ""}
+                          onChange={(e) => updateVariant(idx, { color: e.target.value })}
+                          placeholder="e.g. Red"
+                        />
                       </div>
                       <div className="col-span-2 space-y-1">
                         <Label className="text-xs">Size</Label>
-                        <Input value={v.size ?? ""} onChange={(e) => updateVariant(idx, { size: e.target.value })} placeholder="e.g. M" />
+                        <Input
+                          value={v.size ?? ""}
+                          onChange={(e) => updateVariant(idx, { size: e.target.value })}
+                          placeholder="e.g. M"
+                        />
                       </div>
                       <div className="col-span-2 space-y-1">
                         <Label className="text-xs">SKU</Label>
@@ -556,7 +738,9 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
                       <div className="col-span-2 space-y-1">
                         <Label className="text-xs">Price</Label>
                         <Input
-                          type="number" min={0} step={0.01}
+                          type="number"
+                          min={0}
+                          step={0.01}
                           value={v.selling_price ?? 0}
                           onChange={(e) => updateVariant(idx, { selling_price: parseFloat(e.target.value) || 0 })}
                         />
@@ -586,7 +770,6 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
               )}
             </div>
           )}
-
 
           {batchesEnabled && (
             <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
@@ -644,14 +827,15 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
                       </div>
                       <div className="col-span-2 space-y-1">
                         <Label className="text-xs">Location</Label>
-                        <Select
-                          value={b.location_id || ""}
-                          onValueChange={(v) => updateBatch(idx, { location_id: v })}
-                        >
-                          <SelectTrigger><SelectValue placeholder="Pick" /></SelectTrigger>
+                        <Select value={b.location_id || ""} onValueChange={(v) => updateBatch(idx, { location_id: v })}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Pick" />
+                          </SelectTrigger>
                           <SelectContent>
                             {locations.map((l) => (
-                              <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                              <SelectItem key={l.id} value={l.id}>
+                                {l.name}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -679,21 +863,67 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
                 )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="space-y-1"><Label className="text-xs">KRA Item Code</Label>
-                  <Input disabled={fiscalised} value={form.kra_item_code ?? ""} onChange={(e) => setForm({ ...form, kra_item_code: e.target.value || null })} /></div>
-                <div className="space-y-1"><Label className="text-xs">Item Classification</Label>
-                  <Input disabled={fiscalised} value={form.item_classification ?? ""} onChange={(e) => setForm({ ...form, item_classification: e.target.value || null })} /></div>
-                <div className="space-y-1"><Label className="text-xs">HS Code</Label>
-                  <Input disabled={fiscalised} value={form.hs_code ?? ""} onChange={(e) => setForm({ ...form, hs_code: e.target.value || null })} /></div>
-                <div className="space-y-1"><Label className="text-xs">Quantity Unit</Label>
-                  <Input disabled={fiscalised} placeholder="e.g. PCS" value={form.quantity_unit ?? ""} onChange={(e) => setForm({ ...form, quantity_unit: e.target.value || null })} /></div>
-                <div className="space-y-1"><Label className="text-xs">Packaging Unit</Label>
-                  <Input disabled={fiscalised} placeholder="e.g. BX" value={form.packaging_unit ?? ""} onChange={(e) => setForm({ ...form, packaging_unit: e.target.value || null })} /></div>
-                <div className="space-y-1"><Label className="text-xs">Country of Origin</Label>
-                  <Input disabled={fiscalised} placeholder="KE" value={form.country_of_origin ?? ""} onChange={(e) => setForm({ ...form, country_of_origin: e.target.value || null })} /></div>
-                <div className="space-y-1"><Label className="text-xs">Tax Category</Label>
-                  <Select disabled={fiscalised} value={form.tax_category ?? "none"} onValueChange={(v) => setForm({ ...form, tax_category: v === "none" ? null : v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                <div className="space-y-1">
+                  <Label className="text-xs">KRA Item Code</Label>
+                  <Input
+                    disabled={fiscalised}
+                    value={form.kra_item_code ?? ""}
+                    onChange={(e) => setForm({ ...form, kra_item_code: e.target.value || null })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Item Classification</Label>
+                  <Input
+                    disabled={fiscalised}
+                    value={form.item_classification ?? ""}
+                    onChange={(e) => setForm({ ...form, item_classification: e.target.value || null })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">HS Code</Label>
+                  <Input
+                    disabled={fiscalised}
+                    value={form.hs_code ?? ""}
+                    onChange={(e) => setForm({ ...form, hs_code: e.target.value || null })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Quantity Unit</Label>
+                  <Input
+                    disabled={fiscalised}
+                    placeholder="e.g. PCS"
+                    value={form.quantity_unit ?? ""}
+                    onChange={(e) => setForm({ ...form, quantity_unit: e.target.value || null })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Packaging Unit</Label>
+                  <Input
+                    disabled={fiscalised}
+                    placeholder="e.g. BX"
+                    value={form.packaging_unit ?? ""}
+                    onChange={(e) => setForm({ ...form, packaging_unit: e.target.value || null })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Country of Origin</Label>
+                  <Input
+                    disabled={fiscalised}
+                    placeholder="KE"
+                    value={form.country_of_origin ?? ""}
+                    onChange={(e) => setForm({ ...form, country_of_origin: e.target.value || null })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Tax Category</Label>
+                  <Select
+                    disabled={fiscalised}
+                    value={form.tax_category ?? "none"}
+                    onValueChange={(v) => setForm({ ...form, tax_category: v === "none" ? null : v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">—</SelectItem>
                       <SelectItem value="A">A — Exempt</SelectItem>
@@ -708,9 +938,10 @@ export function ProductFormDialog({ open, onOpenChange, onSubmit, product, isLoa
             </div>
           )}
 
-
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
             <Button type="submit" disabled={isLoading}>
               {isLoading ? "Saving..." : product ? "Update" : "Create"}
             </Button>
