@@ -199,3 +199,21 @@
 .dark .pos-cart-surface .text-destructive {
   color: #b91c1c;
 }
+
+/*
+ * Toast placement
+ * - Mobile: top of the screen, centered and spanning the available width.
+ * - Desktop/tablet: top-right corner.
+ */
+@media (max-width: 639px) {
+  [data-sonner-toaster][data-x-position="right"][data-y-position="top"] {
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    align-items: center !important;
+  }
+
+  [data-sonner-toaster][data-x-position="right"][data-y-position="top"] [data-sonner-toast] {
+    width: calc(100% - 2rem) !important;
+  }
+}
