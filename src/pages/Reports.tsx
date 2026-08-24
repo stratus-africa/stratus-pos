@@ -20,6 +20,11 @@ import {
   FileText,
   Clock,
   ScrollText,
+  Box,
+  Users,
+  Store,
+  MapPin,
+  Banknote,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -221,7 +226,7 @@ const Reports = () => {
         const { data, error } = await supabase
           .from("sales")
           .select(
-            "*, customers(name), locations(name), sale_items(quantity, unit_price, discount, total, batch_id, products(name, purchase_price), product_batches:batch_id(batch_number, expiry_date))",
+            "id,total,discount,tax,created_at,created_by,location_id,customers(name),locations(name),sale_items(quantity,unit_price,discount,total,product_id,products(name,purchase_price))",
           )
           .eq("business_id", business.id)
           .neq("status", "cancelled")
@@ -250,6 +255,9 @@ const Reports = () => {
         "sales_by_payment",
         "pnl",
       ].includes(activeTab),
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const inventoryReport = useQuery({
@@ -306,11 +314,10 @@ const Reports = () => {
         _batches: batchesByProduct.get(row.product_id) || [],
       }));
     },
-    enabled:
-      !!business &&
-      !!currentLocation &&
-      canInventory &&
-      ["inventory", "stock", "stock_valuation", "low_stock"].includes(activeTab),
+    enabled: !!business && !!currentLocation && canInventory && ["inventory", "stock", "low_stock"].includes(activeTab),
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const expensesReport = useQuery({
@@ -328,6 +335,9 @@ const Reports = () => {
       return data;
     },
     enabled: !!business && canExpenses && (activeTab === "expenses" || activeTab === "pnl"),
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const purchasesReport = useQuery({
@@ -347,6 +357,9 @@ const Reports = () => {
     },
     enabled:
       !!business && canPurchases && ["purchases", "purchases_by_supplier", "purchase_returns"].includes(activeTab),
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const pnlLedger = useQuery({
@@ -446,6 +459,74 @@ const Reports = () => {
     enabled: !!business && canAudit && activeTab === "audit",
   });
 
+  const stockValuationReport = useQuery({
+    queryKey: ["report-stock-valuation", business?.id, currentLocation?.id],
+    queryFn: async () => {
+      if (!business) return [];
+      let q = supabase
+        .from("inventory")
+        .select("id,product_id,location_id,quantity,products(name,sku,purchase_price,selling_price),locations(name)")
+        .eq("business_id", business.id);
+      if (currentLocation?.id) q = q.eq("location_id", currentLocation.id);
+      const { data, error } = await q.order("product_id");
+      if (error) throw error;
+      return (data || []).map((r: any) => {
+        const quantity = Number(r.quantity || 0);
+        const unitCost = Number(r.products?.purchase_price || 0);
+        return {
+          id: r.id,
+          product: r.products?.name || r.product_id,
+          sku: r.products?.sku || "",
+          location: r.locations?.name || "",
+          quantity,
+          unit_cost: unitCost,
+          valuation: quantity * unitCost,
+        };
+      });
+    },
+    enabled: !!business && canModule("stock_valuation", "inventory") && activeTab === "stock_valuation",
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+
+  const stockAdjustmentsReport = useQuery({
+    queryKey: ["report-stock-adjustments", business?.id, currentLocation?.id, from, to],
+    queryFn: async () => {
+      if (!business) return [];
+      let q = (supabase as any)
+        .from("stock_adjustment_documents")
+        .select(
+          "id,reference,reason,notes,status,created_by,created_at,location_id,locations(name),stock_adjustments(quantity_change,product_id,products(name,sku))",
+        )
+        .eq("business_id", business.id)
+        .gte("created_at", `${from}T00:00:00`)
+        .lte("created_at", `${to}T23:59:59`)
+        .order("created_at", { ascending: false });
+      if (currentLocation?.id) q = q.eq("location_id", currentLocation.id);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data || []).map((doc: any) => ({
+        id: doc.id,
+        reference: doc.reference || doc.id.slice(0, 8),
+        reason: doc.reason,
+        status: doc.status,
+        location: doc.locations?.name || "",
+        created_at: doc.created_at,
+        products: (doc.stock_adjustments || []).map((line: any) => line.products?.name || line.product_id).join(", "),
+        quantity_change: (doc.stock_adjustments || []).reduce(
+          (sum: number, line: any) => sum + Number(line.quantity_change || 0),
+          0,
+        ),
+        notes: doc.notes || "",
+      }));
+    },
+    enabled: !!business && canModule("stock_adjustments", "inventory") && activeTab === "stock_adjustments",
+    staleTime: 15_000,
+    gcTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+
   const featureReport = useQuery({
     queryKey: ["feature-report", activeTab, business?.id, currentLocation?.id, from, to],
     queryFn: async () => {
@@ -531,7 +612,8 @@ const Reports = () => {
       if (k === "purchases" || k === "purchases_by_supplier" || k === "purchase_returns")
         return purchasesReport.data || [];
       if (k === "expenses") return expensesReport.data || [];
-      if (k === "stock" || k === "stock_valuation" || k === "low_stock") return inventoryReport.data || [];
+      if (k === "stock" || k === "low_stock") return inventoryReport.data || [];
+      if (k === "stock_valuation") return stockValuationReport.data || [];
       if (k === "expiry") {
         if (!(business as { track_batches?: boolean }).track_batches) return [];
         const { data, error } = await supabase
@@ -543,21 +625,7 @@ const Reports = () => {
         if (error) throw error;
         return data || [];
       }
-      if (k === "stock_adjustments") {
-        const { data, error } = await (supabase as any)
-          .from("stock_adjustments")
-          .select("*,products(name,sku),locations(name)")
-          .eq("business_id", business.id)
-          .gte("created_at", `${from}T00:00:00`)
-          .lte("created_at", `${to}T23:59:59`)
-          .order("created_at", { ascending: false });
-        if (error) throw error;
-        return (data || []).map((row: any) => ({
-          ...row,
-          product_name: row.products?.name || row.product_id || "Unknown",
-          location_name: row.locations?.name || row.location_id || "Unknown",
-        }));
-      }
+      if (k === "stock_adjustments") return stockAdjustmentsReport.data || [];
       if (k === "stock_transfers") {
         const { data, error } = await supabase
           .from("stock_transfers")
@@ -592,7 +660,13 @@ const Reports = () => {
       activeTab !== "expenses" &&
       activeTab !== "inventory" &&
       activeTab !== "movement" &&
-      activeTab !== "pnl",
+      activeTab !== "pnl" &&
+      activeTab !== "stock_valuation" &&
+      activeTab !== "stock_adjustments" &&
+      (!["sales_by_product", "sales_by_customer", "sales_by_cashier", "sales_by_location", "sales_by_payment"].includes(
+        activeTab,
+      ) ||
+        !salesReport.isLoading),
   });
 
   const sales = (salesReport.data as any[]) || [];
@@ -629,6 +703,8 @@ const Reports = () => {
     (activeTab === "purchases" && purchasesReport.isLoading) ||
     (activeTab === "expenses" && expensesReport.isLoading) ||
     (activeTab === "inventory" && inventoryReport.isLoading) ||
+    (activeTab === "stock_valuation" && stockValuationReport.isLoading) ||
+    (activeTab === "stock_adjustments" && stockAdjustmentsReport.isLoading) ||
     (activeTab === "pnl" && (salesReport.isLoading || expensesReport.isLoading || pnlLedger.isLoading));
 
   return (
@@ -674,31 +750,31 @@ const Reports = () => {
                 {
                   value: "sales_by_product",
                   label: "Sales · By Product",
-                  icon: BarChart3,
+                  icon: Box,
                   show: canModule("sales_by_product", "sales"),
                 },
                 {
                   value: "sales_by_customer",
                   label: "Sales · By Customer",
-                  icon: BarChart3,
+                  icon: Users,
                   show: canModule("sales_by_customer", "sales"),
                 },
                 {
                   value: "sales_by_cashier",
                   label: "Sales · By Cashier",
-                  icon: BarChart3,
+                  icon: Store,
                   show: canModule("sales_by_cashier", "sales"),
                 },
                 {
                   value: "sales_by_location",
                   label: "Sales · By Location",
-                  icon: BarChart3,
+                  icon: MapPin,
                   show: canModule("sales_by_location", "sales"),
                 },
                 {
                   value: "sales_by_payment",
-                  label: "Sales · By Payment",
-                  icon: BarChart3,
+                  label: "Payments Received Report",
+                  icon: Banknote,
                   show: canModule("sales_by_payment", "sales"),
                 },
                 { value: "eod", label: "End of Day", icon: Sun, show: canModule("sales", "sales") },
@@ -872,9 +948,9 @@ const Reports = () => {
                 can(k) && (
                   <TabsContent key={k} value={k} className="mt-0">
                     <FeatureReportTab
-                      title={k.replaceAll("_", " ")}
+                      title={k === "sales_by_payment" ? "Payments Received Report" : k.replaceAll("_", " ")}
                       rows={featureReport.data || []}
-                      loading={featureReport.isLoading}
+                      loading={featureReport.isLoading || (k.startsWith("sales_") && salesReport.isLoading)}
                     />
                   </TabsContent>
                 ),
@@ -883,8 +959,8 @@ const Reports = () => {
             <TabsContent value="stock_valuation" className="mt-0">
               <FeatureReportTab
                 title="Stock Valuation"
-                rows={featureReport.data || []}
-                loading={featureReport.isLoading}
+                rows={stockValuationReport.data || []}
+                loading={stockValuationReport.isLoading}
                 pageSizes={[24, 50, 100, 200]}
               />
             </TabsContent>
@@ -893,8 +969,8 @@ const Reports = () => {
             <TabsContent value="stock_adjustments" className="mt-0">
               <FeatureReportTab
                 title="Stock Adjustments"
-                rows={featureReport.data || []}
-                loading={featureReport.isLoading}
+                rows={stockAdjustmentsReport.data || []}
+                loading={stockAdjustmentsReport.isLoading}
                 pageSizes={[24, 50, 100, 200]}
                 statusFilter
               />
