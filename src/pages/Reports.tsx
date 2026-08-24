@@ -53,20 +53,29 @@ const Reports = () => {
 
   // Tab visibility: combine plan feature flag (where applicable) with role permission
   const can = (key: string) => hasPermission(`reports.${key}`);
-  const canSales = can("sales");
-  const canPurchases = can("purchases");
-  const canExpenses = can("expenses");
-  const canInventory = can("stock");
+  const canModule = (key: string, moduleKey: string) => can(key) && hasFeatureKey(moduleKey);
+  const canSales = canModule("sales", "sales");
+  const canPurchases = canModule("purchases", "purchases");
+  const canExpenses = canModule("expenses", "expenses");
+  const canInventory = canModule("stock", "inventory");
   const canPnL = (can("profit_loss") || hasPermission("accounting.profit_loss")) && hasFeatureKey("accounting");
-  const canLedger = hasPermission("reports.general_ledger") || hasPermission("accounting.general_ledger");
-  const canTrial = hasPermission("reports.trial_balance") || hasPermission("accounting.trial_balance");
-  const canFinancialPL = hasPermission("reports.profit_loss") || hasPermission("accounting.profit_loss");
-  const canBS = hasPermission("reports.balance_sheet") || hasPermission("accounting.balance_sheet");
-  const canCash = hasPermission("reports.cash_flow") || hasPermission("accounting.cash_flow");
+  const canLedger =
+    hasFeatureKey("accounting") &&
+    (hasPermission("reports.general_ledger") || hasPermission("accounting.general_ledger"));
+  const canTrial =
+    hasFeatureKey("accounting") &&
+    (hasPermission("reports.trial_balance") || hasPermission("accounting.trial_balance"));
+  const canFinancialPL =
+    hasFeatureKey("accounting") && (hasPermission("reports.profit_loss") || hasPermission("accounting.profit_loss"));
+  const canBS =
+    hasFeatureKey("accounting") &&
+    (hasPermission("reports.balance_sheet") || hasPermission("accounting.balance_sheet"));
+  const canCash =
+    hasFeatureKey("accounting") && (hasPermission("reports.cash_flow") || hasPermission("accounting.cash_flow"));
   const canFinancialExport = hasPermission("reports.export") || hasPermission("manual_journals.export");
   const canFinancial = canLedger || canTrial || canFinancialPL || canBS || canCash;
-  const canAudit = can("audit") || hasPermission("report.audit");
-  const canMovement = can("stock_movement");
+  const canAudit = hasFeatureKey("reports") && (can("audit") || hasPermission("report.audit"));
+  const canMovement = hasFeatureKey("inventory") && can("stock_movement");
   const reportKeys = [
     "sales",
     "sales_by_product",
@@ -103,7 +112,7 @@ const Reports = () => {
       : canExpenses
         ? "expenses"
         : canInventory
-          ? "inventory"
+          ? "stock"
           : canPnL
             ? "pnl"
             : canEOD
@@ -117,10 +126,55 @@ const Reports = () => {
                     : "sales";
   const [searchParams, setSearchParams] = useSearchParams();
   const urlTab = searchParams.get("tab");
+  const isReportAllowed = (key: string) => {
+    if (
+      [
+        "sales",
+        "sales_by_product",
+        "sales_by_customer",
+        "sales_by_cashier",
+        "sales_by_location",
+        "sales_by_payment",
+        "eod",
+        "zreport",
+      ].includes(key)
+    )
+      return canModule(key === "eod" || key === "zreport" ? "sales" : key, "sales");
+    if (
+      [
+        "stock",
+        "stock_movement",
+        "stock_valuation",
+        "stock_adjustments",
+        "stock_transfers",
+        "low_stock",
+        "expiry",
+      ].includes(key)
+    ) {
+      if (key === "stock_transfers") return canModule("stock_transfers", "inventory") && multiLocationEnabled;
+      if (key === "expiry")
+        return canModule("expiry", "inventory") && !!(business as { track_batches?: boolean })?.track_batches;
+      return canModule(key, "inventory");
+    }
+    if (["purchases", "purchases_by_supplier", "purchase_returns"].includes(key)) return canModule(key, "purchases");
+    if (key === "expenses") return canModule("expenses", "expenses");
+    if (["tax", "pnl", "general_ledger", "trial_balance", "balance_sheet", "cash_flow"].includes(key)) {
+      if (key === "pnl") return canPnL;
+      if (key === "general_ledger") return canLedger;
+      if (key === "trial_balance") return canTrial;
+      if (key === "balance_sheet") return canBS;
+      if (key === "cash_flow") return canCash;
+      return hasFeatureKey("accounting") && can("tax");
+    }
+    if (key === "audit") return canAudit;
+    if (key === "schedule") return hasFeatureKey("reports") && can("schedule");
+    return false;
+  };
   const [activeTab, setActiveTab] = useState<string>(urlTab || firstTab);
   useEffect(() => {
-    if (urlTab) setActiveTab(urlTab);
-  }, [urlTab]);
+    if (urlTab && isReportAllowed(urlTab)) setActiveTab(urlTab);
+    else if (!isReportAllowed(activeTab)) setActiveTab(firstTab);
+  }, [urlTab, firstTab]);
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
   const [exporter, setExporter] = useState<(() => void) | null>(null);
@@ -616,68 +670,83 @@ const Reports = () => {
               key: "operational",
               label: "Operational",
               items: [
-                { value: "sales", label: "Sales · Overview", icon: BarChart3, show: can("sales") },
+                { value: "sales", label: "Sales · Overview", icon: BarChart3, show: canModule("sales", "sales") },
                 {
                   value: "sales_by_product",
                   label: "Sales · By Product",
                   icon: BarChart3,
-                  show: can("sales_by_product"),
+                  show: canModule("sales_by_product", "sales"),
                 },
                 {
                   value: "sales_by_customer",
                   label: "Sales · By Customer",
                   icon: BarChart3,
-                  show: can("sales_by_customer"),
+                  show: canModule("sales_by_customer", "sales"),
                 },
                 {
                   value: "sales_by_cashier",
                   label: "Sales · By Cashier",
                   icon: BarChart3,
-                  show: can("sales_by_cashier"),
+                  show: canModule("sales_by_cashier", "sales"),
                 },
                 {
                   value: "sales_by_location",
                   label: "Sales · By Location",
                   icon: BarChart3,
-                  show: can("sales_by_location"),
+                  show: canModule("sales_by_location", "sales"),
                 },
                 {
                   value: "sales_by_payment",
                   label: "Sales · By Payment",
                   icon: BarChart3,
-                  show: can("sales_by_payment"),
+                  show: canModule("sales_by_payment", "sales"),
                 },
-                { value: "eod", label: "End of Day", icon: Sun, show: can("sales") },
-                { value: "zreport", label: "Z Report", icon: FileText, show: can("sales") },
+                { value: "eod", label: "End of Day", icon: Sun, show: canModule("sales", "sales") },
+                { value: "zreport", label: "Z Report", icon: FileText, show: canModule("sales", "sales") },
                 { value: "audit", label: "Audit Trail", icon: ClipboardList, show: canAudit },
-                { value: "schedule", label: "Scheduled Reports", icon: Clock, show: can("schedule") },
+                {
+                  value: "schedule",
+                  label: "Scheduled Reports",
+                  icon: Clock,
+                  show: hasFeatureKey("reports") && can("schedule"),
+                },
               ],
             },
             {
               key: "inventory",
               label: "Inventory",
               items: [
-                { value: "stock", label: "Stock", icon: Package, show: can("stock") },
-                { value: "stock_movement", label: "Movement", icon: ScrollText, show: can("stock_movement") },
-                { value: "stock_valuation", label: "Valuation", icon: Package, show: can("stock_valuation") },
+                { value: "stock", label: "Stock", icon: Package, show: canModule("stock", "inventory") },
+                {
+                  value: "stock_movement",
+                  label: "Movement",
+                  icon: ScrollText,
+                  show: canModule("stock_movement", "inventory"),
+                },
+                {
+                  value: "stock_valuation",
+                  label: "Valuation",
+                  icon: Package,
+                  show: canModule("stock_valuation", "inventory"),
+                },
                 {
                   value: "stock_adjustments",
                   label: "Adjustments",
                   icon: Package,
-                  show: can("stock_adjustments"),
+                  show: canModule("stock_adjustments", "inventory"),
                 },
                 {
                   value: "stock_transfers",
                   label: "Transfers",
                   icon: Package,
-                  show: can("stock_transfers") && multiLocationEnabled,
+                  show: canModule("stock_transfers", "inventory") && multiLocationEnabled,
                 },
-                { value: "low_stock", label: "Low Stock", icon: Package, show: can("low_stock") },
+                { value: "low_stock", label: "Low Stock", icon: Package, show: canModule("low_stock", "inventory") },
                 {
                   value: "expiry",
                   label: "Expiry",
                   icon: Clock,
-                  show: can("expiry") && !!(business as { track_batches?: boolean })?.track_batches,
+                  show: canModule("expiry", "inventory") && !!(business as { track_batches?: boolean })?.track_batches,
                 },
               ],
             },
@@ -685,18 +754,23 @@ const Reports = () => {
               key: "purchasing",
               label: "Purchasing",
               items: [
-                { value: "purchases", label: "Overview", icon: ShoppingCart, show: can("purchases") },
+                {
+                  value: "purchases",
+                  label: "Overview",
+                  icon: ShoppingCart,
+                  show: canModule("purchases", "purchases"),
+                },
                 {
                   value: "purchases_by_supplier",
                   label: "By Supplier",
                   icon: ShoppingCart,
-                  show: can("purchases_by_supplier"),
+                  show: canModule("purchases_by_supplier", "purchases"),
                 },
                 {
                   value: "purchase_returns",
                   label: "Returns",
                   icon: ShoppingCart,
-                  show: can("purchase_returns"),
+                  show: canModule("purchase_returns", "purchases"),
                 },
               ],
             },
@@ -704,9 +778,14 @@ const Reports = () => {
               key: "financial",
               label: "Financial",
               items: [
-                { value: "expenses", label: "Expenses", icon: Receipt, show: can("expenses") },
-                { value: "tax", label: "Tax", icon: Receipt, show: can("tax") },
-                { value: "pnl", label: "Profit & Loss", icon: TrendingUp, show: can("profit_loss") },
+                { value: "expenses", label: "Expenses", icon: Receipt, show: canModule("expenses", "expenses") },
+                { value: "tax", label: "Tax", icon: Receipt, show: canModule("tax", "accounting") },
+                {
+                  value: "pnl",
+                  label: "Profit & Loss",
+                  icon: TrendingUp,
+                  show: canModule("profit_loss", "accounting"),
+                },
                 { value: "general_ledger", label: "General Ledger", icon: FileText, show: canLedger },
                 { value: "trial_balance", label: "Trial Balance", icon: FileText, show: canTrial },
                 { value: "balance_sheet", label: "Balance Sheet", icon: FileText, show: canBS },

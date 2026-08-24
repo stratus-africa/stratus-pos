@@ -36,6 +36,7 @@ interface BankAccountSummary {
   bank_name: string | null;
   account_number: string | null;
   balance: number;
+  chart_account_id: string | null;
 }
 
 export default function ChartOfAccounts() {
@@ -53,6 +54,7 @@ export default function ChartOfAccounts() {
   const [editing, setEditing] = useState<Account | null>(null);
   const [openingAcc, setOpeningAcc] = useState<Account | null>(null);
   const [openingDialogOpen, setOpeningDialogOpen] = useState(false);
+  const [linkingBank, setLinkingBank] = useState<string | null>(null);
   const [form, setForm] = useState({
     code: "",
     name: "",
@@ -68,7 +70,7 @@ export default function ChartOfAccounts() {
       supabase.from("chart_of_accounts").select("*").eq("business_id", business.id).order("code"),
       supabase
         .from("bank_accounts")
-        .select("id, name, account_type, bank_name, account_number, balance")
+        .select("id, name, account_type, bank_name, account_number, balance, chart_account_id")
         .eq("business_id", business.id)
         .eq("is_active", true)
         .order("name"),
@@ -116,6 +118,24 @@ export default function ChartOfAccounts() {
     setEditing(null);
     setForm({ code: "", name: "", type: "expense", description: "", parent_id: "", is_active: true });
     fetchAccounts();
+  };
+
+  const linkBankAccount = async (bankAccountId: string, chartAccountId: string) => {
+    if (!business || !canEdit) return;
+    setLinkingBank(bankAccountId);
+    try {
+      const { data, error } = await (supabase as any).rpc("link_bank_account_to_chart", {
+        _bank_account_id: bankAccountId,
+        _chart_account_id: chartAccountId,
+      });
+      if (error) throw error;
+      toast.success(`Bank account linked. ${Number(data || 0)} existing transaction(s) updated.`);
+      await fetchAccounts();
+    } catch (error: any) {
+      toast.error(error?.message || "Could not link bank account");
+    } finally {
+      setLinkingBank(null);
+    }
   };
 
   const handleDelete = async (acc: Account) => {
@@ -349,6 +369,7 @@ export default function ChartOfAccounts() {
                   <TableHead>Account</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Bank / Number</TableHead>
+                  <TableHead>Chart of Accounts</TableHead>
                   <TableHead className="text-right">Balance</TableHead>
                 </TableRow>
               </TableHeader>
@@ -363,6 +384,27 @@ export default function ChartOfAccounts() {
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {[b.bank_name, b.account_number].filter(Boolean).join(" • ") || "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={b.chart_account_id || "none"}
+                        onValueChange={(value) => value !== "none" && linkBankAccount(b.id, value)}
+                        disabled={!canEdit || linkingBank === b.id}
+                      >
+                        <SelectTrigger className="min-w-[220px]">
+                          <SelectValue placeholder="Select account" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Not linked</SelectItem>
+                          {accounts
+                            .filter((a) => a.type === "asset" && a.is_active)
+                            .map((a) => (
+                              <SelectItem key={a.id} value={a.id}>
+                                {a.code} — {a.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell className="text-right font-mono">KES {Number(b.balance).toLocaleString()}</TableCell>
                   </TableRow>
