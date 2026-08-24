@@ -7606,6 +7606,10 @@ export type Database = {
         Args: { _business_id: string; _date: string }
         Returns: string
       }
+      finance_permission_aliases: {
+        Args: { _permission: string }
+        Returns: string[]
+      }
       finance_post_banking_transaction: {
         Args: { _transaction_id: string }
         Returns: string
@@ -7632,31 +7636,18 @@ export type Database = {
         }
         Returns: string
       }
-      finance_post_operational_journal:
-        | {
-            Args: {
-              _date: string
-              _description: string
-              _idempotency_key?: string
-              _lines: Json
-              _source_id: string
-              _source_number: string
-              _source_type: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              _date: string
-              _description: string
-              _idempotency_key?: string
-              _lines: Json
-              _source_id: string
-              _source_number: string
-              _source_type: string
-            }
-            Returns: string
-          }
+      finance_post_operational_journal: {
+        Args: {
+          _date: string
+          _description: string
+          _idempotency_key?: string
+          _lines: Json
+          _source_id: string
+          _source_number: string
+          _source_type: string
+        }
+        Returns: string
+      }
       finance_post_purchase: { Args: { _purchase_id: string }; Returns: string }
       finance_post_sale: { Args: { _sale_id: string }; Returns: string }
       finance_post_sale_cogs: { Args: { _sale_id: string }; Returns: string }
