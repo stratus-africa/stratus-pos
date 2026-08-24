@@ -427,7 +427,6 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
       location_id: locationId,
       reason,
       notes,
-      saved_at: now,
     });
 
     setDraftSavedAt(now);
@@ -807,7 +806,7 @@ export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading 
         onOpenChange={setSupplierDialogOpen}
         onSubmit={(data) => {
           createSupplier.mutate(data, {
-            onSuccess: (createdSupplier) => {
+            onSuccess: (createdSupplier: any) => {
               /*
                * Prefer the returned supplier
                * directly if the mutation provides it.
