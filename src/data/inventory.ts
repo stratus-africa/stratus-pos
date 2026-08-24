@@ -1,7 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
+
+const db = supabase as any;
+
 export const inventoryData = {
   controlRequests: (businessId: string, locationId?: string) => {
-    let q = supabase.from("inventory_control_requests").select("*").eq("business_id", businessId);
+    const q = db.from("inventory_control_requests").select("*").eq("business_id", businessId);
     return locationId ? q.eq("location_id", locationId) : q;
   },
   createControlRequest: (input: {
@@ -11,7 +14,7 @@ export const inventoryData = {
     reference?: string | null;
     items: unknown[];
   }) =>
-    supabase.rpc("create_inventory_control_request", {
+    db.rpc("create_inventory_control_request", {
       _location_id: input.locationId,
       _reason: input.reason,
       _notes: input.notes ?? null,

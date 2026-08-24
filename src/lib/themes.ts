@@ -8,6 +8,7 @@ export type ThemeKey =
   | "midnight_blues"
   | "crafthive"
   | "openclaw"
+  | "notebook"
   | "whatsapp";
 
 export type ThemeMode = "light" | "dark";

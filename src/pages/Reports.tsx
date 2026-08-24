@@ -238,7 +238,7 @@ const Reports = () => {
         string,
         { batch_number: string; expiry_date: string | null; quantity: number }[]
       >();
-      batchRows.forEach((b: Record<string, unknown>) => {
+      batchRows.forEach((b: any) => {
         const arr = batchesByProduct.get(b.product_id) || [];
         arr.push({ batch_number: b.batch_number, expiry_date: b.expiry_date, quantity: Number(b.quantity) });
         batchesByProduct.set(b.product_id, arr);
@@ -395,10 +395,10 @@ const Reports = () => {
     queryFn: async () => {
       if (!business) return [];
       const k = activeTab;
-      if (k === "sales") return salesReport.data || [];
+      if (k === "sales") return (salesReport.data as any[]) || [];
       if (k === "sales_by_customer") {
-        const m = new Map<string, Record<string, unknown>>();
-        for (const r of salesReport.data || []) {
+        const m = new Map<string, any>();
+        for (const r of (salesReport.data as any[]) || []) {
           const key = r.customers?.name || "Walk-in / Unassigned";
           const x = m.get(key) || { customer: key, sales: 0, revenue: 0, discount: 0, tax: 0 };
           x.sales++;
@@ -410,8 +410,8 @@ const Reports = () => {
         return [...m.values()];
       }
       if (k === "sales_by_location") {
-        const m = new Map<string, Record<string, unknown>>();
-        for (const r of salesReport.data || []) {
+        const m = new Map<string, any>();
+        for (const r of (salesReport.data as any[]) || []) {
           const key = r.locations?.name || r.location_id;
           const x = m.get(key) || { location: key, sales: 0, revenue: 0 };
           x.sales++;
@@ -421,7 +421,7 @@ const Reports = () => {
         return [...m.values()];
       }
       if (k === "sales_by_cashier") {
-        const cashierIds = Array.from(new Set((salesReport.data || []).map((r) => r.created_by).filter(Boolean)));
+        const cashierIds = Array.from(new Set(((salesReport.data as any[]) || []).map((r) => r.created_by).filter(Boolean)));
         const names = new Map<string, string>();
         if (cashierIds.length) {
           const { data: profiles, error } = await supabase
@@ -431,8 +431,8 @@ const Reports = () => {
           if (error) throw error;
           for (const profile of profiles || []) names.set(profile.id, profile.full_name || profile.email || profile.id);
         }
-        const m = new Map<string, Record<string, unknown>>();
-        for (const r of salesReport.data || []) {
+        const m = new Map<string, any>();
+        for (const r of (salesReport.data as any[]) || []) {
           const id = r.created_by || "unknown";
           const key = names.get(id) || "Unknown";
           const x = m.get(id) || { cashier: key, sales: 0, revenue: 0 };
@@ -443,8 +443,8 @@ const Reports = () => {
         return [...m.values()];
       }
       if (k === "sales_by_product") {
-        const m = new Map<string, Record<string, unknown>>();
-        for (const r of salesReport.data || [])
+        const m = new Map<string, any>();
+        for (const r of (salesReport.data as any[]) || [])
           for (const i of r.sale_items || []) {
             const key = i.products?.name || i.product_id;
             const x = m.get(key) || { product: key, quantity: 0, revenue: 0, discount: 0 };
@@ -456,11 +456,11 @@ const Reports = () => {
         return [...m.values()];
       }
       if (k === "sales_by_payment") {
-        const ids = (salesReport.data || []).map((r: { id: string }) => r.id);
+        const ids = ((salesReport.data as any[]) || []).map((r: any) => r.id);
         if (!ids.length) return [];
         const { data, error } = await supabase.from("payments").select("method,amount,sale_id").in("sale_id", ids);
         if (error) throw error;
-        const m = new Map<string, Record<string, unknown>>();
+        const m = new Map<string, any>();
         for (const r of data || []) {
           const key = r.method || "unknown";
           const x = m.get(key) || { payment_method: key, transactions: 0, amount: 0 };
@@ -486,7 +486,7 @@ const Reports = () => {
         return data || [];
       }
       if (k === "stock_adjustments") {
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from("stock_adjustments")
           .select("*,products(name,sku),locations(name)")
           .eq("business_id", business.id)
@@ -537,7 +537,7 @@ const Reports = () => {
       activeTab !== "pnl",
   });
 
-  const sales = salesReport.data || [];
+  const sales = (salesReport.data as any[]) || [];
   const expenses = expensesReport.data || [];
   const purchases = purchasesReport.data || [];
   const inventory = inventoryReport.data || [];
@@ -558,7 +558,7 @@ const Reports = () => {
   const netProfit = grossProfit - totalExpenses;
 
   const expenseByCategory: Record<string, number> = {};
-  expenses.forEach((e: Record<string, unknown>) => {
+  expenses.forEach((e: any) => {
     const cat = e.expense_categories?.name || "Uncategorized";
     expenseByCategory[cat] = (expenseByCategory[cat] || 0) + Number(e.amount);
   });
@@ -604,7 +604,7 @@ const Reports = () => {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col md:flex-row gap-4 md:gap-6">
         {(() => {
-          type ReportItem = { value: string; label: string; icon: React.ReactNode; show: boolean };
+          type ReportItem = { value: string; label: string; icon: any; show: boolean };
           type ReportGroup = { key: string; label: string; items: ReportItem[] };
 
           const groups: ReportGroup[] = [
@@ -813,7 +813,7 @@ const Reports = () => {
               <FeatureReportTab
                 title="Low Stock"
                 rows={(featureReport.data || []).filter(
-                  (r: Record<string, unknown>) =>
+                  (r: any) =>
                     Number(r.quantity || r.stock || 0) <= Number(r.products?.reorder_level || r.reorder_level || 0),
                 )}
                 loading={featureReport.isLoading}
