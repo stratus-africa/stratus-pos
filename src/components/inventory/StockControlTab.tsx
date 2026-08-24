@@ -39,7 +39,6 @@ export function StockControlTab() {
   const canIssue = hasPermission("inventory.issue");
   const canWriteoff = hasPermission("inventory.writeoff");
   const canAdjust = hasPermission("inventory.adjust");
-  const canApprove = hasPermission("inventory.approve_adjustment");
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState<Reason>("Issue");
   const [productId, setProductId] = useState("");
@@ -222,54 +221,6 @@ export function StockControlTab() {
           </Dialog>
         )}
       </div>
-
-      {canApprove && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" /> Pending Approvals <Badge>{pending.length}</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {pending.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No pending issue or write-off requests.</p>
-            ) : (
-              <div className="space-y-2">
-                {pending.map((r) => (
-                  <div
-                    key={r.id}
-                    className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-lg border p-3"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={r.reason === "Write-off" ? "destructive" : "secondary"}>{r.reason}</Badge>
-                        <span className="text-sm">{new Date(r.created_at).toLocaleString("en-KE")}</span>
-                      </div>
-                      <p className="text-sm mt-1">{r.reference || "No reference"}</p>
-                      <p className="text-xs text-muted-foreground">{r.notes || "No notes"}</p>
-                      <div className="text-xs mt-1">
-                        {(r.stock_adjustments ?? [])
-                          .map(
-                            (line) => `${line.products?.name || "Product"}: ${Math.abs(Number(line.quantity_change))}`,
-                          )
-                          .join(" · ")}
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={() => review(r.id, true)} disabled={busy}>
-                        <Check className="mr-1 h-4 w-4" /> Approve
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => review(r.id, false)} disabled={busy}>
-                        <X className="mr-1 h-4 w-4" /> Reject
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
         <CardHeader>

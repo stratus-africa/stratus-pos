@@ -26,7 +26,6 @@ import {
   ArrowDown,
   Printer,
   Upload,
-  Scale,
   ArrowLeftRight,
   History,
   Calculator,
@@ -34,7 +33,6 @@ import {
   CalendarClock,
 } from "lucide-react";
 import { StockCountsTab } from "@/components/inventory/StockCountsTab";
-import { StockReconciliationTab } from "@/components/inventory/StockReconciliationTab";
 import { StockTransfersTab } from "@/components/inventory/StockTransfersTab";
 import { StockMovementsTab } from "@/components/inventory/StockMovementsTab";
 import { StockValuationTab } from "@/components/inventory/StockValuationTab";
@@ -47,6 +45,7 @@ import { useInventory, type SortKey, type AdjustmentDocument } from "@/hooks/use
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useEntitlement } from "@/hooks/useEntitlement";
 import { usePurchases } from "@/hooks/usePurchases";
 import { StockAdjustmentDialog, type AdjustStockSubmit } from "@/components/inventory/StockAdjustmentDialog";
 import { ImportAdjustmentsDialog } from "@/components/inventory/ImportAdjustmentsDialog";
@@ -70,7 +69,6 @@ const INVENTORY_TABS = [
   { key: "adjustments", label: "Adjustments", icon: <ClipboardList className="h-4 w-4" /> },
   { key: "transfers", label: "Stock Transfers", icon: <ArrowLeftRight className="h-4 w-4" /> },
   { key: "counts", label: "Stock Take", icon: <ClipboardCheck className="h-4 w-4" /> },
-  { key: "reconciliation", label: "Reconciliation", icon: <Scale className="h-4 w-4" /> },
 ] as const;
 type StockSort = "name_asc" | "name_desc" | "barcode_asc" | "barcode_desc" | "qty_asc" | "qty_desc";
 
@@ -112,7 +110,6 @@ const Inventory = () => {
   const canAdjustStock = hasPermission("inventory.adjust");
   const canViewAdjustments = canViewInventory || hasPermission("inventory.view_movements");
   const canStockCount = hasPermission("inventory.count_create") || hasPermission("inventory.count_perform");
-  const canReconcileStock = hasPermission("inventory.count_approve");
   const canEditAdjustments = canAdjustStock;
   const { createPurchase } = usePurchases();
   const [adjustmentSubmitting, setAdjustmentSubmitting] = useState(false);
@@ -132,10 +129,13 @@ const Inventory = () => {
   const [activeTab, setActiveTab] = useState<string>(initialStr("tab", "stock"));
   const canViewMovements = hasPermission("inventory.view_movements");
   const canViewValuation = hasPermission("inventory.view_valuation");
+  const { hasModule } = useEntitlement();
+  const multiLocationEnabled = hasModule("multi_location");
   const canViewTransfers =
-    hasPermission("inventory.transfer") ||
-    hasPermission("inventory.approve_transfer") ||
-    hasPermission("inventory.receive");
+    multiLocationEnabled &&
+    (hasPermission("inventory.transfer") ||
+      hasPermission("inventory.approve_transfer") ||
+      hasPermission("inventory.receive"));
   const canViewControls =
     hasPermission("inventory.issue") ||
     hasPermission("inventory.writeoff") ||
@@ -159,7 +159,6 @@ const Inventory = () => {
     if (tab.key === "expiry") return canViewExpiry;
     if (tab.key === "count-review") return canViewCountReview;
     if (tab.key === "counts") return canStockCount;
-    if (tab.key === "reconciliation") return canReconcileStock;
     return canViewInventory;
   });
 
@@ -635,7 +634,11 @@ const Inventory = () => {
 
         <TabsList className="hidden md:inline-flex">
           {visibleInventoryTabs.map((t) => (
-            <TabsTrigger key={t.key} value={t.key} className="gap-1">
+            <TabsTrigger
+              key={t.key}
+              value={t.key}
+              className={`gap-1 ${t.key === "adjustments" ? "text-red-700 data-[state=active]:bg-red-100 data-[state=active]:text-red-800 dark:text-red-300 dark:data-[state=active]:bg-red-950/40 dark:data-[state=active]:text-red-200" : ""}`}
+            >
               {t.icon}
               {t.label}
             </TabsTrigger>
@@ -644,10 +647,6 @@ const Inventory = () => {
 
         <TabsContent value="counts">
           <StockCountsTab />
-        </TabsContent>
-
-        <TabsContent value="reconciliation">
-          <StockReconciliationTab />
         </TabsContent>
 
         <TabsContent value="movements">
