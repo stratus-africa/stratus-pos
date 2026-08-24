@@ -338,7 +338,7 @@ const Inventory = () => {
         .limit(20000);
       if (error) throw error;
       const map = new Map<string, string>();
-      (data || []).forEach((r: Record<string, unknown>) => {
+      (data || []).forEach((r: any) => {
         const pid = r.product_id;
         const ts = r.sales?.created_at;
         if (pid && ts && !map.has(pid)) map.set(pid, ts);

@@ -484,7 +484,7 @@ const POS = () => {
           pointsEarned: earned,
           redemptionValue: loyalty.redemptionValue,
         };
-      } catch (e: unknown) {
+      } catch (e: any) {
         toast.warning(`Loyalty capture skipped: ${e.message || "unknown error"}`);
       }
     }
@@ -509,7 +509,7 @@ const POS = () => {
           toast.success(
             `Redeemed ${loyaltyCtx.pointsRedeemed} points (KES ${loyaltyCtx.redemptionValue.toLocaleString()})`,
           );
-      } catch (e: unknown) {
+      } catch (e: any) {
         toast.warning(`Loyalty balance update failed: ${e.message}`);
       }
       (result as any).loyalty = {
