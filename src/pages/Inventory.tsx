@@ -45,7 +45,7 @@ import { useInventory, type SortKey, type AdjustmentDocument } from "@/hooks/use
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useEntitlement } from "@/hooks/useEntitlement";
+import { useFeatureLimit } from "@/components/FeatureGate";
 import { usePurchases } from "@/hooks/usePurchases";
 import { StockAdjustmentDialog, type AdjustStockSubmit } from "@/components/inventory/StockAdjustmentDialog";
 import { ImportAdjustmentsDialog } from "@/components/inventory/ImportAdjustmentsDialog";
@@ -62,11 +62,11 @@ const INVENTORY_TABS = [
   { key: "stock", label: "Stock Levels", icon: <Warehouse className="h-4 w-4" /> },
   { key: "movements", label: "Stock Movements", icon: <History className="h-4 w-4" /> },
   { key: "valuation", label: "Stock Valuation", icon: <Calculator className="h-4 w-4" /> },
-  { key: "controls", label: "Issues & Write-offs", icon: <AlertTriangle className="h-4 w-4" /> },
+  { key: "controls", label: "Issues & Write-offs", icon: <AlertTriangle className="h-4 w-4 text-red-600" /> },
   { key: "batches", label: "Batches", icon: <Package className="h-4 w-4" /> },
   { key: "expiry", label: "Expiry", icon: <CalendarClock className="h-4 w-4" /> },
   { key: "count-review", label: "Count Review", icon: <ClipboardCheck className="h-4 w-4" /> },
-  { key: "adjustments", label: "Adjustments", icon: <ClipboardList className="h-4 w-4" /> },
+  { key: "adjustments", label: "Adjustments", icon: <ClipboardList className="h-4 w-4 text-red-600" /> },
   { key: "transfers", label: "Stock Transfers", icon: <ArrowLeftRight className="h-4 w-4" /> },
   { key: "counts", label: "Stock Take", icon: <ClipboardCheck className="h-4 w-4" /> },
 ] as const;
@@ -106,6 +106,7 @@ const Inventory = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { hasPermission } = usePermissions();
+  const { hasFeatureKey } = useFeatureLimit();
   const canViewInventory = hasPermission("inventory.view");
   const canAdjustStock = hasPermission("inventory.adjust");
   const canViewAdjustments = canViewInventory || hasPermission("inventory.view_movements");
@@ -129,8 +130,7 @@ const Inventory = () => {
   const [activeTab, setActiveTab] = useState<string>(initialStr("tab", "stock"));
   const canViewMovements = hasPermission("inventory.view_movements");
   const canViewValuation = hasPermission("inventory.view_valuation");
-  const { hasModule } = useEntitlement();
-  const multiLocationEnabled = hasModule("multi_location");
+  const multiLocationEnabled = hasFeatureKey("multi_location");
   const canViewTransfers =
     multiLocationEnabled &&
     (hasPermission("inventory.transfer") ||
@@ -321,6 +321,46 @@ const Inventory = () => {
   );
   const expectedProfit = dashboard.selling - dashboard.purchase;
   const fmt = (n: number) => `KES ${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+
+  const adjustmentApprovalsQuery = useQuery({
+    queryKey: ["inventory-adjustment-approvals", business?.id, currentLocation?.id],
+    queryFn: async () => {
+      if (!business?.id) return [] as any[];
+      let q = supabase
+        .from("stock_adjustment_documents" as any)
+        .select(
+          "id,reason,reference,notes,status,created_at,created_by,locations(name),stock_adjustments(product_id,quantity_change,products(name))",
+        )
+        .eq("business_id", business.id)
+        .eq("status", "pending")
+        .in("reason", ["Issue", "Write-off", "Adjustment"])
+        .order("created_at", { ascending: false });
+      if (currentLocation?.id) q = q.eq("location_id", currentLocation.id);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: !!business?.id && hasPermission("inventory.approve_adjustment"),
+  });
+  const pendingAdjustmentApprovals = adjustmentApprovalsQuery.data ?? [];
+
+  const reviewAdjustmentApproval = async (id: string, approve: boolean) => {
+    try {
+      const result = approve
+        ? await supabase.rpc("approve_inventory_control_request" as any, { _document_id: id })
+        : await supabase.rpc("reject_inventory_control_request" as any, {
+            _document_id: id,
+            _reason: "Rejected by approver",
+          });
+      if (result.error) throw result.error;
+      toast.success(approve ? "Adjustment request approved and stock updated" : "Adjustment request rejected");
+      await adjustmentApprovalsQuery.refetch();
+      await queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      await queryClient.invalidateQueries({ queryKey: ["inventory-control-requests"] });
+    } catch (e: any) {
+      toast.error(e?.message || "Could not review adjustment request");
+    }
+  };
 
   // Stock aging: last sold date per product to flag slow-movers & dead stock
   const lastSalesQuery = useQuery({
@@ -566,6 +606,47 @@ const Inventory = () => {
         </Card>
       )}
 
+      {pendingAdjustmentApprovals.length > 0 && (
+        <Card className="border-amber-300 bg-amber-50/80">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2 text-amber-950">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              Adjustment Approval Requests
+              <Badge variant="secondary">{pendingAdjustmentApprovals.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {pendingAdjustmentApprovals.map((request: any) => (
+              <div
+                key={request.id}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border bg-background p-3"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={request.reason === "Write-off" ? "destructive" : "secondary"}>
+                      {request.reason}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(request.created_at).toLocaleString("en-KE")}
+                    </span>
+                  </div>
+                  <p className="text-sm mt-1">{request.reference || "No reference"}</p>
+                  <p className="text-xs text-muted-foreground">{request.notes || "No notes"}</p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button size="sm" onClick={() => reviewAdjustmentApproval(request.id, true)}>
+                    Approve
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => reviewAdjustmentApproval(request.id, false)}>
+                    Reject
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardContent className="p-4">
@@ -633,16 +714,24 @@ const Inventory = () => {
         </div>
 
         <TabsList className="hidden md:inline-flex">
-          {visibleInventoryTabs.map((t) => (
-            <TabsTrigger
-              key={t.key}
-              value={t.key}
-              className={`gap-1 ${t.key === "adjustments" ? "text-red-700 data-[state=active]:bg-red-100 data-[state=active]:text-red-800 dark:text-red-300 dark:data-[state=active]:bg-red-950/40 dark:data-[state=active]:text-red-200" : ""}`}
-            >
-              {t.icon}
-              {t.label}
-            </TabsTrigger>
-          ))}
+          {visibleInventoryTabs.map((t) => {
+            const special = t.key === "controls";
+            const adjustment = t.key === "adjustments";
+            return (
+              <TabsTrigger
+                key={t.key}
+                value={t.key}
+                className={`gap-1 ${special ? "bg-yellow-100 text-yellow-950 border-yellow-300 data-[state=active]:bg-red-100 data-[state=active]:text-red-800" : ""} ${
+                  adjustment
+                    ? "border-red-200 bg-red-50/70 data-[state=active]:bg-red-100 data-[state=active]:text-red-800"
+                    : ""
+                }`}
+              >
+                {t.icon}
+                {t.label}
+              </TabsTrigger>
+            );
+          })}
         </TabsList>
 
         <TabsContent value="counts">

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,231 +6,668 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, Plus } from "lucide-react";
-import { toast } from "sonner";
-import type { AdjustmentDocument } from "@/hooks/useInventory";
-import { useProducts } from "@/hooks/useProducts";
+import { useProducts, Product } from "@/hooks/useProducts";
 import { useBusiness } from "@/contexts/BusinessContext";
+import { useInventory } from "@/hooks/useInventory";
+import { Barcode, Trash2, Save, FileText, Plus } from "lucide-react";
+import { toast } from "sonner";
+import { loadDraft, saveDraft, clearDraft } from "@/lib/stockAdjustmentDraft";
 
-const REASONS = ["Purchase received", "Damage", "Loss", "Correction", "Return", "Other"];
-
-interface Line {
+interface AdjustmentLine {
   product_id: string;
   product_name: string;
   sku: string | null;
   quantity_change: number;
+  unit_cost?: number;
+}
+
+export interface AdjustStockSubmit {
+  items: {
+    product_id: string;
+    quantity_change: number;
+    unit_cost?: number;
+  }[];
+  location_id: string;
+  reason: string;
+  notes?: string;
+  purchase?: {
+    supplier_id: string | null;
+    invoice_number: string;
+    purchase_date: string;
+  };
+  onProgress?: (done: number, total: number) => void;
 }
 
 interface Props {
   open: boolean;
-  document: AdjustmentDocument | null;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: {
-    id: string;
-    reason: string;
-    notes: string | null;
-    reference: string | null;
-    location_id: string;
-    items: { product_id: string; quantity_change: number }[];
-  }) => void;
+  onSubmit: (data: AdjustStockSubmit) => Promise<void>;
   isLoading?: boolean;
 }
 
-export function EditAdjustmentDocumentDialog({ open, document: doc, onOpenChange, onSubmit, isLoading }: Props) {
-  const { locations } = useBusiness();
+const REASONS = ["Damage", "Loss", "Correction", "Return", "Other"];
+
+export function StockAdjustmentDialog({ open, onOpenChange, onSubmit, isLoading = false }: Props) {
   const { productsQuery } = useProducts();
-  const products = productsQuery.data?.filter((p) => p.is_active) || [];
-  const [reason, setReason] = useState("Correction");
+
+  const { business, locations, currentLocation } = useBusiness();
+
+  const [locationId, setLocationId] = useState(currentLocation?.id || "");
+
+  const { inventoryQuery } = useInventory(locationId || undefined);
+
+  const [reason, setReason] = useState("Damage");
+
   const [notes, setNotes] = useState("");
-  const [reference, setReference] = useState("");
-  const [locationId, setLocationId] = useState("");
-  const [lines, setLines] = useState<Line[]>([]);
+
+  const [lines, setLines] = useState<AdjustmentLine[]>([]);
+
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    if (doc && open) {
-      setReason(doc.reason || "Correction");
-      setNotes(doc.notes || "");
-      setReference(doc.reference || "");
-      setLocationId(doc.location_id);
-      setLines(
-        (doc.lines || []).map((l) => ({
-          product_id: l.product_id,
-          product_name: l.products?.name || "—",
-          sku: l.products?.sku || null,
-          quantity_change: Number(l.quantity_change),
-        })),
-      );
-      setSearch("");
-    }
-  }, [doc, open]);
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return [] as typeof products;
-    const q = search.toLowerCase();
-    return products
-      .filter((p) => p.name.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q) || p.barcode?.toLowerCase().includes(q))
-      .slice(0, 8);
+  const [submitting, setSubmitting] = useState(false);
+
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const products = productsQuery.data?.filter((p) => p.is_active) || [];
+
+  const inventoryByProduct = useMemo(() => {
+    const map = new Map<string, number>();
+
+    (inventoryQuery.data || []).forEach((item) => {
+      map.set(item.product_id, Number(item.quantity) || 0);
+    });
+
+    return map;
+  }, [inventoryQuery.data]);
+
+  /*
+   * Load/reset dialog state.
+   */
+  useEffect(() => {
+    if (open) {
+      const draft = loadDraft(business?.id);
+
+      if (draft && draft.lines && draft.lines.length > 0) {
+        setLines(draft.lines);
+
+        setLocationId(draft.location_id || currentLocation?.id || "");
+
+        setReason(draft.reason || "Damage");
+
+        setNotes(draft.notes || "");
+
+        setDraftSavedAt(draft.saved_at);
+
+        toast.info("Draft loaded", {
+          description: `Saved ${new Date(draft.saved_at).toLocaleString()}`,
+        });
+      } else {
+        setLocationId(currentLocation?.id || locations?.[0]?.id || "");
+      }
+
+      setTimeout(() => {
+        searchRef.current?.focus();
+      }, 100);
+    } else {
+      setLines([]);
+      setSearch("");
+      setNotes("");
+      setDraftSavedAt(null);
+      setSubmitting(false);
+    }
+  }, [open, business?.id, currentLocation?.id, locations]);
+
+  /*
+   * Add product to adjustment.
+   *
+   * IMPORTANT:
+   * Always start with quantity 1.
+   *
+   * The previous code used:
+   *
+   *   isPurchase ? 1 : 0
+   *
+   * which meant Damage, Loss, Correction, Return,
+   * and Other were added with quantity 0 and could
+   * never be submitted.
+   */
+  const addProduct = (product: Product, qty: number = 1) => {
+    setLines((prev) => {
+      const existing = prev.find((line) => line.product_id === product.id);
+
+      if (existing) {
+        return prev.map((line) =>
+          line.product_id === product.id
+            ? {
+                ...line,
+                quantity_change: line.quantity_change + qty,
+              }
+            : line,
+        );
+      }
+
+      return [
+        ...prev,
+        {
+          product_id: product.id,
+          product_name: product.name,
+          sku: product.sku,
+          quantity_change: qty,
+          unit_cost: Number(product.purchase_price) || 0,
+        },
+      ];
+    });
+  };
+
+  /*
+   * Search / barcode / SKU handling.
+   */
+  const handleSearchKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter") return;
+
+    e.preventDefault();
+
+    const q = search.trim();
+
+    if (!q) return;
+
+    const exact = products.find((product) => product.barcode === q || product.sku === q);
+
+    if (exact) {
+      addProduct(exact, 1);
+
+      toast.success(`Added: ${exact.name}`);
+
+      setSearch("");
+
+      return;
+    }
+
+    if (filteredProducts.length === 1) {
+      addProduct(filteredProducts[0], 1);
+
+      setSearch("");
+
+      return;
+    }
+
+    toast.error("No exact product match found");
+  };
+
+  /*
+   * Remove a product line.
+   */
+  const handleRemoveLine = (productId: string) => {
+    setLines((prev) => prev.filter((line) => line.product_id !== productId));
+  };
+
+  /*
+   * Change the actual adjustment quantity.
+   *
+   * For Purchase Received:
+   *   5 means +5 stock.
+   *
+   * For other adjustments:
+   *   the UI displays NEW STOCK ON HAND.
+   *
+   * Example:
+   *   Current = 20
+   *   New = 17
+   *   Adjustment = -3
+   */
+  const handleQuantityChange = (productId: string, qty: number) => {
+    setLines((prev) =>
+      prev.map((line) =>
+        line.product_id === productId
+          ? {
+              ...line,
+              quantity_change: Number.isFinite(qty) ? qty : 0,
+            }
+          : line,
+      ),
+    );
+  };
+
+  /*
+   * Change purchase unit cost.
+   */
+  const handleUnitCostChange = (productId: string, cost: number) => {
+    setLines((prev) =>
+      prev.map((line) =>
+        line.product_id === productId
+          ? {
+              ...line,
+              unit_cost: Number.isFinite(cost) ? cost : 0,
+            }
+          : line,
+      ),
+    );
+  };
+
+  /*
+   * Filter products.
+   */
+  const filteredProducts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+
+    if (!q) {
+      return products;
+    }
+
+    return products.filter((product) => {
+      return (
+        product.name.toLowerCase().includes(q) ||
+        product.sku?.toLowerCase().includes(q) ||
+        product.barcode?.toLowerCase().includes(q)
+      );
+    });
   }, [products, search]);
 
-  const addProduct = (p: (typeof products)[number]) => {
-    setLines((prev) => {
-      if (prev.some((l) => l.product_id === p.id)) {
-        toast.info("Product already in document");
-        return prev;
-      }
-      return [...prev, { product_id: p.id, product_name: p.name, sku: p.sku, quantity_change: 1 }];
-    });
-    setSearch("");
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  /*
+   * Submit adjustment.
+   */
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!doc) return;
-    if (lines.length === 0) return toast.error("At least one line required");
-    if (lines.some((l) => !Number(l.quantity_change))) return toast.error("Line quantity cannot be zero");
-    onSubmit({
-      id: doc.id,
-      reason,
-      notes: notes || null,
-      reference: reference || null,
-      location_id: locationId,
-      items: lines.map((l) => ({ product_id: l.product_id, quantity_change: Number(l.quantity_change) })),
-    });
+
+    if (submitting || isLoading) {
+      return;
+    }
+
+    if (lines.length === 0) {
+      toast.error("Add at least one product");
+      return;
+    }
+
+    if (!locationId) {
+      toast.error("Select a location");
+      return;
+    }
+
+    /*
+     * Reject zero quantities.
+     */
+    const zeroLine = lines.find(
+      (line) => !Number.isFinite(Number(line.quantity_change)) || Number(line.quantity_change) === 0,
+    );
+
+    if (zeroLine) {
+      toast.error(`Quantity change cannot be 0 for ${zeroLine.product_name}`);
+      return;
+    }
+
+    /*
+     * Validate negative resulting stock.
+     */
+    {
+      const invalidLine = lines.find((line) => {
+        const current = inventoryByProduct.get(line.product_id) ?? 0;
+
+        const newStock = current + Number(line.quantity_change);
+
+        return newStock < 0;
+      });
+
+      if (invalidLine) {
+        const current = inventoryByProduct.get(invalidLine.product_id) ?? 0;
+
+        const newStock = current + Number(invalidLine.quantity_change);
+
+        toast.error(`Insufficient stock for ${invalidLine.product_name}`, {
+          description: `Current stock: ${current}. Resulting stock cannot be ${newStock}.`,
+        });
+
+        return;
+      }
+    }
+
+    setSubmitting(true);
+
+    try {
+      await onSubmit({
+        items: lines.map((line) => ({
+          product_id: line.product_id,
+          quantity_change: Number(line.quantity_change),
+          unit_cost: Number(line.unit_cost) || 0,
+        })),
+        location_id: locationId,
+        reason,
+        notes: notes.trim() || undefined,
+      });
+
+      clearDraft(business?.id);
+      setDraftSavedAt(null);
+      setLines([]);
+      setSearch("");
+      setNotes("");
+      onOpenChange(false);
+    } catch (error: unknown) {
+      // The parent mutation owns the user-facing error toast. Keep the dialog
+      // open so the user can correct/retry the adjustment.
+      console.error("Stock adjustment submission failed", error);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  if (!doc) return null;
+  /*
+   * Save draft.
+   */
+  const handleSaveDraft = () => {
+    if (!business?.id) {
+      toast.error("Business information is unavailable");
+      return;
+    }
+
+    if (lines.length === 0) {
+      toast.error("Add at least one product before saving a draft");
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    saveDraft(business.id, {
+      lines,
+      location_id: locationId,
+      reason,
+      notes,
+    });
+
+    setDraftSavedAt(now);
+
+    toast.success("Draft saved");
+  };
+
+  /*
+   * Discard draft.
+   */
+  const handleDiscardDraft = () => {
+    clearDraft(business?.id);
+
+    setDraftSavedAt(null);
+    setLines([]);
+    setNotes("");
+
+    toast.success("Draft discarded");
+  };
+
+  /*
+   * Close dialog.
+   */
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && !submitting) {
+      onOpenChange(false);
+      return;
+    }
+
+    onOpenChange(nextOpen);
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Edit Stock Adjustment Document</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <Label>Reference</Label>
-              <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Optional" />
-            </div>
-            <div className="space-y-1">
-              <Label>Location *</Label>
-              <Select value={locationId} onValueChange={setLocationId}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>
-                  {locations.map((l) => (
-                    <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>Reason *</Label>
-              <Select value={reason} onValueChange={setReason}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {REASONS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Adjust Stock — Multiple Products</DialogTitle>
+          </DialogHeader>
 
-          <div className="space-y-2">
-            <Label>Add product</Label>
-            <Input
-              placeholder="Search by name, SKU, or barcode…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            {filtered.length > 0 && (
-              <div className="border rounded-md p-2 space-y-1 bg-muted/30 max-h-48 overflow-y-auto">
-                {filtered.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    className="w-full flex items-center justify-between rounded px-2 py-1.5 text-sm hover:bg-accent"
-                    onClick={() => addProduct(p)}
-                  >
-                    <span className="font-medium">{p.name}</span>
-                    <span className="text-xs text-muted-foreground">{p.sku || p.barcode || ""}</span>
-                  </button>
-                ))}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Search */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Barcode className="h-4 w-4" />
+                Scan Barcode / SKU or Search Products
+              </Label>
+
+              <Input
+                ref={searchRef}
+                placeholder="Scan barcode, type SKU and press Enter, or search by name..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={handleSearchKey}
+                autoComplete="off"
+              />
+            </div>
+
+            {/* Product picker */}
+            <div className="border rounded-md p-3 space-y-1 bg-muted/30 max-h-56 overflow-y-auto">
+              {filteredProducts.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-2">No products found</p>
+              ) : (
+                filteredProducts.map((product) => {
+                  const stock = inventoryByProduct.get(product.id) ?? 0;
+
+                  const alreadyAdded = lines.some((line) => line.product_id === product.id);
+
+                  return (
+                    <button
+                      key={product.id}
+                      type="button"
+                      className="w-full text-left px-3 py-2 rounded hover:bg-accent text-sm flex justify-between items-center gap-3 disabled:opacity-50"
+                      onClick={() => {
+                        addProduct(product, 1);
+
+                        setSearch("");
+
+                        if (alreadyAdded) {
+                          toast.success(`Added another quantity: ${product.name}`);
+                        } else {
+                          toast.success(`Added: ${product.name}`);
+                        }
+                      }}
+                    >
+                      <span className="font-medium truncate">{product.name}</span>
+
+                      <span className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
+                        <span>{product.sku || product.barcode || ""}</span>
+
+                        <span className="font-medium text-foreground">Stock: {stock}</span>
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Lines */}
+            {lines.length > 0 ? (
+              <div className="border rounded-md overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product</TableHead>
+
+                      <TableHead>SKU</TableHead>
+
+                      <TableHead className="text-right">Current Stock</TableHead>
+
+                      <TableHead className="w-36">New Stock on Hand</TableHead>
+                      <TableHead className="text-right">Adjustment</TableHead>
+
+                      <TableHead className="w-12" />
+                    </TableRow>
+                  </TableHeader>
+
+                  <TableBody>
+                    {lines.map((line) => {
+                      const product = products.find((p) => p.id === line.product_id);
+
+                      const allowDecimal = product?.allow_decimal_quantity ?? false;
+
+                      const current = inventoryByProduct.get(line.product_id) ?? 0;
+
+                      const delta = Number(line.quantity_change) || 0;
+
+                      const next = current + delta;
+
+                      /*
+                       * Purchase:
+                       * Input is quantity received.
+                       *
+                       * Other:
+                       * Input is resulting stock on hand.
+                       */
+                      const inputValue = current + delta;
+
+                      const isZero = !Number(line.quantity_change);
+
+                      const isNegativeStock = next < 0;
+
+                      return (
+                        <TableRow key={line.product_id}>
+                          <TableCell className="font-medium">{line.product_name}</TableCell>
+
+                          <TableCell className="text-muted-foreground text-sm">{line.sku || "—"}</TableCell>
+
+                          <TableCell className="text-right">{current}</TableCell>
+
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min={undefined}
+                              step={allowDecimal ? 0.01 : 1}
+                              value={inputValue}
+                              onChange={(event) => {
+                                const value = parseFloat(event.target.value);
+
+                                const num = Number.isFinite(value) ? value : 0;
+
+                                const change = num - current;
+
+                                handleQuantityChange(line.product_id, change);
+                              }}
+                              className={`h-8 ${isZero || isNegativeStock ? "border-destructive" : ""}`}
+                            />
+                          </TableCell>
+
+                          <TableCell className={`text-right font-medium ${next < 0 ? "text-destructive" : ""}`}>
+                            {delta > 0 ? `+${delta}` : delta}
+                          </TableCell>
+
+                          <TableCell>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleRemoveLine(line.product_id)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="text-center py-6 text-muted-foreground text-sm border rounded-md border-dashed">
+                Scan barcodes, search, or click a product above to add
               </div>
             )}
-          </div>
 
-          <div className="border rounded-md overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Product</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead className="w-40">Qty Change</TableHead>
-                  <TableHead className="w-12" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {lines.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-6">
-                      No lines. Add a product above.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  lines.map((l) => (
-                    <TableRow key={l.product_id}>
-                      <TableCell className="font-medium">{l.product_name}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm">{l.sku || "—"}</TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          className="h-8"
-                          value={l.quantity_change}
-                          onChange={(e) =>
-                            setLines((prev) =>
-                              prev.map((x) =>
-                                x.product_id === l.product_id ? { ...x, quantity_change: parseFloat(e.target.value) || 0 } : x,
-                              ),
-                            )
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => setLines((prev) => prev.filter((x) => x.product_id !== l.product_id))}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+            {/* Location + Reason */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Location *</Label>
 
-          <div className="space-y-2">
-            <Label>Notes</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
-          </div>
+                <Select value={locationId} onValueChange={setLocationId} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
 
-          <div className="flex justify-between items-center">
-            <p className="text-xs text-muted-foreground">
-              <Plus className="inline h-3 w-3 mr-1" />
-              Saving will reverse all previous line effects and re-apply the new lines.
-            </p>
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-              <Button type="submit" disabled={isLoading}>Save</Button>
+                  <SelectContent>
+                    {locations.map((location) => (
+                      <SelectItem key={location.id} value={location.id}>
+                        {location.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Reason *</Label>
+
+                <Select value={reason} onValueChange={setReason}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    {REASONS.map((item) => (
+                      <SelectItem key={item} value={item}>
+                        {item}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label>Notes</Label>
+
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                placeholder="Enter additional notes..."
+              />
+            </div>
+
+            {/* Footer */}
+            <div className="flex flex-wrap justify-between items-center gap-2">
+              <div className="flex flex-col text-sm text-muted-foreground">
+                <span>
+                  {lines.length} product
+                  {lines.length !== 1 ? "s" : ""}
+                </span>
+
+                {draftSavedAt && (
+                  <span className="text-xs flex items-center gap-1">
+                    <FileText className="h-3 w-3" />
+                    Draft saved {new Date(draftSavedAt).toLocaleString()}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex gap-2 flex-wrap">
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+                  Cancel
+                </Button>
+
+                {draftSavedAt && (
+                  <Button type="button" variant="ghost" onClick={handleDiscardDraft} disabled={submitting}>
+                    Discard Draft
+                  </Button>
+                )}
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleSaveDraft}
+                  disabled={lines.length === 0 || submitting}
+                >
+                  <Save className="mr-1 h-4 w-4" />
+                  Save as Draft
+                </Button>
+
+                <Button type="submit" disabled={isLoading || submitting || lines.length === 0 || !locationId}>
+                  {submitting || isLoading
+                    ? "Saving…"
+                    : `Adjust ${lines.length} Product${lines.length !== 1 ? "s" : ""}`}
+                </Button>
+              </div>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
+
+export default StockAdjustmentDialog;

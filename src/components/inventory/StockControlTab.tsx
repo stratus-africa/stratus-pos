@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertTriangle, Check, FileWarning, Loader2, Plus, X } from "lucide-react";
+import { FileWarning, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 const REASONS = ["Issue", "Write-off", "Adjustment"] as const;
@@ -82,7 +82,6 @@ export function StockControlTab() {
     enabled: !!business?.id,
   });
 
-  const pending = useMemo(() => (requestsQuery.data ?? []).filter((r) => r.status === "pending"), [requestsQuery.data]);
   const canCreate = reason === "Issue" ? canIssue : reason === "Write-off" ? canWriteoff : canAdjust;
 
   const reset = () => {

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -47,6 +48,7 @@ const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split("
 const Reports = () => {
   const { business, currentLocation } = useBusiness();
   const { hasFeatureKey } = useFeatureLimit();
+  const multiLocationEnabled = hasFeatureKey("multi_location");
   const { hasPermission } = usePermissions();
 
   // Tab visibility: combine plan feature flag (where applicable) with role permission
@@ -421,7 +423,9 @@ const Reports = () => {
         return [...m.values()];
       }
       if (k === "sales_by_cashier") {
-        const cashierIds = Array.from(new Set(((salesReport.data as any[]) || []).map((r) => r.created_by).filter(Boolean)));
+        const cashierIds = Array.from(
+          new Set(((salesReport.data as any[]) || []).map((r) => r.created_by).filter(Boolean)),
+        );
         const names = new Map<string, string>();
         if (cashierIds.length) {
           const { data: profiles, error } = await supabase
@@ -662,7 +666,12 @@ const Reports = () => {
                   icon: Package,
                   show: can("stock_adjustments"),
                 },
-                { value: "stock_transfers", label: "Transfers", icon: Package, show: can("stock_transfers") },
+                {
+                  value: "stock_transfers",
+                  label: "Transfers",
+                  icon: Package,
+                  show: can("stock_transfers") && multiLocationEnabled,
+                },
                 { value: "low_stock", label: "Low Stock", icon: Package, show: can("low_stock") },
                 {
                   value: "expiry",
@@ -734,26 +743,36 @@ const Reports = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <TabsList className="hidden md:flex text-muted-foreground md:flex-col md:w-56 bg-muted rounded-lg p-1.5 shrink-0 md:items-stretch md:justify-start h-auto">
-                {visibleGroups.map((group) => (
-                  <div key={group.key} className="w-full">
-                    <div className="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      {group.label}
-                    </div>
-                    <div className="space-y-0.5">
-                      {group.items.map((i) => (
-                        <TabsTrigger
-                          key={i.value}
-                          value={i.value}
-                          className="md:w-full md:justify-start gap-2 text-sm px-3 py-2 shrink-0"
-                        >
-                          <i.icon className="h-4 w-4" /> {i.label}
-                        </TabsTrigger>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </TabsList>
+              <div className="hidden md:block md:w-64 shrink-0 rounded-lg border bg-muted/40 p-2">
+                <Accordion type="multiple" defaultValue={visibleGroups.map((g) => g.key)} className="w-full">
+                  {visibleGroups.map((group) => (
+                    <AccordionItem
+                      key={group.key}
+                      value={group.key}
+                      className={group.key === "financial" ? "border-primary/20 rounded-md bg-primary/10 px-2" : "px-2"}
+                    >
+                      <AccordionTrigger
+                        className={`py-3 text-xs font-semibold uppercase tracking-wide no-underline hover:no-underline ${group.key === "financial" ? "text-primary" : "text-muted-foreground"}`}
+                      >
+                        {group.label}
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-2">
+                        <TabsList className="flex h-auto w-full flex-col items-stretch justify-start bg-transparent p-0 gap-0.5">
+                          {group.items.map((i) => (
+                            <TabsTrigger
+                              key={i.value}
+                              value={i.value}
+                              className="w-full justify-start gap-2 text-sm px-3 py-2"
+                            >
+                              <i.icon className="h-4 w-4" /> {i.label}
+                            </TabsTrigger>
+                          ))}
+                        </TabsList>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </div>
             </>
           );
         })()}
