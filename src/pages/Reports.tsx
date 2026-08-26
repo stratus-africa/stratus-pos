@@ -473,8 +473,10 @@ const Reports = () => {
     queryFn: async () => {
       if (!business) return [];
       let q = (supabase.from as any)("inventory")
-        .select("id,product_id,location_id,quantity,products(name,sku,purchase_price,selling_price),locations(name)")
-        .eq("business_id", business.id);
+        .select(
+          "id,product_id,location_id,quantity,products(name,sku,purchase_price,selling_price),locations!inner(name,business_id)",
+        )
+        .eq("locations.business_id", business.id);
       if (currentLocation?.id) q = q.eq("location_id", currentLocation.id);
       const { data, error } = await q.order("product_id");
       if (error) throw error;
