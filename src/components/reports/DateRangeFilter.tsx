@@ -69,13 +69,16 @@ interface DateRangeFilterProps {
   /** Initial preset selection. Defaults to "custom" so existing values are kept. */
   defaultPreset?: DatePresetKey;
   className?: string;
+  /** Optional range/as-of mode toggle shown when onModeChange is provided. */
+  mode?: "as_of" | "range";
+  onModeChange?: (mode: "as_of" | "range") => void;
 }
 
 /**
  * Shared "As of" date range filter used across all reports. Presets set the
  * range automatically; "Custom" reveals From/To inputs for a manual range.
  */
-export function DateRangeFilter({ from, to, onChange, defaultPreset = "custom", className }: DateRangeFilterProps) {
+export function DateRangeFilter({ from, to, onChange, defaultPreset = "custom", className, mode, onModeChange }: DateRangeFilterProps) {
   const [preset, setPreset] = useState<DatePresetKey>(defaultPreset);
 
   // Apply the initial preset once when no range is set yet (skipped for "custom").
@@ -109,6 +112,20 @@ export function DateRangeFilter({ from, to, onChange, defaultPreset = "custom", 
 
   return (
     <div className={`grid w-full grid-cols-2 items-end gap-2 sm:flex sm:flex-wrap sm:gap-3 ${className ?? ""}`}>
+      {onModeChange && (
+        <div className="space-y-1.5">
+          <Label className="text-xs">Mode</Label>
+          <Select value={mode ?? "range"} onValueChange={(v) => onModeChange(v as "as_of" | "range")}>
+            <SelectTrigger className="w-full sm:w-[130px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="range">Date Range</SelectItem>
+              <SelectItem value="as_of">As of Date</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="col-span-2 space-y-1.5 sm:col-span-auto">
         <Label className="text-xs flex items-center gap-1.5 text-muted-foreground">
           <Filter className="h-3.5 w-3.5" /> Filters

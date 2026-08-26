@@ -273,8 +273,7 @@ const Reports = () => {
       const batchRows: Array<Record<string, unknown>> = [];
 
       for (let offset = 0; ; offset += pageSize) {
-        let inventoryQuery = supabase
-          .from("inventory")
+        let inventoryQuery = (supabase.from as any)("inventory")
           .select(
             "*, products(name, sku, purchase_price, selling_price, categories(name), brands(name)), locations(name)",
           )
@@ -470,8 +469,7 @@ const Reports = () => {
     queryKey: ["report-stock-valuation", business?.id, currentLocation?.id],
     queryFn: async () => {
       if (!business) return [];
-      let q = supabase
-        .from("inventory")
+      let q = (supabase.from as any)("inventory")
         .select("id,product_id,location_id,quantity,products(name,sku,purchase_price,selling_price),locations(name)")
         .eq("business_id", business.id);
       if (currentLocation?.id) q = q.eq("location_id", currentLocation.id);

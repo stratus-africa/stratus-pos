@@ -81,10 +81,10 @@ export default function JournalEntries() {
       if (userIds.length > 0) {
         const { data: profs } = await supabase
           .from("profiles")
-          .select("user_id, full_name")
+          .select("id, full_name")
           .in("user_id", userIds);
         names = Object.fromEntries(
-          (profs || []).map((p: { user_id: string; full_name: string | null }) => [p.user_id, p.full_name || "Unknown"]),
+          (profs || []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name || "Unknown"]),
         );
       }
       setActivity((prev) => ({

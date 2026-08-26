@@ -14,6 +14,7 @@ interface Props {
   rows: Row[];
   loading?: boolean;
   onExport?: () => void;
+  onRefresh?: () => void | Promise<void>;
   pageSizes?: number[];
   statusFilter?: boolean;
 }
@@ -23,6 +24,7 @@ export default function FeatureReportTab({
   rows,
   loading,
   onExport,
+  onRefresh,
   pageSizes = [24, 50, 100, 200],
   statusFilter = false,
 }: Props) {
@@ -96,6 +98,11 @@ export default function FeatureReportTab({
                 <SelectItem value="draft">Draft</SelectItem>
               </SelectContent>
             </Select>
+          )}
+          {onRefresh && (
+            <Button size="sm" variant="outline" onClick={() => void onRefresh()} disabled={loading}>
+              Refresh
+            </Button>
           )}
           <Input className="w-56" placeholder="Filter report..." value={q} onChange={(e) => setQ(e.target.value)} />
           <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
