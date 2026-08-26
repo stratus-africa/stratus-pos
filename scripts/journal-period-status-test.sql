@@ -7,6 +7,7 @@ do $$
 declare
   v_biz  uuid := '14bebd7b-075f-4f30-aec0-585a86dfaf63';
   v_user uuid := 'c5328d57-52e9-4ad3-8b85-799193518b1d';
+  v_approver uuid := 'a41e78d6-9ebf-4461-aae1-82932c30a975'; -- second admin of same business (maker/checker)
   v_acc1 uuid; v_acc2 uuid;
   v_j uuid;
   v_lines jsonb;
@@ -36,8 +37,13 @@ begin
 
   -- OPEN period (current month): full lifecycle must succeed
   v_j := public.create_manual_journal(current_date, 'TEST-OPEN', 'open period test', v_lines, true);
+  -- maker/checker: approver must differ from creator
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_approver, 'role', 'authenticated')::text, true);
   perform public.approve_manual_journal(v_j);
   perform public.post_manual_journal(v_j);
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_user, 'role', 'authenticated')::text, true);
   select status into v_status from public.journal_entries where id = v_j;
   select count(*) into v_audit from public.accounting_audit_log where journal_entry_id = v_j;
   v_results := v_results || format('[OPEN] create+approve+post OK, status=%s, audit_rows=%s | ', v_status, v_audit);
