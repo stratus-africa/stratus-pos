@@ -275,9 +275,9 @@ const Reports = () => {
       for (let offset = 0; ; offset += pageSize) {
         let inventoryQuery = (supabase.from as any)("inventory")
           .select(
-            "*, products(name, sku, purchase_price, selling_price, categories(name), brands(name)), locations(name)",
+            "*, products(name, sku, purchase_price, selling_price, categories(name), brands(name)), locations!inner(name, business_id)",
           )
-          .eq("business_id", business.id);
+          .eq("locations.business_id", business.id);
         if (inventoryLocation !== "all") inventoryQuery = inventoryQuery.eq("location_id", inventoryLocation);
         if (inventoryProduct.trim())
           inventoryQuery = inventoryQuery.ilike("products.name", `%${inventoryProduct.trim()}%`);
@@ -288,14 +288,16 @@ const Reports = () => {
         if (page.length < pageSize) break;
       }
 
+      const batchLocation = inventoryLocation === "all" ? currentLocation?.id || null : inventoryLocation;
       for (let offset = 0; ; offset += pageSize) {
-        const { data, error } = await supabase
+        let batchQuery = supabase
           .from("product_batches")
           .select("product_id, batch_number, expiry_date, quantity")
           .eq("business_id", business.id)
-          .eq("location_id", inventoryLocation === "all" ? currentLocation?.id || "" : inventoryLocation)
           .eq("is_active", true)
-          .gt("quantity", 0)
+          .gt("quantity", 0);
+        if (batchLocation) batchQuery = batchQuery.eq("location_id", batchLocation);
+        const { data, error } = await batchQuery
           .order("expiry_date", { ascending: true, nullsFirst: false })
           .range(offset, offset + pageSize - 1);
         if (error) throw error;
@@ -303,6 +305,7 @@ const Reports = () => {
         batchRows.push(...page);
         if (page.length < pageSize) break;
       }
+
 
       const batchesByProduct = new Map<
         string,
