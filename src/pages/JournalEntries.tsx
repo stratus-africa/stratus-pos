@@ -17,8 +17,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, BookOpen, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Trash2, BookOpen, ChevronDown, ChevronRight, History } from "lucide-react";
 import { useJournalEntries, JournalEntryLine } from "@/hooks/useJournalEntries";
+
+interface JournalActivityRow {
+  id: string;
+  action: string;
+  user_id: string | null;
+  created_at: string;
+  details: Record<string, unknown> | null;
+  userName?: string;
+}
 import { JournalEntryDialog } from "@/components/accounting/JournalEntryDialog";
 import { Link } from "@/lib/router-compat";
 
@@ -39,6 +48,7 @@ export default function JournalEntries() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [lines, setLines] = useState<Record<string, JournalEntryLine[]>>({});
+  const [activity, setActivity] = useState<Record<string, JournalActivityRow[]>>({});
 
   useEffect(() => {
     if (!business) return;
@@ -59,6 +69,28 @@ export default function JournalEntries() {
     if (!lines[id]) {
       const data = await getLines(id);
       setLines((prev) => ({ ...prev, [id]: data }));
+    }
+    if (!activity[id]) {
+      const { data: rows } = await (supabase.from as unknown as (t: string) => any)("accounting_audit_log")
+        .select("id, action, user_id, created_at, details")
+        .eq("journal_entry_id", id)
+        .order("created_at", { ascending: false });
+      const list = (rows || []) as JournalActivityRow[];
+      const userIds = [...new Set(list.map((r) => r.user_id).filter(Boolean))] as string[];
+      let names: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("user_id", userIds);
+        names = Object.fromEntries(
+          (profs || []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name || "Unknown"]),
+        );
+      }
+      setActivity((prev) => ({
+        ...prev,
+        [id]: list.map((r) => ({ ...r, userName: r.user_id ? names[r.user_id] || "Unknown user" : "System" })),
+      }));
     }
     setExpanded(id);
   };
@@ -276,6 +308,37 @@ export default function JournalEntries() {
                                 ))}
                               </TableBody>
                             </Table>
+
+                            <div className="mt-4 border-t pt-3">
+                              <h4 className="text-sm font-semibold flex items-center gap-2 mb-2">
+                                <History className="h-4 w-4" /> Approval &amp; Posting Activity
+                              </h4>
+                              {(activity[e.id] || []).length === 0 ? (
+                                <p className="text-xs text-muted-foreground">No activity recorded yet.</p>
+                              ) : (
+                                <ul className="space-y-1">
+                                  {(activity[e.id] || []).map((a) => {
+                                    const d = (a.details || {}) as { previous_status?: string; new_status?: string };
+                                    return (
+                                      <li key={a.id} className="flex flex-wrap items-center gap-2 text-xs">
+                                        <span className="text-muted-foreground font-mono">
+                                          {new Date(a.created_at).toLocaleString()}
+                                        </span>
+                                        <Badge variant="outline" className="capitalize">
+                                          {a.action.replaceAll("_", " ")}
+                                        </Badge>
+                                        {d.previous_status && d.new_status && (
+                                          <span className="text-muted-foreground capitalize">
+                                            {d.previous_status} → {d.new_status}
+                                          </span>
+                                        )}
+                                        <span className="text-muted-foreground">by {a.userName}</span>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              )}
+                            </div>
                           </div>
                         </TableCell>
                       </TableRow>

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { toast } from "sonner";
+import { toastFriendlyError } from "@/lib/friendlyError";
 
 export interface JournalEntry {
   id: string;
@@ -92,7 +93,7 @@ export function useJournalEntries() {
       invalidate();
       toast.success(input.submit ? "Journal submitted for approval" : "Journal draft saved");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toastFriendlyError(e),
   });
 
   const remove = useMutation({
@@ -105,7 +106,7 @@ export function useJournalEntries() {
       invalidate();
       toast.success("Journal draft deleted");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toastFriendlyError(e),
   });
 
   const submit = useMutation({
@@ -117,7 +118,7 @@ export function useJournalEntries() {
       invalidate();
       toast.success("Journal submitted for approval");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toastFriendlyError(e),
   });
 
   const approve = useMutation({
@@ -129,7 +130,7 @@ export function useJournalEntries() {
       invalidate();
       toast.success("Journal approved");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toastFriendlyError(e),
   });
 
   const reject = useMutation({
@@ -144,7 +145,7 @@ export function useJournalEntries() {
       invalidate();
       toast.success("Journal rejected");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toastFriendlyError(e),
   });
 
   const post = useMutation({
@@ -156,7 +157,7 @@ export function useJournalEntries() {
       invalidate();
       toast.success("Journal posted to the ledger");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toastFriendlyError(e),
   });
 
   const reverse = useMutation({
@@ -169,7 +170,7 @@ export function useJournalEntries() {
       invalidate();
       toast.success("Journal reversed with a new posted reversal entry");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toastFriendlyError(e),
   });
 
   return { query, getLines, create, remove, submit, approve, reject, post, reverse };
@@ -197,6 +198,6 @@ export function useUpdateOpeningBalance() {
       qc.invalidateQueries({ queryKey: ["chart_of_accounts"] });
       toast.success("Opening balance updated");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toastFriendlyError(e),
   });
 }
