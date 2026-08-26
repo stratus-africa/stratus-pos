@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -370,6 +370,7 @@ export type Database = {
           balance: number
           bank_name: string | null
           business_id: string
+          chart_account_id: string | null
           created_at: string
           id: string
           is_active: boolean
@@ -384,6 +385,7 @@ export type Database = {
           balance?: number
           bank_name?: string | null
           business_id: string
+          chart_account_id?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
@@ -398,6 +400,7 @@ export type Database = {
           balance?: number
           bank_name?: string | null
           business_id?: string
+          chart_account_id?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
@@ -412,6 +415,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "businesses"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_accounts_chart_account_id_fkey"
+            columns: ["chart_account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_accounts_chart_account_id_fkey"
+            columns: ["chart_account_id"]
+            isOneToOne: false
+            referencedRelation: "vw_trial_balance"
+            referencedColumns: ["account_id"]
           },
         ]
       }
@@ -462,6 +479,7 @@ export type Database = {
       }
       bank_transactions: {
         Row: {
+          account_id: string | null
           amount: number
           bank_account_id: string
           business_id: string
@@ -481,6 +499,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          account_id?: string | null
           amount?: number
           bank_account_id: string
           business_id: string
@@ -500,6 +519,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          account_id?: string | null
           amount?: number
           bank_account_id?: string
           business_id?: string
@@ -519,6 +539,20 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "bank_transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "vw_trial_balance"
+            referencedColumns: ["account_id"]
+          },
           {
             foreignKeyName: "bank_transactions_bank_account_id_fkey"
             columns: ["bank_account_id"]
@@ -7905,6 +7939,10 @@ export type Database = {
       }
       is_sale_fiscalised: { Args: { _sale_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      link_bank_account_to_chart: {
+        Args: { _bank_account_id: string; _chart_account_id: string }
+        Returns: number
+      }
       list_tenant_approvals: {
         Args: { _search?: string; _status?: string }
         Returns: {
