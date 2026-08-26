@@ -17,8 +17,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, BookOpen, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Trash2, BookOpen, ChevronDown, ChevronRight, History } from "lucide-react";
 import { useJournalEntries, JournalEntryLine } from "@/hooks/useJournalEntries";
+
+interface JournalActivityRow {
+  id: string;
+  action: string;
+  user_id: string | null;
+  created_at: string;
+  details: Record<string, unknown> | null;
+  userName?: string;
+}
 import { JournalEntryDialog } from "@/components/accounting/JournalEntryDialog";
 import { Link } from "@/lib/router-compat";
 
@@ -39,6 +48,7 @@ export default function JournalEntries() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [lines, setLines] = useState<Record<string, JournalEntryLine[]>>({});
+  const [activity, setActivity] = useState<Record<string, JournalActivityRow[]>>({});
 
   useEffect(() => {
     if (!business) return;
