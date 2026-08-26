@@ -6,7 +6,10 @@ export const reportsData = {
   sales: (businessId: string, from: string, to: string) =>
     db.from("sales").select("*").eq("business_id", businessId).gte("created_at", from).lte("created_at", to),
   inventory: (businessId: string, locationId?: string) => {
-    const q = db.from("inventory").select("*").eq("business_id", businessId);
+    const q = db
+      .from("inventory")
+      .select("*, locations!inner(business_id)")
+      .eq("locations.business_id", businessId);
     return locationId ? q.eq("location_id", locationId) : q;
   },
   productBatches: (businessId: string) => db.from("product_batches").select("*").eq("business_id", businessId),
