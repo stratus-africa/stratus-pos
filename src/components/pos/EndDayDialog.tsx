@@ -344,7 +344,7 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
       .from("sales")
       .select(
         `*, customers(name), payments(method, amount, reference),
-        sale_items(quantity, unit_price, total, products(name, units(name)))`,
+        sale_items(quantity, unit_price, discount, total, products(name, sku, units(name)), tax_rates(name, rate, type, exempt_reason))`,
       )
       .eq("business_id", business.id)
       .eq("location_id", currentLocation.id)
@@ -381,37 +381,73 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
       return;
     }
     const headers = [
-      "Invoice Date",
-      "Invoice Number",
-      "Customer Name",
-      "Is Inclusive Tax",
-      "Due Date",
-      "Balance",
-      "Item Name",
-      "Quantity",
-      "Item Total",
-      "Usage unit",
-      "Item Price",
-      "Sales person",
+      "Invoice Date", "Invoice Number", "Issued Date", "Invoice Status", "Accounts Receivable",
+      "Customer Name", "Location Code", "Is Inclusive Tax", "Template Name", "SubTotal", "Total",
+      "Balance", "Payment Terms", "Payment Terms Label", "Notes", "Invoice Type",
+      "Entity Discount Amount", "Location Name", "Shipping Charge", "Item Name", "Item Desc",
+      "Quantity", "Item Total", "Usage unit", "Item Price", "Item Type", "VAT Treatment",
+      "Tax Registration Number", "Account", "Line Item Location Name", "Item Tax", "Item Tax %",
+      "Item Tax Amount", "Item Tax Type", "Item Tax Exemption Reason",
     ];
+    const dmy = (iso: string) => {
+      const d = new Date(iso);
+      const p = (n: number) => String(n).padStart(2, "0");
+      return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
+    };
+    const kraPin = (business as { kra_pin?: string } | null)?.kra_pin || "";
+    const locName = currentLocation?.name || "";
+    const inclusive = (business as { tax_inclusive?: boolean } | null)?.tax_inclusive !== false;
     const rows: string[][] = [];
     for (const s of filtered) {
-      const saleDate = String(s.created_at).slice(0, 10);
+      const saleDate = dmy(s.created_at);
       const customer = s.customers?.name || "Walk-in Customer";
+      const balance = Number(s.total || 0) - Number(s.amount_paid ?? (s.payment_status === "paid" ? s.total : 0));
+      const status = s.payment_status === "paid" ? "Paid" : balance > 0 ? "Overdue" : "Closed";
       for (const li of s.sale_items || []) {
+        const tr = li.tax_rates;
+        const rate = Number(tr?.rate ?? 0);
+        const lineTotal = Number(li.total ?? 0);
+        const taxAmount = rate
+          ? inclusive
+            ? lineTotal - lineTotal / (1 + rate / 100)
+            : lineTotal * (rate / 100)
+          : 0;
         rows.push([
           saleDate,
           s.invoice_number || "",
-          customer,
-          "true",
           saleDate,
-          Number(s.total).toFixed(2),
+          status,
+          "Accounts Receivable",
+          customer,
+          "00",
+          inclusive ? "TRUE" : "FALSE",
+          "Simple",
+          Number(s.subtotal ?? 0).toFixed(2),
+          Number(s.total ?? 0).toFixed(2),
+          Math.max(0, balance).toFixed(2),
+          "0",
+          "Due on Receipt",
+          s.notes || "",
+          "Invoice",
+          Number(s.discount ?? 0).toFixed(2),
+          locName,
+          "0",
           li.products?.name || "",
+          li.products?.sku || "",
           String(li.quantity ?? ""),
-          Number(li.total ?? 0).toFixed(2),
+          lineTotal.toFixed(2),
           li.products?.units?.name || "pcs",
           Number(li.unit_price ?? 0).toFixed(2),
-          s._cashier,
+          "goods",
+          kraPin ? "vat_registered" : "vat_not_registered",
+          kraPin,
+          "Sales",
+          locName,
+          tr?.name || (rate ? "General Rate" : "Zero Rate"),
+          String(rate),
+          taxAmount.toFixed(2),
+          "ItemAmount",
+          tr?.type === "exempt" ? tr?.exempt_reason || "EXEMPT" : "",
         ]);
       }
     }
