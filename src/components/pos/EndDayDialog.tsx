@@ -344,7 +344,7 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
       .from("sales")
       .select(
         `*, customers(name), payments(method, amount, reference),
-        sale_items(quantity, unit_price, total, products(name, units(name)))`,
+        sale_items(quantity, unit_price, discount, total, products(name, sku, units(name)), tax_rates(name, rate, type, exempt_reason))`,
       )
       .eq("business_id", business.id)
       .eq("location_id", currentLocation.id)
