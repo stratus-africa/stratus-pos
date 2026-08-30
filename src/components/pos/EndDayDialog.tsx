@@ -344,7 +344,7 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
       .from("sales")
       .select(
         `*, customers(name), payments(method, amount, reference),
-        sale_items(quantity, unit_price, discount, total, products(name, sku, units(name)), tax_rates(name, rate, type, exempt_reason))`,
+        sale_items(quantity, unit_price, discount, total, products(name, sku, tax_rate, units(name)), tax_rates(name, rate, type, exempt_reason))`,
       )
       .eq("business_id", business.id)
       .eq("location_id", currentLocation.id)
@@ -396,7 +396,9 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
     };
     const kraPin = (business as { kra_pin?: string } | null)?.kra_pin || "";
     const locName = currentLocation?.name || "";
-    const inclusive = (business as { tax_inclusive?: boolean } | null)?.tax_inclusive !== false;
+    const vatEnabled = (business as { vat_enabled?: boolean } | null)?.vat_enabled !== false;
+    const inclusive = (business as { tax_inclusive_pricing?: boolean } | null)?.tax_inclusive_pricing !== false;
+    const defaultRate = Number((business as { tax_rate?: number } | null)?.tax_rate ?? 16);
     const rows: string[][] = [];
     for (const s of filtered) {
       const saleDate = dmy(s.created_at);
@@ -405,7 +407,15 @@ export default function EndDayDialog({ open, onOpenChange, session, onConfirm }:
       const status = s.payment_status === "paid" ? "Paid" : balance > 0 ? "Overdue" : "Closed";
       for (const li of s.sale_items || []) {
         const tr = li.tax_rates;
-        const rate = Number(tr?.rate ?? 0);
+        // Per-item VAT rate: the rate stored on the line, else the product's own
+        // rate, else the business default. Zero when VAT is switched off.
+        const rate = !vatEnabled
+          ? 0
+          : typeof tr?.rate === "number"
+            ? Number(tr.rate)
+            : typeof li.products?.tax_rate === "number"
+              ? Number(li.products.tax_rate)
+              : defaultRate;
         const lineTotal = Number(li.total ?? 0);
         const taxAmount = rate
           ? inclusive
