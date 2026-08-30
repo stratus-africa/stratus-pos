@@ -50,7 +50,9 @@ export interface SaleItem {
   unit_price: number;
   discount: number;
   total: number;
-  products?: { name: string } | null;
+  tax_rate_id?: string | null;
+  products?: { name: string; tax_rate?: number | null } | null;
+  tax_rates?: { name: string; rate: number } | null;
 }
 
 export interface Payment {
