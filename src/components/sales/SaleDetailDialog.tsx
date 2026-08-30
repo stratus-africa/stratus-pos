@@ -64,6 +64,34 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
   const statusColor =
     sale.payment_status === "paid" ? "default" : sale.payment_status === "partial" ? "secondary" : "destructive";
 
+  // Per-item VAT: honour the rate stored on the line, then the product's own
+  // rate, then the business default. Only when VAT is switched on.
+  const vatEnabled = (business as { vat_enabled?: boolean } | null)?.vat_enabled ?? true;
+  const taxInclusive = (business as { tax_inclusive_pricing?: boolean } | null)?.tax_inclusive_pricing ?? true;
+  const lineRate = (it: SaleItem): number => {
+    if (!vatEnabled) return 0;
+    if (typeof it.tax_rates?.rate === "number") return Number(it.tax_rates.rate);
+    if (typeof it.products?.tax_rate === "number") return Number(it.products.tax_rate);
+    return Number(business?.tax_rate ?? 16);
+  };
+  const vatBreakdown = (() => {
+    if (!vatEnabled) return [];
+    const map = new Map<number, { rate: number; label: string; taxable: number; vat: number }>();
+    for (const it of items) {
+      const pct = lineRate(it);
+      if (!pct) continue;
+      const gross = Number(it.quantity) * Number(it.unit_price) - Number(it.discount || 0);
+      const r = pct / 100;
+      const net = taxInclusive ? gross / (1 + r) : gross;
+      const vat = taxInclusive ? gross - net : gross * r;
+      const key = Math.round(pct * 100) / 100;
+      const row = map.get(key);
+      if (row) { row.taxable += net; row.vat += vat; }
+      else map.set(key, { rate: key, label: `VAT ${key}%`, taxable: net, vat });
+    }
+    return Array.from(map.values()).sort((a, b) => a.rate - b.rate);
+  })();
+
   // Build the same payload the POS receipt uses so the reprint matches the
   // configured customization layout exactly.
   const receiptPayload = {
@@ -94,6 +122,8 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
       fiscal_verification_url: sale.fiscal_verification_url,
       fiscal_error: fiscalError,
     },
+    vatBreakdown,
+    taxInclusive,
   } as any;
 
   const handleReprint = () => {

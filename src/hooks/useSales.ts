@@ -50,7 +50,9 @@ export interface SaleItem {
   unit_price: number;
   discount: number;
   total: number;
-  products?: { name: string } | null;
+  tax_rate_id?: string | null;
+  products?: { name: string; tax_rate?: number | null } | null;
+  tax_rates?: { name: string; rate: number } | null;
 }
 
 export interface Payment {
@@ -179,7 +181,10 @@ export function useSales({ subscribeToFiscalUpdates = true }: { subscribeToFisca
 
   const getSaleDetails = async (saleId: string) => {
     const [itemsRes, paymentsRes] = await Promise.all([
-      supabase.from("sale_items").select("*, products(name)").eq("sale_id", saleId),
+      supabase
+        .from("sale_items")
+        .select("*, products(name, tax_rate), tax_rates(name, rate)")
+        .eq("sale_id", saleId),
       supabase.from("payments").select("*").eq("sale_id", saleId).order("created_at"),
     ]);
     if (itemsRes.error) throw itemsRes.error;
