@@ -122,6 +122,8 @@ export default function SaleDetailDialog({ open, onOpenChange, sale }: Props) {
       fiscal_verification_url: sale.fiscal_verification_url,
       fiscal_error: fiscalError,
     },
+    vatBreakdown,
+    taxInclusive,
   } as any;
 
   const handleReprint = () => {
