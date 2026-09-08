@@ -78,8 +78,9 @@ export default function EndOfDayReportTab() {
       const salesQ = supabase
         .from("sales")
         .select(
-          "id, invoice_number, status, subtotal, tax, discount, total, created_at, created_by, customers(name), payments(method, amount, reference, created_at), sale_items(quantity, unit_price, total, products(name, units(name)))",
+          "id, invoice_number, status, payment_status, notes, subtotal, tax, discount, total, created_at, created_by, customers(name), payments(method, amount, reference, created_at), sale_items(quantity, unit_price, total, products(name, sku, tax_rate, units(name)), tax_rates(name, rate, type, exempt_reason))",
         )
+
         .eq("business_id", business.id)
         .gte("created_at", start)
         .lte("created_at", end)
@@ -310,43 +311,82 @@ export default function EndOfDayReportTab() {
     const filtered = summary.sales.filter((s: any) => s.status !== "cancelled" && s.status !== "voided");
     if (!filtered.length) return;
     const headers = [
-      "Invoice Date",
-      "Invoice Number",
-      "Customer Name",
-      "Is Inclusive Tax",
-      "Due Date",
-      "Balance",
-      "Item Name",
-      "Quantity",
-      "Item Total",
-      "Usage unit",
-      "Item Price",
-      "Sales person",
+      "Invoice Date", "Invoice Number", "Issued Date", "Invoice Status", "Accounts Receivable",
+      "Customer Name", "Location Code", "Is Inclusive Tax", "Template Name", "SubTotal", "Total",
+      "Balance", "Payment Terms", "Payment Terms Label", "Notes", "Invoice Type",
+      "Entity Discount Amount", "Location Name", "Shipping Charge", "Item Name", "Item Desc",
+      "Quantity", "Item Total", "Usage unit", "Item Price", "Item Type", "VAT Treatment",
+      "Tax Registration Number", "Account", "Line Item Location Name", "Item Tax", "Item Tax %",
+      "Item Tax Amount", "Item Tax Type", "Item Tax Exemption Reason",
     ];
+    const kraPin = (business as { kra_pin?: string } | null)?.kra_pin || "";
+    const locName = currentLocation?.name || "";
+    const vatEnabled = (business as { vat_enabled?: boolean } | null)?.vat_enabled !== false;
+    const inclusive = (business as { tax_inclusive_pricing?: boolean } | null)?.tax_inclusive_pricing !== false;
+    const defaultRate = Number((business as { tax_rate?: number } | null)?.tax_rate ?? 16);
     const rows: string[][] = [];
     for (const s of filtered) {
-      const saleDate = String(s.created_at).slice(0, 10);
+      const saleDate = fmtDMY(s.created_at);
       const customer = s.customers?.name || "Walk-in Customer";
-      const salesPerson = cashierMap.get(s.created_by) || "";
+      const balance = Number(s.total || 0) - Number(s.payment_status === "paid" ? s.total : 0);
+      const status = s.payment_status === "paid" ? "Paid" : balance > 0 ? "Overdue" : "Closed";
       for (const li of s.sale_items || []) {
+        const tr = li.tax_rates;
+        const rate = !vatEnabled
+          ? 0
+          : typeof tr?.rate === "number"
+            ? Number(tr.rate)
+            : typeof li.products?.tax_rate === "number"
+              ? Number(li.products.tax_rate)
+              : defaultRate;
+        const lineTotal = Number(li.total ?? 0);
+        const taxAmount = rate
+          ? inclusive
+            ? lineTotal - lineTotal / (1 + rate / 100)
+            : lineTotal * (rate / 100)
+          : 0;
         rows.push([
           saleDate,
           s.invoice_number || "",
-          customer,
-          "true",
           saleDate,
-          Number(s.total).toFixed(2),
+          status,
+          "Accounts Receivable",
+          customer,
+          "00",
+          inclusive ? "TRUE" : "FALSE",
+          "Simple",
+          Number(s.subtotal ?? 0).toFixed(2),
+          Number(s.total ?? 0).toFixed(2),
+          Math.max(0, balance).toFixed(2),
+          "0",
+          "Due on Receipt",
+          s.notes || "",
+          "Invoice",
+          Number(s.discount ?? 0).toFixed(2),
+          locName,
+          "0",
           li.products?.name || "",
+          li.products?.sku || "",
           String(li.quantity ?? ""),
-          Number(li.total ?? 0).toFixed(2),
+          lineTotal.toFixed(2),
           li.products?.units?.name || "pcs",
           Number(li.unit_price ?? 0).toFixed(2),
-          salesPerson,
+          "goods",
+          kraPin ? "vat_registered" : "vat_not_registered",
+          kraPin,
+          "Sales",
+          locName,
+          tr?.name || (rate ? "General Rate" : "Zero Rate"),
+          String(rate),
+          taxAmount.toFixed(2),
+          "ItemAmount",
+          tr?.type === "exempt" ? tr?.exempt_reason || "EXEMPT" : "",
         ]);
       }
     }
     downloadCSV(`Invoice_${date}.csv`, headers, rows);
   };
+
 
   const exportPaymentCsv = () => {
     const filtered = summary.sales.filter((s: any) => s.status !== "cancelled" && s.status !== "voided");
