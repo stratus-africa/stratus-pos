@@ -31,6 +31,8 @@ export default function EndOfDayReportTab() {
   const queryClient = useQueryClient();
   const canManageReconciliations = userRole === "admin";
   const [date, setDate] = useState(todayStr());
+  const [endDate, setEndDate] = useState(todayStr());
+  const rangeLabel = date === endDate ? date : `${date} → ${endDate}`;
   const [cashierId, setCashierId] = useState<string>(ownOnly && user?.id ? user.id : ALL);
   const [drawerId, setDrawerId] = useState<string>(ALL);
   useEffect(() => {
