@@ -97,7 +97,8 @@ export default function EndOfDayReportTab() {
         .from("expenses")
         .select("id, amount, description, payment_method, created_by, expense_categories(name)")
         .eq("business_id", business.id)
-        .eq("date", date);
+        .gte("date", from)
+        .lte("date", to);
       if (ownOnly && user?.id) expensesQ.eq("created_by", user.id);
 
       const sessionsQ = supabase
