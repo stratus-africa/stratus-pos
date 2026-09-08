@@ -71,11 +71,13 @@ export default function EndOfDayReportTab() {
   });
 
   const dataQ = useQuery({
-    queryKey: ["eod-report", business?.id, currentLocation?.id, date, cashierId, drawerId],
+    queryKey: ["eod-report", business?.id, currentLocation?.id, date, endDate, cashierId, drawerId],
     queryFn: async () => {
       if (!business) return null;
-      const start = `${date}T00:00:00`;
-      const end = `${date}T23:59:59`;
+      const from = date <= endDate ? date : endDate;
+      const to = date <= endDate ? endDate : date;
+      const start = `${from}T00:00:00`;
+      const end = `${to}T23:59:59`;
 
       const salesQ = supabase
         .from("sales")
