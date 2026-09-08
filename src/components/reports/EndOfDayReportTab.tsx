@@ -31,6 +31,8 @@ export default function EndOfDayReportTab() {
   const queryClient = useQueryClient();
   const canManageReconciliations = userRole === "admin";
   const [date, setDate] = useState(todayStr());
+  const [endDate, setEndDate] = useState(todayStr());
+  const rangeLabel = date === endDate ? date : `${date} → ${endDate}`;
   const [cashierId, setCashierId] = useState<string>(ownOnly && user?.id ? user.id : ALL);
   const [drawerId, setDrawerId] = useState<string>(ALL);
   useEffect(() => {
@@ -69,11 +71,13 @@ export default function EndOfDayReportTab() {
   });
 
   const dataQ = useQuery({
-    queryKey: ["eod-report", business?.id, currentLocation?.id, date, cashierId, drawerId],
+    queryKey: ["eod-report", business?.id, currentLocation?.id, date, endDate, cashierId, drawerId],
     queryFn: async () => {
       if (!business) return null;
-      const start = `${date}T00:00:00`;
-      const end = `${date}T23:59:59`;
+      const from = date <= endDate ? date : endDate;
+      const to = date <= endDate ? endDate : date;
+      const start = `${from}T00:00:00`;
+      const end = `${to}T23:59:59`;
 
       const salesQ = supabase
         .from("sales")
@@ -93,7 +97,8 @@ export default function EndOfDayReportTab() {
         .from("expenses")
         .select("id, amount, description, payment_method, created_by, expense_categories(name)")
         .eq("business_id", business.id)
-        .eq("date", date);
+        .gte("date", from)
+        .lte("date", to);
       if (ownOnly && user?.id) expensesQ.eq("created_by", user.id);
 
       const sessionsQ = supabase
@@ -124,7 +129,7 @@ export default function EndOfDayReportTab() {
     try {
       await Promise.all(
         data.sessions.map(async (session: any) => {
-          const endAt = session.closed_at || `${date}T23:59:59`;
+          const endAt = session.closed_at || `${endDate}T23:59:59`;
           const { data: sessionSales, error } = await supabase
             .from("sales")
             .select("id, total, payments(method, amount)")
@@ -287,7 +292,7 @@ export default function EndOfDayReportTab() {
       Number(s.total).toFixed(2),
       s.status,
     ]);
-    downloadCSV(`End_of_Day_${date}.csv`, headers, rows);
+    downloadCSV(`End_of_Day_${rangeLabel.replace(/ → /g, "_to_")}.csv`, headers, rows);
   };
 
   const fmtDMY = (iso: string) => {
@@ -384,7 +389,7 @@ export default function EndOfDayReportTab() {
         ]);
       }
     }
-    downloadCSV(`Invoice_${date}.csv`, headers, rows);
+    downloadCSV(`Invoice_${rangeLabel.replace(/ → /g, "_to_")}.csv`, headers, rows);
   };
 
 
@@ -442,14 +447,14 @@ export default function EndOfDayReportTab() {
         ]);
       });
     });
-    downloadCSV(`Customer_Payment_${date}.csv`, headers, rows);
+    downloadCSV(`Customer_Payment_${rangeLabel.replace(/ → /g, "_to_")}.csv`, headers, rows);
   };
 
   const printReport = () => {
     const win = window.open("", "_blank");
     if (!win) return;
     const content = document.getElementById("eod-printable")?.innerHTML || "";
-    win.document.write(`<html><head><title>End of Day ${date}</title>
+    win.document.write(`<html><head><title>End of Day ${rangeLabel}</title>
       <style>
         body{font-family:system-ui,sans-serif;max-width:780px;margin:24px auto;padding:0 24px;color:#111}
         h1,h2{margin:0 0 8px}
@@ -471,8 +476,12 @@ export default function EndOfDayReportTab() {
       <Card>
         <CardContent className="flex flex-wrap items-end gap-3 pt-4">
           <div>
-            <Label>Date</Label>
+            <Label>From</Label>
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44" />
+          </div>
+          <div>
+            <Label>To</Label>
+            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-44" />
           </div>
           <div>
             <Label>Cashier</Label>
@@ -545,7 +554,7 @@ export default function EndOfDayReportTab() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Sun className="h-5 w-5" /> End of Day Report — {date}
+              <Sun className="h-5 w-5" /> End of Day Report — {rangeLabel}
             </CardTitle>
             <p className="text-sm text-muted-foreground">
               {business?.name}
