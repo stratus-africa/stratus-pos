@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/components/reports/reportUtils";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,13 +32,15 @@ export default function StockAgingReportTab() {
     queryKey: ["stock-aging-inventory", business?.id, currentLocation?.id],
     queryFn: async () => {
       if (!business || !currentLocation) return [];
-      const { data, error } = await supabase
-        .from("inventory")
-        .select("product_id, quantity, products(name, sku, barcode, purchase_price)")
-        .eq("location_id", currentLocation.id)
-        .gt("quantity", 0);
-      if (error) throw error;
-      return data || [];
+      return await fetchAllRows<any>((offset, limit) =>
+        supabase
+          .from("inventory")
+          .select("product_id, quantity, products(name, sku, barcode, purchase_price)")
+          .eq("location_id", currentLocation.id)
+          .gt("quantity", 0)
+          .order("product_id")
+          .range(offset, offset + limit - 1),
+      );
     },
     enabled: !!business && !!currentLocation,
   });
@@ -47,14 +50,15 @@ export default function StockAgingReportTab() {
     queryFn: async () => {
       if (!business) return new Map<string, string>();
       // Pull recent sale_items joined via sales for this business, then reduce to last-sold-at per product
-      const { data, error } = await supabase
-        .from("sale_items")
-        .select("product_id, sales!inner(business_id, created_at, status)")
-        .eq("sales.business_id", business.id)
-        .neq("sales.status", "cancelled")
-        .order("sales(created_at)", { ascending: false })
-        .limit(20000);
-      if (error) throw error;
+      const data = await fetchAllRows<any>((offset, limit) =>
+        supabase
+          .from("sale_items")
+          .select("product_id, sales!inner(business_id, created_at, status)")
+          .eq("sales.business_id", business.id)
+          .neq("sales.status", "cancelled")
+          .order("sales(created_at)", { ascending: false })
+          .range(offset, offset + limit - 1),
+      );
       const map = new Map<string, string>();
       (data || []).forEach((r: any) => {
         const pid = r.product_id;

@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/components/reports/reportUtils";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -79,7 +80,8 @@ export default function EndOfDayReportTab() {
       const start = `${from}T00:00:00`;
       const end = `${to}T23:59:59`;
 
-      const salesQ = supabase
+      const buildSalesQ = () => {
+        const salesQ = supabase
         .from("sales")
         .select(
           "id, invoice_number, status, payment_status, notes, subtotal, tax, discount, total, created_at, created_by, customers(name), payments(method, amount, reference, created_at), sale_items(quantity, unit_price, total, products(name, sku, tax_rate, units(name)), tax_rates(name, rate, type, exempt_reason))",
@@ -89,34 +91,47 @@ export default function EndOfDayReportTab() {
         .gte("created_at", start)
         .lte("created_at", end)
         .order("created_at", { ascending: true });
-      if (currentLocation) salesQ.eq("location_id", currentLocation.id);
-      if (ownOnly && user?.id) salesQ.eq("created_by", user.id);
-      if (cashierId !== ALL) salesQ.eq("created_by", cashierId);
+        if (currentLocation) salesQ.eq("location_id", currentLocation.id);
+        if (ownOnly && user?.id) salesQ.eq("created_by", user.id);
+        if (cashierId !== ALL) salesQ.eq("created_by", cashierId);
+        return salesQ;
+      };
 
-      const expensesQ = supabase
-        .from("expenses")
-        .select("id, amount, description, payment_method, created_by, expense_categories(name)")
-        .eq("business_id", business.id)
-        .gte("date", from)
-        .lte("date", to);
-      if (ownOnly && user?.id) expensesQ.eq("created_by", user.id);
+      const buildExpensesQ = () => {
+        const expensesQ = supabase
+          .from("expenses")
+          .select("id, amount, description, payment_method, created_by, expense_categories(name)")
+          .eq("business_id", business.id)
+          .gte("date", from)
+          .lte("date", to);
+        if (ownOnly && user?.id) expensesQ.eq("created_by", user.id);
+        return expensesQ;
+      };
 
-      const sessionsQ = supabase
-        .from("pos_sessions")
-        .select("*, cash_account:cash_account_id(name)")
-        .eq("business_id", business.id)
-        .gte("opened_at", start)
-        .lte("opened_at", end);
-      if (currentLocation) sessionsQ.eq("location_id", currentLocation.id);
-      if (ownOnly && user?.id) sessionsQ.eq("opened_by", user.id);
-      if (cashierId !== ALL) sessionsQ.eq("opened_by", cashierId);
-      if (drawerId !== ALL) sessionsQ.eq("cash_account_id", drawerId);
+      const buildSessionsQ = () => {
+        const sessionsQ = supabase
+          .from("pos_sessions")
+          .select("*, cash_account:cash_account_id(name)")
+          .eq("business_id", business.id)
+          .gte("opened_at", start)
+          .lte("opened_at", end);
+        if (currentLocation) sessionsQ.eq("location_id", currentLocation.id);
+        if (ownOnly && user?.id) sessionsQ.eq("opened_by", user.id);
+        if (cashierId !== ALL) sessionsQ.eq("opened_by", cashierId);
+        if (drawerId !== ALL) sessionsQ.eq("cash_account_id", drawerId);
+        return sessionsQ;
+      };
 
-      const [sRes, eRes, psRes] = await Promise.all([salesQ, expensesQ, sessionsQ]);
-      if (sRes.error) throw sRes.error;
-      if (eRes.error) throw eRes.error;
-      if (psRes.error) throw psRes.error;
-      return { sales: sRes.data || [], expenses: eRes.data || [], sessions: psRes.data || [] };
+      const [sales, expenses, sessions] = await Promise.all([
+        fetchAllRows<any>((offset, limit) => buildSalesQ().range(offset, offset + limit - 1)),
+        fetchAllRows<any>((offset, limit) =>
+          buildExpensesQ().order("date", { ascending: true }).range(offset, offset + limit - 1),
+        ),
+        fetchAllRows<any>((offset, limit) =>
+          buildSessionsQ().order("opened_at", { ascending: true }).range(offset, offset + limit - 1),
+        ),
+      ]);
+      return { sales, expenses, sessions };
     },
     enabled: !!business,
   });
@@ -130,16 +145,19 @@ export default function EndOfDayReportTab() {
       await Promise.all(
         data.sessions.map(async (session: any) => {
           const endAt = session.closed_at || `${endDate}T23:59:59`;
-          const { data: sessionSales, error } = await supabase
-            .from("sales")
-            .select("id, total, payments(method, amount)")
-            .eq("business_id", business.id)
-            .eq("location_id", session.location_id)
-            .eq("created_by", session.opened_by)
-            .eq("status", "final")
-            .gte("created_at", session.opened_at)
-            .lte("created_at", endAt);
-          if (error) throw error;
+          const sessionSales = await fetchAllRows<any>((offset, limit) =>
+            supabase
+              .from("sales")
+              .select("id, total, payments(method, amount)")
+              .eq("business_id", business.id)
+              .eq("location_id", session.location_id)
+              .eq("created_by", session.opened_by)
+              .eq("status", "final")
+              .gte("created_at", session.opened_at)
+              .lte("created_at", endAt)
+              .order("created_at", { ascending: true })
+              .range(offset, offset + limit - 1),
+          );
           const totals = { sales: 0, cash: 0, mpesa: 0, card: 0, other: 0 };
           (sessionSales || []).forEach((sale: any) => {
             totals.sales += Number(sale.total || 0);

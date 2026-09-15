@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/components/reports/reportUtils";
 import { useBusiness } from "@/contexts/BusinessContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatKES, downloadCSV } from "./reportUtils";
@@ -54,7 +55,8 @@ export default function ZReportTab({ from, to, onRegisterExport }: Props) {
     queryKey: ["zreport-sales", business?.id, from, to, locationFilter, cashierFilter, ownOnly ? user?.id : "all"],
     queryFn: async () => {
       if (!business) return [];
-      let q = supabase
+      const buildQ = () => {
+        let q = supabase
         .from("sales")
         .select(
           "id, invoice_number, total, tax, discount, status, created_at, created_by, location_id, payments(method, amount), locations(name)",
@@ -64,12 +66,12 @@ export default function ZReportTab({ from, to, onRegisterExport }: Props) {
         .gte("created_at", `${from}T00:00:00`)
         .lte("created_at", `${to}T23:59:59`)
         .order("created_at", { ascending: true });
-      if (ownOnly && user?.id) q = q.eq("created_by", user.id);
-      if (locationFilter !== "all") q = q.eq("location_id", locationFilter);
-      if (cashierFilter !== "all") q = q.eq("created_by", cashierFilter);
-      const { data, error } = await q;
-      if (error) throw error;
-      return data || [];
+        if (ownOnly && user?.id) q = q.eq("created_by", user.id);
+        if (locationFilter !== "all") q = q.eq("location_id", locationFilter);
+        if (cashierFilter !== "all") q = q.eq("created_by", cashierFilter);
+        return q;
+      };
+      return await fetchAllRows<any>((offset, limit) => buildQ().range(offset, offset + limit - 1));
     },
     enabled: !!business,
   });

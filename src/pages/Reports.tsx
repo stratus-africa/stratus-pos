@@ -41,6 +41,7 @@ import ZReportTab from "@/components/reports/ZReportTab";
 import StockAgingReportTab from "@/components/reports/StockAgingReportTab";
 import StockLedgerTab from "@/components/inventory/StockLedgerTab";
 import { DateRangeFilter } from "@/components/reports/DateRangeFilter";
+import { fetchAllRows } from "@/components/reports/reportUtils";
 import { useFeatureLimit, RequireFeature } from "@/components/FeatureGate";
 import FeatureReportTab from "@/components/reports/FeatureReportTab";
 import { useAccountingSettings, financialYearLabel } from "@/hooks/useAccountingSettings";
@@ -333,15 +334,16 @@ const Reports = () => {
     queryKey: ["report-expenses", business?.id, from, to],
     queryFn: async () => {
       if (!business) return [];
-      const { data, error } = await supabase
-        .from("expenses")
-        .select("*, expense_categories(name)")
-        .eq("business_id", business.id)
-        .gte("date", from)
-        .lte("date", to)
-        .order("date", { ascending: false });
-      if (error) throw error;
-      return data;
+      return await fetchAllRows((offset, limit) =>
+        supabase
+          .from("expenses")
+          .select("*, expense_categories(name)")
+          .eq("business_id", business.id)
+          .gte("date", from)
+          .lte("date", to)
+          .order("date", { ascending: false })
+          .range(offset, offset + limit - 1),
+      );
     },
     enabled: !!business && canExpenses && (activeTab === "expenses" || activeTab === "pnl"),
     staleTime: 30_000,
@@ -353,16 +355,17 @@ const Reports = () => {
     queryKey: ["report-purchases", business?.id, from, to],
     queryFn: async () => {
       if (!business) return [];
-      const { data, error } = await supabase
-        .from("purchases")
-        .select("*, suppliers(name), locations(name)")
-        .eq("business_id", business.id)
-        .neq("status", "cancelled")
-        .gte("created_at", `${from}T00:00:00`)
-        .lte("created_at", `${to}T23:59:59`)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
+      return await fetchAllRows((offset, limit) =>
+        supabase
+          .from("purchases")
+          .select("*, suppliers(name), locations(name)")
+          .eq("business_id", business.id)
+          .neq("status", "cancelled")
+          .gte("created_at", `${from}T00:00:00`)
+          .lte("created_at", `${to}T23:59:59`)
+          .order("created_at", { ascending: false })
+          .range(offset, offset + limit - 1),
+      );
     },
     enabled:
       !!business && canPurchases && ["purchases", "purchases_by_supplier", "purchase_returns"].includes(activeTab),
@@ -375,14 +378,17 @@ const Reports = () => {
     queryKey: ["report-pnl-ledger", business?.id, from, to],
     queryFn: async () => {
       if (!business) return { revenue: 0, cogs: 0 };
-      const { data, error } = await supabase
-        .from("journal_entries")
-        .select("date, status, journal_entry_lines(debit, credit, account_id, chart_of_accounts(type, code, name))")
-        .eq("business_id", business.id)
-        .eq("status", "posted")
-        .gte("date", from)
-        .lte("date", to);
-      if (error) throw error;
+      const data = await fetchAllRows<any>((offset, limit) =>
+        supabase
+          .from("journal_entries")
+          .select("date, status, journal_entry_lines(debit, credit, account_id, chart_of_accounts(type, code, name))")
+          .eq("business_id", business.id)
+          .eq("status", "posted")
+          .gte("date", from)
+          .lte("date", to)
+          .order("date", { ascending: true })
+          .range(offset, offset + limit - 1),
+      );
       let revenue = 0;
       let cogs = 0;
       for (const entry of data || []) {
@@ -408,8 +414,8 @@ const Reports = () => {
     queryFn: async () => {
       if (!business) return [];
 
-      const [{ data: auditLogs, error: auditError }, { data: inventoryLogs, error: inventoryError }] =
-        await Promise.all([
+      const [auditLogs, inventoryLogs] = await Promise.all([
+        fetchAllRows<any>((offset, limit) =>
           supabase
             .from("audit_logs")
             .select("*")
@@ -417,19 +423,18 @@ const Reports = () => {
             .gte("created_at", `${from}T00:00:00`)
             .lte("created_at", `${to}T23:59:59`)
             .order("created_at", { ascending: false })
-            .limit(1000),
-          supabase
-            .from("inventory_audit_log" as any)
+            .range(offset, offset + limit - 1),
+        ),
+        fetchAllRows<any>((offset, limit) =>
+          (supabase.from as any)("inventory_audit_log")
             .select("id, action, entity_type, entity_id, description, metadata, created_at, user_id")
             .eq("business_id", business.id)
             .gte("created_at", `${from}T00:00:00`)
             .lte("created_at", `${to}T23:59:59`)
             .order("created_at", { ascending: false })
-            .limit(1000),
-        ]);
-
-      if (auditError) throw auditError;
-      if (inventoryError) throw inventoryError;
+            .range(offset, offset + limit - 1),
+        ),
+      ]);
 
       const inventoryUserIds = Array.from(
         new Set((inventoryLogs ?? []).map((row: any) => row.user_id).filter(Boolean)),
@@ -462,8 +467,7 @@ const Reports = () => {
       });
 
       return [...(auditLogs ?? []), ...normalizedInventoryLogs]
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 2000);
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     },
     enabled: !!business && canAudit && activeTab === "audit",
   });
@@ -472,14 +476,15 @@ const Reports = () => {
     queryKey: ["report-stock-valuation", business?.id, currentLocation?.id],
     queryFn: async () => {
       if (!business) return [];
-      let q = (supabase.from as any)("inventory")
-        .select(
-          "id,product_id,location_id,quantity,products(name,sku,purchase_price,selling_price),locations!inner(name,business_id)",
-        )
-        .eq("locations.business_id", business.id);
-      if (currentLocation?.id) q = q.eq("location_id", currentLocation.id);
-      const { data, error } = await q.order("product_id");
-      if (error) throw error;
+      const data = await fetchAllRows<any>((offset, limit) => {
+        let q = (supabase.from as any)("inventory")
+          .select(
+            "id,product_id,location_id,quantity,products(name,sku,purchase_price,selling_price),locations!inner(name,business_id)",
+          )
+          .eq("locations.business_id", business.id);
+        if (currentLocation?.id) q = q.eq("location_id", currentLocation.id);
+        return q.order("product_id").range(offset, offset + limit - 1);
+      });
       return (data || []).map((r: any) => {
         const quantity = Number(r.quantity || 0);
         const unitCost = Number(r.products?.purchase_price || 0);
@@ -504,18 +509,19 @@ const Reports = () => {
     queryKey: ["report-stock-adjustments", business?.id, currentLocation?.id, from, to],
     queryFn: async () => {
       if (!business) return [];
-      let q = (supabase as any)
-        .from("stock_adjustment_documents")
-        .select(
-          "id,reference,reason,notes,status,created_by,created_at,location_id,locations(name),stock_adjustments(quantity_change,product_id,products(name,sku))",
-        )
-        .eq("business_id", business.id)
-        .gte("created_at", `${from}T00:00:00`)
-        .lte("created_at", `${to}T23:59:59`)
-        .order("created_at", { ascending: false });
-      if (currentLocation?.id) q = q.eq("location_id", currentLocation.id);
-      const { data, error } = await q;
-      if (error) throw error;
+      const data = await fetchAllRows<any>((offset, limit) => {
+        let q = (supabase as any)
+          .from("stock_adjustment_documents")
+          .select(
+            "id,reference,reason,notes,status,created_by,created_at,location_id,locations(name),stock_adjustments(quantity_change,product_id,products(name,sku))",
+          )
+          .eq("business_id", business.id)
+          .gte("created_at", `${from}T00:00:00`)
+          .lte("created_at", `${to}T23:59:59`)
+          .order("created_at", { ascending: false });
+        if (currentLocation?.id) q = q.eq("location_id", currentLocation.id);
+        return q.range(offset, offset + limit - 1);
+      });
       return (data || []).map((doc: any) => ({
         id: doc.id,
         reference: doc.reference || doc.id.slice(0, 8),
@@ -607,8 +613,19 @@ const Reports = () => {
       if (k === "sales_by_payment") {
         const ids = ((salesReport.data as any[]) || []).map((r: any) => r.id);
         if (!ids.length) return [];
-        const { data, error } = await supabase.from("payments").select("method,amount,sale_id").in("sale_id", ids);
-        if (error) throw error;
+        const data: any[] = [];
+        for (let i = 0; i < ids.length; i += 500) {
+          const chunk = ids.slice(i, i + 500);
+          const rows = await fetchAllRows<any>((offset, limit) =>
+            supabase
+              .from("payments")
+              .select("method,amount,sale_id")
+              .in("sale_id", chunk)
+              .order("sale_id")
+              .range(offset, offset + limit - 1),
+          );
+          data.push(...rows);
+        }
         const m = new Map<string, any>();
         for (const r of data || []) {
           const key = r.method || "unknown";
@@ -626,39 +643,42 @@ const Reports = () => {
       if (k === "stock_valuation") return stockValuationReport.data || [];
       if (k === "expiry") {
         if (!(business as { track_batches?: boolean }).track_batches) return [];
-        const { data, error } = await supabase
-          .from("product_batches")
-          .select("batch_number,expiry_date,quantity,products(name,sku),locations(name)")
-          .eq("business_id", business.id)
-          .gt("quantity", 0)
-          .order("expiry_date", { ascending: true });
-        if (error) throw error;
-        return data || [];
+        return await fetchAllRows<any>((offset, limit) =>
+          supabase
+            .from("product_batches")
+            .select("batch_number,expiry_date,quantity,products(name,sku),locations(name)")
+            .eq("business_id", business.id)
+            .gt("quantity", 0)
+            .order("expiry_date", { ascending: true })
+            .range(offset, offset + limit - 1),
+        );
       }
       if (k === "stock_adjustments") return stockAdjustmentsReport.data || [];
       if (k === "stock_transfers") {
-        const { data, error } = await supabase
-          .from("stock_transfers")
-          .select(
-            "*,from_location:locations!stock_transfers_from_location_id_fkey(name),to_location:locations!stock_transfers_to_location_id_fkey(name)",
-          )
-          .eq("business_id", business.id)
-          .gte("created_at", `${from}T00:00:00`)
-          .lte("created_at", `${to}T23:59:59`)
-          .order("created_at", { ascending: false });
-        if (error) throw error;
-        return data || [];
+        return await fetchAllRows<any>((offset, limit) =>
+          supabase
+            .from("stock_transfers")
+            .select(
+              "*,from_location:locations!stock_transfers_from_location_id_fkey(name),to_location:locations!stock_transfers_to_location_id_fkey(name)",
+            )
+            .eq("business_id", business.id)
+            .gte("created_at", `${from}T00:00:00`)
+            .lte("created_at", `${to}T23:59:59`)
+            .order("created_at", { ascending: false })
+            .range(offset, offset + limit - 1),
+        );
       }
       if (k === "tax") {
-        const { data, error } = await supabase
-          .from("digitax_invoice_queue")
-          .select("*")
-          .eq("business_id", business.id)
-          .gte("created_at", `${from}T00:00:00`)
-          .lte("created_at", `${to}T23:59:59`)
-          .order("created_at", { ascending: false });
-        if (error) throw error;
-        return data || [];
+        return await fetchAllRows<any>((offset, limit) =>
+          supabase
+            .from("digitax_invoice_queue")
+            .select("*")
+            .eq("business_id", business.id)
+            .gte("created_at", `${from}T00:00:00`)
+            .lte("created_at", `${to}T23:59:59`)
+            .order("created_at", { ascending: false })
+            .range(offset, offset + limit - 1),
+        );
       }
       return [];
     },

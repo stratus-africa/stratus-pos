@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/components/reports/reportUtils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,10 +42,12 @@ export const DailySalesReportTab: React.FC<DailySalesReportTabProps> = ({
       const startOfDay = `${selectedDate}T00:00:00.000Z`;
       const endOfDay = `${selectedDate}T23:59:59.999Z`;
 
-      const { data, error } = await supabase
-        .from("sales")
-        .select(
-          `
+      try {
+        return await fetchAllRows<any>((offset, limit) =>
+          supabase
+            .from("sales")
+            .select(
+              `
           id,
           invoice_number,
           created_at,
@@ -60,18 +63,17 @@ export const DailySalesReportTab: React.FC<DailySalesReportTabProps> = ({
             total
           )
         `,
-        )
-        .gte("created_at", startOfDay)
-        .lte("created_at", endOfDay)
-        .order("created_at", { ascending: false });
-
-      if (error) {
+            )
+            .gte("created_at", startOfDay)
+            .lte("created_at", endOfDay)
+            .order("created_at", { ascending: false })
+            .range(offset, offset + limit - 1),
+        );
+      } catch (error) {
         // Fallback gracefully if schema differs
         console.warn("Error fetching sales, returning empty array:", error);
         return [];
       }
-
-      return data || [];
     },
   });
 
