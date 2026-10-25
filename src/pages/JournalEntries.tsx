@@ -29,6 +29,7 @@ interface JournalActivityRow {
   userName?: string;
 }
 import { JournalEntryDialog } from "@/components/accounting/JournalEntryDialog";
+import { VatJournalDialog } from "@/components/accounting/VatJournalDialog";
 import { Link } from "@/lib/router-compat";
 
 export default function JournalEntries() {
@@ -46,6 +47,7 @@ export default function JournalEntries() {
   const canExport = hasPermission("manual_journals.export");
   const [accounts, setAccounts] = useState<{ id: string; code: string; name: string; type: string }[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [vatDialogOpen, setVatDialogOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [lines, setLines] = useState<Record<string, JournalEntryLine[]>>({});
   const [activity, setActivity] = useState<Record<string, JournalActivityRow[]>>({});
@@ -135,6 +137,9 @@ export default function JournalEntries() {
           )}
           <Button onClick={() => setDialogOpen(true)} disabled={!canCreate || accounts.length < 2}>
             <Plus className="h-4 w-4 mr-1" /> New Entry
+          </Button>
+          <Button variant="outline" onClick={() => setVatDialogOpen(true)} disabled={!canCreate}>
+            <BookOpen className="h-4 w-4 mr-1" /> VAT Journal
           </Button>
         </div>
       </div>
@@ -352,6 +357,7 @@ export default function JournalEntries() {
       </Card>
 
       <JournalEntryDialog open={dialogOpen} onOpenChange={setDialogOpen} accounts={accounts} />
+      <VatJournalDialog open={vatDialogOpen} onOpenChange={setVatDialogOpen} />
     </div>
   );
 }
