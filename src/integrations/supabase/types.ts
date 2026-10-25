@@ -2506,6 +2506,7 @@ export type Database = {
           entry_number: string | null
           id: string
           idempotency_key: string | null
+          invoice_vat_sale_id: string | null
           posted_at: string | null
           posted_by: string | null
           posting_date: string | null
@@ -2534,6 +2535,7 @@ export type Database = {
           entry_number?: string | null
           id?: string
           idempotency_key?: string | null
+          invoice_vat_sale_id?: string | null
           posted_at?: string | null
           posted_by?: string | null
           posting_date?: string | null
@@ -2562,6 +2564,7 @@ export type Database = {
           entry_number?: string | null
           id?: string
           idempotency_key?: string | null
+          invoice_vat_sale_id?: string | null
           posted_at?: string | null
           posted_by?: string | null
           posting_date?: string | null
@@ -2580,6 +2583,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "journal_entries_invoice_vat_sale_id_fkey"
+            columns: ["invoice_vat_sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "journal_entries_reversal_of_id_fkey"
             columns: ["reversal_of_id"]
@@ -7346,6 +7356,10 @@ export type Database = {
       }
       create_inventory_count_session: {
         Args: { _location_id: string; _notes?: string }
+        Returns: string
+      }
+      create_invoice_vat_journal: {
+        Args: { _sale_id: string }
         Returns: string
       }
       create_manual_journal: {
